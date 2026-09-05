@@ -62,12 +62,20 @@ describe('DiagramExportPreviewModel', () => {
     expect(vm.currentOptions().foreground).toBe('#ffffff')
   })
 
-  it('exposes the ComboBox item lists', () => {
+  it('exposes the ComboBox item lists as observable collections', () => {
     const { vm } = make()
-    expect(vm.Formats).toEqual([ExportFormat.Svg, ExportFormat.Png, ExportFormat.Pptx])
-    expect(vm.Backgrounds).toEqual([ExportBackground.Transparent, ExportBackground.Surface])
-    expect(vm.Scales).toEqual([1, 2, 3])
-    expect(vm.ForegroundChoices).toEqual(['Default', 'Black', 'White'])
+    expect(vm.Formats!.ToArray()).toEqual([ExportFormat.Svg, ExportFormat.Png, ExportFormat.Pptx])
+    expect(vm.Backgrounds!.ToArray()).toEqual([ExportBackground.Transparent, ExportBackground.Surface])
+    expect(vm.Scales!.ToArray()).toEqual([1, 2, 3])
+    expect(vm.ForegroundChoices!.ToArray()).toEqual(['Default', 'Black', 'White'])
+  })
+
+  it('preselects the default option values', () => {
+    const { vm } = make()
+    expect(vm.Format).toBe(ExportFormat.Svg)
+    expect(vm.Background).toBe(ExportBackground.Transparent)
+    expect(vm.Scale).toBe(2)
+    expect(vm.ForegroundChoice).toBe('Default')
   })
 
   it('ExportCommand closes with the resolved options; CancelCommand closes with undefined', () => {

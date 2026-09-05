@@ -33,7 +33,7 @@ resources DiagramExportPreviewResources {
             // Options (right, fills remaining).
             StackPanel [ Orientation = Vertical ] {
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
-                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Formats, SelectedItem = $Format, VerticalAlignment = Center ]
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Formats, SelectedIndex = $FormatIndex, VerticalAlignment = Center ]
                     TextBlock [ Style = @BodyLarge, Text = "Format", Foreground = @OnSurface, VerticalAlignment = Center ]
                 }
                 DockPanel x:name="PART_SelectionOption" [ LastChildFill = true, Margin = (0,4,0,4) ] {
@@ -41,11 +41,11 @@ resources DiagramExportPreviewResources {
                     TextBlock [ Style = @BodyLarge, Text = "Selection only", Foreground = @OnSurface, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
-                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Backgrounds, SelectedItem = $Background, VerticalAlignment = Center ]
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Backgrounds, SelectedIndex = $BackgroundIndex, VerticalAlignment = Center ]
                     TextBlock [ Style = @BodyLarge, Text = "Background", Foreground = @OnSurface, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
-                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $ForegroundChoices, SelectedItem = $ForegroundChoice, VerticalAlignment = Center ]
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $ForegroundChoices, SelectedIndex = $ForegroundIndex, VerticalAlignment = Center ]
                     TextBlock [ Style = @BodyLarge, Text = "Foreground", Foreground = @OnSurface, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
@@ -53,7 +53,7 @@ resources DiagramExportPreviewResources {
                     TextBlock [ Style = @BodyLarge, Text = "Page breaks", Foreground = @OnSurface, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
-                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Scales, SelectedItem = $Scale, VerticalAlignment = Center ]
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Scales, SelectedIndex = $ScaleIndex, VerticalAlignment = Center ]
                     TextBlock [ Style = @BodyLarge, Text = "Scale (raster)", Foreground = @OnSurface, VerticalAlignment = Center ]
                 }
             }

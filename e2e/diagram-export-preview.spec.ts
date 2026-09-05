@@ -78,8 +78,14 @@ function findPreviewVm(l: Launched) {
           previewUri: dc.Preview?.Uri ?? null,
           previewSize: dc.PreviewSize ?? null,
           hasExport: typeof dc.ExportCommand?.Execute === 'function',
-          formatsCount: dc.Formats?.length ?? 0,
-          foregroundChoicesCount: dc.ForegroundChoices?.length ?? 0,
+          formatsCount: dc.Formats?.Count ?? 0,
+          foregroundChoicesCount: dc.ForegroundChoices?.Count ?? 0,
+          // Option DPs after mount — must stay at defaults (a SelectedItem two-way
+          // binding that cleared them would break preselection).
+          format: dc.Format ?? null,
+          background: dc.Background ?? null,
+          scale: dc.Scale ?? null,
+          foregroundChoice: dc.ForegroundChoice ?? null,
         }
       }
     }
@@ -137,6 +143,11 @@ test.describe.serial('diagram-export-preview', () => {
     // The ComboBox ItemsSource DPs must be populated (getter-backed lists bind empty).
     expect(vm.formatsCount, 'Formats item list populated').toBe(3)
     expect(vm.foregroundChoicesCount, 'ForegroundChoices item list populated').toBe(3)
+    // Defaults preserved after the ComboBoxes bind → the dropdowns preselect them.
+    expect(vm.format, 'Format preselected').toBe('svg')
+    expect(vm.background, 'Background preselected').toBe('transparent')
+    expect(vm.scale, 'Scale preselected').toBe(2)
+    expect(vm.foregroundChoice, 'Foreground preselected').toBe('Default')
 
     // Dismiss the modal via the VM's CancelCommand so the app returns to rest.
     await l.win.evaluate(() => {
