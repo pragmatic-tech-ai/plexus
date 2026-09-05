@@ -149,10 +149,10 @@ resources DiagramResources {
             FontSizePicker   [ Value = $FontSize, IsEditable = true, Width = 80, Margin = (8,0,0,0), VerticalAlignment = Center ]
             ToolBar [ Margin = (8,0,0,0) ] {
                 ToolBarButton [ Command = $IncreaseFontSizeCommand ] {
-                    Shape [ Geometry = @text_increase, Fill = @OnSurfaceVariant, Width = 16, Height = 16, Margin = (2) ]
+                    Shape [ Geometry = @text_increase, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
                 }
                 ToolBarButton [ Command = $DecreaseFontSizeCommand ] {
-                    Shape [ Geometry = @text_decrease, Fill = @OnSurfaceVariant, Width = 16, Height = 16, Margin = (2) ]
+                    Shape [ Geometry = @text_decrease, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
                 }
             }
             ColorPicker [ ColorHex = $FontColorHex, Margin = (8,0,0,0), VerticalAlignment = Center ]
@@ -168,7 +168,7 @@ resources DiagramResources {
             // with nothing selected disarms straight away.)
             ToolBar [ Margin = (8,0,0,0) ] {
                 ToolBarToggleButton [ IsChecked = $FormatPainterActive ] {
-                    Shape [ Geometry = @format_paint, Width = 16, Height = 16, Margin = (2) ]
+                    Shape [ Geometry = @format_paint, Width = 16, Height = 16 ]
                 }
             }
         }
@@ -191,7 +191,7 @@ resources DiagramResources {
         StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
             ToolBar {
                 ToolBarButton [ Command = $ActiveView.ZoomOutCommand ] {
-                    Shape [ Geometry = @zoom_out, Fill = @OnSurfaceVariant, Width = 16, Height = 16, Margin = (2) ]
+                    Shape [ Geometry = @zoom_out, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
                 }
             }
             TextBlock
@@ -203,10 +203,10 @@ resources DiagramResources {
                   Foreground        = @OnSurfaceVariant ]
             ToolBar {
                 ToolBarButton [ Command = $ActiveView.ZoomInCommand ] {
-                    Shape [ Geometry = @zoom_in, Fill = @OnSurfaceVariant, Width = 16, Height = 16, Margin = (2) ]
+                    Shape [ Geometry = @zoom_in, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
                 }
                 ToolBarButton [ Command = $ActiveView.FitCommand ] {
-                    Shape [ Geometry = @fit_screen, Fill = @OnSurfaceVariant, Width = 16, Height = 16, Margin = (2) ]
+                    Shape [ Geometry = @fit_screen, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
                 }
             }
         }
@@ -337,10 +337,7 @@ resources DiagramResources {
             [ Header  = "Send to Back",
               Command = $ActiveView.SendToBackCommand,
               Icon    = Shape [ Geometry = @sendToBack, Width = 16, Height = 16, HorizontalAlignment = Center, VerticalAlignment = Center ] ]
-        MenuItem [ Header = "Export" ] {
-            MenuItem [ Header = "Vector Graphics (SVG)", Command = $service(DiagramExportService).ExportSvgCommand ]
-            MenuItem [ Header = "PowerPoint (PPTX)",     Command = $service(DiagramExportService).ExportPptxCommand ]
-        }
+        MenuItem [ Header = "Export…", Command = $service(DiagramExportService).OpenExportDialogCommand ]
         MenuSeparator
         MenuItem
             [ Header           = "Format Shape",
