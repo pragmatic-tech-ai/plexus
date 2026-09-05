@@ -2,15 +2,18 @@ import {
   MetaData, MuralBase, RelayCommand, ServiceBase, ServiceKey,
   type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
+import { Application } from '@pragmatic-tech-ai/mural/runtime'
+import { SolidColorBrush } from '@pragmatic-tech-ai/mural/visual-engine'
 import {
-  ContentHostService, DiagramDocument,
+  ContentHostService, DiagramDocument, DialogService,
   type DocumentsContentHostService,
 } from '@pragmatic-tech-ai/mural/framework'
 import { FileSystemService } from '../../../services/file-system/file-system-service.js'
 import { DiagramSvgRenderer } from './diagram-svg-renderer.js'
 import { rasterizeSvgToPng, pngToDataUrl } from './svg-raster.js'
 import { buildPptx } from './pptx-builder.js'
-import { ExportFormat } from './export-options.js'
+import { DiagramExportPreviewModel } from './diagram-export-preview-model.js'
+import { ExportFormat, type ExportOptions } from './export-options.js'
 
 // Re-exported so existing importers of `ExportFormat` from this module keep working.
 export { ExportFormat } from './export-options.js'
@@ -26,6 +29,8 @@ export class DiagramExportService extends ServiceBase
     DiagramExportService, 'ExportSvgCommand', undefined as unknown as ICommand, MetaData.None)
   public static readonly ExportPptxCommandKey = MuralBase.RegisterProperty<ICommand>(
     DiagramExportService, 'ExportPptxCommand', undefined as unknown as ICommand, MetaData.None)
+  public static readonly OpenExportDialogCommandKey = MuralBase.RegisterProperty<ICommand>(
+    DiagramExportService, 'OpenExportDialogCommand', undefined as unknown as ICommand, MetaData.None)
 
   public constructor(provider: IServiceProvider)
   {
@@ -35,10 +40,13 @@ export class DiagramExportService extends ServiceBase
       new RelayCommand(() => { void this.exportActive(ExportFormat.Svg) }, gate))
     this.set_property_value(DiagramExportService.ExportPptxCommandKey,
       new RelayCommand(() => { void this.exportActive(ExportFormat.Pptx) }, gate))
+    this.set_property_value(DiagramExportService.OpenExportDialogCommandKey,
+      new RelayCommand(() => { void this.openExportDialog() }, gate))
   }
 
   public get ExportSvgCommand(): ICommand { return this.get_property_value(DiagramExportService.ExportSvgCommandKey) }
   public get ExportPptxCommand(): ICommand { return this.get_property_value(DiagramExportService.ExportPptxCommandKey) }
+  public get OpenExportDialogCommand(): ICommand { return this.get_property_value(DiagramExportService.OpenExportDialogCommandKey) }
 
   // The active document if it is a diagram with at least one node, else undefined.
   protected activeDiagram(): DiagramDocument | undefined
@@ -75,10 +83,12 @@ export class DiagramExportService extends ServiceBase
     format: ExportFormat,
     rendered: { svg: string; width: number; height: number },
     baseName: string,
+    scale = 2,
   ): Promise<void>
   {
     if (format === ExportFormat.Svg) return this.saveSvg(rendered.svg, baseName)
-    return this.savePptx(rendered, baseName)
+    if (format === ExportFormat.Png) return this.savePng(rendered, baseName, scale)
+    return this.savePptx(rendered, baseName, scale)
   }
 
   private async saveSvg(svg: string, baseName: string): Promise<void>
@@ -91,13 +101,33 @@ export class DiagramExportService extends ServiceBase
     })
   }
 
-  private async savePptx(
+  // PNG mirrors PPTX's binary two-step: SaveFileAs('') is UTF-8 only, so it just
+  // yields the chosen path, then WriteBytes writes the raster.
+  private async savePng(
     rendered: { svg: string; width: number; height: number },
     baseName: string,
+    scale: number,
   ): Promise<void>
   {
     const { svg, width, height } = rendered
-    const png = await rasterizeSvgToPng(svg, width, height, 2)
+    const png = await rasterizeSvgToPng(svg, width, height, scale)
+    const fs = this.Provider.getRequired(FileSystemService.Key)
+    const path = await fs.SaveFileAs('', {
+      Title:       'Export as PNG',
+      DefaultPath: `${baseName}.png`,
+      Filters:     [{ Name: 'PNG Image', Extensions: ['png'] }],
+    })
+    if (path !== null) await fs.WriteBytes(path, png)
+  }
+
+  private async savePptx(
+    rendered: { svg: string; width: number; height: number },
+    baseName: string,
+    scale = 2,
+  ): Promise<void>
+  {
+    const { svg, width, height } = rendered
+    const png = await rasterizeSvgToPng(svg, width, height, scale)
     const pptx = await buildPptx(pngToDataUrl(png), width, height)
     const fs = this.Provider.getRequired(FileSystemService.Key)
     const path = await fs.SaveFileAs('', {
@@ -106,5 +136,37 @@ export class DiagramExportService extends ServiceBase
       Filters:     [{ Name: 'PowerPoint Presentation', Extensions: ['pptx'] }],
     })
     if (path !== null) await fs.WriteBytes(path, pptx)
+  }
+
+  // Open the preview dialog for the active diagram, then export with the chosen
+  // options. No-op when there is no active diagram or no DialogService.
+  protected async openExportDialog(): Promise<void>
+  {
+    const doc = this.activeDiagram()
+    if (doc === undefined) return
+    const dialogs = this.Provider.get(DialogService.Key) as DialogService | undefined
+    if (dialogs === undefined) return
+
+    const baseName = doc.Title || 'diagram'
+    const hasSelection = (doc.ActiveView?.SelectionCount ?? 0) > 0
+    const vm = new DiagramExportPreviewModel(
+      hasSelection,
+      this.surfaceHex(),
+      (o: ExportOptions) => DiagramSvgRenderer.renderWithOptions(doc, o),
+      (o?: ExportOptions) => dialogs.Close(o))
+
+    const chosen = await dialogs.Show<ExportOptions>({
+      Title: 'Export diagram', Content: vm, Width: 720, MaxHeight: 560,
+    })
+    if (chosen === undefined) return
+    const rendered = DiagramSvgRenderer.renderWithOptions(doc, chosen)
+    await this.exportRendered(chosen.format, rendered, baseName, chosen.scale)
+  }
+
+  // The active theme's Surface color as hex, for the Surface-background option.
+  private surfaceHex(): string
+  {
+    const b = Application.current?.Resources?.Resolve('Surface')
+    return b instanceof SolidColorBrush ? b.Color.ToHex() : '#1c1b1f'
   }
 }
