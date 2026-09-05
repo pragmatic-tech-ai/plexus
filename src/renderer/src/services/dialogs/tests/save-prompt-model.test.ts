@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { SavePromptModel, SavePromptResult, promptSave } from '../save-prompt-model.js'
 
 describe('SavePromptModel', () => {
@@ -16,6 +16,44 @@ describe('SavePromptModel', () => {
         expect(m.Message).toBe('Msg')
         expect(m.SaveLabel).toBe('Save')
         expect(m.DontSaveLabel).toBe('Discard')
+    })
+})
+
+describe('SavePromptModel auto-close', () => {
+    it('counts down on the DontSave label and chooses DontSave at zero', () => {
+        vi.useFakeTimers()
+        try {
+            const seen: SavePromptResult[] = []
+            const m = new SavePromptModel('Msg', 'Save All', 'Discard All', (r) => seen.push(r), 10)
+            expect(m.DontSaveLabel).toBe('Discard All (10)')
+            vi.advanceTimersByTime(1000)
+            expect(m.DontSaveLabel).toBe('Discard All (9)')
+            vi.advanceTimersByTime(9000)
+            expect(seen).toEqual([SavePromptResult.DontSave])
+        } finally { vi.useRealTimers() }
+    })
+
+    it('an explicit choice before zero cancels the countdown', () => {
+        vi.useFakeTimers()
+        try {
+            const seen: SavePromptResult[] = []
+            const m = new SavePromptModel('Msg', 'Save All', 'Discard All', (r) => seen.push(r), 10)
+            m.CancelCommand.Execute(undefined)
+            vi.advanceTimersByTime(20000)
+            expect(seen).toEqual([SavePromptResult.Cancel]) // no late auto DontSave
+        } finally { vi.useRealTimers() }
+    })
+
+    it('stopAutoClose halts the timer (scrim/Escape path) and restores the label', () => {
+        vi.useFakeTimers()
+        try {
+            const seen: SavePromptResult[] = []
+            const m = new SavePromptModel('Msg', 'Save All', 'Discard All', (r) => seen.push(r), 10)
+            m.stopAutoClose()
+            expect(m.DontSaveLabel).toBe('Discard All')
+            vi.advanceTimersByTime(20000)
+            expect(seen).toEqual([])
+        } finally { vi.useRealTimers() }
     })
 })
 

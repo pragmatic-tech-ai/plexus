@@ -32,8 +32,14 @@ describe('confirmCloseDocs', () => {
         expect(await confirmCloseDocs(host([doc(true)]) as never, undefined, prompt as never)).toBe(false)
     })
     it('summarizes a multi-doc message', async () => {
-        const prompt = vi.fn(async () => SavePromptResult.DontSave)
+        const prompt = vi.fn(async (_d: unknown, _o: { message: string; dontSaveLabel: string; autoCloseSeconds?: number }) => SavePromptResult.DontSave)
         await confirmCloseDocs(host([doc(true), doc(true)]) as never, undefined, prompt as never)
         expect(prompt.mock.calls[0][1].message).toContain('2 documents')
+    })
+    it('arms the 10s Discard-All auto-close on the prompt', async () => {
+        const prompt = vi.fn(async (_d: unknown, _o: { message: string; dontSaveLabel: string; autoCloseSeconds?: number }) => SavePromptResult.DontSave)
+        await confirmCloseDocs(host([doc(true)]) as never, undefined, prompt as never)
+        expect(prompt.mock.calls[0][1].autoCloseSeconds).toBe(10)
+        expect(prompt.mock.calls[0][1].dontSaveLabel).toBe('Discard All')
     })
 })
