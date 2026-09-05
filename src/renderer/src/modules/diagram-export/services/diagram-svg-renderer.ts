@@ -1,5 +1,5 @@
 import { Visual, Visibility, Application, Color, type DrawingContext } from '@pragmatic-tech-ai/mural/runtime'
-import { Rect, SvgDrawingContext, TranslateTransform, SolidColorBrush, type Brush } from '@pragmatic-tech-ai/mural/visual-engine'
+import { Rect, Matrix, SvgDrawingContext, TranslateTransform, MatrixTransform, SolidColorBrush, type Brush } from '@pragmatic-tech-ai/mural/visual-engine'
 import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { ExportBackground, type ExportOptions } from './export-options.js'
 
@@ -207,8 +207,14 @@ export class DiagramSvgRenderer
     return new Rect(minX, minY, maxX - minX, maxY - minY)
   }
 
-  // Paint a visual subtree into `dc` without taking ownership of it — mirrors
-  // HeadlessTarget.renderTree using only public Visual APIs.
+  // Paint a visual subtree into `dc` without taking ownership of it. Like
+  // HeadlessTarget.renderTree (ArrangedRect translate + Clip + Render + recurse)
+  // but ALSO applies each visual's RenderTransform about its origin — the retained
+  // renderer honours it per element, so without this rotated visuals (notably
+  // connector arrow caps, oriented by a RotateTransform) paint in their default
+  // un-rotated pose. Order mirrors the retained emit `translate(rect) matrix …`:
+  // the render transform is pushed INSIDE the arrange translate so it applies to
+  // this visual's own paint and its children.
   public static paintVisualTree(visual: Visual, dc: DrawingContext): void
   {
     if (visual.Visibility !== Visibility.Visible) return
@@ -216,6 +222,9 @@ export class DiagramSvgRenderer
     const rect = visual.ArrangedRect
     const needsTranslate = rect.X !== 0 || rect.Y !== 0
     if (needsTranslate) dc.PushTransform(new TranslateTransform(rect.X, rect.Y))
+
+    const renderTransform = this.pivotedRenderTransform(visual, rect)
+    if (renderTransform !== undefined) dc.PushTransform(renderTransform)
 
     const clip = visual.Clip
     if (clip !== undefined) dc.PushClip(clip)
@@ -228,6 +237,25 @@ export class DiagramSvgRenderer
     if (childClip !== undefined) dc.Pop()
 
     if (clip !== undefined) dc.Pop()
+    if (renderTransform !== undefined) dc.Pop()
     if (needsTranslate) dc.Pop()
+  }
+
+  // A visual's RenderTransform pivoted about RenderTransformOrigin (a fraction of
+  // the visual's size), as a MatrixTransform ready to push — or undefined when the
+  // visual has no effective (non-identity) render transform. Mirrors the retained
+  // renderer / AdornerLayer pivot: T(-o) · M · T(o).
+  private static pivotedRenderTransform(
+    visual: Visual,
+    rect: { Width: number; Height: number },
+  ): MatrixTransform | undefined
+  {
+    const rt = visual.RenderTransform
+    if (rt === undefined || rt.Matrix.IsIdentity) return undefined
+    const origin = visual.RenderTransformOrigin
+    const ox = origin.X * rect.Width
+    const oy = origin.Y * rect.Height
+    const pivoted = Matrix.Translate(-ox, -oy).Multiply(rt.Matrix).Multiply(Matrix.Translate(ox, oy))
+    return new MatrixTransform(pivoted)
   }
 }

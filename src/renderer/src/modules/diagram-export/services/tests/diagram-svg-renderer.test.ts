@@ -1,5 +1,6 @@
 import { test, expect } from 'vitest'
 import { Visibility } from '@pragmatic-tech-ai/mural/runtime'
+import { RotateTransform, Point } from '@pragmatic-tech-ai/mural/visual-engine'
 import { DiagramSvgRenderer } from '../diagram-svg-renderer.js'
 import { ExportFormat, ExportBackground, type ExportOptions } from '../export-options.js'
 
@@ -181,6 +182,44 @@ test('renderWithOptions: useSelection=true crops to the selection bounds', () =>
   const { width, height } = DiagramSvgRenderer.renderWithOptions(doc as never, opts({ useSelection: true }))
 
   expect(width).toBe(40); expect(height).toBe(30)
+})
+
+test('paintVisualTree applies a visual RenderTransform (rotated caps render rotated)', () => {
+  // Connector arrow caps orient via RenderTransform (a RotateTransform). With X=Y=0
+  // the arrange translate is skipped, so the ONLY transform pushed must be the
+  // (non-identity) render transform — proving it is applied, not dropped.
+  const pushed: Array<{ Matrix?: { IsIdentity: boolean } }> = []
+  const dc = {
+    PushTransform: (t: { Matrix?: { IsIdentity: boolean } }): number => pushed.push(t),
+    PushClip: (): number => 1,
+    Pop: (): number => 1,
+  }
+  const cap = {
+    Visibility: Visibility.Visible,
+    ArrangedRect: { X: 0, Y: 0, Width: 8, Height: 8 },
+    RenderTransform: new RotateTransform(90),
+    RenderTransformOrigin: new Point(0.5, 0.5),
+    Clip: undefined, ChildClip: undefined, visualChildren: [],
+    Render: (): void => {},
+  }
+  DiagramSvgRenderer.paintVisualTree(cap as never, dc as never)
+
+  expect(pushed.length).toBe(1)
+  expect(pushed[0]!.Matrix!.IsIdentity).toBe(false)
+})
+
+test('paintVisualTree pushes no transform for an identity-transform visual at the origin', () => {
+  const pushed: unknown[] = []
+  const dc = { PushTransform: (t: unknown): number => pushed.push(t), PushClip: (): number => 1, Pop: (): number => 1 }
+  const plain = {
+    Visibility: Visibility.Visible,
+    ArrangedRect: { X: 0, Y: 0, Width: 8, Height: 8 },
+    RenderTransform: undefined, RenderTransformOrigin: new Point(0, 0),
+    Clip: undefined, ChildClip: undefined, visualChildren: [],
+    Render: (): void => {},
+  }
+  DiagramSvgRenderer.paintVisualTree(plain as never, dc as never)
+  expect(pushed.length).toBe(0)
 })
 
 test('remapColors replaces every "from" color with "to"', () => {
