@@ -49,13 +49,24 @@ export class DiagramExportPreviewModel extends MuralBase
     ['Default', undefined], ['Black', '#000000'], ['White', '#ffffff'],
   ])
 
-  // Item lists the ComboBoxes bind to (ItemsSource); SelectedItem two-way-binds the
-  // matching DP. Enum values are their own wire strings, so a selection sets the DP
-  // to a valid enum member directly.
-  public get Formats():     ExportFormat[]     { return [ExportFormat.Svg, ExportFormat.Png, ExportFormat.Pptx] }
-  public get Backgrounds(): ExportBackground[] { return [ExportBackground.Transparent, ExportBackground.Surface] }
-  public get Scales():      number[]           { return [1, 2, 3] }
-  public get ForegroundChoices(): string[]     { return [...DiagramExportPreviewModel.FOREGROUND_CHOICES.keys()] }
+  // Item lists the ComboBoxes bind to (ItemsSource). These MUST be DPs — a `$Prop`
+  // binding resolves against registered properties, not plain getters, so a getter
+  // would leave the ComboBox empty. SelectedItem two-way-binds the matching option
+  // DP; enum values are their own wire strings, so a selection sets that DP to a
+  // valid member directly.
+  static readonly FormatsKey = MuralBase.RegisterProperty<ExportFormat[]>(
+    DiagramExportPreviewModel, 'Formats', [ExportFormat.Svg, ExportFormat.Png, ExportFormat.Pptx], MetaData.None)
+  static readonly BackgroundsKey = MuralBase.RegisterProperty<ExportBackground[]>(
+    DiagramExportPreviewModel, 'Backgrounds', [ExportBackground.Transparent, ExportBackground.Surface], MetaData.None)
+  static readonly ScalesKey = MuralBase.RegisterProperty<number[]>(
+    DiagramExportPreviewModel, 'Scales', [1, 2, 3], MetaData.None)
+  static readonly ForegroundChoicesKey = MuralBase.RegisterProperty<string[]>(
+    DiagramExportPreviewModel, 'ForegroundChoices', ['Default', 'Black', 'White'], MetaData.None)
+
+  public get Formats(): ExportFormat[] { return this.get_property_value(DiagramExportPreviewModel.FormatsKey) }
+  public get Backgrounds(): ExportBackground[] { return this.get_property_value(DiagramExportPreviewModel.BackgroundsKey) }
+  public get Scales(): number[] { return this.get_property_value(DiagramExportPreviewModel.ScalesKey) }
+  public get ForegroundChoices(): string[] { return this.get_property_value(DiagramExportPreviewModel.ForegroundChoicesKey) }
 
   // Gate preview recompute until construction has finished seeding the DPs, so the
   // initial preview renders exactly once (not once per seeded option DP).

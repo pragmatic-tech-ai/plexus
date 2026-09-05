@@ -156,7 +156,7 @@ export class DiagramExportService extends ServiceBase
       (o?: ExportOptions) => dialogs.Close(o))
 
     const chosen = await dialogs.Show<ExportOptions>({
-      Title: 'Export diagram', Content: vm, Width: 720, MaxHeight: 560,
+      Title: 'Export diagram', Content: vm, Width: 900, MaxHeight: 700,
     })
     if (chosen === undefined) return
     const rendered = DiagramSvgRenderer.renderWithOptions(doc, chosen)

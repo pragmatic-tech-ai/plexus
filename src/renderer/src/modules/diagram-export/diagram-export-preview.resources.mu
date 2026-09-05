@@ -13,7 +13,7 @@ import DiagramExportPreviewModel from "./services/diagram-export-preview-model.j
 resources DiagramExportPreviewResources {
 
     DataTemplate [ DataType = DiagramExportPreviewModel ] {
-        DockPanel [ LastChildFill = true, Width = 720 ] {
+        DockPanel [ LastChildFill = true, Width = 860, MinHeight = 460 ] {
             // Actions row (bottom): Cancel + Export (Filled primary).
             StackPanel [ DockPanel.Dock = Bottom, Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,16,0,0) ] {
                 Button [ Variant = Text,   Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
@@ -21,10 +21,10 @@ resources DiagramExportPreviewResources {
             }
 
             // Preview (left): the rendered diagram on a neutral backdrop + a size readout.
-            Border [ DockPanel.Dock = Left, Width = 420, MinHeight = 320, Fill = @SurfaceContainerHigh,
+            Border [ DockPanel.Dock = Left, Width = 500, MinHeight = 440, Fill = @SurfaceContainerHigh,
                      CornerRadius = @ShapeSmall, Margin = (0,0,16,0), Padding = (8) ] {
                 StackPanel [ Orientation = Vertical, HorizontalAlignment = Center, VerticalAlignment = Center ] {
-                    Image [ Source = $Preview, Stretch = Uniform, MaxWidth = 400, MaxHeight = 340 ]
+                    Image [ Source = $Preview, Stretch = Uniform, MaxWidth = 480, MaxHeight = 460 ]
                     TextBlock [ Text = $PreviewSize, Style = @BodySmall, Foreground = @OnSurfaceVariant,
                                 HorizontalAlignment = Center, Margin = (0,8,0,0) ]
                 }

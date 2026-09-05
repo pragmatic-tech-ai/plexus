@@ -78,6 +78,8 @@ function findPreviewVm(l: Launched) {
           previewUri: dc.Preview?.Uri ?? null,
           previewSize: dc.PreviewSize ?? null,
           hasExport: typeof dc.ExportCommand?.Execute === 'function',
+          formatsCount: dc.Formats?.length ?? 0,
+          foregroundChoicesCount: dc.ForegroundChoices?.length ?? 0,
         }
       }
     }
@@ -132,6 +134,9 @@ test.describe.serial('diagram-export-preview', () => {
     expect(typeof vm.previewUri === 'string' && vm.previewUri.startsWith('data:image/svg+xml'),
       `preview is an SVG data URL (got ${vm.previewUri})`).toBe(true)
     expect(vm.previewSize, 'preview size readout is populated').toBeTruthy()
+    // The ComboBox ItemsSource DPs must be populated (getter-backed lists bind empty).
+    expect(vm.formatsCount, 'Formats item list populated').toBe(3)
+    expect(vm.foregroundChoicesCount, 'ForegroundChoices item list populated').toBe(3)
 
     // Dismiss the modal via the VM's CancelCommand so the app returns to rest.
     await l.win.evaluate(() => {
