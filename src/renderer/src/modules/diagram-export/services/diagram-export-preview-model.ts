@@ -3,7 +3,7 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 import { BitmapImage, Size, type ImageSource } from '@pragmatic-tech-ai/mural/visual-engine'
 import {
-  ExportBackground, DEFAULT_EXPORT_OPTIONS, type ExportFormat, type ExportOptions,
+  ExportFormat, ExportBackground, DEFAULT_EXPORT_OPTIONS, type ExportOptions,
 } from './export-options.js'
 
 // View-model for the export preview dialog. Extends MuralBase (not Observable):
@@ -21,8 +21,8 @@ export class DiagramExportPreviewModel extends MuralBase
     DiagramExportPreviewModel, 'UseSelection', false, MetaData.None)
   static readonly BackgroundKey = MuralBase.RegisterProperty<ExportBackground>(
     DiagramExportPreviewModel, 'Background', DEFAULT_EXPORT_OPTIONS.background, MetaData.None)
-  static readonly ForegroundKey = MuralBase.RegisterProperty<string | undefined>(
-    DiagramExportPreviewModel, 'Foreground', undefined, MetaData.None)
+  static readonly ForegroundChoiceKey = MuralBase.RegisterProperty<string>(
+    DiagramExportPreviewModel, 'ForegroundChoice', 'Default', MetaData.None)
   static readonly ShowPageBreaksKey = MuralBase.RegisterProperty<boolean>(
     DiagramExportPreviewModel, 'ShowPageBreaks', DEFAULT_EXPORT_OPTIONS.showPageBreaks, MetaData.None)
   static readonly ScaleKey = MuralBase.RegisterProperty<number>(
@@ -40,7 +40,22 @@ export class DiagramExportPreviewModel extends MuralBase
 
   // Which option DPs, when changed, invalidate the preview.
   private static readonly OPTION_PROPS = new Set(
-    ['Format', 'UseSelection', 'Background', 'Foreground', 'ShowPageBreaks', 'Scale'])
+    ['Format', 'UseSelection', 'Background', 'ForegroundChoice', 'ShowPageBreaks', 'Scale'])
+
+  // Named foreground-ink choices → hex override (undefined = leave the ink as-is).
+  // A color swatch bound to a hex string has no clean mural primitive, so the
+  // dialog picks a named choice and this maps it to the renderer's ink override.
+  private static readonly FOREGROUND_CHOICES = new Map<string, string | undefined>([
+    ['Default', undefined], ['Black', '#000000'], ['White', '#ffffff'],
+  ])
+
+  // Item lists the ComboBoxes bind to (ItemsSource); SelectedItem two-way-binds the
+  // matching DP. Enum values are their own wire strings, so a selection sets the DP
+  // to a valid enum member directly.
+  public get Formats():     ExportFormat[]     { return [ExportFormat.Svg, ExportFormat.Png, ExportFormat.Pptx] }
+  public get Backgrounds(): ExportBackground[] { return [ExportBackground.Transparent, ExportBackground.Surface] }
+  public get Scales():      number[]           { return [1, 2, 3] }
+  public get ForegroundChoices(): string[]     { return [...DiagramExportPreviewModel.FOREGROUND_CHOICES.keys()] }
 
   // Gate preview recompute until construction has finished seeding the DPs, so the
   // initial preview renders exactly once (not once per seeded option DP).
@@ -70,8 +85,8 @@ export class DiagramExportPreviewModel extends MuralBase
   public set UseSelection(v: boolean) { this.set_property_value(DiagramExportPreviewModel.UseSelectionKey, v) }
   public get Background(): ExportBackground { return this.get_property_value(DiagramExportPreviewModel.BackgroundKey) }
   public set Background(v: ExportBackground) { this.set_property_value(DiagramExportPreviewModel.BackgroundKey, v) }
-  public get Foreground(): string | undefined { return this.get_property_value(DiagramExportPreviewModel.ForegroundKey) }
-  public set Foreground(v: string | undefined) { this.set_property_value(DiagramExportPreviewModel.ForegroundKey, v) }
+  public get ForegroundChoice(): string { return this.get_property_value(DiagramExportPreviewModel.ForegroundChoiceKey) }
+  public set ForegroundChoice(v: string) { this.set_property_value(DiagramExportPreviewModel.ForegroundChoiceKey, v) }
   public get ShowPageBreaks(): boolean { return this.get_property_value(DiagramExportPreviewModel.ShowPageBreaksKey) }
   public set ShowPageBreaks(v: boolean) { this.set_property_value(DiagramExportPreviewModel.ShowPageBreaksKey, v) }
   public get Scale(): number { return this.get_property_value(DiagramExportPreviewModel.ScaleKey) }
@@ -92,7 +107,7 @@ export class DiagramExportPreviewModel extends MuralBase
       useSelection:   this.UseSelection,
       background,
       backgroundColor: background === ExportBackground.Surface ? this.backgroundColor : undefined,
-      foreground:     this.Foreground,
+      foreground:     DiagramExportPreviewModel.FOREGROUND_CHOICES.get(this.ForegroundChoice),
       showPageBreaks: this.ShowPageBreaks,
       scale:          this.Scale,
     }

@@ -53,6 +53,23 @@ describe('DiagramExportPreviewModel', () => {
     expect(vm.currentOptions().backgroundColor).toBeUndefined()
   })
 
+  it('ForegroundChoice maps to an ink hex; Default leaves it as-is', () => {
+    const { vm } = make()
+    expect(vm.currentOptions().foreground).toBeUndefined() // Default
+    vm.ForegroundChoice = 'Black'
+    expect(vm.currentOptions().foreground).toBe('#000000')
+    vm.ForegroundChoice = 'White'
+    expect(vm.currentOptions().foreground).toBe('#ffffff')
+  })
+
+  it('exposes the ComboBox item lists', () => {
+    const { vm } = make()
+    expect(vm.Formats).toEqual([ExportFormat.Svg, ExportFormat.Png, ExportFormat.Pptx])
+    expect(vm.Backgrounds).toEqual([ExportBackground.Transparent, ExportBackground.Surface])
+    expect(vm.Scales).toEqual([1, 2, 3])
+    expect(vm.ForegroundChoices).toEqual(['Default', 'Black', 'White'])
+  })
+
   it('ExportCommand closes with the resolved options; CancelCommand closes with undefined', () => {
     const { vm, closed } = make()
     vm.Format = ExportFormat.Png
