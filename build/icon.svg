@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Plexus application icon — source of truth. The SolariaMark (the same
+     "signal" mark the boot splash animates, from InputData/TechnoDesign)
+     baked onto its near-black ground (#0A0A0B) as a full-bleed square. The
+     mark's 200x200 artwork is centered at ~80% scale so the world ring keeps
+     an even margin from the icon edge. Regenerate the raster icons (icon.png +
+     icon.ico) from THIS file with `npm run generate:icon`. -->
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+    <rect x="0" y="0" width="1024" height="1024" fill="#0A0A0B"/>
+    <!-- 200x200 artwork → scale 4.096 (819.2) centered with 102.4 padding. -->
+    <g transform="translate(102.4,102.4) scale(4.096)">
+        <!-- the near-empty world -->
+        <circle cx="100" cy="100" r="92" fill="none" stroke="#3D3B36" stroke-width="1" stroke-dasharray="1.5 9" opacity="0.45"/>
+        <!-- other estates: each alone, walled, untouched -->
+        <g>
+            <circle cx="150" cy="58" r="13" fill="none" stroke="#3D3B36" stroke-width="1" stroke-dasharray="2 5" opacity="0.5"/>
+            <circle cx="150" cy="58" r="2.2" fill="#8A8780" opacity="0.6"/>
+            <circle cx="156" cy="134" r="13" fill="none" stroke="#3D3B36" stroke-width="1" stroke-dasharray="2 5" opacity="0.5"/>
+            <circle cx="156" cy="134" r="2.2" fill="#8A8780" opacity="0.6"/>
+            <circle cx="60" cy="152" r="13" fill="none" stroke="#3D3B36" stroke-width="1" stroke-dasharray="2 5" opacity="0.5"/>
+            <circle cx="60" cy="152" r="2.2" fill="#8A8780" opacity="0.6"/>
+            <circle cx="122" cy="160" r="13" fill="none" stroke="#3D3B36" stroke-width="1" stroke-dasharray="2 5" opacity="0.5"/>
+            <circle cx="122" cy="160" r="2.2" fill="#8A8780" opacity="0.6"/>
+        </g>
+        <!-- viewing beams: reach out, stop short -->
+        <g stroke="#2EA862" stroke-width="1" stroke-dasharray="2 5" opacity="0.4" fill="none">
+            <line x1="78" y1="86" x2="127.6" y2="66.7"/>
+            <line x1="78" y1="86" x2="135.6" y2="121.4"/>
+            <line x1="78" y1="86" x2="66.3" y2="128.9"/>
+        </g>
+        <!-- holograms: seen, not met -->
+        <g>
+            <circle cx="127.6" cy="66.7" r="4.5" fill="none" stroke="#2EA862" stroke-width="1" opacity="0.45"/>
+            <circle cx="135.6" cy="121.4" r="4.5" fill="none" stroke="#2EA862" stroke-width="1" opacity="0.45"/>
+            <circle cx="66.3" cy="128.9" r="4.5" fill="none" stroke="#2EA862" stroke-width="1" opacity="0.45"/>
+        </g>
+        <!-- the self, alone in the estate -->
+        <circle cx="78" cy="86" r="27" fill="none" stroke="#2EA862" stroke-width="1" stroke-dasharray="2 6" opacity="0.4"/>
+        <circle cx="78" cy="86" r="9" fill="none" stroke="#2EA862" stroke-width="1" opacity="0.5"/>
+        <circle cx="78" cy="86" r="5" fill="#2EA862" style="filter:drop-shadow(0 0 8px #2EA862);"/>
+    </g>
+</svg>

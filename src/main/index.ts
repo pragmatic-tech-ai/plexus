@@ -40,6 +40,11 @@ function createWindow(): void {
     // the renderer paints) is never bare white. Matches the SolariaMark boot
     // splash / #app background; the mural shell paints @Surface over it.
     backgroundColor: '#0A0A0B',
+    // Window / taskbar icon. Packaged builds take the icon from the exe
+    // (electron-builder → build/icon.ico) and build/ isn't shipped at runtime,
+    // so only set it in dev — pointing at the same SolariaMark PNG the installer
+    // uses so the running window matches while iterating.
+    ...(is.dev ? { icon: join(__dirname, '../../build/icon.png') } : {}),
     autoHideMenuBar: true,
     // Custom title bar (VSCode-style): hide the OS title bar, but keep the
     // native min/max/close buttons as a Window Controls Overlay on Windows/Linux
