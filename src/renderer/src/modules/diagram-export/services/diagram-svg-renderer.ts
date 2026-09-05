@@ -1,6 +1,19 @@
-import { Visual, Visibility, type DrawingContext } from '@pragmatic-tech-ai/mural/runtime'
-import { Rect, SvgDrawingContext, TranslateTransform } from '@pragmatic-tech-ai/mural/visual-engine'
+import { Visual, Visibility, Application, Color, type DrawingContext } from '@pragmatic-tech-ai/mural/runtime'
+import { Rect, SvgDrawingContext, TranslateTransform, SolidColorBrush, type Brush } from '@pragmatic-tech-ai/mural/visual-engine'
 import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
+import { ExportBackground, type ExportOptions } from './export-options.js'
+
+// The subset of PaginatedCanvas (the diagram's ItemsPanel) the export overrides
+// touch. Duck-typed rather than `instanceof PaginatedCanvas` so the renderer stays
+// consistent with its already-duck-typed tree walk (paintVisualTree reads only
+// public Visual members) — and so the fake-based renderer tests can exercise the
+// page-break / paper overrides without arranging a real canvas.
+interface PaginatedCanvasLike
+{
+  PageBorderThickness: number
+  PaperBrush: Brush | undefined
+  Fill: Brush | undefined
+}
 
 // ── Rendering approach ─────────────────────────────────────────────────────────
 // We CANNOT hand the live diagram's ItemsPanelInstance to a HeadlessTarget:
@@ -66,6 +79,115 @@ export class DiagramSvgRenderer
     dc.Pop()
 
     return { svg: dc.ToSvg(width, height), width, height }
+  }
+
+  // Render a document with full export options: scope (selection vs whole),
+  // page-break lines, background, and foreground ink remap. Kept separate from
+  // renderDocument/renderPanel so the headless explorer export is unaffected.
+  public static renderWithOptions(
+    doc: DiagramDocument,
+    options: ExportOptions,
+  ): { svg: string; width: number; height: number }
+  {
+    const diagram = doc.ActiveView
+    if (diagram === undefined) throw new Error('diagram has no active view to export')
+
+    const selection = options.useSelection && diagram.SelectionCount > 0
+      ? new Rect(diagram.SelectionLeft, diagram.SelectionTop, diagram.SelectionWidth, diagram.SelectionHeight)
+      : undefined
+
+    return this.renderPanelWithOptions(
+      diagram.ItemsPanelInstance as unknown as Visual | undefined, selection, options)
+  }
+
+  // Render an arranged items-panel under export options. Temporarily overrides the
+  // PaginatedCanvas' page-border thickness and paper/desk fills (restored in a
+  // `finally` so the live diagram is untouched), prepends a Surface background rect
+  // when asked, and remaps the ink colors for a foreground override.
+  public static renderPanelWithOptions(
+    panel: Visual | undefined,
+    selection: Rect | undefined,
+    options: ExportOptions,
+  ): { svg: string; width: number; height: number }
+  {
+    const pc = this.asPaginated(panel)
+    const saved = pc !== undefined
+      ? { thickness: pc.PageBorderThickness, paper: pc.PaperBrush, fill: pc.Fill }
+      : undefined
+    try {
+      if (pc !== undefined) {
+        // Drop the per-page border lines unless the user kept them, and neutralize
+        // the white paper + desk so no page chrome bleeds into the export (our own
+        // background rect, if any, is painted below).
+        if (!options.showPageBreaks) pc.PageBorderThickness = 0
+        const transparent = new SolidColorBrush(Color.FromHex('#00000000'))
+        pc.PaperBrush = transparent
+        pc.Fill       = transparent
+      }
+
+      const bounds = selection ?? this.contentBounds(panel)
+      const width  = Math.max(1, Math.ceil(bounds.Width))
+      const height = Math.max(1, Math.ceil(bounds.Height))
+
+      const dc = new SvgDrawingContext()
+      dc.PushTransform(new TranslateTransform(-bounds.X, -bounds.Y))
+      // Surface background: one opaque rect behind the tree, covering the bounds.
+      if (options.background === ExportBackground.Surface && options.backgroundColor !== undefined) {
+        dc.DrawRectangle(
+          new SolidColorBrush(Color.FromHex(options.backgroundColor)),
+          undefined,
+          new Rect(bounds.X, bounds.Y, width, height))
+      }
+      if (panel !== undefined) this.paintVisualTree(panel, dc)
+      dc.Pop()
+
+      let svg = dc.ToSvg(width, height)
+      if (options.foreground !== undefined) {
+        svg = this.remapColors(svg, this.inkCssColors(), options.foreground)
+      }
+      return { svg, width, height }
+    } finally {
+      if (pc !== undefined && saved !== undefined) {
+        pc.PageBorderThickness = saved.thickness
+        pc.PaperBrush          = saved.paper
+        pc.Fill                = saved.fill
+      }
+    }
+  }
+
+  // Treat a panel as a PaginatedCanvas when it exposes the page DPs the overrides
+  // touch. Duck-typed (see PaginatedCanvasLike) — the live diagram's ItemsPanel is
+  // always a PaginatedCanvas, and no other panel exposes PageBorderThickness.
+  private static asPaginated(panel: Visual | undefined): PaginatedCanvasLike | undefined
+  {
+    const p = panel as unknown as Partial<PaginatedCanvasLike> | undefined
+    return p !== undefined && typeof p.PageBorderThickness === 'number'
+      ? (p as PaginatedCanvasLike)
+      : undefined
+  }
+
+  // The diagram ink colors, as the exact `rgb(...)` strings SvgDrawingContext emits
+  // (Color.ToCss()). Resolved from the active theme's ink tokens; empty when no
+  // Application/theme is reachable (tests) so the remap is a no-op.
+  public static inkCssColors(): string[]
+  {
+    const res = Application.current?.Resources
+    const css = (token: string): string | undefined => {
+      const b = res?.Resolve(token)
+      return b instanceof SolidColorBrush ? b.Color.ToCss() : undefined
+    }
+    return ['OnSurface', 'OnSurfaceVariant']
+      .map(css)
+      .filter((c): c is string => c !== undefined)
+  }
+
+  // Replace every `from` color literal in the SVG with `to`. Pure string swap —
+  // targeted at the ink colors so custom node fills are left alone.
+  public static remapColors(svg: string, from: readonly string[], to: string): string
+  {
+    let out = svg
+    for (const color of from) out = out.split(color).join(to)
+    return out
   }
 
   // Union of the panel's arranged children (canvas-space). Returns a zero Rect
