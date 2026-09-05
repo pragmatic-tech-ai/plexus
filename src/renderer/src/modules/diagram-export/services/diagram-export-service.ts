@@ -10,13 +10,10 @@ import { FileSystemService } from '../../../services/file-system/file-system-ser
 import { DiagramSvgRenderer } from './diagram-svg-renderer.js'
 import { rasterizeSvgToPng, pngToDataUrl } from './svg-raster.js'
 import { buildPptx } from './pptx-builder.js'
+import { ExportFormat } from './export-options.js'
 
-// The two diagram export formats.
-export enum ExportFormat
-{
-  Svg  = 'svg',
-  Pptx = 'pptx',
-}
+// Re-exported so existing importers of `ExportFormat` from this module keep working.
+export { ExportFormat } from './export-options.js'
 
 // Exports the active diagram's visual (selection if any, else the whole diagram)
 // to SVG or PPTX. Exposes two ICommands bound by the diagram context menu (and,
