@@ -15,6 +15,7 @@ import DiagramExportService from "../diagram-export/services/diagram-export-serv
 import WikiService from "../../services/wiki/wiki-service.js"
 import DropCandidateChooserService from "../architecture-projects/services/drop-candidate-chooser-service.js"
 import ArchNodeVM from "../architecture-projects/services/arch-node-vm.js"
+import ArchNavItemVM from "../architecture-projects/services/arch-nav-item-vm.js"
 import MediaNodeVM from "./media/media-node-vm.js"
 import MediaOpenBehavior from "./media/media-open-behavior.js"
 import ArchTitleEditBehavior from "../architecture-projects/behaviors/arch-title-edit-behavior.js"
@@ -265,6 +266,14 @@ resources DiagramResources {
     // the document's inspector and `$service(PanelDockService)` the shell-scoped
     // dock host. The tab then tracks the live selection through the inspector's
     // View handle.
+    // One row in a "Go to Definition ▸ Technology / Category" submenu: a MenuItem
+    // whose Header/Command bind an ArchNavItemVM. MenuItem is an ItemsControl, so
+    // the parent item's ItemsSource generates one of these per resolved target
+    // (used only in the many-targets case; a single target is a flat item).
+    DataTemplate x:key="NavItemTemplate" [ DataType = ArchNavItemVM ] {
+        MenuItem [ Header = $Name, Command = $GoCommand ]
+    }
+
     ContextMenu x:key="DiagramContextMenu" {
         // Clipboard — Copy / Cut / Paste, bound to the live canvas's commands via
         // the document's published ActiveView (the same idiom the align items use).
@@ -361,6 +370,40 @@ resources DiagramResources {
               Command          = $service(WikiService).OpenWikiCommand,
               CommandParameter = $Concept,
               Visibility       = $HasWiki << ToVisibility ]
+        // Node-only: "Go to Definition" — navigate to the node's component (always
+        // source code), technology, and category (published-artifact node or
+        // project source). The whole item hides on a wiki-less/relation-less node
+        // or the empty-canvas right-click ($HasNavTargets is undefined → Collapsed).
+        // Component is always a flat item; technology and category are each a flat
+        // item when the node maps to one target and a nested submenu when it maps
+        // to many (a technology fans out to N applicable_to categories). The
+        // adaptive Visibility flags come from ArchNodeVM's nav-target facet.
+        MenuItem
+            [ Header     = "Go to Definition",
+              Visibility = $HasNavTargets << ToVisibility ] {
+            MenuItem
+                [ Header     = "Component",
+                  Command    = $GoToComponentCommand,
+                  Visibility = $CanGoToComponent << ToVisibility ]
+            MenuItem
+                [ Header     = "Technology",
+                  Command    = $SingleTechnologyCommand,
+                  Visibility = $HasOneTechnology << ToVisibility ]
+            MenuItem
+                [ Header                   = "Technology",
+                  Visibility               = $HasManyTechnologies << ToVisibility,
+                  ItemsControl.ItemsSource  = $Technologies,
+                  ItemsControl.ItemTemplate = @NavItemTemplate ]
+            MenuItem
+                [ Header     = "Category",
+                  Command    = $SingleCategoryCommand,
+                  Visibility = $HasOneCategory << ToVisibility ]
+            MenuItem
+                [ Header                   = "Category",
+                  Visibility               = $HasManyCategories << ToVisibility,
+                  ItemsControl.ItemsSource  = $Categories,
+                  ItemsControl.ItemTemplate = @NavItemTemplate ]
+        }
     }
 
     // ── Toolbox ItemsPanel — a uniform-cell wrap grid so the tiles fit a
