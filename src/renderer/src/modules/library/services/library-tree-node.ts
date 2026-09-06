@@ -19,6 +19,10 @@ export class LibraryTreeNode extends MuralBase
     public static readonly ChildrenKey = MuralBase.RegisterProperty<ObservableCollection<LibraryTreeNode>>(
         LibraryTreeNode, 'Children', undefined as unknown as ObservableCollection<LibraryTreeNode>, MetaData.None)
     public static readonly IsLibraryKey = MuralBase.RegisterProperty<boolean>(LibraryTreeNode, 'IsLibrary', false, MetaData.None)
+    // Group nodes' expansion, mirrored two-way onto the TreeViewItem container
+    // (via the tree's ItemContainerStyle) so RevealTerm can expand a path to a
+    // leaf from the data side.
+    public static readonly IsExpandedKey = MuralBase.RegisterProperty<boolean>(LibraryTreeNode, 'IsExpanded', false, MetaData.None)
     public static readonly IsDraggableKey = MuralBase.RegisterProperty<boolean>(LibraryTreeNode, 'IsDraggable', false, MetaData.None)
     // Whether this class's concept has an openable wiki page (filled async by the
     // libraries panel service). Drives the shared "Open Wiki" menu-item visibility.
@@ -54,6 +58,8 @@ export class LibraryTreeNode extends MuralBase
     public get Kind(): LibraryNodeKind { return this.get_property_value(LibraryTreeNode.KindKey) }
     public get Children(): ObservableCollection<LibraryTreeNode> { return this.get_property_value(LibraryTreeNode.ChildrenKey) }
     public get IsLibrary(): boolean { return this.get_property_value(LibraryTreeNode.IsLibraryKey) }
+    public get IsExpanded(): boolean { return this.get_property_value(LibraryTreeNode.IsExpandedKey) }
+    public set IsExpanded(v: boolean) { this.set_property_value(LibraryTreeNode.IsExpandedKey, v) }
     public get IsDraggable(): boolean { return this.get_property_value(LibraryTreeNode.IsDraggableKey) }
     public get HasWiki(): boolean { return this.get_property_value(LibraryTreeNode.HasWikiKey) }
     public set HasWiki(v: boolean) { this.set_property_value(LibraryTreeNode.HasWikiKey, v) }

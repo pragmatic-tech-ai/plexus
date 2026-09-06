@@ -38,6 +38,9 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     public static readonly PreviewDataKey = MuralBase.RegisterProperty<LibraryTreeNode | undefined>(
         LibrariesPanelService, 'PreviewData', undefined, MetaData.None)
     public static readonly HasPreviewKey = MuralBase.RegisterProperty<boolean>(LibrariesPanelService, 'HasPreview', false, MetaData.None)
+    // Transient status line (e.g. a reveal miss). Bindable if the panel wants to
+    // surface it; set by RevealTerm.
+    public static readonly StatusKey = MuralBase.RegisterProperty<string>(LibrariesPanelService, 'Status', '', MetaData.None)
 
     private reloadSeq = 0
     private readonly changedListeners = new Set<() => void>()
@@ -71,7 +74,47 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     public get PreviewData(): LibraryTreeNode | undefined { return this.get_property_value(LibrariesPanelService.PreviewDataKey) }
     public get HasPreview(): boolean { return this.get_property_value(LibrariesPanelService.HasPreviewKey) }
 
+    public get Status(): string { return this.get_property_value(LibrariesPanelService.StatusKey) }
+    public set Status(v: string) { this.set_property_value(LibrariesPanelService.StatusKey, v) }
+
     public OnActivated(): void { void this.Reload() }
+
+    // Reveal a published term as a node: expand its ancestor chain and select the
+    // leaf whose TermId matches. Returns false (and sets Status) when no loaded
+    // library carries it. Callers make the Libraries panel the active side pane.
+    public RevealTerm(termId: string): boolean
+    {
+        const path = this.findLeafPath(termId)
+        if (path === undefined) {
+            this.Status = `"${termId}" is not in any loaded library.`
+            return false
+        }
+        // Expand every ancestor (all but the leaf); the tree's ItemContainerStyle
+        // mirrors IsExpanded onto the TreeViewItem containers.
+        for (let i = 0; i < path.length - 1; i++) path[i].IsExpanded = true
+        this.SelectedNode = path[path.length - 1]
+        return true
+    }
+
+    // Depth-first [library, concept-group, …, leaf] whose leaf's TermId === termId,
+    // or undefined if none.
+    private findLeafPath(termId: string): LibraryTreeNode[] | undefined
+    {
+        const walk = (node: LibraryTreeNode, trail: LibraryTreeNode[]): LibraryTreeNode[] | undefined => {
+            const here = [...trail, node]
+            if (node.TermId === termId) return here
+            for (const child of node.Children) {
+                const hit = walk(child, here)
+                if (hit !== undefined) return hit
+            }
+            return undefined
+        }
+        for (const root of this.Roots) {
+            const hit = walk(root, [])
+            if (hit !== undefined) return hit
+        }
+        return undefined
+    }
 
     // Uninstall a library after a confirm, then reload so its row disappears. When
     // no DialogService is registered (headless), skips the confirm and proceeds.

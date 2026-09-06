@@ -6,7 +6,7 @@ import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
 import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
 import { LibraryRegistry } from '../library-registry.js'
 import { LibrariesPanelService } from '../libraries-panel-service.js'
-import { LibraryNodeKind, type LibraryTreeNode } from '../library-tree-node.js'
+import { LibraryNodeKind, LibraryTreeNode } from '../library-tree-node.js'
 import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-resolver.js'
 import { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 
@@ -188,4 +188,34 @@ test('a Library node carries a Delete command that uninstalls it; Concept/Class 
     expect(lib.DeleteCommand).toBeDefined()
     lib.DeleteCommand!.Execute()
     expect(deleted).toEqual({ id: 'microsoft', version: '0.1.0' })
+})
+
+// ── RevealTerm ─────────────────────────────────────────────────────────────
+// Seed a library > concept > leaf(term) tree directly, then reveal by term id.
+function seedTree(svc: LibrariesPanelService, termId: string): { lib: LibraryTreeNode; grp: LibraryTreeNode; leaf: LibraryTreeNode } {
+    svc.Roots.Clear()
+    const lib = LibraryTreeNode.library('Tech · 1.0', 'tech', '1.0')
+    const grp = LibraryTreeNode.group('technology', LibraryNodeKind.Concept)
+    const leaf = LibraryTreeNode.leaf({ display: '.NET', label: '.NET', localId: 'dotnet', termId, concept: 'technology' })
+    grp.Children.Add(leaf); lib.Children.Add(grp); svc.Roots.Add(lib)
+    return { lib, grp, leaf }
+}
+
+test('RevealTerm expands ancestors and selects the matching leaf', () => {
+    const svc = new LibrariesPanelService(providerWith(() => {}))
+    const { lib, grp, leaf } = seedTree(svc, 'tech.dotnet')
+    const ok = svc.RevealTerm('tech.dotnet')
+    expect(ok).toBe(true)
+    expect(lib.IsExpanded).toBe(true)
+    expect(grp.IsExpanded).toBe(true)
+    expect(leaf.IsExpanded).toBe(false) // leaf is selected, not expanded
+    expect(svc.SelectedNode).toBe(leaf)
+})
+
+test('RevealTerm returns false and does not select when the term is absent', () => {
+    const svc = new LibrariesPanelService(providerWith(() => {}))
+    seedTree(svc, 'tech.dotnet')
+    const ok = svc.RevealTerm('nope')
+    expect(ok).toBe(false)
+    expect(svc.SelectedNode).toBeUndefined()
 })

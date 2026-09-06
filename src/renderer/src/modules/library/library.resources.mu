@@ -53,6 +53,14 @@ resources LibraryResources {
         }
     }
 
+    // Mirror each row's expansion from its data node so RevealTerm can open a
+    // path to a leaf from the data side (node.IsExpanded → TreeViewItem). One-way
+    // (IsExpanded is not two-way by default): pushes only when the node changes,
+    // so it never fights a user's own expand/collapse.
+    Style x:key="LibraryTreeItemStyle" [ TargetType = TreeViewItem ] {
+        IsExpanded = $IsExpanded;
+    }
+
     DataTemplate [ DataType = LibrariesPanelService ] {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
             // Preview pane — docked at the bottom, shown when a class is selected.
@@ -77,10 +85,11 @@ resources LibraryResources {
                         Visibility = $IsEmpty << ToVisibility ]
             // The tree fills the remaining space.
             TreeView [ Indent = 14,
-                       ItemsSource      = $Roots,
-                       ItemTemplate     = @LibraryNodeTemplate,
-                       SelectedDataItem = $SelectedNode,
-                       SelectionMode    = Single ]
+                       ItemsSource        = $Roots,
+                       ItemTemplate       = @LibraryNodeTemplate,
+                       ItemContainerStyle = @LibraryTreeItemStyle,
+                       SelectedDataItem   = $SelectedNode,
+                       SelectionMode      = Single ]
         }
     }
 }
