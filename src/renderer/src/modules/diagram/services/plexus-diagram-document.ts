@@ -1,4 +1,4 @@
-import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { MetaData, MuralBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, DialogService, type CommandDefinition, type DiagramStorage, type Diagram } from '@pragmatic-tech-ai/mural/framework'
 import { DiagramCommandExtensionKey } from './diagram-command-extension.js'
 import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
@@ -13,6 +13,19 @@ import { makeLargeFilePrompt } from '../media/prompt-large-file.js'
 // the command — so standalone (non-architecture) diagrams are unaffected.
 export class PlexusDiagramDocument extends DiagramDocument
 {
+    // The node the user right-clicked, published so the shared diagram context
+    // menu (which opens with THIS document as its DataContext — the diagram surface
+    // captures the pointer, so a node's own attached menu never opens) can bind
+    // node-specific items through it: `$ContextTargetNode.HasNavTargets`,
+    // `…GoToComponentCommand`, `…HasWiki`, etc. Set by ArchDiagramBinding's
+    // right-click hit-test just before the menu opens; undefined on empty canvas.
+    // Typed as the INPC root (not ArchNodeVM) to keep the diagram module from
+    // depending on architecture-projects; bindings resolve the facet by name.
+    public static readonly ContextTargetNodeKey = MuralBase.RegisterProperty<MuralBase | undefined>(
+        PlexusDiagramDocument, 'ContextTargetNode', undefined, MetaData.None)
+    public get ContextTargetNode(): MuralBase | undefined { return this.get_property_value(PlexusDiagramDocument.ContextTargetNodeKey) }
+    public set ContextTargetNode(v: MuralBase | undefined) { this.set_property_value(PlexusDiagramDocument.ContextTargetNodeKey, v) }
+
     private _wiredView: Diagram | undefined
     private _detachMediaDrop: (() => void) | undefined
     private _detachMediaPaste: (() => void) | undefined

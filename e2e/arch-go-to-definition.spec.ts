@@ -61,6 +61,49 @@ test.describe.serial('arch-go-to-definition', () => {
     await l.win.waitForTimeout(3000)
   }
 
+  test('a real right-click on a node shows the Go to Definition submenu', async () => {
+    // The click point: center of the smallest on-screen tile bound to a nav-target
+    // node (its icon). The diagram surface captures the pointer (the menu opens
+    // with the document as DataContext), but ArchDiagramBinding's capture-phase
+    // right-click hit-test publishes the clicked node as doc.ContextTargetNode, so
+    // the menu's node items resolve against it.
+    const pt = await l.win.evaluate(() => {
+      const S = Symbol.for('mural:visual-backref')
+      let best: any = null
+      for (const el of document.querySelectorAll('*')) {
+        const dc = (el as any)[S]?.DataContext
+        if (dc?.constructor?.name !== 'ArchNodeVM' || !dc.HasNavTargets) continue
+        const r = (el as Element).getBoundingClientRect()
+        if (r.width < 2 || r.height < 2 || r.x < 0 || r.y < 0 || r.right > innerWidth || r.bottom > innerHeight) continue
+        if (!best || r.width * r.height < best.area) best = { x: r.x + r.width / 2, y: r.y + r.height / 2, area: r.width * r.height, canComponent: !!dc.CanGoToComponent }
+      }
+      return best
+    })
+    expect(pt, 'an on-screen nav-target node tile').not.toBeNull()
+
+    await l.win.mouse.click(pt!.x, pt!.y, { button: 'right' })
+    await l.win.waitForTimeout(700)
+
+    const menu = await l.win.evaluate(() => {
+      const S = Symbol.for('mural:visual-backref')
+      const items: Record<string, boolean> = {}
+      for (const el of document.querySelectorAll('*')) {
+        const v = (el as any)[S]
+        if (v?.constructor?.name !== 'MenuItem') continue
+        const r = (el as Element).getBoundingClientRect()
+        const key = String(v.Header)
+        items[key] = (items[key] ?? false) || (r.width > 0 && r.height > 0)
+      }
+      return items
+    })
+    // The parent item renders on a real node right-click — the whole point of the
+    // fix. (Its sub-items are lazily realized only when the submenu is hovered, so
+    // they're not asserted here; the command-invocation tests below cover them.)
+    expect(menu['Go to Definition'], 'Go to Definition renders on a real node right-click').toBe(true)
+    await l.win.keyboard.press('Escape')
+    await l.win.waitForTimeout(200)
+  })
+
   test('the binding populates a component node\'s nav-target facet from the live model', async () => {
     const facet = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')

@@ -365,43 +365,50 @@ resources DiagramResources {
         // $HasWiki → ToVisibility(undefined) → Collapsed) and on wiki-less nodes.
         // $Concept / $HasWiki resolve against the ArchNodeVM when this shared menu
         // is shown on a node.
+        // Node-only items below resolve through $ContextTargetNode — the node the
+        // user right-clicked, published on the document by ArchDiagramBinding. The
+        // shared menu opens with the DiagramDocument as DataContext (the diagram
+        // surface captures the pointer, so a node's own attached menu never opens),
+        // so binding directly to node properties ($HasWiki/$HasNavTargets) would
+        // resolve against the document and always collapse. Going through
+        // $ContextTargetNode.* makes them resolve against the clicked node, and
+        // collapse on the empty-canvas right-click (ContextTargetNode is undefined).
         MenuItem
             [ Header           = "Open Wiki",
               Command          = $service(WikiService).OpenWikiCommand,
-              CommandParameter = $Concept,
-              Visibility       = $HasWiki << ToVisibility ]
-        // Node-only: "Go to Definition" — navigate to the node's component (always
-        // source code), technology, and category (published-artifact node or
-        // project source). The whole item hides on a wiki-less/relation-less node
-        // or the empty-canvas right-click ($HasNavTargets is undefined → Collapsed).
-        // Component is always a flat item; technology and category are each a flat
-        // item when the node maps to one target and a nested submenu when it maps
-        // to many (a technology fans out to N applicable_to categories). The
-        // adaptive Visibility flags come from ArchNodeVM's nav-target facet.
+              CommandParameter = $ContextTargetNode.Concept,
+              Visibility       = $ContextTargetNode.HasWiki << ToVisibility ]
+        // "Go to Definition" — navigate to the node's component (always source
+        // code), technology, and category (published-artifact node or project
+        // source). Component is always a flat item; technology and category are
+        // each a flat item when the node maps to one target and a nested submenu
+        // when it maps to many (a technology fans out to N applicable_to
+        // categories). The adaptive Visibility flags come from the clicked node's
+        // nav-target facet via $ContextTargetNode.
         MenuItem
             [ Header     = "Go to Definition",
-              Visibility = $HasNavTargets << ToVisibility ] {
+              Visibility = $ContextTargetNode.HasNavTargets << ToVisibility ] {
             MenuItem
                 [ Header     = "Component",
-                  Command    = $GoToComponentCommand,
-                  Visibility = $CanGoToComponent << ToVisibility ]
+                  Command    = $ContextTargetNode.GoToComponentCommand,
+                  Visibility = $ContextTargetNode.CanGoToComponent << ToVisibility ]
             MenuItem
                 [ Header     = "Technology",
-                  Command    = $SingleTechnologyCommand,
-                  Visibility = $HasOneTechnology << ToVisibility ]
+                  Command    = $ContextTargetNode.SingleTechnologyCommand,
+                  Visibility = $ContextTargetNode.HasOneTechnology << ToVisibility ]
             MenuItem
                 [ Header                   = "Technology",
-                  Visibility               = $HasManyTechnologies << ToVisibility,
-                  ItemsControl.ItemsSource  = $Technologies,
+                  Visibility               = $ContextTargetNode.HasManyTechnologies << ToVisibility,
+                  ItemsControl.ItemsSource  = $ContextTargetNode.Technologies,
                   ItemsControl.ItemTemplate = @NavItemTemplate ]
             MenuItem
                 [ Header     = "Category",
-                  Command    = $SingleCategoryCommand,
-                  Visibility = $HasOneCategory << ToVisibility ]
+                  Command    = $ContextTargetNode.SingleCategoryCommand,
+                  Visibility = $ContextTargetNode.HasOneCategory << ToVisibility ]
             MenuItem
                 [ Header                   = "Category",
-                  Visibility               = $HasManyCategories << ToVisibility,
-                  ItemsControl.ItemsSource  = $Categories,
+                  Visibility               = $ContextTargetNode.HasManyCategories << ToVisibility,
+                  ItemsControl.ItemsSource  = $ContextTargetNode.Categories,
                   ItemsControl.ItemTemplate = @NavItemTemplate ]
         }
     }

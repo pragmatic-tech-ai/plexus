@@ -117,6 +117,47 @@ export class ArchDiagramBinding
             this.boundEdges.clear()
             this.rescan()
         })
+        // Capture right-clicks BEFORE the diagram's shared context menu opens, so
+        // the menu can bind node-specific items ("Go to Definition", "Open Wiki")
+        // through the document. The diagram surface captures the pointer, so a
+        // node's own attached menu never opens and the shared menu opens with the
+        // document as DataContext, blind to which node was clicked. A capture-phase
+        // listener runs first; it hit-tests the node under the cursor and publishes
+        // it as doc.ContextTargetNode. (window is renderer-global; the per-doc
+        // guard below scopes each binding to its own nodes.)
+        if (typeof window !== 'undefined') {
+            window.addEventListener('pointerdown', this.onPointerDownCapture, true)
+        }
+    }
+
+    // On a right-click, publish the arch node under the cursor (or undefined for
+    // empty canvas) so the shared diagram menu's node-specific items resolve
+    // against it. Hit-tests via the rendered tile rects (robust to zoom / scroll /
+    // nesting — getBoundingClientRect is absolute), scoped to THIS doc's nodes so a
+    // background diagram's binding never claims the active diagram's nodes.
+    private readonly onPointerDownCapture = (e: PointerEvent): void => {
+        if (e.button !== 2) return
+        const target = this.archNodeAtViewportPoint(e.clientX, e.clientY)
+        ;(this.doc as unknown as { ContextTargetNode?: ArchNodeVM }).ContextTargetNode = target
+    }
+
+    // The innermost arch node whose rendered tile contains the viewport point, from
+    // THIS doc's bound nodes; undefined when the point is over none.
+    private archNodeAtViewportPoint(x: number, y: number): ArchNodeVM | undefined {
+        const backref = Symbol.for('mural:visual-backref')
+        let best: { node: ArchNodeVM; area: number } | undefined
+        for (const el of document.querySelectorAll('*')) {
+            const dc = (el as unknown as Record<symbol, { DataContext?: unknown } | undefined>)[backref]?.DataContext
+            if (!(dc instanceof ArchNodeVM)) continue
+            const id = dc.EntityId
+            if (id === undefined || this.bound.get(id) !== dc) continue   // only this doc's nodes
+            const r = el.getBoundingClientRect()
+            if (r.width <= 0 || r.height <= 0) continue
+            if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue
+            const area = r.width * r.height
+            if (best === undefined || area < best.area) best = { node: dc, area }   // innermost (smallest) wins
+        }
+        return best?.node
     }
 
     // Attach the ConnectorCreated listener to the current canvas view. A user-drawn
@@ -690,6 +731,9 @@ export class ArchDiagramBinding
         for (const off of this.connectorVisualTeardown.values()) off()
         this.connectorVisualTeardown.clear()
         for (const un of this.titleUnsubs.splice(0)) un()
+        if (typeof window !== 'undefined') {
+            window.removeEventListener('pointerdown', this.onPointerDownCapture, true)
+        }
     }
 }
 
