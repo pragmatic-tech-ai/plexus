@@ -1,6 +1,15 @@
 import { toElement, type Element, type Entity, type Repository } from '@pragmatic-tech-ai/todl'
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { NavigationService, type NavigationDestination } from '@pragmatic-tech-ai/mural/framework'
+import { WikiOriginKind } from '../../../services/projects/wiki-origin.js'
+import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
 import type { ArchModel } from './arch-model.js'
+
+// The two navigator surfaces the routing needs — narrowed so tests can supply
+// doubles without the full services.
+interface IExplorer { OpenFileInProject(projectId: string, uri: string, line: number, column: number): Promise<void> }
+interface ILibraries { RevealTerm(termId: string): boolean }
 
 // Which relation a nav target represents. String-backed so it can drive markup
 // (menu labels) and read clearly in tests.
@@ -89,6 +98,67 @@ export class ArchNavigationService extends ServiceBase
     {
         const label = String(el.fields['label'] ?? el.fields['name'] ?? el.id)
         return { kind, id: el.id, concept: el.concept, label }
+    }
+
+    // Navigate to a resolved target: reveal published entities in the Libraries
+    // panel, else open the declaring .todl source at the entity's declaration.
+    public async navigateTo(model: ArchModel, projectId: string, target: NavTarget): Promise<void>
+    {
+        const origin = model.wikiOriginOf(target.id)
+        if (origin?.kind === WikiOriginKind.Package) {
+            this.activateLibraries()
+            this.resolveLibraries()?.RevealTerm(target.id)
+            return
+        }
+        // Open-project entity: own instances have a home file; a project-local term
+        // (rare — technologies/categories usually come from published libraries)
+        // has no home and is a v1 no-op with a status left to the panel.
+        const uri = model.homeOf(target.id)
+        if (uri === undefined) return
+        const line = await this.lineOfDeclaration(model, uri, target.id)
+        await this.resolveExplorer()?.OpenFileInProject(projectId, uri, line, 1)
+    }
+
+    // 1-based line of the entity's declaration in its source; 1 when not found.
+    // Matches a declaration line: the concept keyword plus the entity's local id.
+    private async lineOfDeclaration(model: ArchModel, uri: string, id: string): Promise<number>
+    {
+        const text = await model.Storage.ReadText(uri)
+        const lines = text.split('\n')
+        const localId = id.includes('.') ? id.slice(id.lastIndexOf('.') + 1) : id
+        const idRe = new RegExp(`\\b${localId}\\b`)
+        const declRe = /\b(component|technology|category|actor|block|location|term)\b/
+        const idx = lines.findIndex((ln) => idRe.test(ln) && declRe.test(ln))
+        return idx >= 0 ? idx + 1 : 1
+    }
+
+    private explorer?: IExplorer
+    private libraries?: ILibraries
+
+    protected resolveExplorer(): IExplorer | undefined
+    {
+        return this.explorer ??= this.provider.get(ProjectExplorerService.Key)
+    }
+
+    protected resolveLibraries(): ILibraries | undefined
+    {
+        return this.libraries ??= this.provider.get(LibrariesPanelService.Key)
+    }
+
+    // Make the Libraries capability the visible side pane: find its navigation
+    // destination (by capability ServiceKey) and execute its ActivateCommand.
+    protected activateLibraries(): void
+    {
+        const nav = this.provider.get(NavigationService.Key)
+        if (nav === undefined) return
+        for (const item of nav.Items) {
+            const dest = item as NavigationDestination
+            if (dest.Capability?.ServiceKey === LibrariesPanelService.Key) {
+                nav.SidePaneVisible = true
+                dest.ActivateCommand?.Execute(undefined)
+                return
+            }
+        }
     }
 
     // The composed Element for an entity id. Resolves the model's own instance by

@@ -61,3 +61,44 @@ test('an unknown id yields empty targets', () => {
   expect(t.technologies).toEqual([])
   expect(t.categories).toEqual([])
 })
+
+// ── navigateTo: provenance fork ────────────────────────────────────────────
+import { WikiOriginKind } from '../../../../services/projects/wiki-origin.js'
+import { NavTargetKind as Kind } from '../arch-navigation-service.js'
+
+// A routing harness: overrides the two navigator seams + activation so the fork
+// logic is verified independent of the real services.
+function routing(origin: 'published' | 'project') {
+  const opened: Array<{ p: string; u: string; l: number }> = []
+  const revealed: string[] = []
+  let activated = false
+  class RouteNav extends ArchNavigationService {
+    public constructor() { super({ get: () => undefined } as never) }
+    protected override resolveExplorer() { return { OpenFileInProject: (p: string, u: string, l: number) => { opened.push({ p, u, l }); return Promise.resolve() } } }
+    protected override resolveLibraries() { return { RevealTerm: (t: string) => { revealed.push(t); return true } } }
+    protected override activateLibraries() { activated = true }
+  }
+  const model = {
+    wikiOriginOf: () => (origin === 'published' ? { kind: WikiOriginKind.Package, backend: 'library', id: 'tech', version: '1.0' } : undefined),
+    homeOf: () => (origin === 'project' ? 'landscape.todl' : undefined),
+    Storage: { ReadText: () => Promise.resolve('namespace x {\n  component orders { }\n}\n') },
+  } as never
+  return { nav: new RouteNav(), model, opened, revealed, get activated() { return activated } }
+}
+
+test('a published target reveals in the Libraries panel (and activates it)', async () => {
+  const h = routing('published')
+  await h.nav.navigateTo(h.model, 'proj', { kind: Kind.Technology, id: 'tech.dotnet', concept: 'technology', label: '.NET' })
+  expect(h.revealed).toEqual(['tech.dotnet'])
+  expect(h.activated).toBe(true)
+  expect(h.opened).toEqual([])
+})
+
+test('a project target opens the .todl source at the declaration line', async () => {
+  const h = routing('project')
+  await h.nav.navigateTo(h.model, 'proj', { kind: Kind.Component, id: 'orders', concept: 'component', label: 'Orders' })
+  expect(h.revealed).toEqual([])
+  expect(h.opened.length).toBe(1)
+  expect(h.opened[0]!.u).toBe('landscape.todl')
+  expect(h.opened[0]!.l).toBe(2) // 1-based line of "component orders"
+})
