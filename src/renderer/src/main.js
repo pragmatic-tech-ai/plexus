@@ -39,12 +39,6 @@ import { DiagramGuidesService } from './modules/diagram/services/diagram-guides-
 import { DiagramCanvasService } from './modules/diagram/services/diagram-canvas-service.js'
 import { AutosaveService } from './services/autosave/autosave-service.js'
 import { DocumentCloseGuard } from './services/documents/document-close-guard.js'
-import { ArchNewDiagramParticipant } from './modules/architecture-projects/services/arch-new-diagram-participant.js'
-import { NewFileParticipantKey } from './services/documents/new-file-participant.js'
-import { ArchEditViewpointsCommand } from './modules/architecture-projects/services/arch-edit-viewpoints-command.js'
-import { DiagramCommandExtensionKey } from './modules/diagram/services/diagram-command-extension.js'
-import { ArchNodeCommandContributor } from './modules/architecture-projects/services/arch-node-command-contributor.js'
-import { NodeCommandContributorKey } from './services/documents/node-command-contributor.js'
 import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
 import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
 import { TodlLanguageClient } from './services/todl/todl-language-client.js'
@@ -127,43 +121,27 @@ try {
     // Arch model toolbox page: construct now so it observes the active document
     // from boot and contributes the "Model:" page for architecture diagrams.
     app.Services.get(ArchModelToolboxContributor.Key)
-    // Diagram camera persistence: restore each diagram's saved zoom/pan on open and
-    // write it back (debounced) on change, via the document's metadata slot. Generic
-    // to every .diagram, so it lives in the diagram module (not architecture-projects).
-    app.Services.register(DiagramCameraService.Key, (p) => new DiagramCameraService(p))
+    // Eagerly wake the diagram persistence trio (registered in app.mu's .services:
+    // block). Each restores per-diagram state on open and writes it back (debounced)
+    // via the document's metadata slot; constructing them now makes their document +
+    // settings subscriptions live from boot:
+    //   • DiagramCameraService — saved zoom/pan
+    //   • DiagramGuidesService — ruler guides
+    //   • DiagramCanvasService — PaginatedCanvas page size + grid (from "Diagram" settings)
     app.Services.get(DiagramCameraService.Key)
-    // Diagram guide persistence: restore each diagram's saved ruler guides on open
-    // and write them back (debounced) on change, via the document's metadata slot.
-    // Generic to every .diagram, like the camera service above.
-    app.Services.register(DiagramGuidesService.Key, (p) => new DiagramGuidesService(p))
     app.Services.get(DiagramGuidesService.Key)
-    // Document close guard: prompts Save / Don't Save / Cancel before a dirty
-    // document tab closes. Registered so the tab template's ✕ ($service) and the
-    // project-explorer/quit paths reach the same instance.
-    app.Services.register(DocumentCloseGuard.Key, (p) => new DocumentCloseGuard(p))
-    app.Services.get(DocumentCloseGuard.Key)
-    // Autosave: periodically save every dirty document (interval + on/off from the
-    // "Documents" settings). Eagerly constructed so its timer starts from boot.
-    app.Services.register(AutosaveService.Key, (p) => new AutosaveService(p))
-    app.Services.get(AutosaveService.Key)
-    // Diagram canvas background: drive each diagram's PaginatedCanvas from the
-    // "Diagram" settings — page size (page width/height) and the "Show grid"
-    // pattern (grid size + colour). Generic to every .diagram; construct now so
-    // it observes documents + settings from boot.
-    app.Services.register(DiagramCanvasService.Key, (p) => new DiagramCanvasService(p))
     app.Services.get(DiagramCanvasService.Key)
-    // Arch new-diagram participant: aliased under the generic NewFileParticipant
-    // key so the ProjectExplorer prompts for governing viewpoints when a new
-    // .diagram is created in an architecture project.
-    app.Services.register(NewFileParticipantKey, (p) => new ArchNewDiagramParticipant(p))
-    // Arch edit-viewpoints toolbar command: aliased under the generic diagram
-    // command-extension key so PlexusDiagramDocument routes "arch.editViewpoints"
-    // to the shared viewpoints editor (enabled only for arch-bound diagrams).
-    app.Services.register(DiagramCommandExtensionKey, (p) => new ArchEditViewpointsCommand(p))
-    // Arch node context-menu action: aliased under the generic node-command
-    // contributor key so the ProjectExplorer surfaces "Edit Viewpoints…" on a
-    // .diagram node in an architecture project.
-    app.Services.register(NodeCommandContributorKey, (p) => new ArchNodeCommandContributor(p))
+    // Document close guard (app.mu .services:): prompts Save / Don't Save / Cancel
+    // before a dirty tab closes — the tab template's ✕ and the project-explorer/quit
+    // paths reach this same instance. Woken now so it's ready before any close.
+    app.Services.get(DocumentCloseGuard.Key)
+    // Autosave (app.mu .services:): periodically saves every dirty document (interval
+    // + on/off from the "Documents" settings). Woken now so its timer starts at boot.
+    app.Services.get(AutosaveService.Key)
+    // The architecture-project contributors (new-diagram viewpoints participant,
+    // edit-viewpoints toolbar command, explorer node context action) are now
+    // alias-registered in app.mu's .services: block under the generic
+    // framework/document extension keys — no bootstrap wiring needed here.
     // Wire the out-of-process TODL language client: build the JSON-RPC connection
     // over the preload pipe, handshake with the forked server, register the Monaco
     // provider adapters, and resync every project after a server restart.

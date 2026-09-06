@@ -171,6 +171,24 @@ import ProjectRescanService from "./services/file-watch/project-rescan-service.j
 import CodeEditorResources from "./modules/code-editor/code-editor.resources.mu.js"
 import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.resources.mu.js"
 
+// Services formerly registered imperatively in the renderer bootstrap (main.js),
+// moved here so ALL service registration is declarative in one place. The diagram
+// persistence trio + close-guard + autosave keep their eager `.get()` in main.js
+// (they must construct at boot); the three architecture contributors are
+// alias-registered under the generic framework/document extension keys (the same
+// `Impl -> Key` form as ElectronSettingsStore / PlexusDocumentHost above).
+import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
+import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
+import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
+import DocumentCloseGuard from "./services/documents/document-close-guard.js"
+import AutosaveService from "./services/autosave/autosave-service.js"
+import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
+import NewFileParticipantKey from "./services/documents/new-file-participant.js"
+import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"
+import DiagramCommandExtensionKey from "./modules/diagram/services/diagram-command-extension.js"
+import ArchNodeCommandContributor from "./modules/architecture-projects/services/arch-node-command-contributor.js"
+import NodeCommandContributorKey from "./services/documents/node-command-contributor.js"
+
 // Wiki: an "Open Wiki" action on concept surfaces that opens the concept's
 // declared markdown page (resolved from its open project) in a Monaco tab.
 import WikiLocator from "./services/wiki/wiki-locator.js"
@@ -324,6 +342,29 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // four concept surfaces via the @OpenWikiMenu context menu).
         WikiLocator
         WikiService
+        // ── Moved from the renderer bootstrap (main.js) ──────────────────────
+        // Diagram persistence trio (camera zoom/pan, ruler guides, canvas page +
+        // grid) — generic to every .diagram. Eagerly resolved in main.js so each
+        // one's document + settings subscriptions are live from boot.
+        DiagramCameraService
+        DiagramGuidesService
+        DiagramCanvasService
+        // Document close guard: prompts Save / Don't Save / Cancel before a dirty
+        // tab closes. PlexusDocumentHost (above) routes its user-initiated close
+        // commands through this instance; eagerly resolved in main.js.
+        DocumentCloseGuard
+        // Autosave: periodically saves every dirty document (interval + on/off from
+        // the "Documents" settings). Eagerly resolved in main.js so its timer starts
+        // from boot.
+        AutosaveService
+        // Architecture-project contributions, alias-registered under the generic
+        // framework/document extension keys: prompt for governing viewpoints when a
+        // new .diagram is created (NewFileParticipant), the "Edit Viewpoints…"
+        // toolbar command (DiagramCommandExtension), and the explorer node
+        // context-menu action (NodeCommandContributor).
+        ArchNewDiagramParticipant -> NewFileParticipantKey
+        ArchEditViewpointsCommand -> DiagramCommandExtensionKey
+        ArchNodeCommandContributor -> NodeCommandContributorKey
     }
 
     .modules: {
