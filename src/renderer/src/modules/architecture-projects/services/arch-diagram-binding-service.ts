@@ -7,6 +7,7 @@ import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base
 import type { OpenProject } from '../../../services/projects/open-project.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import { ArchDiagramBinding } from './arch-diagram-binding.js'
+import { ArchNavigationService } from './arch-navigation-service.js'
 import { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
 import { WikiService, type WikiTarget } from '../../../services/wiki/wiki-service.js'
 import { wikiPathOf } from '../../../services/wiki/wiki-locator.js'
@@ -121,7 +122,8 @@ export class ArchDiagramBindingService extends ServiceBase
             const wiki = this.Provider.get(WikiService.Key)
             const status = this.Provider.get(StatusService.Key)
             const dialogs = this.Provider.get(DialogService.Key)
-            const binding = new ArchDiagramBinding(doc, model, chooser, wiki, status, dialogs)
+            const nav = this.Provider.get(ArchNavigationService.Key)
+            const binding = new ArchDiagramBinding(doc, model, chooser, wiki, status, dialogs, nav, op.Project.RootPath)
             binding.attach()
             const store = doc.Storage
             if (store instanceof FileDiagramStorage) {

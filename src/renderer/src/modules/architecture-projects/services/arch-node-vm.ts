@@ -1,6 +1,8 @@
-import { MetaData, MuralBase, type PropertyKey } from '@pragmatic-tech-ai/mural/runtime'
+import { MetaData, MuralBase, ObservableCollection, RelayCommand, type ICommand, type PropertyKey } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramSettings, NodeViewModel, ToolboxVisualDescriptor, type Diagram, type DiagramDocument, type DiagramInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
 import { Brush, FontFamily, FontStyle, FontWeight, TextAlignment, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
+import { ArchNavItemVM } from './arch-nav-item-vm.js'
+import type { NavTarget, NavTargets } from './arch-navigation-service.js'
 
 // Initial box for a freshly-dropped arch tile. The container fits its content
 // once measured (SizeToContent), but a drop needs a starting box before the
@@ -40,6 +42,36 @@ export class ArchNodeVM extends NodeViewModel {
     // node as a ContentContainerFigure instead of a plain content tile. Set from
     // the concept by ArchDiagramBinding.rescan.
     static readonly IsContainerKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'IsContainer', false, MetaData.None)
+
+    // ── "Go to Definition" nav-target facet ─────────────────────────────────
+    // Bindable, adaptive destinations resolved off this node's backing entity by
+    // the ArchNavigationService and pushed here by ArchDiagramBinding.rescan (via
+    // ApplyNavTargets). The diagram's "Go to Definition ▸" submenu binds these:
+    // the component is a single flat item; technologies and categories are LISTS
+    // (a component has ≤1 of each, a technology maps to N applicable_to
+    // categories), so each renders as a flat item when it has one target and a
+    // nested submenu when it has many. The Has*/HasOne*/HasMany* flags drive
+    // per-item Visibility; the Single*Command backs the flat (one-target) case.
+    static readonly CanGoToComponentKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'CanGoToComponent', false, MetaData.None)
+    static readonly GoToComponentCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(ArchNodeVM, 'GoToComponentCommand', undefined, MetaData.None)
+
+    static readonly TechnologiesKey = MuralBase.RegisterProperty<ObservableCollection<ArchNavItemVM>>(
+        ArchNodeVM, 'Technologies', undefined as unknown as ObservableCollection<ArchNavItemVM>, MetaData.None)
+    static readonly HasTechnologiesKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasTechnologies', false, MetaData.None)
+    static readonly HasOneTechnologyKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasOneTechnology', false, MetaData.None)
+    static readonly HasManyTechnologiesKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasManyTechnologies', false, MetaData.None)
+    static readonly SingleTechnologyCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(ArchNodeVM, 'SingleTechnologyCommand', undefined, MetaData.None)
+
+    static readonly CategoriesKey = MuralBase.RegisterProperty<ObservableCollection<ArchNavItemVM>>(
+        ArchNodeVM, 'Categories', undefined as unknown as ObservableCollection<ArchNavItemVM>, MetaData.None)
+    static readonly HasCategoriesKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasCategories', false, MetaData.None)
+    static readonly HasOneCategoryKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasOneCategory', false, MetaData.None)
+    static readonly HasManyCategoriesKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasManyCategories', false, MetaData.None)
+    static readonly SingleCategoryCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(ArchNodeVM, 'SingleCategoryCommand', undefined, MetaData.None)
+
+    // True when any relation resolved — gates the whole "Go to Definition" parent
+    // item so a node with no navigable relations shows no submenu at all.
+    static readonly HasNavTargetsKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasNavTargets', false, MetaData.None)
 
     // The document this node lives in, set by ArchDiagramBinding.rescan. Lets the
     // node's right-click menu reuse the SHARED @DiagramContextMenu (Copy/Cut/Align/
@@ -109,6 +141,10 @@ export class ArchNodeVM extends NodeViewModel {
         // the tile template can bind `$IconSize`. Geometry (box size, content-fit)
         // lives on the container Figure, not here.
         this.IconSize = DiagramSettings.ShapeDefaultSize()
+        // Stable collections the submenu's ItemsSource subscribes to; ApplyNavTargets
+        // mutates them in place (the DP reference never changes).
+        this.set_property_value(ArchNodeVM.TechnologiesKey, new ObservableCollection<ArchNavItemVM>())
+        this.set_property_value(ArchNodeVM.CategoriesKey, new ObservableCollection<ArchNavItemVM>())
     }
 
     get Label(): string {
@@ -245,6 +281,79 @@ export class ArchNodeVM extends NodeViewModel {
     CancelEdit(): void {
         if (!this.IsEditing) return
         this.IsEditing = false
+    }
+
+    // ── Nav-target facet accessors ──────────────────────────────────────────
+    get CanGoToComponent(): boolean { return this.get_property_value(ArchNodeVM.CanGoToComponentKey) }
+    set CanGoToComponent(v: boolean) { this.set_property_value(ArchNodeVM.CanGoToComponentKey, v) }
+    get GoToComponentCommand(): ICommand | undefined { return this.get_property_value(ArchNodeVM.GoToComponentCommandKey) }
+
+    get Technologies(): ObservableCollection<ArchNavItemVM> { return this.get_property_value(ArchNodeVM.TechnologiesKey) }
+    get HasTechnologies(): boolean { return this.get_property_value(ArchNodeVM.HasTechnologiesKey) }
+    set HasTechnologies(v: boolean) { this.set_property_value(ArchNodeVM.HasTechnologiesKey, v) }
+    get HasOneTechnology(): boolean { return this.get_property_value(ArchNodeVM.HasOneTechnologyKey) }
+    set HasOneTechnology(v: boolean) { this.set_property_value(ArchNodeVM.HasOneTechnologyKey, v) }
+    get HasManyTechnologies(): boolean { return this.get_property_value(ArchNodeVM.HasManyTechnologiesKey) }
+    set HasManyTechnologies(v: boolean) { this.set_property_value(ArchNodeVM.HasManyTechnologiesKey, v) }
+    get SingleTechnologyCommand(): ICommand | undefined { return this.get_property_value(ArchNodeVM.SingleTechnologyCommandKey) }
+
+    get Categories(): ObservableCollection<ArchNavItemVM> { return this.get_property_value(ArchNodeVM.CategoriesKey) }
+    get HasCategories(): boolean { return this.get_property_value(ArchNodeVM.HasCategoriesKey) }
+    set HasCategories(v: boolean) { this.set_property_value(ArchNodeVM.HasCategoriesKey, v) }
+    get HasOneCategory(): boolean { return this.get_property_value(ArchNodeVM.HasOneCategoryKey) }
+    set HasOneCategory(v: boolean) { this.set_property_value(ArchNodeVM.HasOneCategoryKey, v) }
+    get HasManyCategories(): boolean { return this.get_property_value(ArchNodeVM.HasManyCategoriesKey) }
+    set HasManyCategories(v: boolean) { this.set_property_value(ArchNodeVM.HasManyCategoriesKey, v) }
+    get SingleCategoryCommand(): ICommand | undefined { return this.get_property_value(ArchNodeVM.SingleCategoryCommandKey) }
+
+    get HasNavTargets(): boolean { return this.get_property_value(ArchNodeVM.HasNavTargetsKey) }
+    set HasNavTargets(v: boolean) { this.set_property_value(ArchNodeVM.HasNavTargetsKey, v) }
+
+    // Push a resolved set of destinations onto the node's bindable facet. `run` is
+    // the router (ArchNavigationService.navigateTo bound to this model + project);
+    // each item / flat command invokes it with its own NavTarget. Re-applying
+    // replaces the previous set wholesale (a rescan re-derives targets).
+    ApplyNavTargets(targets: NavTargets, run: (t: NavTarget) => void): void {
+        const component = targets.component
+        this.CanGoToComponent = component !== undefined
+        this.set_property_value(
+            ArchNodeVM.GoToComponentCommandKey,
+            component !== undefined ? new RelayCommand(() => run(component)) : undefined)
+
+        this.applyRelation(
+            targets.technologies, run, this.Technologies,
+            ArchNodeVM.HasTechnologiesKey, ArchNodeVM.HasOneTechnologyKey,
+            ArchNodeVM.HasManyTechnologiesKey, ArchNodeVM.SingleTechnologyCommandKey)
+
+        this.applyRelation(
+            targets.categories, run, this.Categories,
+            ArchNodeVM.HasCategoriesKey, ArchNodeVM.HasOneCategoryKey,
+            ArchNodeVM.HasManyCategoriesKey, ArchNodeVM.SingleCategoryCommandKey)
+
+        this.HasNavTargets = this.CanGoToComponent || this.HasTechnologies || this.HasCategories
+    }
+
+    // Rebuild one relation list (technology or category): fill its item collection,
+    // set the cardinality flags, and back the flat (one-target) case with a single
+    // command. Empty leaves every flag false and the command undefined.
+    private applyRelation(
+        list: readonly NavTarget[],
+        run: (t: NavTarget) => void,
+        coll: ObservableCollection<ArchNavItemVM>,
+        hasKey: PropertyKey<boolean>,
+        hasOneKey: PropertyKey<boolean>,
+        hasManyKey: PropertyKey<boolean>,
+        singleCommandKey: PropertyKey<ICommand | undefined>,
+    ): void {
+        coll.Clear()
+        for (const t of list) coll.Add(new ArchNavItemVM(t.label, new RelayCommand(() => run(t))))
+        this.set_property_value(hasKey, list.length > 0)
+        this.set_property_value(hasOneKey, list.length === 1)
+        this.set_property_value(hasManyKey, list.length > 1)
+        const first = list[0]
+        this.set_property_value(
+            singleCommandKey,
+            first !== undefined ? new RelayCommand(() => run(first)) : undefined)
     }
 
     // Subscribe to committed title edits (the ArchDiagramBinding wires this to

@@ -15,6 +15,7 @@ import { readConnectorVisuals, writeConnectorVisual, captureConnectorVisual, app
 import { scenarioStepPairs, type FlowEntity } from './scenario-flow.js'
 import type { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
 import type { WikiService } from '../../../services/wiki/wiki-service.js'
+import type { ArchNavigationService } from './arch-navigation-service.js'
 
 // Synthetic relationship member for a projected scenario step edge, so its
 // edgeKey never collides with a real model relationship member.
@@ -65,6 +66,12 @@ export class ArchDiagramBinding
         private readonly status?: IStatusSink,
         // Modal host for the illegal-drag-in rejection (shared with the drop path).
         private readonly dialogs?: DialogService,
+        // The "Go to Definition" router + this diagram's owning project id
+        // (Project.RootPath). Present in the live editor; omitted for headless
+        // render binds (no navigation surface). When both are set, rescan populates
+        // each node's nav-target facet so its right-click submenu is live.
+        private readonly nav?: ArchNavigationService,
+        private readonly projectId?: string,
     ) {}
 
     // Does `concept` declare a wiki page? A cheap `repo.resolve('X@wiki')` off the
@@ -299,6 +306,16 @@ export class ArchDiagramBinding
                 // shared @DiagramContextMenu ($ActiveView / $Inspector resolve via
                 // ArchNodeVM's HostDocument aliases).
                 node.HostDocument = this.doc
+                // Populate the "Go to Definition" facet: resolve this entity's
+                // navigable relations (component / technology / category) and hand
+                // the node its bindable, adaptive targets + a router that opens the
+                // source or reveals the published term.
+                if (this.nav !== undefined && this.projectId !== undefined) {
+                    const nav = this.nav
+                    const projectId = this.projectId
+                    const targets = nav.resolveTargets(this.model, id)
+                    node.ApplyNavTargets(targets, (t) => void nav.navigateTo(this.model, projectId, t))
+                }
             } else if (node instanceof Figure) {
                 // Back-compat for any freeform Figure with a matching entity id.
                 const id = node.Id
