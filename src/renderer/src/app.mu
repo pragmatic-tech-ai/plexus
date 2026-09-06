@@ -400,17 +400,17 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
 
         // Round the left side pane's corners (@ShapeSmall) to match the right
         // dock + document area. CornerRadius is a themeable DP on
-        // ShellSideContentPane (mural 0.41.4, defaults to square); the framework
-        // template binds it and clips the pane content to the rounded bounds.
+        // ShellSideContentPane (mural 0.41.4, defaults to square); the template
+        // clips the pane content to the rounded bounds.
         //
         // Template + Fill are re-declared DELIBERATELY: an app-level IMPLICIT
         // Style shadows the theme Style in Application.Resources, so mural's
         // Seal() resolves the implicit BasedOn to THIS style, trips the
         // self-reference guard, and inherits no Template — the pane would vanish.
-        // Naming the framework Template (@DefaultShellSideContentPane) + the
+        // Naming a concrete Template (@PlexusSideContentPane) + the
         // @SurfaceContainer Fill here makes the style self-contained.
         Style [ TargetType = ShellSideContentPane ] {
-            Template     = @DefaultShellSideContentPane;
+            Template     = @PlexusSideContentPane;
             Fill         = @SurfaceContainer;
             CornerRadius = @ShapeSmall;
             // 1dp inset so the pane floats off the window/splitter edges (matches

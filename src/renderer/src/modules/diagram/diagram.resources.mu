@@ -597,4 +597,40 @@ resources DiagramResources {
             }
         }
     }
+
+    // ── Format-Shape inspector: a visible rule under the icon-tab rail ──────────
+    // Shadows the framework DataTemplate[DiagramInspector] (the icon rail docked
+    // over the selected page's body) solely to give the tab rail a VISIBLE bottom
+    // divider — matching the side-pane title rule (@PlexusSideContentPane). The
+    // framework rail template already carries a bottom Line, but (like the side
+    // pane) that oriented Line doesn't lay out here; a docked 1dp @Outline Border
+    // is the reliable rule. We reuse the framework's own @InspectorRailItem (the
+    // icon button + selected-tab notch) and @InspectorRailPanel (horizontal stack),
+    // so only the rail chrome changes.
+    Template x:key="PlexusInspectorRailTemplate" [ TargetType = NavigationRail ] {
+        Border x:name="PART_Border" [ Fill = @Surface, Padding = (5) ] {
+            DockPanel [ LastChildFill = true ] {
+                Border [ DockPanel.Dock = Bottom, Height = 1, Fill = @Outline ]
+                ItemsPresenter x:name="PART_ItemsPresenter"
+            }
+        }
+    }
+
+    Style x:key="PlexusInspectorRail" [ TargetType = NavigationRail ] {
+        Template   = @PlexusInspectorRailTemplate;
+        ItemsPanel = @InspectorRailPanel;
+    }
+
+    DataTemplate [ DataType = DiagramInspector ] {
+        DockPanel [ LastChildFill = true ] {
+            NavigationRail
+                [ DockPanel.Dock     = Top,
+                  VerticalAlignment  = Top,
+                  Style              = @PlexusInspectorRail,
+                  ItemContainerStyle = @InspectorRailItem,
+                  ItemsSource        = $Pages,
+                  SelectedItem       = $SelectedPage ]
+            ContentControl [ Content = $SelectedPage ]
+        }
+    }
 }
