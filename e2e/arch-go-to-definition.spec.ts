@@ -132,7 +132,7 @@ test.describe.serial('arch-go-to-definition', () => {
     expect(facet!.catCount).toBeGreaterThanOrEqual(0)   // collection initialized, not the -1 sentinel
   })
 
-  test('invoking Go to Component opens the declaring .todl source', async () => {
+  test('invoking Go to Component opens the source AND reveals the declaration line', async () => {
     await reopenDiagram()
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
@@ -149,21 +149,29 @@ test.describe.serial('arch-go-to-definition', () => {
     await l.win.waitForTimeout(2500)
 
     // The component is an own instance declared in landscape.todl, so the router
-    // opened that source file — assert a live document for it now exists.
-    const opened = await l.win.evaluate(() => {
+    // opened that source file AND scrolled/placed the caret on the declaration
+    // (line > 1). This guards the reveal-after-content fix: the reveal is buffered
+    // until the model content loads, so it lands on the real line, not line 1.
+    const state = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
+      let opened = false
       for (const el of document.querySelectorAll('*')) {
         const dc = (el as any)[S]?.DataContext
         const docs = dc?.OpenDocuments?.ToArray?.()
-        if (!docs) continue
-        for (const d of docs) {
+        if (docs) for (const d of docs) {
           const p = String(d?.Storage?.Path ?? d?.Path ?? d?.Title ?? '')
-          if (p.toLowerCase().includes('landscape.todl')) return true
+          if (p.toLowerCase().includes('landscape.todl')) opened = true
         }
       }
-      return false
+      let caretLine = 0
+      for (const el of document.querySelectorAll('*')) {
+        const v = (el as any)[S]
+        if (v?.constructor?.name === 'CodeEditor') { caretLine = (v as any).editor?.getPosition?.()?.lineNumber ?? 0; break }
+      }
+      return { opened, caretLine }
     })
-    expect(opened, 'landscape.todl opened by Go to Component').toBe(true)
+    expect(state.opened, 'landscape.todl opened by Go to Component').toBe(true)
+    expect(state.caretLine, 'caret revealed at the component declaration (not line 1)').toBeGreaterThan(1)
   })
 
   test('invoking a technology target reveals it in the Libraries panel or opens its source', async () => {

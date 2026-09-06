@@ -192,14 +192,12 @@ export class CodeEditor extends DomHost
         // Catch up on diagnostics bound before the editor existed (the binding may
         // resolve before mount), and reflect any already-present ones.
         this.bindDiagnostics(this.Diagnostics)
-        // Replay a reveal that arrived before mount (dock navigation opens a tab
-        // then reveals; the editor may not exist yet on first open).
-        if (this.pendingReveal !== undefined)
-        {
-            const { line, column } = this.pendingReveal
-            this.pendingReveal = undefined
-            this.revealSpan(line, column)
-        }
+        // Replay a reveal that arrived before mount (dock navigation / "Go to
+        // Definition" opens a tab then reveals; the editor and its content may not
+        // exist yet on first open). Retry on layout too, so a reveal buffered while
+        // the editor was still zero-height lands once Monaco sizes it.
+        this.applyPendingReveal()
+        this.revealLayoutSub = this.editor.onDidLayoutChange(() => this.applyPendingReveal())
         return el
     }
 
@@ -274,16 +272,41 @@ export class CodeEditor extends DomHost
 
     // A reveal requested before the editor mounted, replayed once it exists.
     private pendingReveal: { line: number; column: number } | undefined
+    // Kept for the editor's lifetime: retries a buffered reveal on each layout, so
+    // a reveal requested before Monaco was sized still lands. Disposed with the editor.
+    private revealLayoutSub: monaco.IDisposable | undefined
 
-    // Scroll to + select (line, column) — both 1-based. Buffers the request when
-    // the editor isn't mounted yet (open-then-reveal from the Problems dock).
+    // Record a reveal request (line/column, 1-based) and try to satisfy it. A
+    // reveal issued during the initial open arrives BEFORE the content and layout
+    // are in place: Monaco's model still holds the placeholder single line (so a
+    // jump to line N clamps to line 1) and the editor may not be sized yet. So the
+    // request is buffered and re-applied by applyPendingReveal when the content
+    // loads (setValue) and on layout — guarded on model line count so it only
+    // fires once the target line actually exists.
     private revealSpan(line: number, column: number): void
     {
-        if (this.editor === undefined) { this.pendingReveal = { line, column }; return }
-        const range = new monaco.Range(line, column, line, column)
-        this.editor.revealRangeInCenter(range, monaco.editor.ScrollType.Smooth)
-        this.editor.setSelection(range)
-        this.editor.focus()
+        this.pendingReveal = { line, column }
+        this.applyPendingReveal()
+    }
+
+    // Apply the buffered reveal if the editor is mounted, sized, and its model has
+    // grown to include the target line; otherwise leave it buffered for a later
+    // retry (content load / layout). Immediate (non-animated) scroll so the jump
+    // lands deterministically instead of racing an in-flight smooth scroll.
+    private applyPendingReveal(): void
+    {
+        const ed = this.editor
+        const req = this.pendingReveal
+        if (ed === undefined || req === undefined) return
+        const model = ed.getModel()
+        if (model === null) return
+        if (ed.getLayoutInfo().height <= 0) return          // not laid out yet
+        if (req.line > model.getLineCount()) return          // content not loaded to this line yet
+        this.pendingReveal = undefined
+        const range = new monaco.Range(req.line, req.column, req.line, req.column)
+        ed.revealRangeInCenter(range, monaco.editor.ScrollType.Immediate)
+        ed.setSelection(range)
+        ed.focus()
     }
 
     // Self-materialise: touching HostElement the first time we're measured in
@@ -326,6 +349,9 @@ export class CodeEditor extends DomHost
                 this.updating = true
                 this.editor.setValue(next)
                 this.updating = false
+                // Content just grew — a reveal buffered before the content loaded
+                // (open-then-reveal) can now land on its target line.
+                this.applyPendingReveal()
             }
         }
         else if (descriptor.Name === 'Language')
@@ -339,6 +365,8 @@ export class CodeEditor extends DomHost
     {
         this.diagUnsub?.()
         this.diagUnsub = undefined
+        this.revealLayoutSub?.dispose()
+        this.revealLayoutSub = undefined
         if (this.markerTimer !== undefined) { clearTimeout(this.markerTimer); this.markerTimer = undefined }
         const model = this.ownsModel ? this.editor?.getModel() : undefined
         this.editor?.dispose()
