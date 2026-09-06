@@ -211,4 +211,45 @@ test.describe.serial('arch-go-to-definition', () => {
     })
     expect(effect.librariesSelected || effect.sourceOpened, 'technology target navigated (libraries reveal or source open)').toBe(true)
   })
+
+  test('a participant node exposes Go to Scenario, and invoking it reveals the scenario source', async () => {
+    await reopenDiagram()
+    // A node participating in ≥1 scenario, and how many (drives flat vs submenu).
+    const invoked = await l.win.evaluate(() => {
+      const S = Symbol.for('mural:visual-backref')
+      for (const el of document.querySelectorAll('*')) {
+        const dc = (el as any)[S]?.DataContext
+        if (dc?.constructor?.name === 'ArchNodeVM' && dc.HasScenarios) {
+          const cmd = dc.HasOneScenario ? dc.SingleScenarioCommand : dc.Scenarios?.Get(0)?.GoCommand
+          if (cmd) { cmd.Execute(undefined); return { count: dc.Scenarios?.Count ?? 0 } }
+        }
+      }
+      return null
+    })
+    expect(invoked, 'a node participating in a scenario').not.toBeNull()
+    expect(invoked!.count, 'participates in at least one scenario').toBeGreaterThan(0)
+    await l.win.waitForTimeout(2500)
+
+    // Scenarios are authored in landscape.todl, so invoking opens that source and
+    // reveals the scenario declaration line (caret > 1) — same routing as a component.
+    const state = await l.win.evaluate(() => {
+      const S = Symbol.for('mural:visual-backref')
+      let opened = false, caretLine = 0
+      for (const el of document.querySelectorAll('*')) {
+        const dc = (el as any)[S]?.DataContext
+        const docs = dc?.OpenDocuments?.ToArray?.()
+        if (docs) for (const d of docs) {
+          const p = String(d?.Storage?.Path ?? d?.Path ?? d?.Title ?? '')
+          if (p.toLowerCase().includes('landscape.todl')) opened = true
+        }
+      }
+      for (const el of document.querySelectorAll('*')) {
+        const v = (el as any)[S]
+        if (v?.constructor?.name === 'CodeEditor') { caretLine = (v as any).editor?.getPosition?.()?.lineNumber ?? 0; break }
+      }
+      return { opened, caretLine }
+    })
+    expect(state.opened, 'landscape.todl opened by Go to Scenario').toBe(true)
+    expect(state.caretLine, 'caret revealed at the scenario declaration (not line 1)').toBeGreaterThan(1)
+  })
 })

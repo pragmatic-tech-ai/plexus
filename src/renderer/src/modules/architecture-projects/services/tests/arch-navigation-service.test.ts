@@ -24,7 +24,9 @@ const orders = el('orders', 'component', 'Orders', { implemented_by: [dotnet], c
 function navWith(...elements: Element[]): FakeNav {
   return new FakeNav(new Map(elements.map((e) => [e.id, e])))
 }
-const MODEL = undefined as unknown as ArchModel
+// resolveTargets scans model.entities() for scenario participation; the resolver
+// tests don't exercise scenarios, so a model with no entities suffices.
+const MODEL = { entities: () => [] } as unknown as ArchModel
 
 test('a component resolves itself + its single technology + its direct category', () => {
   const t = navWith(orders, dotnet, backend, data).resolveTargets(MODEL, 'orders')
@@ -60,6 +62,40 @@ test('an unknown id yields empty targets', () => {
   expect(t.component).toBeUndefined()
   expect(t.technologies).toEqual([])
   expect(t.categories).toEqual([])
+})
+
+// ── scenario participation ─────────────────────────────────────────────────
+// A minimal Entity/FlowEntity: id + concept + field(label) + refs(member).
+function scEnt(id: string, concept: string, refs: Record<string, any[]>, label?: string): any {
+  return { id, concept, field: (n: string) => (n === 'label' ? label : undefined), refs: (m: string) => refs[m] ?? [] }
+}
+// scenario X { sequences = [sequence { steps = [a ==> b, b ==> c] }] }
+function scenario(id: string, label: string, edges: Array<[string, string]>): any {
+  const steps = edges.map(([s, d], i) => scEnt(`${id}#step${i}`, 'step', { src: [scEnt(s, 'component', {})], dst: [scEnt(d, 'component', {})] }))
+  return scEnt(id, 'scenario', { sequences: [scEnt(`${id}#seq`, 'sequence', { steps })] }, label)
+}
+// A resolver over a fixed entity set; elementFor still returns undefined (the
+// scenario path is independent of the clicked element).
+class ScenarioNav extends ArchNavigationService {
+  public constructor() { super({ get: () => undefined } as never) }
+  protected override elementFor(): Element | undefined { return undefined }
+}
+function scenarioModel(...ents: any[]): ArchModel { return { entities: () => ents } as unknown as ArchModel }
+
+test('a node resolves the scenarios it participates in (step src/dst), by count', () => {
+  const conv = scenario('conversational', 'Conversational', [['business_user', 'chat_surface'], ['chat_surface', 'business_agent']])
+  const support = scenario('support_ticket', 'Support Ticket', [['business_user', 'chat_surface']])
+  const nav = new ScenarioNav()
+  const t = nav.resolveTargets(scenarioModel(conv, support), 'business_user')
+  expect(t.scenarios.map((s) => s.id)).toEqual(['conversational', 'support_ticket'])
+  expect(t.scenarios[0]?.kind).toBe(NavTargetKind.Scenario)
+  expect(t.scenarios[0]?.label).toBe('Conversational')
+})
+
+test('a node in no scenario resolves an empty scenario list', () => {
+  const conv = scenario('conversational', 'Conversational', [['a', 'b']])
+  const nav = new ScenarioNav()
+  expect(nav.resolveTargets(scenarioModel(conv), 'ghost').scenarios).toEqual([])
 })
 
 // ── navigateTo: provenance fork ────────────────────────────────────────────

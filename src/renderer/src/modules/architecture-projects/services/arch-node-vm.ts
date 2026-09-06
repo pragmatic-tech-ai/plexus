@@ -69,6 +69,16 @@ export class ArchNodeVM extends NodeViewModel {
     static readonly HasManyCategoriesKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasManyCategories', false, MetaData.None)
     static readonly SingleCategoryCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(ArchNodeVM, 'SingleCategoryCommand', undefined, MetaData.None)
 
+    // Scenarios this node participates in (step src/dst) — a usage link, so they
+    // drive a SEPARATE "Go to Scenario" menu item (flat for one, submenu for many),
+    // gated by HasScenarios independently of HasNavTargets.
+    static readonly ScenariosKey = MuralBase.RegisterProperty<ObservableCollection<ArchNavItemVM>>(
+        ArchNodeVM, 'Scenarios', undefined as unknown as ObservableCollection<ArchNavItemVM>, MetaData.None)
+    static readonly HasScenariosKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasScenarios', false, MetaData.None)
+    static readonly HasOneScenarioKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasOneScenario', false, MetaData.None)
+    static readonly HasManyScenariosKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasManyScenarios', false, MetaData.None)
+    static readonly SingleScenarioCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(ArchNodeVM, 'SingleScenarioCommand', undefined, MetaData.None)
+
     // True when any relation resolved — gates the whole "Go to Definition" parent
     // item so a node with no navigable relations shows no submenu at all.
     static readonly HasNavTargetsKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasNavTargets', false, MetaData.None)
@@ -145,6 +155,7 @@ export class ArchNodeVM extends NodeViewModel {
         // mutates them in place (the DP reference never changes).
         this.set_property_value(ArchNodeVM.TechnologiesKey, new ObservableCollection<ArchNavItemVM>())
         this.set_property_value(ArchNodeVM.CategoriesKey, new ObservableCollection<ArchNavItemVM>())
+        this.set_property_value(ArchNodeVM.ScenariosKey, new ObservableCollection<ArchNavItemVM>())
     }
 
     get Label(): string {
@@ -306,6 +317,15 @@ export class ArchNodeVM extends NodeViewModel {
     set HasManyCategories(v: boolean) { this.set_property_value(ArchNodeVM.HasManyCategoriesKey, v) }
     get SingleCategoryCommand(): ICommand | undefined { return this.get_property_value(ArchNodeVM.SingleCategoryCommandKey) }
 
+    get Scenarios(): ObservableCollection<ArchNavItemVM> { return this.get_property_value(ArchNodeVM.ScenariosKey) }
+    get HasScenarios(): boolean { return this.get_property_value(ArchNodeVM.HasScenariosKey) }
+    set HasScenarios(v: boolean) { this.set_property_value(ArchNodeVM.HasScenariosKey, v) }
+    get HasOneScenario(): boolean { return this.get_property_value(ArchNodeVM.HasOneScenarioKey) }
+    set HasOneScenario(v: boolean) { this.set_property_value(ArchNodeVM.HasOneScenarioKey, v) }
+    get HasManyScenarios(): boolean { return this.get_property_value(ArchNodeVM.HasManyScenariosKey) }
+    set HasManyScenarios(v: boolean) { this.set_property_value(ArchNodeVM.HasManyScenariosKey, v) }
+    get SingleScenarioCommand(): ICommand | undefined { return this.get_property_value(ArchNodeVM.SingleScenarioCommandKey) }
+
     get HasNavTargets(): boolean { return this.get_property_value(ArchNodeVM.HasNavTargetsKey) }
     set HasNavTargets(v: boolean) { this.set_property_value(ArchNodeVM.HasNavTargetsKey, v) }
 
@@ -330,6 +350,13 @@ export class ArchNodeVM extends NodeViewModel {
             ArchNodeVM.HasCategoriesKey, ArchNodeVM.HasOneCategoryKey,
             ArchNodeVM.HasManyCategoriesKey, ArchNodeVM.SingleCategoryCommandKey)
 
+        this.applyRelation(
+            targets.scenarios, run, this.Scenarios,
+            ArchNodeVM.HasScenariosKey, ArchNodeVM.HasOneScenarioKey,
+            ArchNodeVM.HasManyScenariosKey, ArchNodeVM.SingleScenarioCommandKey)
+
+        // Scenarios are a separate menu ("Go to Scenario"), so they do NOT feed
+        // HasNavTargets (which gates "Go to Definition": component/technology/category).
         this.HasNavTargets = this.CanGoToComponent || this.HasTechnologies || this.HasCategories
     }
 

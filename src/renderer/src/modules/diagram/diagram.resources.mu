@@ -411,6 +411,19 @@ resources DiagramResources {
                   ItemsControl.ItemsSource  = $ContextTargetNode.Categories,
                   ItemsControl.ItemTemplate = @NavItemTemplate ]
         }
+        // "Go to Scenario" — the scenarios the clicked node PARTICIPATES in (a
+        // step src/dst). A separate item from "Go to Definition" because it is a
+        // usage link, not the node's definition. Flat when the node is in one
+        // scenario, a nested submenu when it is in many, hidden when in none.
+        MenuItem
+            [ Header     = "Go to Scenario",
+              Command    = $ContextTargetNode.SingleScenarioCommand,
+              Visibility = $ContextTargetNode.HasOneScenario << ToVisibility ]
+        MenuItem
+            [ Header                   = "Go to Scenario",
+              Visibility               = $ContextTargetNode.HasManyScenarios << ToVisibility,
+              ItemsControl.ItemsSource  = $ContextTargetNode.Scenarios,
+              ItemsControl.ItemTemplate = @NavItemTemplate ]
     }
 
     // ── Toolbox ItemsPanel — a uniform-cell wrap grid so the tiles fit a

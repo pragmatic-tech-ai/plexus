@@ -14,8 +14,11 @@ const BACKEND = target(NavTargetKind.Category, 'categories.backend', 'Backend')
 const DATA = target(NavTargetKind.Category, 'categories.data', 'Data')
 
 function targets(over: Partial<NavTargets> = {}): NavTargets {
-  return { technologies: [], categories: [], ...over }
+  return { technologies: [], categories: [], scenarios: [], ...over }
 }
+
+const CONV = target(NavTargetKind.Scenario, 'conversational', 'Conversational')
+const SUPPORT = target(NavTargetKind.Scenario, 'support_ticket', 'Support Ticket')
 
 test('a component target enables Go to Component and its command runs the target', () => {
   const runs: NavTarget[] = []
@@ -66,14 +69,39 @@ test('categories mirror the technology cardinality logic', () => {
   expect(runs).toEqual([BACKEND])
 })
 
+test('scenarios populate their own facet (single-or-submenu by count) and stay out of HasNavTargets', () => {
+  const runs: NavTarget[] = []
+  const many = new ArchNodeVM()
+  many.ApplyNavTargets(targets({ scenarios: [CONV, SUPPORT] }), (t) => runs.push(t))
+  expect(many.HasScenarios).toBe(true)
+  expect(many.HasOneScenario).toBe(false)
+  expect(many.HasManyScenarios).toBe(true)
+  expect([...many.Scenarios].map((i) => i.Name)).toEqual(['Conversational', 'Support Ticket'])
+  many.Scenarios.Get(1)!.GoCommand.Execute(undefined)
+  expect(runs).toEqual([SUPPORT])
+  // A participant with only scenarios has no "definition" targets.
+  expect(many.HasNavTargets).toBe(false)
+
+  const one = new ArchNodeVM()
+  one.ApplyNavTargets(targets({ component: COMPONENT, scenarios: [CONV] }), (t) => runs.push(t))
+  expect(one.HasOneScenario).toBe(true)
+  expect(one.HasManyScenarios).toBe(false)
+  one.SingleScenarioCommand?.Execute(undefined)
+  expect(runs).toEqual([SUPPORT, CONV])
+  // Component target still drives HasNavTargets independently of scenarios.
+  expect(one.HasNavTargets).toBe(true)
+})
+
 test('empty targets clear every flag and HasNavTargets is false', () => {
   const vm = new ArchNodeVM()
-  vm.ApplyNavTargets(targets({ component: COMPONENT, technologies: [DOTNET] }), () => {})
+  vm.ApplyNavTargets(targets({ component: COMPONENT, technologies: [DOTNET], scenarios: [CONV] }), () => {})
   vm.ApplyNavTargets(targets(), () => {})
   expect(vm.CanGoToComponent).toBe(false)
   expect(vm.HasTechnologies).toBe(false)
   expect(vm.HasCategories).toBe(false)
+  expect(vm.HasScenarios).toBe(false)
   expect(vm.Technologies.Count).toBe(0)
+  expect(vm.Scenarios.Count).toBe(0)
   expect(vm.HasNavTargets).toBe(false)
 })
 

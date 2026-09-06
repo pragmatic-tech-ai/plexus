@@ -4,6 +4,7 @@ import { NavigationService, type NavigationDestination } from '@pragmatic-tech-a
 import { WikiOriginKind } from '../../../services/projects/wiki-origin.js'
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
 import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
+import { collectScenarioFlow, type FlowEntity } from './scenario-flow.js'
 import type { ArchModel } from './arch-model.js'
 
 // The two navigator surfaces the routing needs — narrowed so tests can supply
@@ -13,7 +14,7 @@ interface ILibraries { RevealTerm(termId: string): boolean }
 
 // Which relation a nav target represents. String-backed so it can drive markup
 // (menu labels) and read clearly in tests.
-export enum NavTargetKind { Component = 'component', Technology = 'technology', Category = 'category' }
+export enum NavTargetKind { Component = 'component', Technology = 'technology', Category = 'category', Scenario = 'scenario' }
 
 // One navigable destination resolved off an architecture node.
 export interface NavTarget
@@ -32,6 +33,10 @@ export interface NavTargets
     readonly component?: NavTarget
     readonly technologies: readonly NavTarget[]
     readonly categories: readonly NavTarget[]
+    // Scenarios the node PARTICIPATES in (it is a step src/dst) — a usage link,
+    // not part of the node's definition, so it drives a separate "Go to Scenario"
+    // menu. Any node (component, actor, block…) can participate.
+    readonly scenarios: readonly NavTarget[]
 }
 
 // Meta-model relationship member names (authoritative:
@@ -45,6 +50,7 @@ const APPLICABLE_TO = 'applicable_to'
 const COMPONENT = 'component'
 const TECHNOLOGY = 'technology'
 const CATEGORY_CONCEPT = 'category'
+const SCENARIO_CONCEPT = 'scenario'
 
 // Resolves an architecture node's navigable relations (component / technology /
 // category) off the composed model. Routing (open source vs reveal in the
@@ -67,7 +73,10 @@ export class ArchNavigationService extends ServiceBase
     public resolveTargets(model: ArchModel, entityId: string): NavTargets
     {
         const el = this.elementFor(model, entityId)
-        if (el === undefined) return { technologies: [], categories: [] }
+        // Even an unresolved element can still participate in scenarios (matched by
+        // id), so scenarios are resolved independently of the element.
+        const scenarios = this.scenarioTargets(model, entityId)
+        if (el === undefined) return { technologies: [], categories: [], scenarios }
 
         const concept = el.concept
         const component = concept === COMPONENT ? this.toTarget(NavTargetKind.Component, el) : undefined
@@ -78,7 +87,23 @@ export class ArchNavigationService extends ServiceBase
         const categories = this.categoryElements(concept, el, techEls)
             .map((c) => this.toTarget(NavTargetKind.Category, c))
 
-        return { component, technologies, categories }
+        return { component, technologies, categories, scenarios }
+    }
+
+    // The scenarios `entityId` participates in: every `scenario` entity whose
+    // flow (sequences → steps → src/dst) names this id as a participant. Ordered
+    // by declaration order; label from the scenario's `label` field, else its id.
+    private scenarioTargets(model: ArchModel, entityId: string): NavTarget[]
+    {
+        const out: NavTarget[] = []
+        for (const entity of model.entities()) {
+            if (entity.concept !== SCENARIO_CONCEPT) continue
+            const { participants } = collectScenarioFlow(entity as unknown as FlowEntity)
+            if (!participants.includes(entityId)) continue
+            const label = String(entity.field('label') ?? entity.id)
+            out.push({ kind: NavTargetKind.Scenario, id: entity.id, concept: entity.concept, label })
+        }
+        return out
     }
 
     // The category Elements for a node: itself (category node), its
@@ -127,7 +152,7 @@ export class ArchNavigationService extends ServiceBase
         const lines = text.split('\n')
         const localId = id.includes('.') ? id.slice(id.lastIndexOf('.') + 1) : id
         const idRe = new RegExp(`\\b${localId}\\b`)
-        const declRe = /\b(component|technology|category|actor|block|location|term)\b/
+        const declRe = /\b(component|technology|category|actor|block|location|term|scenario)\b/
         const idx = lines.findIndex((ln) => idRe.test(ln) && declRe.test(ln))
         return idx >= 0 ? idx + 1 : 1
     }
