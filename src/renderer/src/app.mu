@@ -159,6 +159,7 @@ import TodlLanguageClient from "./services/todl/todl-language-client.js"
 import WorkspaceBaseResolver from "./services/projects/workspace-base-resolver.js"
 import ArchitectureModelService from "./modules/architecture-projects/services/architecture-model-service.js"
 import ArchDiagramBindingService from "./modules/architecture-projects/services/arch-diagram-binding-service.js"
+import ArchNavigationService from "./modules/architecture-projects/services/arch-navigation-service.js"
 import DropCandidateChooserService from "./modules/architecture-projects/services/drop-candidate-chooser-service.js"
 import ChooserResources from "./modules/architecture-projects/services/chooser.resources.mu.js"
 import ViewpointPickerResources from "./modules/architecture-projects/services/viewpoint-picker.resources.mu.js"
@@ -317,6 +318,11 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // their ArchModel (label sync + orphan removal); eagerly resolved in
         // main.js so its OpenDocuments subscription is live from boot.
         ArchDiagramBindingService
+        // Resolves an architecture node's navigable relations (component /
+        // technology / category) and routes "Go to Definition" to either the
+        // declaring .todl source or the published term in the Libraries panel.
+        // Consumed by ArchDiagramBinding to populate each node's nav-target facet.
+        ArchNavigationService
         // (ArchModelToolboxContributor retired — the ToolboxService now owns the
         // Model/Scenario pages via ModelToolboxPage/ScenarioToolboxPage.)
         // Popup for ambiguous term-drops: lists candidate (X,m) actions and
