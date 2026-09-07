@@ -18,6 +18,7 @@ import LibraryChoice from "../../services/projects/new-project-dialog-model.js"
 import AddLibraryReferenceDialogModel from "../../services/projects/add-library-reference-dialog-model.js"
 import OpenProjectDialogModel from "../../services/projects/open-project-dialog-model.js"
 import RecentProjectItem from "../../services/projects/open-project-dialog-model.js"
+import ShortenPath from "../../services/projects/shorten-path.js"
 import ConfirmDialogModel from "../../services/dialogs/confirm-dialog-model.js"
 import SetVersionDialogModel from "../../services/projects/set-version-dialog-model.js"
 import TreeSelectionBehavior from "../../services/projects/tree-selection-behavior.js"
@@ -394,7 +395,9 @@ resources ProjectExplorerResources {
         Button [ Template = @ListRowButton, Command = $OpenCommand, HorizontalAlignment = Stretch, Margin = (0,1,0,1) ] {
             StackPanel [ Orientation = Vertical ] {
                 TextBlock [ Style = @BodyLarge, Text = $Name, Foreground = @OnSurface ]
-                TextBlock [ Style = @BodySmall, Text = $Path, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                // Path shown compactly (intermediate directories → `..`) so long
+                // recents don't wrap; the full path stays in the model.
+                TextBlock [ Style = @BodySmall, Text = $Path << ShortenPath, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
             }
         }
     }
@@ -402,7 +405,11 @@ resources ProjectExplorerResources {
     DataTemplate [ DataType = OpenProjectDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
             TextBlock [ Style = @BodyLarge, Text = "Recent", Foreground = @OnSurface, Margin = (0,0,0,4) ]
-            ItemsControl [ ItemsSource = $Recents, ItemsPanel = @VerticalStackPanel ]
+            // The recents list scrolls within a bounded height so a long MRU can't
+            // grow the dialog past the viewport; the header and actions stay fixed.
+            ScrollViewer [ MaxHeight = 360, VerticalScrollEnabled = true, HorizontalScrollEnabled = false ] {
+                ItemsControl [ ItemsSource = $Recents, ItemsPanel = @VerticalStackPanel ]
+            }
             TextBlock [ Style = @BodySmall, Text = $EmptyLabel, Foreground = @OnSurfaceVariant, Margin = (0,2,0,0) ]
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {

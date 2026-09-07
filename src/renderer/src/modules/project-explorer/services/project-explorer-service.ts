@@ -278,7 +278,7 @@ export class ProjectExplorerService extends ServiceBase
     {
         const recents = await this.recents.List()
         const vm = new OpenProjectDialogModel(recents, this.fs, (r) => this.dialogs.Close(r))
-        const result = (await this.dialogs.Show({ Title: 'Open Project', Content: vm, Width: 480 })) as OpenProjectResult | undefined
+        const result = (await this.dialogs.Show({ Title: 'Open Project', Content: vm, Width: 720 })) as OpenProjectResult | undefined
         if (result === undefined) return
         await this.openProjectAt(result.location)
     }
