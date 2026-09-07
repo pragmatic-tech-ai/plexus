@@ -1,4 +1,4 @@
-import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
+import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagram/content-container-figure.js'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
@@ -10,7 +10,7 @@ import { iconEntityKey } from './arch-icon.js'
 import { desiredEdges, edgeKey, desiredConnectorEntityEdges, connectorEntityIdOf } from './edge-projection.js'
 import { isContainerConcept, containingContainerOf, containmentMemberOf, containmentMemberFor, membershipFieldFor } from './containment.js'
 import { resolveConnectorActions, type ConnectorAction } from './arch-connector-resolver.js'
-import { canDrawConnectorEntity, mintConnectorEntity, CONNECTOR_DEFAULT_TYPE, CONNECTOR_DRAW_MEMBER } from './connector-entity.js'
+import { canDrawConnectorEntity, mintConnectorEntity, connectorTypeOf, CONNECTOR_DEFAULT_TYPE, CONNECTOR_DRAW_MEMBER, CONNECTOR_TYPE_FIELD } from './connector-entity.js'
 import { readConnectorVisuals, writeConnectorVisual, captureConnectorVisual, applyConnectorVisual } from './arch-diagram-connector-visuals-store.js'
 import { scenarioStepPairs, type FlowEntity } from './scenario-flow.js'
 import type { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
@@ -41,6 +41,8 @@ export class ArchDiagramBinding
     private _applyingConnectorVisual = false                           // true while restoring a saved visual (mutes the capture echo)
     private readonly titleWired = new WeakSet<ArchNodeVM>()            // nodes whose title-commit is subscribed
     private readonly titleUnsubs: Array<() => void> = []              // title-commit unsubscribes (for dispose)
+    private readonly connectorLabelWired = new WeakSet<Connector>()    // connector-entity edges whose label-commit is subscribed
+    private readonly connectorLabelUnsubs = new Map<string, () => void>()   // edgeKey -> label-commit unsubscribe
     private scope: string[] = []                                       // selected viewpoints ([] = all)
     private scenarios: string[] = []                                   // scenarios whose steps are shown
     private _writingBack = false                                       // true while the binding drives reparents (projection / snap-back) — the NodeReparented observer ignores those echoes
@@ -212,6 +214,34 @@ export class ArchDiagramBinding
     {
         for (const [key, conn] of this.boundEdges) if (conn === c) return connectorEntityIdOf(key)
         return undefined
+    }
+
+    // Persist an inline label edit on a connector-ENTITY edge back to its `type`
+    // field (a plain string term). Wire once per connector; guard the projection
+    // echo by acting only when an edit ENDS (IsEditing → false) and the text truly
+    // changed. setField → save → rescan re-derives the identical label, so no loop.
+    private wireConnectorLabel(key: string, c: Connector): void
+    {
+        const entityId = connectorEntityIdOf(key)
+        if (entityId === undefined || this.connectorLabelWired.has(c)) return
+        this.connectorLabelWired.add(c)
+        const text = c.Text
+        const onEditEnd = (): void => {
+            if (text.IsEditing) return                          // fire only when an edit ends
+            const next = (c.LabelText ?? '').trim()
+            if (next === '') return                             // never wipe the type to empty
+            const ent = this.model.repository().entity(entityId)
+            if (ent !== undefined && next === connectorTypeOf(ent)) return   // unchanged / cancelled
+            this.doc.History.Begin('Rename connector')
+            try {
+                this.model.setField(entityId, CONNECTOR_TYPE_FIELD, next)
+                void this.model.save()
+            } finally {
+                this.doc.History.Commit()
+            }
+        }
+        text.AddPropertyChangedListener(ShapeText.IsEditingKey, onEditEnd)
+        this.connectorLabelUnsubs.set(key, () => text.RemovePropertyChangedListener(ShapeText.IsEditingKey, onEditEnd))
     }
 
     // A user drew a connector between two nodes. Reconcile away the raw connector
@@ -638,6 +668,11 @@ export class ArchDiagramBinding
                 c.IsDerived = true
                 const label = connEntityEdges.get(key)
                 if (label !== undefined) c.LabelText = label
+                // Persist an inline label edit on a connector ENTITY back to its
+                // `type` field. Only connector entities have a writable field; a
+                // scenario-step / relationship edge has no entity id, so its label
+                // stays ephemeral (editable but not saved).
+                this.wireConnectorLabel(key, c)
                 // Restore this edge's saved presentation (pinned route + port sides),
                 // then track future edits so they persist in the diagram metadata.
                 this.applyAndTrackConnectorVisual(key, c)
@@ -649,6 +684,8 @@ export class ArchDiagramBinding
             if (!desired.has(key)) {
                 this.connectorVisualTeardown.get(key)?.()
                 this.connectorVisualTeardown.delete(key)
+                this.connectorLabelUnsubs.get(key)?.()
+                this.connectorLabelUnsubs.delete(key)
                 this.doc.DeleteConnectors([c])
                 this.boundEdges.delete(key)
             }
@@ -730,6 +767,8 @@ export class ArchDiagramBinding
         this.appliedOff = undefined
         for (const off of this.connectorVisualTeardown.values()) off()
         this.connectorVisualTeardown.clear()
+        for (const un of this.connectorLabelUnsubs.values()) un()
+        this.connectorLabelUnsubs.clear()
         for (const un of this.titleUnsubs.splice(0)) un()
         if (typeof window !== 'undefined') {
             window.removeEventListener('pointerdown', this.onPointerDownCapture, true)
