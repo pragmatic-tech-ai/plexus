@@ -42,6 +42,7 @@ import LibraryModule from "./modules/library/library.module.mu.js"
 import AgentChatModule from "./modules/agent-chat/agent-chat.module.mu.js"
 import ProblemsModule from "./modules/problems/problems.module.mu.js"
 import CodeEditorModule from "./modules/code-editor/code-editor.module.mu.js"
+import SvgEditorModule from "./modules/svg-editor/svg-editor.module.mu.js"
 import MarkdownViewerModule from "./modules/markdown-viewer/markdown-viewer.module.mu.js"
 
 // Shared icon dictionary — one Geometry per capability, merged into the app's
@@ -170,6 +171,7 @@ import FileWatchService from "./services/file-watch/file-watch-service.js"
 import EditorReloadService from "./services/file-watch/editor-reload-service.js"
 import ProjectRescanService from "./services/file-watch/project-rescan-service.js"
 import CodeEditorResources from "./modules/code-editor/code-editor.resources.mu.js"
+import SvgEditorResources from "./modules/svg-editor/svg-editor.resources.mu.js"
 import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.resources.mu.js"
 
 // Services formerly registered imperatively in the renderer bootstrap (main.js),
@@ -383,6 +385,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         AgentChatModule
         ProblemsModule
         CodeEditorModule
+        SvgEditorModule
         MarkdownViewerModule
         BackgroundWorkModule
         SaveModule
@@ -501,6 +504,11 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // Code editor (DataTemplate[CodeDocument] declares a CodeEditor — a
         // DomHost subclass hosting Monaco, self-bound to the document's Content).
         merge CodeEditorResources
+
+        // SVG editor (DataTemplate[SvgDocument] — two bottom tabs: an SvgSceneHost
+        // visual render and a CodeEditor XML view; both project from the document's
+        // $Content markup). Opens .svg files.
+        merge SvgEditorResources
 
         // Rendered Markdown viewer (DataTemplate[MarkdownDocument] — a RichTextBlock
         // over the parsed FlowDocument). Opens .md/.markdown files read-only.
