@@ -15,7 +15,7 @@ import EditingToLabelVisibility from "../../services/projects/project-node-icon.
 import NewProjectDialogModel from "../../services/projects/new-project-dialog-model.js"
 import ProjectTypeChoice from "../../services/projects/new-project-dialog-model.js"
 import LibraryChoice from "../../services/projects/new-project-dialog-model.js"
-import AddLibraryReferenceDialogModel from "../../services/projects/add-library-reference-dialog-model.js"
+import ManageReferencesDialogModel from "../../services/projects/manage-references-dialog-model.js"
 import OpenProjectDialogModel from "../../services/projects/open-project-dialog-model.js"
 import RecentProjectItem from "../../services/projects/open-project-dialog-model.js"
 import ShortenPath from "../../services/projects/shorten-path.js"
@@ -77,7 +77,7 @@ resources ProjectExplorerResources {
             MenuSeparator
             MenuItem [ Header = "Custom…", Command = $SetVersionCommand ]
         }
-        MenuItem [ Header = "Add Library Reference…", Command = $AddLibraryReferenceCommand ]
+        MenuItem [ Header = "Manage References…", Command = $ManageReferencesCommand ]
         MenuItem [ Header = "Refresh Bases", Command = $RefreshBasesCommand ]
         MenuItem [ Header = "Update Agent Meta-data", Command = $UpdateAgentMetadataCommand ]
         // Run one of the project's declared .claude/ agents or skills in the
@@ -330,19 +330,30 @@ resources ProjectExplorerResources {
         }
     }
 
-    // ── Add Library Reference dialog ─────────────────────────────────────
-    // A checklist of published libraries this project does not already bind (reuses
-    // DataTemplate[LibraryChoice]). EmptyLabel guides when there is nothing to add;
-    // Add stays disabled until at least one row is checked.
-    DataTemplate [ DataType = AddLibraryReferenceDialogModel ] {
+    // ── Manage References dialog ─────────────────────────────────────────
+    // The consolidated references editor for a consumer project. A ComboBox swaps
+    // the required meta-model; a checklist (reusing DataTemplate[LibraryChoice])
+    // adds/removes libraries — current refs start checked, addable ones unchecked.
+    // The libraries section shows only for a project that offers libraries
+    // (architecture); a library project edits its meta-model alone.
+    DataTemplate [ DataType = ManageReferencesDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = "Libraries", Foreground = @OnSurface, Margin = (0,0,0,4) ]
-            ItemsControl [ ItemsSource = $Libraries, ItemsPanel = @VerticalStackPanel ]
-            TextBlock [ Style = @BodySmall, Text = $EmptyLabel, Foreground = @OnSurfaceVariant, TextWrapping = Wrap, Margin = (0,2,0,0) ]
+            TextBlock [ Style = @BodyLarge, Text = "Meta-model", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+            ComboBox [ ItemsSource = $MetaModels, SelectedItem = $SelectedMetaModel,
+                       HorizontalAlignment = Stretch, Margin = (0,0,0,14) ]
+
+            Border [ Visibility = $ShowLibraries << ToVisibility ] {
+                StackPanel [ Orientation = Vertical ] {
+                    TextBlock [ Style = @BodyLarge, Text = "Libraries", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+                    ItemsControl [ ItemsSource = $Libraries, ItemsPanel = @VerticalStackPanel ]
+                    TextBlock [ Style = @BodySmall, Text = $EmptyLibrariesLabel, Foreground = @OnSurfaceVariant,
+                                TextWrapping = Wrap, Margin = (0,2,0,0) ]
+                }
+            }
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Add" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Save" ] }
             }
         }
     }

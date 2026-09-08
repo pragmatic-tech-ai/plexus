@@ -40,6 +40,7 @@ import {
 import { FileSystemService } from '../../../services/file-system/file-system-service.js'
 import {
     PROJECT_MANIFEST_FILENAME,
+    ProducerKind,
     isPublishable,
     canGeneratePresentation,
     isVersioned,
@@ -74,7 +75,7 @@ import {
     OpenProjectDialogModel,
     type OpenProjectResult,
 } from '../../../services/projects/open-project-dialog-model.js'
-import type { BaseRef } from '../../../services/projects/base-binding.js'
+import type { BaseBindings, BaseRef } from '../../../services/projects/base-binding.js'
 import { ensureMetaModelsBackend } from '../../meta-model/services/meta-models-backend.js'
 import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
 import { TodlLanguageClient } from '../../../services/todl/todl-language-client.js'
@@ -85,7 +86,7 @@ import { DiagnosticSeverity } from '../../../services/diagnostics/diagnostic.js'
 import { planNodeMoves } from '../../../services/projects/node-move.js'
 import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
 import { DocumentCloseGuard } from '../../../services/documents/document-close-guard.js'
-import { AddLibraryReferenceDialogModel } from '../../../services/projects/add-library-reference-dialog-model.js'
+import { ManageReferencesDialogModel } from '../../../services/projects/manage-references-dialog-model.js'
 import { RecentProjectsService } from '../../../services/projects/recent-projects-service.js'
 import { CodeDocument } from '../../code-editor/code-document.js'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
@@ -458,11 +459,11 @@ export class ProjectExplorerService extends ServiceBase
         // Refresh the agent scaffold docs to the current bundled version — any TODL project.
         op.UpdateAgentMetadataCommand = new RelayCommand(
             () => void this.updateAgentMetadata(op), () => isTodlProject(op.Factory))
-        // Bind a published library after the fact — only for a type that offers
-        // libraries (architecture).
-        op.AddLibraryReferenceCommand = new RelayCommand(
-            () => void this.addLibraryReference(op),
-            () => op.Factory.offersLibraries === true)
+        // Open the References manager — only for a consumer that binds a
+        // meta-model (architecture / library), not a meta-model project.
+        op.ManageReferencesCommand = new RelayCommand(
+            () => void this.manageReferences(op),
+            () => op.Factory.requiresMetaModel === true)
         op.CloseCommand = new RelayCommand(() => void this.closeProject(op))
         op.MoveNodesCommand = new RelayCommand((arg) => {
             const a = arg as MoveArg
@@ -1045,26 +1046,43 @@ export class ProjectExplorerService extends ServiceBase
         this.Status = `Refreshed bases for ${op.Name}.`
     }
 
-    // Bind an already-published library to `op` after the fact: offer the published
-    // libraries this project does not already reference, append the chosen ones to
-    // the manifest's `libraries`, and refresh its bases so the new terms resolve.
-    private async addLibraryReference(op: OpenProject): Promise<void>
+    // Open the References manager for a consumer project (architecture / library):
+    // show its current base bindings against the catalog of everything it could
+    // reference — published packages plus open workspace producers — then persist
+    // the edited set to the manifest and refresh its bases so added terms resolve
+    // and removed ones drop. A workspace producer can be referenced before it is
+    // published (resolution prefers the open project).
+    private async manageReferences(op: OpenProject): Promise<void>
     {
         const manifest = JSON.parse(await op.Storage.ReadText(PROJECT_MANIFEST_FILENAME)) as {
-            libraries?: BaseRef[]; [k: string]: unknown
+            metaModel?: BaseRef; libraries?: BaseRef[]; [k: string]: unknown
         }
-        const bound = new Set((manifest.libraries ?? []).map((l) => `${l.id}@${l.version}`))
-        const addable = (await this.publishedLibraries()).filter((l) => !bound.has(`${l.id}@${l.version}`))
+        const resolver = this.Provider.get(WorkspaceBaseResolver.Key)
+        const offersLibraries = op.Factory.offersLibraries === true
 
-        const vm = new AddLibraryReferenceDialogModel(addable, (r) => this.dialogs.Close(r))
-        const chosen = await this.dialogs.Show<readonly BaseRef[]>({ Title: 'Add Library Reference', Content: vm, Width: 480 })
-        if (chosen === undefined || chosen.length === 0) return
+        const availableMetaModels = [
+            ...await this.publishedMetaModels(),
+            ...(resolver !== undefined ? await resolver.WorkspaceProducers(ProducerKind.MetaModel) : []),
+        ]
+        const availableLibraries = offersLibraries
+            ? [
+                ...await this.publishedLibraries(),
+                ...(resolver !== undefined ? await resolver.WorkspaceProducers(ProducerKind.Library) : []),
+            ]
+            : []
 
-        manifest.libraries = [...(manifest.libraries ?? []), ...chosen]
+        const current: BaseBindings = { metaModel: manifest.metaModel, libraries: manifest.libraries }
+        const vm = new ManageReferencesDialogModel(
+            current, availableMetaModels, availableLibraries, offersLibraries, (r) => this.dialogs.Close(r))
+        const result = await this.dialogs.Show<BaseBindings>({ Title: 'Manage References', Content: vm, Width: 480 })
+        if (result === undefined) return
+
+        // Apply the edited bindings, preserving every other manifest field.
+        manifest.metaModel = result.metaModel
+        if (offersLibraries) manifest.libraries = [...(result.libraries ?? [])]
         await op.Storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
         await this.Provider.get(TodlLanguageClient.Key)?.RefreshBases(op.Storage)
-        const names = chosen.map((l) => `${l.id}@${l.version}`).join(', ')
-        this.Status = `Added library reference${chosen.length > 1 ? 's' : ''} ${names} to ${op.Name}.`
+        this.Status = `Updated references for ${op.Name}.`
     }
 
     // Re-scan the named open projects from disk and re-validate their models —

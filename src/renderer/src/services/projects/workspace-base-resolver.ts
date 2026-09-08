@@ -231,6 +231,25 @@ export class WorkspaceBaseResolver extends ServiceBase
         return snap.producers.get(`${kind}:${id}`)?.project
     }
 
+    // Every open workspace project that PRODUCES a base of `kind`, as a BaseRef
+    // (its manifest id + published version). Backs the References manager's
+    // "add from an open project" catalog — a sibling can be referenced before it
+    // is published, since resolution prefers the open producer. A producer with no
+    // version yet (never published) is skipped: a reference needs a concrete
+    // version to record.
+    public async WorkspaceProducers(kind: ProducerKind): Promise<BaseRef[]>
+    {
+        const snap = await this.ensureSnapshot()
+        const prefix = `${kind}:`
+        const refs: BaseRef[] = []
+        for (const [key, { version }] of snap.producers)
+        {
+            if (!key.startsWith(prefix) || version === undefined) continue
+            refs.push({ id: key.slice(prefix.length), version })
+        }
+        return refs
+    }
+
     private async ensureSnapshot(): Promise<Snapshot>
     {
         if (this.snapshot !== undefined) return this.snapshot

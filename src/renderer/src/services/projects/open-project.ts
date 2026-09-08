@@ -58,11 +58,11 @@ export class OpenProject extends MuralBase
     // cache + revalidate) — picks up a republished meta-model/library.
     static readonly RefreshBasesCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         OpenProject, 'RefreshBasesCommand', undefined, MetaData.None)
-    // Bind an already-published library to this project's manifest — enabled only
-    // for a factory that OffersLibraries (architecture). Covers a library not
-    // chosen at creation time (or published later).
-    static readonly AddLibraryReferenceCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
-        OpenProject, 'AddLibraryReferenceCommand', undefined, MetaData.None)
+    // Open the References manager to edit this project's base bindings (its
+    // meta-model + libraries) — enabled only for a consumer factory that binds a
+    // meta-model (architecture / library), not for a meta-model project.
+    static readonly ManageReferencesCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
+        OpenProject, 'ManageReferencesCommand', undefined, MetaData.None)
     static readonly CloseCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         OpenProject, 'CloseCommand', undefined, MetaData.None)
     // Move dragged node(s) into a target folder — the drag behavior executes this
@@ -176,8 +176,8 @@ export class OpenProject extends MuralBase
     public get RefreshBasesCommand(): ICommand | undefined { return this.get_property_value(OpenProject.RefreshBasesCommandKey) }
     public set RefreshBasesCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.RefreshBasesCommandKey, v) }
 
-    public get AddLibraryReferenceCommand(): ICommand | undefined { return this.get_property_value(OpenProject.AddLibraryReferenceCommandKey) }
-    public set AddLibraryReferenceCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.AddLibraryReferenceCommandKey, v) }
+    public get ManageReferencesCommand(): ICommand | undefined { return this.get_property_value(OpenProject.ManageReferencesCommandKey) }
+    public set ManageReferencesCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.ManageReferencesCommandKey, v) }
 
     public get MoveNodesCommand(): ICommand | undefined { return this.get_property_value(OpenProject.MoveNodesCommandKey) }
     public set MoveNodesCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.MoveNodesCommandKey, v) }
