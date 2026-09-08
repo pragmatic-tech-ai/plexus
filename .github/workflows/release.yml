@@ -50,14 +50,15 @@ jobs:
           } > .npmrc
         env:
           PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      # The committed package-lock.json pins Verdaccio (localhost) tarball URLs,
-      # which CI can't reach, so `npm ci` would fail. Drop it and resolve fresh
-      # against the CI registries above.
-      - name: Install (fresh resolve)
+      # Deterministic install from the committed lock. The lock now carries real
+      # registry URLs (npmjs for OSS + npm.pkg.github.com for the @pragmatic-tech-ai
+      # scope) — the old Verdaccio-localhost lock is long gone — so `npm ci` resolves
+      # against the CI registries above. This also avoids the runner npm's fresh-
+      # resolve arborist crash ("Cannot read properties of null (reading 'edgesOut')")
+      # that a lockless `npm install` triggers.
+      - name: Install (npm ci)
         shell: bash
-        run: |
-          rm -f package-lock.json
-          npm install
+        run: npm ci
       - run: npm run build
       - name: Package + publish
         shell: bash
