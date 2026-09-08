@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
 import { ArchModel } from '../arch-model.js'
-import { edgeKey, desiredEdges } from '../edge-projection.js'
+import { edgeKey, desiredEdges, connectorVisualKey, CONNECTOR_ENTITY_MEMBER_PREFIX } from '../edge-projection.js'
 
 // component references service via `uses`; both framed by V.
 const MM = `namespace archmm {
@@ -57,4 +57,20 @@ test('desiredEdges omits edges when the target concept is out of scope', () => {
 
     const placed = placedMap(model, [comp.id, svc.id])
     expect([...desiredEdges(model.repository(), placed, new Set(['OTHER']))]).toEqual([])
+})
+
+test('connectorVisualKey re-keys a connector-ENTITY edge by (from, type, to) so it is load-stable', () => {
+    // Two loads mint different synthetic ids for the same authored `a --> b` edge;
+    // both must map to the SAME visual key so a saved reroute matches on reopen.
+    const load1 = edgeKey('component4', `${CONNECTOR_ENTITY_MEMBER_PREFIX}:omtsvyibn00g`, 'component2')
+    const load2 = edgeKey('component4', `${CONNECTOR_ENTITY_MEMBER_PREFIX}:omtsvz671009`, 'component2')
+    const stable = edgeKey('component4', `${CONNECTOR_ENTITY_MEMBER_PREFIX}:calls`, 'component2')
+    expect(connectorVisualKey(load1, 'calls')).toBe(stable)
+    expect(connectorVisualKey(load2, 'calls')).toBe(stable)
+    expect(connectorVisualKey(load1, 'calls')).toBe(connectorVisualKey(load2, 'calls'))
+})
+
+test('connectorVisualKey leaves a relationship / scenario-step edge key unchanged (already stable)', () => {
+    const relKey = edgeKey('comp', 'uses', 'svc')
+    expect(connectorVisualKey(relKey, 'calls')).toBe(relKey)
 })

@@ -7,7 +7,7 @@ import type { ArchModel } from './arch-model.js'
 import { ModelHistoryLayer } from './model-history-layer.js'
 import { ArchNodeVM } from './arch-node-vm.js'
 import { iconEntityKey } from './arch-icon.js'
-import { desiredEdges, edgeKey, desiredConnectorEntityEdges, connectorEntityIdOf } from './edge-projection.js'
+import { desiredEdges, edgeKey, desiredConnectorEntityEdges, connectorEntityIdOf, connectorVisualKey } from './edge-projection.js'
 import { isContainerConcept, containingContainerOf, containmentMemberOf, containmentMemberFor, membershipFieldFor } from './containment.js'
 import { resolveConnectorActions, type ConnectorAction } from './arch-connector-resolver.js'
 import { canDrawConnectorEntity, mintConnectorEntity, connectorTypeOf, CONNECTOR_DEFAULT_TYPE, CONNECTOR_DRAW_MEMBER, CONNECTOR_TYPE_FIELD } from './connector-entity.js'
@@ -293,10 +293,17 @@ export class ArchDiagramBinding
         if (this.status !== undefined) this.status.Text = `Can't connect a ${srcConcept} to a ${tgtConcept} here`
     }
 
-    // The concept an already-placed entity instantiates (from the live model).
+    // The concept an already-placed node maps to. An own instance answers from the
+    // model; a placed BASE entity (a library term or a leaf meta-model archetype like
+    // `actors.internal`, dropped as a node) answers through repo.entity — the same
+    // resolution the rescan's byId uses. Without the repo fallback a connector drawn
+    // from a placed archetype found no concept and silently bailed.
     private conceptOf(id: string): string | undefined
     {
-        return this.model.entities().find((e) => e.id === id)?.concept
+        const own = this.model.entities().find((e) => e.id === id)?.concept
+        if (own !== undefined) return own
+        const repo = this.model.repository()
+        return repo.has(id) ? repo.entity(id)?.concept : undefined
     }
 
     private rescan(): void
@@ -588,14 +595,21 @@ export class ArchDiagramBinding
     private applyAndTrackConnectorVisual(key: string, c: Connector): void
     {
         this.connectorVisualTeardown.get(key)?.()   // idempotent re-wire
-        const saved = readConnectorVisuals(this.doc)[key]
+        // Persist the visual under a STABLE key. A connector-ENTITY edge key embeds
+        // the entity's synthetic id (`__connector_entity__:<id>`), which is minted
+        // fresh on every load (edge-record `a --> b` has no authored id), so keying
+        // the metadata by it meant a saved reroute never matched its edge on reopen —
+        // reroutes/ports silently reverted. The (from, type, to) identity IS stable.
+        const type = c.LabelText !== undefined && c.LabelText !== '' ? c.LabelText : CONNECTOR_DEFAULT_TYPE
+        const metaKey = connectorVisualKey(key, type)
+        const saved = readConnectorVisuals(this.doc)[metaKey]
         if (saved !== undefined) {
             this._applyingConnectorVisual = true
             try { applyConnectorVisual(c, saved) } finally { this._applyingConnectorVisual = false }
         }
         const onVisualEdit = (): void => {
             if (this._applyingConnectorVisual) return
-            writeConnectorVisual(this.doc, key, captureConnectorVisual(c))
+            writeConnectorVisual(this.doc, metaKey, captureConnectorVisual(c))
         }
         c.AddPropertyChangedListener(Connector.WaypointsKey, onVisualEdit)
         c.AddPropertyChangedListener(Connector.RoutingModeKey, onVisualEdit)

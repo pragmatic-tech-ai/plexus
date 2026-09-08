@@ -21,6 +21,18 @@ export function connectorEntityIdOf(key: string): string | undefined {
     return member?.startsWith(tag) ? member.slice(tag.length) : undefined
 }
 
+// A LOAD-STABLE key for persisting a projected edge's saved visual (route / ports).
+// A relationship / scenario-step edge key is already stable and used verbatim. A
+// connector-ENTITY edge key embeds the entity's synthetic id, which regenerates on
+// every load (edge-record `a --> b` mints a fresh id), so a visual keyed by it can
+// never be matched back after a reopen — the whole reroute is lost. Re-key those by
+// the (from, type, to) identity, which the source determines and a reload preserves.
+export function connectorVisualKey(key: string, type: string): string {
+    if (connectorEntityIdOf(key) === undefined) return key
+    const [from, , to] = key.split('|')
+    return edgeKey(from, `${CONNECTOR_ENTITY_MEMBER_PREFIX}:${type}`, to)
+}
+
 // Desired edges from standalone `connector` entities: for each own connector
 // entity whose `from` and `to` both resolve to placed, in-scope nodes, one edge
 // keyed by the entity id. Returns edgeKey → the connector's type term (its label).
