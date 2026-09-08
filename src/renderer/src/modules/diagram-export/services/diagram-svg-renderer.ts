@@ -1,7 +1,8 @@
 import { Visual, Visibility, Application, Color, type DrawingContext } from '@pragmatic-tech-ai/mural/runtime'
-import { Rect, Matrix, SvgDrawingContext, TranslateTransform, MatrixTransform, SolidColorBrush, type Brush } from '@pragmatic-tech-ai/mural/visual-engine'
+import { Rect, Matrix, TranslateTransform, MatrixTransform, SolidColorBrush, RectangleGeometry, EllipseGeometry, type Geometry, type Brush } from '@pragmatic-tech-ai/mural/visual-engine'
 import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { ExportBackground, type ExportOptions } from './export-options.js'
+import { ExportDrawingContext } from './export-drawing-context.js'
 
 // The subset of PaginatedCanvas (the diagram's ItemsPanel) the export overrides
 // touch. Duck-typed rather than `instanceof PaginatedCanvas` so the renderer stays
@@ -69,7 +70,7 @@ export class DiagramSvgRenderer
     const width  = Math.max(1, Math.ceil(bounds.Width))
     const height = Math.max(1, Math.ceil(bounds.Height))
 
-    const dc = new SvgDrawingContext()
+    const dc = new ExportDrawingContext()
 
     // Map content origin → (0,0): translate by -bounds.X / -bounds.Y so the chosen
     // bounds' top-left lands at the SVG's coordinate origin, then paint the live
@@ -129,7 +130,7 @@ export class DiagramSvgRenderer
       const width  = Math.max(1, Math.ceil(bounds.Width))
       const height = Math.max(1, Math.ceil(bounds.Height))
 
-      const dc = new SvgDrawingContext()
+      const dc = new ExportDrawingContext()
       dc.PushTransform(new TranslateTransform(-bounds.X, -bounds.Y))
       // Surface background: one opaque rect behind the tree, covering the bounds.
       if (options.background === ExportBackground.Surface && options.backgroundColor !== undefined) {
@@ -227,18 +228,31 @@ export class DiagramSvgRenderer
     if (renderTransform !== undefined) dc.PushTransform(renderTransform)
 
     const clip = visual.Clip
-    if (clip !== undefined) dc.PushClip(clip)
+    if (clip !== undefined) dc.PushClip(this.exportableClip(clip))
 
     visual.Render(dc)
 
     const childClip = visual.ChildClip
-    if (childClip !== undefined) dc.PushClip(childClip)
+    if (childClip !== undefined) dc.PushClip(this.exportableClip(childClip))
     for (const child of visual.visualChildren) this.paintVisualTree(child, dc)
     if (childClip !== undefined) dc.Pop()
 
     if (clip !== undefined) dc.Pop()
     if (renderTransform !== undefined) dc.Pop()
     if (needsTranslate) dc.Pop()
+  }
+
+  // A clip geometry the SVG export context can emit. Its PushClip supports only
+  // RectangleGeometry / EllipseGeometry; a Figure with a non-rectangular silhouette
+  // clips its children by a PathGeometry (or a LineGeometry / GeometryGroup), which
+  // would throw and abort the whole export. Approximate any such geometry by its
+  // bounding rectangle — the ClipToBounds intent — so export succeeds; the box is a
+  // touch looser than the silhouette but visually close, and rect/ellipse clips
+  // (the common case, incl. rounded-rect tiles) pass through exactly.
+  private static exportableClip(geometry: Geometry): Geometry
+  {
+    if (geometry instanceof RectangleGeometry || geometry instanceof EllipseGeometry) return geometry
+    return new RectangleGeometry(geometry.GetBounds())
   }
 
   // A visual's RenderTransform pivoted about RenderTransformOrigin (a fraction of

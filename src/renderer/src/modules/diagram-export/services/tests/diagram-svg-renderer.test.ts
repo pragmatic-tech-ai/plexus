@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { Visibility } from '@pragmatic-tech-ai/mural/runtime'
-import { RotateTransform, Point } from '@pragmatic-tech-ai/mural/visual-engine'
+import { RotateTransform, Point, SvgDrawingContext, PathGeometry, PathFigure, LineSegment } from '@pragmatic-tech-ai/mural/visual-engine'
 import { DiagramSvgRenderer } from '../diagram-svg-renderer.js'
 import { ExportFormat, ExportBackground, type ExportOptions } from '../export-options.js'
 
@@ -220,6 +220,26 @@ test('paintVisualTree pushes no transform for an identity-transform visual at th
   }
   DiagramSvgRenderer.paintVisualTree(plain as never, dc as never)
   expect(pushed.length).toBe(0)
+})
+
+test('paintVisualTree approximates a non-rect (PathGeometry) clip by its bounds instead of throwing', () => {
+  // A triangle silhouette clip — the SVG export context's PushClip supports only
+  // rect/ellipse and would otherwise throw, aborting the whole export (the real
+  // "Export dialog crashes" report). It must fall back to the bounding rect.
+  const tri = new PathGeometry([
+    new PathFigure(new Point(0, 0), [new LineSegment(new Point(10, 0)), new LineSegment(new Point(5, 8))], true),
+  ])
+  const dc = new SvgDrawingContext()
+  const v = {
+    Visibility: Visibility.Visible,
+    ArrangedRect: { X: 0, Y: 0, Width: 10, Height: 8 },
+    Clip: tri, ChildClip: undefined, visualChildren: [],
+    Render: (): void => {},
+  }
+  expect(() => DiagramSvgRenderer.paintVisualTree(v as never, dc as never)).not.toThrow()
+  const svg = dc.ToFragment()
+  expect(svg).toContain('<clipPath')
+  expect(svg).toContain('<rect')   // approximated by a rect, never a raw <path> clip
 })
 
 test('remapColors replaces every "from" color with "to"', () => {
