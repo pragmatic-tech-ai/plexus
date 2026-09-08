@@ -94,3 +94,12 @@ test('with no propagation link, the first icon-bearing member in schema order wi
     const { repo, entity } = dirRepoWith(['Cats.ai'])
     expect(iconEntityKey(repo, entity('c1'))).toBe('Cats.ai')
 })
+
+test('a placed taxonomy archetype draws its OWN icon (own-id wins over concept)', () => {
+    // The dropped-as-node case: the entity IS the icon-bearing term (Stack.azure@icon),
+    // reachable only by its own id — not via type/concept (technology, no icon) or refs.
+    const { repo } = repoWith(['Stack.azure'], `namespace t { model M : t conforms V {} }`)
+    const term = repo.entity('Stack.azure')
+    expect(term).toBeDefined()
+    expect(iconEntityKey(repo, term!)).toBe('Stack.azure')
+})

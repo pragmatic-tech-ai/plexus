@@ -192,8 +192,13 @@ export class ArchNavigationService extends ServiceBase
     protected elementFor(model: ArchModel, id: string): Element | undefined
     {
         const repo: Repository = model.repository()
+        // A placed node that is not an own instance (a library term, or a leaf
+        // meta-model archetype like `actors.internal`) resolves through repo.entity —
+        // the canonical Entity accessor (carries `.field()` / `.refs`), the same one
+        // the rescan uses. repo.resolve returns a bare node WITHOUT `.field()`, which
+        // toElement calls and throws on — aborting the whole rescan projection.
         const entity: Entity | undefined =
-            model.entities().find((e) => e.id === id) ?? (repo.resolve(id) as Entity | undefined)
+            model.entities().find((e) => e.id === id) ?? (repo.has(id) ? repo.entity(id) : undefined)
         if (entity === undefined) return undefined
         return toElement(repo, entity, { homeOf: (x) => model.homeOf(x) })
     }

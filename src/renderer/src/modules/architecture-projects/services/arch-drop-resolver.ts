@@ -57,6 +57,21 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
     if (isContainerConcept(repo, ct))
         return [{ kind: DropActionKind.Rejected, concept: ct, term: termId, label: ct }]
 
+    // 0c. PLACE-LEAF: the dropped term is a class-term ARCHETYPE of a concept the
+    //     meta-model marks as a drop concept (a materialize root) but that is NOT a
+    //     container — place the archetype itself as a leaf node (bound to the term,
+    //     with its icon + label), no model instance. This is how an actor archetype
+    //     (`actors.internal`) drops an actor node: `actor` is annotated `materialize`
+    //     so it is a root, yet its terms are class-terms (excluded from bare
+    //     instantiation, step 1) and nothing references `actor` from a root — so
+    //     without this branch the drop resolves to nothing. Gated on the concept
+    //     being a root so ONLY meta-model-marked concepts place their archetypes; a
+    //     blind "place any unreferenced archetype" rule would wrongly place
+    //     `application-kind` / `lifecycle-stage` / … archetypes too. Container
+    //     archetypes are handled above (0/0b), so this is the non-container case.
+    if (isClassTerm && roots.includes(ct) && framed(ct))
+        return [{ kind: DropActionKind.Place, concept: ct, term: termId, label: ct }]
+
     // 1. Direct: the term's own class (or a supertype) is a root → instantiate it.
     //    Class-terms are excluded — a bare instance would lose which term it is,
     //    so they route through a reference instead.

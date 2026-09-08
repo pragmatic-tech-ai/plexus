@@ -24,6 +24,12 @@ function hasIcon(repo: Repository, id: string): boolean {
 // annotation literal stores verbatim — and coerced with Number().
 export function iconEntityKey(repo: Repository, entity: Entity): string | undefined
 {
+    // Own-id icon wins first — the most specific source. A placed taxonomy archetype
+    // (e.g. `actors.internal` dropped as an actor node) carries `@icon` on the TERM
+    // itself, reachable only by its own id, not via its type/concept or refs. Instance
+    // ids don't carry `@icon`, so this is a no-op for them (they resolve below).
+    if (hasIcon(repo, entity.id)) return entity.id
+
     const sources: { member: string; order: number; index: number }[] = []
     let index = 0
     for (const rel of entity.schema().relationships) {

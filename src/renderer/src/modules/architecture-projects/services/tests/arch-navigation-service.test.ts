@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import type { Element } from '@pragmatic-tech-ai/todl'
+import { load, type Element } from '@pragmatic-tech-ai/todl'
 import { ArchNavigationService, NavTargetKind } from '../arch-navigation-service.js'
 import type { ArchModel } from '../arch-model.js'
 
@@ -137,4 +137,22 @@ test('a project target opens the .todl source at the declaration line', async ()
   expect(h.opened.length).toBe(1)
   expect(h.opened[0]!.u).toBe('landscape.todl')
   expect(h.opened[0]!.l).toBe(2) // 1-based line of "component orders"
+})
+
+// Regression: resolving nav targets for a PLACED taxonomy archetype (e.g. an
+// actor archetype dropped as a node) must go through repo.entity — the canonical
+// Entity accessor with `.field()` — not repo.resolve, whose bare node has no
+// `.field()` and makes toElement throw, aborting the whole rescan projection.
+test('resolveTargets on a placed archetype (a term entity) does not throw', () => {
+  const MM = `namespace m {
+    concept actor {}
+    viewpoint V : frames actor
+    taxonomy Actors : represents actor { term internal { label = "Internal"; } }
+  }`
+  const repo = load([{ uri: 'm.todl', text: MM }]).model
+  // A minimal ArchModel over the loaded repo: no own instances, so an archetype id
+  // resolves only through repo.entity (the path the fix uses).
+  const model = { repository: () => repo, entities: () => [], homeOf: () => undefined } as unknown as ArchModel
+  const nav = new ArchNavigationService({ get: () => undefined } as never)
+  expect(() => nav.resolveTargets(model, 'Actors.internal')).not.toThrow()
 })
