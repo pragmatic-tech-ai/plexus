@@ -1,34 +1,34 @@
 import { registerNodeSerializer, serializerByType } from '@pragmatic-tech-ai/mural/framework'
-import { Color, SolidColorBrush, type FontStyle, type FontWeight, type TextAlignment, type TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
+import { LabelStyleCodec } from './label-style-codec.js'
 import { ArchNodeVM } from './arch-node-vm.js'
 
 // The label-style overrides the user set on a node's title (Format Shape → Text
 // page). Each DP is undefined until touched, so an unstyled node serializes to a
-// bare `{}` exactly as before — only styled labels carry a `labelStyle` block.
+// bare `{}` exactly as before — only styled labels carry a `labelStyle` block. The
+// DP↔JSON mapping is shared with connector labels via LabelStyleCodec.
 function serializeLabelStyle(vm: ArchNodeVM): Record<string, unknown> | undefined {
-    const s: Record<string, unknown> = {}
-    if (vm.LabelFontFamily !== undefined) s.fontFamily = vm.LabelFontFamily
-    if (vm.LabelFontSize !== undefined) s.fontSize = vm.LabelFontSize
-    if (vm.LabelForeground instanceof SolidColorBrush) s.foreground = vm.LabelForeground.Color.ToHex()
-    if (vm.LabelFontWeight !== undefined) s.fontWeight = vm.LabelFontWeight
-    if (vm.LabelFontStyle !== undefined) s.fontStyle = vm.LabelFontStyle
-    if (vm.LabelTextDecorations !== undefined) s.textDecorations = vm.LabelTextDecorations
-    if (vm.LabelTextAlignment !== undefined) s.textAlignment = vm.LabelTextAlignment
-    return Object.keys(s).length > 0 ? s : undefined
+    return LabelStyleCodec.Serialize({
+        fontFamily: vm.LabelFontFamily,
+        fontSize: vm.LabelFontSize,
+        foreground: vm.LabelForeground,
+        fontWeight: vm.LabelFontWeight,
+        fontStyle: vm.LabelFontStyle,
+        textDecorations: vm.LabelTextDecorations,
+        textAlignment: vm.LabelTextAlignment,
+    })
 }
 
-// Restore the persisted overrides. The enum values (weight / style / decorations /
-// alignment) round-trip as their raw wire form, so a guarded cast is enough.
+// Restore the persisted overrides onto the node's Label* DPs (only the fields the
+// block actually carried; an absent field leaves the DP untouched at its default).
 function applyLabelStyle(vm: ArchNodeVM, data: unknown): void {
-    if (data === null || typeof data !== 'object') return
-    const s = data as Record<string, unknown>
-    if (typeof s.fontFamily === 'string') vm.LabelFontFamily = s.fontFamily
-    if (typeof s.fontSize === 'number') vm.LabelFontSize = s.fontSize
-    if (typeof s.foreground === 'string') vm.LabelForeground = new SolidColorBrush(Color.FromHex(s.foreground))
-    if (s.fontWeight !== undefined) vm.LabelFontWeight = s.fontWeight as FontWeight
-    if (s.fontStyle !== undefined) vm.LabelFontStyle = s.fontStyle as FontStyle
-    if (s.textDecorations !== undefined) vm.LabelTextDecorations = s.textDecorations as TextDecorations
-    if (s.textAlignment !== undefined) vm.LabelTextAlignment = s.textAlignment as TextAlignment
+    const s = LabelStyleCodec.Deserialize(data)
+    if (s.fontFamily !== undefined) vm.LabelFontFamily = s.fontFamily
+    if (s.fontSize !== undefined) vm.LabelFontSize = s.fontSize
+    if (s.foreground !== undefined) vm.LabelForeground = s.foreground
+    if (s.fontWeight !== undefined) vm.LabelFontWeight = s.fontWeight
+    if (s.fontStyle !== undefined) vm.LabelFontStyle = s.fontStyle
+    if (s.textDecorations !== undefined) vm.LabelTextDecorations = s.textDecorations
+    if (s.textAlignment !== undefined) vm.LabelTextAlignment = s.textAlignment
 }
 
 // Idempotent — safe to call more than once (production wiring + tests).

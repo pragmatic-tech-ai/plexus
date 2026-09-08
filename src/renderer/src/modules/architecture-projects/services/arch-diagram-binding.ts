@@ -12,6 +12,7 @@ import { isContainerConcept, containingContainerOf, containmentMemberOf, contain
 import { resolveConnectorActions, type ConnectorAction } from './arch-connector-resolver.js'
 import { canDrawConnectorEntity, mintConnectorEntity, connectorTypeOf, CONNECTOR_DEFAULT_TYPE, CONNECTOR_DRAW_MEMBER, CONNECTOR_TYPE_FIELD } from './connector-entity.js'
 import { readConnectorVisuals, writeConnectorVisual, captureConnectorVisual, applyConnectorVisual } from './arch-diagram-connector-visuals-store.js'
+import { ConnectorLabelText } from './connector-label-text.js'
 import { scenarioStepPairs, type FlowEntity } from './scenario-flow.js'
 import type { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
 import type { WikiService } from '../../../services/wiki/wiki-service.js'
@@ -624,9 +625,23 @@ export class ArchDiagramBinding
         }
         const offSrc = wireEp(c.Source)
         const offTgt = wireEp(c.Target)
+        // Capture LABEL presentation edits too: the label's along-connector position
+        // (Connector.LabelPosition) and every text-style / block DP on its ShapeText
+        // (font, colour, weight/style/decoration, alignment, drag offset, rotation).
+        // Format-Shape edits land on these DPs, so this persists them like a reroute.
+        c.AddPropertyChangedListener(Connector.LabelPositionKey, onVisualEdit)
+        const label = c.Text
+        const labelKeys = [
+            ShapeText.FontFamilyKey, ShapeText.FontSizeKey, ShapeText.ForegroundKey,
+            ShapeText.FontWeightKey, ShapeText.FontStyleKey, ShapeText.TextDecorationsKey,
+            ShapeText.TextAlignmentKey, ShapeText.OffsetKey, ShapeText.AngleKey,
+        ]
+        for (const k of labelKeys) label.AddPropertyChangedListener(k, onVisualEdit)
         this.connectorVisualTeardown.set(key, () => {
             c.RemovePropertyChangedListener(Connector.WaypointsKey, onVisualEdit)
             c.RemovePropertyChangedListener(Connector.RoutingModeKey, onVisualEdit)
+            c.RemovePropertyChangedListener(Connector.LabelPositionKey, onVisualEdit)
+            for (const k of labelKeys) label.RemovePropertyChangedListener(k, onVisualEdit)
             offSrc(); offTgt()
         })
     }
@@ -687,9 +702,14 @@ export class ArchDiagramBinding
                 // scenario-step / relationship edge has no entity id, so its label
                 // stays ephemeral (editable but not saved).
                 this.wireConnectorLabel(key, c)
-                // Restore this edge's saved presentation (pinned route + port sides),
-                // then track future edits so they persist in the diagram metadata.
+                // Restore this edge's saved presentation (pinned route + port sides +
+                // label style/position), then track future edits so they persist in
+                // the diagram metadata.
                 this.applyAndTrackConnectorVisual(key, c)
+                // Rebuild a multiline caption's paragraph Document from the restored
+                // text (after the saved text-alignment above is applied), so its line
+                // breaks survive reopen instead of collapsing to one line.
+                if (label !== undefined) ConnectorLabelText.rebuildMultiline(c, label)
                 this.boundEdges.set(key, c)
             }
         }
