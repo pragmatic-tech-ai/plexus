@@ -42,7 +42,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@playwright/test": "^1.62.1",
     "@pragmatic-tech-ai/fresco": "^0.4.1",
-    "@pragmatic-tech-ai/mural": "^0.46.15",
+    "@pragmatic-tech-ai/mural": "^0.46.16",
     "electron": "^43.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",

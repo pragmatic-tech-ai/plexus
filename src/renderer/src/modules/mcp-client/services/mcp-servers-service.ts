@@ -1,7 +1,4 @@
-import {
-    MetaData, MuralBase, ObservableCollection, RelayCommand, ServiceBase, ServiceKey,
-    type ICommand, type IServiceProvider,
-} from '@pragmatic-tech-ai/mural/runtime'
+import { ObservableCollection, RelayCommand, ServiceBase, ServiceKey, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { type IActivatable } from '@pragmatic-tech-ai/mural/framework'
 import { McpScope, type IMcpClientApi, type McpServerEntry } from '../../../../../shared/mcp-client-api.js'
 import { OpenProjectsStore } from '../../../services/projects/open-projects-store.js'
@@ -11,26 +8,29 @@ import { McpImport } from './mcp-import.js'
 
 // The "MCP Servers" capability panel root. Lists the global registry plus (when a
 // project is open) that project's servers, and hosts the add/edit editor and the
-// import panel. A ServiceBase (the capability's ServiceKey) using the DP system for
-// its bindable panel state; the child VMs extend the lightweight Observable.
+// import panel. A ServiceBase (the capability's ServiceKey) — but its bindable
+// state is exposed as PLAIN Observable properties (getter/setter + RaisePropertyChanged)
+// and its commands/lists as plain readonly fields, no dependency-property boilerplate:
+// the binding engine reads plain properties on a MuralBase source and subscribes to
+// its Observable INPC (mural >= 0.46.16).
 export class McpServersService extends ServiceBase implements IActivatable
 {
     public static readonly Key = new ServiceKey<McpServersService>('McpServersService')
 
-    public static readonly IsProjectOpenKey = MuralBase.RegisterProperty<boolean>(McpServersService, 'IsProjectOpen', false, MetaData.None)
-    public static readonly IsEmptyKey = MuralBase.RegisterProperty<boolean>(McpServersService, 'IsEmpty', false, MetaData.None)
-    public static readonly ActiveEditorKey = MuralBase.RegisterProperty<McpServerEditor | undefined>(McpServersService, 'ActiveEditor', undefined, MetaData.None)
-    public static readonly HasEditorKey = MuralBase.RegisterProperty<boolean>(McpServersService, 'HasEditor', false, MetaData.None)
-    public static readonly ActiveImportKey = MuralBase.RegisterProperty<McpImport | undefined>(McpServersService, 'ActiveImport', undefined, MetaData.None)
-    public static readonly HasImportKey = MuralBase.RegisterProperty<boolean>(McpServersService, 'HasImport', false, MetaData.None)
-
     public readonly GlobalServers = new ObservableCollection<McpServerRow>()
     public readonly ProjectServers = new ObservableCollection<McpServerRow>()
 
-    public readonly AddCommand: ICommand
-    public readonly AddProjectCommand: ICommand
-    public readonly ImportCommand: ICommand
-    public readonly ReloadCommand: ICommand
+    public readonly AddCommand: ICommand = new RelayCommand(() => this.beginAdd(McpScope.Global))
+    public readonly AddProjectCommand: ICommand = new RelayCommand(() => this.beginAdd(McpScope.Project))
+    public readonly ImportCommand: ICommand = new RelayCommand(() => void this.beginImport())
+    public readonly ReloadCommand: ICommand = new RelayCommand(() => void this.Reload())
+
+    private _isProjectOpen = false
+    private _isEmpty = false
+    private _activeEditor: McpServerEditor | undefined
+    private _hasEditor = false
+    private _activeImport: McpImport | undefined
+    private _hasImport = false
 
     private readonly projects: OpenProjectsStore | undefined
 
@@ -39,19 +39,26 @@ export class McpServersService extends ServiceBase implements IActivatable
         super(provider)
         this.projects = provider.get(OpenProjectsStore.Key)
         this.projects?.Subscribe(() => void this.Reload())
-        this.AddCommand = new RelayCommand(() => this.beginAdd(McpScope.Global))
-        this.AddProjectCommand = new RelayCommand(() => this.beginAdd(McpScope.Project))
-        this.ImportCommand = new RelayCommand(() => void this.beginImport())
-        this.ReloadCommand = new RelayCommand(() => void this.Reload())
         void this.Reload()
     }
 
-    public get IsProjectOpen(): boolean { return this.get_property_value(McpServersService.IsProjectOpenKey) }
-    public get IsEmpty(): boolean { return this.get_property_value(McpServersService.IsEmptyKey) }
-    public get ActiveEditor(): McpServerEditor | undefined { return this.get_property_value(McpServersService.ActiveEditorKey) }
-    public get HasEditor(): boolean { return this.get_property_value(McpServersService.HasEditorKey) }
-    public get ActiveImport(): McpImport | undefined { return this.get_property_value(McpServersService.ActiveImportKey) }
-    public get HasImport(): boolean { return this.get_property_value(McpServersService.HasImportKey) }
+    public get IsProjectOpen(): boolean { return this._isProjectOpen }
+    private set IsProjectOpen(v: boolean) { const o = this._isProjectOpen; if (o === v) return; this._isProjectOpen = v; this.RaisePropertyChanged('IsProjectOpen', o, v) }
+
+    public get IsEmpty(): boolean { return this._isEmpty }
+    private set IsEmpty(v: boolean) { const o = this._isEmpty; if (o === v) return; this._isEmpty = v; this.RaisePropertyChanged('IsEmpty', o, v) }
+
+    public get ActiveEditor(): McpServerEditor | undefined { return this._activeEditor }
+    private set ActiveEditor(v: McpServerEditor | undefined) { const o = this._activeEditor; if (o === v) return; this._activeEditor = v; this.RaisePropertyChanged('ActiveEditor', o, v) }
+
+    public get HasEditor(): boolean { return this._hasEditor }
+    private set HasEditor(v: boolean) { const o = this._hasEditor; if (o === v) return; this._hasEditor = v; this.RaisePropertyChanged('HasEditor', o, v) }
+
+    public get ActiveImport(): McpImport | undefined { return this._activeImport }
+    private set ActiveImport(v: McpImport | undefined) { const o = this._activeImport; if (o === v) return; this._activeImport = v; this.RaisePropertyChanged('ActiveImport', o, v) }
+
+    public get HasImport(): boolean { return this._hasImport }
+    private set HasImport(v: boolean) { const o = this._hasImport; if (o === v) return; this._hasImport = v; this.RaisePropertyChanged('HasImport', o, v) }
 
     public OnActivated(): void { void this.Reload() }
 
@@ -63,11 +70,11 @@ export class McpServersService extends ServiceBase implements IActivatable
         this.fill(this.GlobalServers, global, McpScope.Global)
 
         const root = this.projectRoot()
-        this.set_property_value(McpServersService.IsProjectOpenKey, root !== undefined)
+        this.IsProjectOpen = root !== undefined
         const project = root !== undefined ? await api.listProject(root) : []
         this.fill(this.ProjectServers, project, McpScope.Project)
 
-        this.set_property_value(McpServersService.IsEmptyKey, this.GlobalServers.Count === 0 && this.ProjectServers.Count === 0)
+        this.IsEmpty = this.GlobalServers.Count === 0 && this.ProjectServers.Count === 0
     }
 
     private fill(target: ObservableCollection<McpServerRow>, entries: readonly McpServerEntry[], scope: McpScope): void
@@ -102,14 +109,14 @@ export class McpServersService extends ServiceBase implements IActivatable
 
     private showEditor(editor: McpServerEditor): void
     {
-        this.set_property_value(McpServersService.ActiveEditorKey, editor)
-        this.set_property_value(McpServersService.HasEditorKey, true)
+        this.ActiveEditor = editor
+        this.HasEditor = true
     }
 
     private closeEditor(): void
     {
-        this.set_property_value(McpServersService.ActiveEditorKey, undefined)
-        this.set_property_value(McpServersService.HasEditorKey, false)
+        this.ActiveEditor = undefined
+        this.HasEditor = false
     }
 
     private async save(entry: McpServerEntry, scope: McpScope): Promise<void>
@@ -140,8 +147,8 @@ export class McpServersService extends ServiceBase implements IActivatable
         const imp = new McpImport(candidates, root !== undefined)
         imp.OnImport = (entries, scope) => void this.doImport(entries, scope)
         imp.OnCancel = () => this.closeImport()
-        this.set_property_value(McpServersService.ActiveImportKey, imp)
-        this.set_property_value(McpServersService.HasImportKey, true)
+        this.ActiveImport = imp
+        this.HasImport = true
     }
 
     private async doImport(entries: readonly McpServerEntry[], scope: McpScope): Promise<void>
@@ -157,8 +164,8 @@ export class McpServersService extends ServiceBase implements IActivatable
 
     private closeImport(): void
     {
-        this.set_property_value(McpServersService.ActiveImportKey, undefined)
-        this.set_property_value(McpServersService.HasImportKey, false)
+        this.ActiveImport = undefined
+        this.HasImport = false
     }
 
     // Read the scope's current list, transform it, and write it back.

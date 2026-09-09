@@ -4,6 +4,9 @@
 // rendered through templates. Child rows/editor/import are Observable VMs; the
 // transport/gating enums never appear here — the VMs expose option lists +
 // boolean flags, so the panel binds those instead.
+//
+// Labelled actions use Button (Text / Tonal variants), NOT PanelButton — the
+// latter is a fixed-size icon button whose hit area doesn't cover a text label.
 
 import McpServersService from "./services/mcp-servers-service.js"
 import McpServerRow from "./services/mcp-server-row.js"
@@ -20,10 +23,10 @@ resources McpClientResources {
         Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6, Padding = (10,8,10,8), Margin = (0,0,0,6) ] {
             DockPanel [ LastChildFill = true ] {
                 Switch [ DockPanel.Dock = Left, IsChecked = $Enabled, VerticalAlignment = Center, Margin = (0,0,10,0) ]
-                PanelButton [ DockPanel.Dock = Right, Command = $RemoveCommand, Margin = (4,0,0,0) ] {
+                Button [ DockPanel.Dock = Right, Variant = Text, Command = $RemoveCommand, Margin = (4,0,0,0) ] {
                     TextBlock [ Text = "Remove", Style = @BodySmall ]
                 }
-                PanelButton [ DockPanel.Dock = Right, Command = $EditCommand ] {
+                Button [ DockPanel.Dock = Right, Variant = Text, Command = $EditCommand ] {
                     TextBlock [ Text = "Edit", Style = @BodySmall ]
                 }
                 StackPanel [ Orientation = Vertical ] {
@@ -45,7 +48,7 @@ resources McpClientResources {
             TextBox [ Text = $Name, Width = 120, Margin = (0,0,6,0) ]
             ComboBox [ ItemsSource = $SourceKinds, SelectedItem = $SourceKind, Width = 84, Margin = (0,0,6,0) ]
             TextBox [ Text = $Value, Width = 160, Margin = (0,0,6,0) ]
-            PanelButton [ Command = $RemoveCommand ] { TextBlock [ Text = "✕", Style = @BodySmall ] }
+            Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySmall ] }
         }
     }
 
@@ -76,7 +79,7 @@ resources McpClientResources {
                     TextBox [ Text = $ArgsText, Margin = (0,0,0,6) ]
                     TextBlock [ Text = "Environment", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
                     ItemsControl [ ItemsSource = $EnvRows, ItemsPanel = @VerticalStackPanel, ItemTemplate = @KeyValueRowTemplate ]
-                    PanelButton [ Command = $AddEnvCommand, HorizontalAlignment = Left, Margin = (0,0,0,6) ] {
+                    Button [ Variant = Text, Command = $AddEnvCommand, HorizontalAlignment = Left, Margin = (0,0,0,6) ] {
                         TextBlock [ Text = "+ Add variable", Style = @BodySmall ]
                     }
                 }
@@ -87,7 +90,7 @@ resources McpClientResources {
                     TextBox [ Text = $Url, Margin = (0,0,0,6) ]
                     TextBlock [ Text = "Headers", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
                     ItemsControl [ ItemsSource = $HeaderRows, ItemsPanel = @VerticalStackPanel, ItemTemplate = @KeyValueRowTemplate ]
-                    PanelButton [ Command = $AddHeaderCommand, HorizontalAlignment = Left, Margin = (0,0,0,6) ] {
+                    Button [ Variant = Text, Command = $AddHeaderCommand, HorizontalAlignment = Left, Margin = (0,0,0,6) ] {
                         TextBlock [ Text = "+ Add header", Style = @BodySmall ]
                     }
                 }
@@ -97,7 +100,7 @@ resources McpClientResources {
 
                 // per-tool checklist
                 StackPanel [ Orientation = Vertical, Visibility = $IsPerTool << ToVisibility ] {
-                    PanelButton [ Command = $DiscoverToolsCommand, HorizontalAlignment = Left, Margin = (0,0,0,4) ] {
+                    Button [ Variant = Text, Command = $DiscoverToolsCommand, HorizontalAlignment = Left, Margin = (0,0,0,4) ] {
                         TextBlock [ Text = "Discover tools", Style = @BodySmall ]
                     }
                     ItemsControl [ ItemsSource = $Tools, ItemsPanel = @VerticalStackPanel, ItemTemplate = @ToolToggleTemplate ]
@@ -109,13 +112,13 @@ resources McpClientResources {
                 }
 
                 StackPanel [ Orientation = Horizontal ] {
-                    PanelButton [ Command = $TestCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Test", Style = @BodySmall ] }
+                    Button [ Variant = Text, Command = $TestCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Test", Style = @BodySmall ] }
                     TextBlock [ Text = $TestStatus, Style = @BodySmall, Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
                 }
 
                 StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,10,0,0) ] {
-                    PanelButton [ Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel", Style = @BodySmall ] }
-                    PanelButton [ Command = $SaveCommand, IsEnabled = $IsValid ] { TextBlock [ Text = "Save", Style = @BodySmall ] }
+                    Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel", Style = @BodySmall ] }
+                    Button [ Variant = Tonal, Command = $SaveCommand, IsEnabled = $IsValid ] { TextBlock [ Text = "Save", Style = @BodySmall ] }
                 }
             }
         }
@@ -143,8 +146,8 @@ resources McpClientResources {
                 TextBlock [ Text = "Import into", Style = @BodySmall, Foreground = @OnSurfaceVariant, Margin = (0,6,0,0) ]
                 ComboBox [ ItemsSource = $Scopes, SelectedItem = $SelectedScope, HorizontalAlignment = Stretch, Margin = (0,0,0,6) ]
                 StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,4,0,0) ] {
-                    PanelButton [ Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel", Style = @BodySmall ] }
-                    PanelButton [ Command = $ImportCommand ] { TextBlock [ Text = "Import", Style = @BodySmall ] }
+                    Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel", Style = @BodySmall ] }
+                    Button [ Variant = Tonal, Command = $ImportCommand ] { TextBlock [ Text = "Import", Style = @BodySmall ] }
                 }
             }
         }
@@ -153,14 +156,13 @@ resources McpClientResources {
     // ── the capability panel ────────────────────────────────────────────────
     DataTemplate [ DataType = McpServersService ] {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
-            // Header + actions.
+            // Action toolbar (the shell already renders the "MCP Servers" title).
             StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,10) ] {
-                TextBlock [ Text = "MCP Servers", Style = @TitleSmall, Foreground = @OnSurface, VerticalAlignment = Center ]
-                PanelButton [ Command = $AddCommand, Margin = (12,0,0,0) ] { TextBlock [ Text = "Add", Style = @BodySmall ] }
-                PanelButton [ Command = $AddProjectCommand, Margin = (6,0,0,0), Visibility = $IsProjectOpen << ToVisibility ] {
+                Button [ Variant = Tonal, Command = $AddCommand ] { TextBlock [ Text = "Add", Style = @BodySmall ] }
+                Button [ Variant = Text, Command = $AddProjectCommand, Margin = (6,0,0,0), Visibility = $IsProjectOpen << ToVisibility ] {
                     TextBlock [ Text = "Add to project", Style = @BodySmall ]
                 }
-                PanelButton [ Command = $ImportCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Import", Style = @BodySmall ] }
+                Button [ Variant = Text, Command = $ImportCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Import", Style = @BodySmall ] }
             }
 
             // Editor / import hosts (shown when active), docked above the lists.
