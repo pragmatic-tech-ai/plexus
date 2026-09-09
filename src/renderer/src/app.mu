@@ -39,6 +39,7 @@ import ArchitectureProjectsModule from "./modules/architecture-projects/architec
 import ProjectExplorerModule from "./modules/project-explorer/project-explorer.module.mu.js"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
+import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
 import AgentChatModule from "./modules/agent-chat/agent-chat.module.mu.js"
 import ProblemsModule from "./modules/problems/problems.module.mu.js"
 import CodeEditorModule from "./modules/code-editor/code-editor.module.mu.js"
@@ -126,6 +127,7 @@ import MetaModelResources from "./modules/meta-model/meta-model.resources.mu.js"
 
 // Libraries capability panel (DataTemplate[LibrariesPanelService] + rows).
 import LibraryResources from "./modules/library/library.resources.mu.js"
+import McpClientResources from "./modules/mcp-client/mcp-client.resources.mu.js"
 
 // Agent chat panel (DataTemplate[ChatSession] + transcript item templates).
 import AgentChatResources from "./modules/agent-chat/agent-chat.resources.mu.js"
@@ -382,6 +384,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         ProjectExplorerModule
         MetaModelModule
         LibraryModule
+        McpClientModule
         AgentChatModule
         ProblemsModule
         CodeEditorModule
@@ -482,6 +485,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
 
         // Libraries capability panel (DataTemplate[LibrariesPanelService] + rows).
         merge LibraryResources
+        merge McpClientResources
 
         // Agent chat panel (DataTemplate[ChatSession] + transcript item templates).
         merge AgentChatResources

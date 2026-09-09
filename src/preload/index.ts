@@ -16,6 +16,7 @@ import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, t
 import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
 import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '../shared/file-watch-api.js'
 import { WindowChannel, type IWindowApi, type OverlayColors } from '../shared/window-api.js'
+import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
@@ -139,7 +140,20 @@ const titlebar: IWindowApi = {
   setOverlay: (colors: OverlayColors): void => ipcRenderer.send(WindowChannel.SetOverlay, colors),
 }
 
-const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar }
+// MCP-client bridge — manage external MCP servers the agent may use. Each method
+// is a thin invoke to the matching McpClientChannel handler (register-mcp-client).
+const mcp: IMcpClientApi = {
+  listGlobal: (): Promise<McpServerEntry[]> => ipcRenderer.invoke(McpClientChannel.ListGlobal),
+  saveGlobal: (entries: McpServerEntry[]): Promise<void> => ipcRenderer.invoke(McpClientChannel.SaveGlobal, entries),
+  listProject: (projectRoot: string): Promise<McpServerEntry[]> => ipcRenderer.invoke(McpClientChannel.ListProject, projectRoot),
+  saveProject: (projectRoot: string, entries: McpServerEntry[]): Promise<void> =>
+    ipcRenderer.invoke(McpClientChannel.SaveProject, projectRoot, entries),
+  probe: (entry: McpServerEntry): Promise<McpProbeResult> => ipcRenderer.invoke(McpClientChannel.Probe, entry),
+  listTools: (entry: McpServerEntry): Promise<string[]> => ipcRenderer.invoke(McpClientChannel.ListTools, entry),
+  importCandidates: (projectRoot?: string): Promise<McpServerEntry[]> => ipcRenderer.invoke(McpClientChannel.ImportCandidates, projectRoot),
+}
+
+const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp }
 
 if (process.contextIsolated) {
   try {
