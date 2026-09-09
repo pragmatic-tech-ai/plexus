@@ -17,6 +17,8 @@ import { ClaudeCliProvider } from './agent/claude-cli-provider.js'
 import { AgentSessionManager } from './agent/agent-session-manager.js'
 import { PlexusMcpServer } from './agent/plexus-mcp-server.js'
 import { RuleStore } from './agent/tool-approval-rules.js'
+import { McpClientRuntime } from './mcp-client/register-mcp-client.js'
+import type { BaseMcp } from './mcp-client/mcp-config-resolver.js'
 
 // Appended to the model's system prompt every session so it calls refresh_project
 // after — and only after — a turn that changed files or folders in a project.
@@ -55,10 +57,13 @@ export async function registerAgentHandlers(): Promise<void>
     )
     mcpServer.setRuleStore(store, process.cwd())
 
-    const providers = new AiProviderService()
-    providers.register(new ClaudeCliProvider(undefined, undefined, {
+    // The always-present base: the in-process Plexus server (tagSession so its URL
+    // gets ?session= per conversation) + the fixed allow/disallow/prompt options.
+    // The MCP-client runtime layers the user's registry servers (global + per-project)
+    // on top, resolved per conversation from its working directory.
+    const base: BaseMcp = {
         servers: {
-            [MCP_SERVER_KEY]: { type: 'http', url: mcpServer.Url },
+            [MCP_SERVER_KEY]: { type: 'http', url: mcpServer.Url, tagSession: true },
         },
         // The four Plexus MCP tools + read-only built-ins auto-approve; everything
         // else (Bash, WebFetch, Write outside edits, …) routes to approve_tool.
@@ -69,7 +74,12 @@ export async function registerAgentHandlers(): Promise<void>
         disallowedTools: ['AskUserQuestion'],
         appendSystemPrompt: REFRESH_INSTRUCTION,
         permissionPromptTool: APPROVE_TOOL_QUALIFIED,
-    }))
+    }
+    const mcpRuntime = new McpClientRuntime(base)
+    mcpRuntime.register()
+
+    const providers = new AiProviderService()
+    providers.register(new ClaudeCliProvider(undefined, undefined, (cwd) => mcpRuntime.resolver.resolve(cwd)))
     const manager = new AgentSessionManager(providers, emitToRenderer)
 
     // setRuleStore is process-global: approval-rule scope tracks the most recent

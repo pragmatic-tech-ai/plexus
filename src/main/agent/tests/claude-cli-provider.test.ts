@@ -103,8 +103,8 @@ test('start omits --model when the model is empty/unset', () => {
 
 test('the MCP config URL carries the session id so tool calls are attributable', () => {
     const { spawn, calls } = captureSpawn()
-    const mcp = { servers: { plexus: { type: 'http' as const, url: 'http://127.0.0.1:9/mcp' } }, allowedTools: [] }
-    new ClaudeCliProvider('claude', spawn, mcp).start('sess-42', '/proj', [], () => {})
+    const mcp = { servers: { plexus: { type: 'http' as const, url: 'http://127.0.0.1:9/mcp', tagSession: true } }, allowedTools: [] }
+    new ClaudeCliProvider('claude', spawn, () => mcp).start('sess-42', '/proj', [], () => {})
     const args = calls[0].args
     const cfgPath = args[args.indexOf('--mcp-config') + 1]
     const written = JSON.parse(readFileSync(cfgPath, 'utf8'))
@@ -139,11 +139,11 @@ test('appends --add-dir for each extra directory, spawning at the cwd', () => {
 test('adds --mcp-config (a temp file) + --allowedTools when MCP options are given', () => {
     let captured: { args: string[] } | undefined
     const spawn: SpawnFn = (_command, args) => { captured = { args }; return fakeChild().child }
-    new ClaudeCliProvider('claude', spawn, {
-        servers: { plexus: { type: 'http', url: 'http://127.0.0.1:12345/mcp' } },
+    new ClaudeCliProvider('claude', spawn, () => ({
+        servers: { plexus: { type: 'http', url: 'http://127.0.0.1:12345/mcp', tagSession: true } },
         allowedTools: ['mcp__plexus__ask_user_question'],
         disallowedTools: ['AskUserQuestion'],
-    }).start('s1', '/proj', [], () => {})
+    })).start('s1', '/proj', [], () => {})
 
     const args = captured!.args
     const i = args.indexOf('--mcp-config')
@@ -164,13 +164,13 @@ test('adds --mcp-config (a temp file) + --allowedTools when MCP options are give
 test('writes the server config, allow-lists every tool, and appends the system prompt when given', () => {
     let captured: { args: string[] } | undefined
     const spawn: SpawnFn = (_command, args) => { captured = { args }; return fakeChild().child }
-    new ClaudeCliProvider('claude', spawn, {
+    new ClaudeCliProvider('claude', spawn, () => ({
         servers: {
-            plexus: { type: 'http', url: 'http://127.0.0.1:11111/mcp' },
+            plexus: { type: 'http', url: 'http://127.0.0.1:11111/mcp', tagSession: true },
         },
         allowedTools: ['mcp__plexus__ask_user_question', 'mcp__plexus__refresh_project', 'mcp__plexus__create_project'],
         appendSystemPrompt: 'CALL REFRESH ONLY AFTER FILE CHANGES',
-    }).start('s1', '/proj', [], () => {})
+    })).start('s1', '/proj', [], () => {})
 
     const args = captured!.args
     const i = args.indexOf('--mcp-config')

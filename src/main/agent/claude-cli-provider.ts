@@ -11,7 +11,7 @@ import { tmpdir } from 'node:os'
 import { StreamJsonParser } from './stream-json-parser.js'
 import { scanClaudeCatalog, type CatalogIo } from './claude-catalog.js'
 import { AgentEventKind, type AgentEvent, type ProjectCatalog } from '../../shared/agent-api.js'
-import type { AiProviderSession, ChildLike, IAiProvider, McpHttpServerConfig, McpOptions, SpawnFn } from './ai-provider.js'
+import type { AiProviderSession, ChildLike, IAiProvider, McpHttpServerConfig, McpOptions, McpServerConfig, McpStdioServerConfig, SpawnFn } from './ai-provider.js'
 
 // Default catalog IO: a thin node:fs wrapper (the provider scans the real project).
 const defaultCatalogIo: CatalogIo = {
@@ -50,9 +50,10 @@ export class ClaudeCliProvider implements IAiProvider
     constructor(
         private readonly binaryPath: string = 'claude',
         private readonly spawnFn: SpawnFn = defaultSpawn,
-        // Optional extra MCP tools (the ask-user-question server). When present,
-        // the CLI is pointed at them via --mcp-config and they're allow-listed.
-        private readonly mcp: McpOptions | undefined = undefined,
+        // Resolves the MCP options for a conversation from its working directory
+        // (the in-process Plexus tools + the user's registry servers scoped to that
+        // project). Called per spawn; when absent, no --mcp-config is passed.
+        private readonly mcpResolver: ((cwd: string) => McpOptions) | undefined = undefined,
         // Catalog IO seam (injectable for tests); defaults to node:fs.
         private readonly catalogIo: CatalogIo = defaultCatalogIo,
     ) {}
@@ -75,7 +76,7 @@ export class ClaudeCliProvider implements IAiProvider
         const resume = resumeToken !== undefined ? ['--resume', resumeToken] : []
         // '' (Default) omits --model so the CLI uses the subscription default.
         const modelArgs = model !== undefined && model !== '' ? ['--model', model] : []
-        const args = [...CLI_ARGS, ...resume, ...modelArgs, ...addDirs.flatMap((d) => ['--add-dir', d]), ...this.mcpArgs(sessionId)]
+        const args = [...CLI_ARGS, ...resume, ...modelArgs, ...addDirs.flatMap((d) => ['--add-dir', d]), ...this.mcpArgs(sessionId, workingDirectory)]
         const child = this.spawnFn(this.binaryPath, args, { cwd: workingDirectory })
         const parser = new StreamJsonParser()
         let buffer = ''
@@ -161,28 +162,43 @@ export class ClaudeCliProvider implements IAiProvider
     // Build the --mcp-config / --allowedTools args. The config is written to a temp
     // FILE (not passed inline): on Windows the provider spawns with shell:true (the
     // `claude.cmd` shim needs it), which mangles an inline-JSON arg. The file is
-    // named by the server port so concurrent Plexus instances don't collide. Not
-    // strict — the user's own MCP servers still load alongside ours.
-    private mcpArgs(sessionId: string): string[]
+    // named by the in-process server port + session so concurrent Plexus instances /
+    // sessions don't collide. STRICT — only these servers load (no auto-discovery
+    // from the user's global Claude config); the MCP Servers panel + Import are the
+    // way in. Session-tagging is applied only to the in-process server (tagSession),
+    // so external servers get their config verbatim.
+    private mcpArgs(sessionId: string, cwd: string): string[]
     {
-        if (this.mcp === undefined) return []
-        const first = Object.values(this.mcp.servers)[0]
-        const port = first !== undefined ? new URL(first.url).port : '0'
-        // Tag each server URL with the session so the MCP server can attribute tool
-        // calls (question/approval/create-project) back to this conversation.
-        const servers: Record<string, McpHttpServerConfig> = {}
-        for (const [key, cfg] of Object.entries(this.mcp.servers))
-            servers[key] = { type: 'http', url: `${cfg.url}?session=${encodeURIComponent(sessionId)}` }
-        // Named by port + session so concurrent sessions don't clobber the config file.
+        const options = this.mcpResolver?.(cwd)
+        if (options === undefined) return []
+        const servers: Record<string, McpServerConfig> = {}
+        let port = '0'
+        for (const [key, cfg] of Object.entries(options.servers))
+        {
+            if ('url' in cfg)
+            {
+                if (cfg.tagSession === true) { try { port = new URL(cfg.url).port || port } catch { /* keep default */ } }
+                const url = cfg.tagSession === true ? `${cfg.url}?session=${encodeURIComponent(sessionId)}` : cfg.url
+                const out: McpHttpServerConfig = { type: cfg.type, url }
+                if (cfg.headers !== undefined) out.headers = cfg.headers
+                servers[key] = out
+            }
+            else
+            {
+                const out: McpStdioServerConfig = { command: cfg.command, args: cfg.args }
+                if (cfg.env !== undefined) out.env = cfg.env
+                servers[key] = out
+            }
+        }
         const configPath = join(tmpdir(), `plexus-mcp-${port}-${sessionId}.json`)
         writeFileSync(configPath, JSON.stringify({ mcpServers: servers }))
-        const allow = this.mcp.allowedTools.length > 0 ? ['--allowedTools', ...this.mcp.allowedTools] : []
-        const disallow = this.mcp.disallowedTools !== undefined && this.mcp.disallowedTools.length > 0
-            ? ['--disallowedTools', ...this.mcp.disallowedTools] : []
-        const appendPrompt = this.mcp.appendSystemPrompt !== undefined && this.mcp.appendSystemPrompt.length > 0
-            ? ['--append-system-prompt', this.mcp.appendSystemPrompt] : []
-        const promptTool = this.mcp.permissionPromptTool !== undefined
-            ? ['--permission-prompt-tool', this.mcp.permissionPromptTool] : []
-        return ['--mcp-config', configPath, ...allow, ...disallow, ...appendPrompt, ...promptTool]
+        const allow = options.allowedTools.length > 0 ? ['--allowedTools', ...options.allowedTools] : []
+        const disallow = options.disallowedTools !== undefined && options.disallowedTools.length > 0
+            ? ['--disallowedTools', ...options.disallowedTools] : []
+        const appendPrompt = options.appendSystemPrompt !== undefined && options.appendSystemPrompt.length > 0
+            ? ['--append-system-prompt', options.appendSystemPrompt] : []
+        const promptTool = options.permissionPromptTool !== undefined
+            ? ['--permission-prompt-tool', options.permissionPromptTool] : []
+        return ['--mcp-config', configPath, '--strict-mcp-config', ...allow, ...disallow, ...appendPrompt, ...promptTool]
     }
 }

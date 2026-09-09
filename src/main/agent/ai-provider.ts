@@ -42,13 +42,18 @@ export interface IAiProvider
     listAgentsAndSkills(projectDir: string): Promise<ProjectCatalog>;
 }
 
-// An extra MCP server the provider mounts into the backend (today: the in-process
-// ask-user-question HTTP tool). Kept generic so the provider stays unaware of what
-// the tool does — it just wires servers + allow-listed tool names into the CLI.
-export interface McpHttpServerConfig { type: 'http'; url: string }
+// An extra MCP server the provider mounts into the backend. Kept generic so the
+// provider stays unaware of what a server does — it just wires servers + allow-listed
+// tool names into the CLI. Two transports: HTTP/SSE (the in-process Plexus tools + any
+// remote server) and stdio (a local command). Only the in-process server sets
+// tagSession, so its URL gets ?session=<id> appended for tool-call attribution;
+// external servers do not.
+export interface McpHttpServerConfig { type: 'http' | 'sse'; url: string; headers?: Record<string, string>; tagSession?: boolean }
+export interface McpStdioServerConfig { command: string; args: string[]; env?: Record<string, string> }
+export type McpServerConfig = McpHttpServerConfig | McpStdioServerConfig
 export interface McpOptions
 {
-    servers: Record<string, McpHttpServerConfig>;
+    servers: Record<string, McpServerConfig>;
     // Tool names to auto-approve (e.g. `mcp__plexus__ask_user_question`), so the
     // headless CLI runs them without a permission prompt.
     allowedTools: readonly string[];
