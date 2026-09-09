@@ -68,6 +68,34 @@ function projectWith(name: string, folder: string): Project
     return new Project('meta-model', name, folder, root)
 }
 
+// A factory whose openProject SCANS the given storage (like the real
+// TodlProjectFactory) instead of returning a fixed tree — so a rescan reflects
+// files written since the project opened. Used to exercise the import →
+// rescan → Adopt/reconcile refresh that the fixed fake above cannot.
+function scanningFactory(): IProjectFactory
+{
+    const scan = async (storage: FakeStorage): Promise<Project> => {
+        const root = new ProjectNode('proj', '', 'folder')
+        const populate = async (node: ProjectNode): Promise<void> => {
+            for (const e of await storage.List(node.Path)) {
+                if (node.Path === '' && e.Name === PROJECT_MANIFEST_FILENAME) continue
+                const childPath = node.Path === '' ? e.Name : `${node.Path}/${e.Name}`
+                const child = new ProjectNode(e.Name, childPath, e.IsDirectory ? 'folder' : (e.Name.endsWith('.todl') ? 'todl' : 'file'))
+                node.Children.Add(child)
+                if (e.IsDirectory) await populate(child)
+            }
+        }
+        await populate(root)
+        return new Project('meta-model', 'A', storage.Root, root)
+    }
+    return {
+        formats: [{ extension: '.todl', kind: 'todl', displayName: 'TODL Definition' }],
+        createProject: async (s) => scan(s as FakeStorage),
+        openProject: async (s) => scan(s as FakeStorage),
+        saveProject: async () => {},
+    }
+}
+
 // A publishable + versioned fake factory whose version lives in the manifest of
 // the storage it's given; publish() records that it ran.
 function fakeVersionedFactory(published: string[]): IProjectFactory & IVersionedProjectFactory & IPublishableProjectFactory
@@ -515,6 +543,87 @@ test('Add Existing Files is a no-op when the picker is cancelled', async () => {
     await priv.importFilesInto(op)
 
     expect(storage.size).toBe(before)
+})
+
+test('Import File rescans + reconciles so the imported node appears in the tree', async () => {
+    const picked: Picked[] = [{ Path: 'C:/ext/logo.png', Bytes: bytesOf('PNG') }]
+    const { priv } = makeExplorer(picked)
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('a.todl', 'x')
+    const factory = scanningFactory()
+    const op = await priv.addOpenProject(await factory.openProject(storage), factory, storage)
+    expect(op.Root.Children.ToArray().map((c) => c.Path)).toEqual(['a.todl'])
+
+    await priv.importFilesInto(op)
+
+    // The tree model (op.Root.Children) reflects the rescanned + reconciled node.
+    expect(op.Root.Children.ToArray().map((c) => c.Path)).toEqual(['a.todl', 'logo.png'])
+})
+
+test('Import File into a subfolder raises a reveal request for that folder', async () => {
+    const picked: Picked[] = [{ Path: 'C:/ext/logo.png', Bytes: bytesOf('PNG') }]
+    const { service, priv } = makeExplorer(picked)
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('src/a.todl', 'x')
+    const factory = scanningFactory()
+    const op = await priv.addOpenProject(await factory.openProject(storage), factory, storage)
+    const revealed: ProjectNode[] = []
+    service.AddRevealListener((folder) => revealed.push(folder))
+
+    await priv.importFilesInto(op, 'src')
+
+    // The reveal targets the SAME src node the tree renders (so its row can expand).
+    expect(revealed.map((n) => n.Path)).toEqual(['src'])
+    expect(revealed[0]).toBe(op.Root.Children.ToArray().find((n) => n.Path === 'src'))
+})
+
+test('Import File into the project root raises no reveal request (root is always expanded)', async () => {
+    const picked: Picked[] = [{ Path: 'C:/ext/logo.png', Bytes: bytesOf('PNG') }]
+    const { service, priv } = makeExplorer(picked)
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('a.todl', 'x')
+    const factory = scanningFactory()
+    const op = await priv.addOpenProject(await factory.openProject(storage), factory, storage)
+    const revealed: ProjectNode[] = []
+    service.AddRevealListener((folder) => revealed.push(folder))
+
+    await priv.importFilesInto(op)
+
+    expect(revealed).toEqual([])
+})
+
+test('Import File into a SUBFOLDER rescans + reconciles so the node appears under it', async () => {
+    const picked: Picked[] = [{ Path: 'C:/ext/logo.png', Bytes: bytesOf('PNG') }]
+    const { priv } = makeExplorer(picked)
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('src/a.todl', 'x')
+    const factory = scanningFactory()
+    const op = await priv.addOpenProject(await factory.openProject(storage), factory, storage)
+    const src = op.Root.Children.ToArray().find((n) => n.Path === 'src')!
+    expect(src.Children.ToArray().map((c) => c.Path)).toEqual(['src/a.todl'])
+
+    await priv.importFilesInto(op, 'src')
+
+    // The SAME src node instance (the one the tree observes) gains the imported file.
+    expect(op.Root.Children.ToArray().find((n) => n.Path === 'src')).toBe(src)
+    expect(src.Children.ToArray().map((c) => c.Path)).toEqual(['src/a.todl', 'src/logo.png'])
+})
+
+test('Import File through the REAL MetaModelProjectFactory refreshes the tree', async () => {
+    const picked: Picked[] = [{ Path: 'C:/ext/logo.png', Bytes: bytesOf('PNG') }]
+    const { priv, provider } = makeExplorer(picked)
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'A', id: 'a', modelVersion: '0.1.0', version: 1 }))
+    await storage.WriteText('core.todl', 'x')
+    const factory = new MetaModelProjectFactory(provider)
+    const op = await priv.addOpenProject(await factory.openProject(storage), factory, storage)
+    const before = op.Root.Children.ToArray().map((c) => c.Path)
+    expect(before).toContain('core.todl')
+    expect(before).not.toContain('logo.png')
+
+    await priv.importFilesInto(op)
+
+    expect(op.Root.Children.ToArray().map((c) => c.Path)).toContain('logo.png')
 })
 
 test('Import File targets the given folder', async () => {

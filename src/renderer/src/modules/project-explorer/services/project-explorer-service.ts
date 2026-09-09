@@ -217,6 +217,45 @@ export class ProjectExplorerService extends ServiceBase
         return undefined
     }
 
+    // Reveal channel: after an import lands files inside a folder, that folder is
+    // expanded so the newly-added rows are visible (importing into a collapsed
+    // folder otherwise changes nothing on screen). Expansion is TreeViewItem
+    // view-state the service can't reach, so it raises the request and
+    // ProjectTreeTemplateBehavior (which holds the tree) does the expand.
+    private readonly revealListeners: ((folder: ProjectNode) => void)[] = []
+
+    public AddRevealListener(listener: (folder: ProjectNode) => void): () => void
+    {
+        this.revealListeners.push(listener)
+        return () => {
+            const i = this.revealListeners.indexOf(listener)
+            if (i >= 0) this.revealListeners.splice(i, 1)
+        }
+    }
+
+    // Ask the tree to reveal (expand) the folder an import just filled. A root
+    // import ('' target) needs nothing — the project root is always expanded.
+    private revealImportTarget(op: OpenProject, target: string): void
+    {
+        if (target === '') return
+        const folder = this.folderNodeAt(op.Root, target)
+        if (folder === undefined) return
+        for (const listener of [...this.revealListeners]) listener(folder)
+    }
+
+    // The folder node at project-relative `path` within `root`'s subtree, or
+    // undefined if none matches (path identity is stable across rescans).
+    private folderNodeAt(root: ProjectNode, path: string): ProjectNode | undefined
+    {
+        if (root.Path === path && root.Kind === 'folder') return root
+        for (const child of root.Children.ToArray())
+        {
+            const found = this.folderNodeAt(child, path)
+            if (found !== undefined) return found
+        }
+        return undefined
+    }
+
     // Distribute the unified tree selection into each project's per-project
     // selection state, so the existing per-project operations (delete / rename /
     // key handling) keep reading op.SelectedNode / op.SelectedNodes unchanged.
@@ -578,6 +617,8 @@ export class ProjectExplorerService extends ServiceBase
             // Refresh the tree so the imported files appear; re-wire the new nodes.
             op.Adopt(await op.Factory.openProject(op.Storage))
             this.wireNodes(op.Root, op)
+            // Expand the destination folder so the freshly-added rows are visible.
+            this.revealImportTarget(op, target)
             this.Status = added.length === 1
                 ? `Added ${basename(added[0]!)}.`
                 : `Added ${added.length} files.`
@@ -600,6 +641,8 @@ export class ProjectExplorerService extends ServiceBase
             await this.copyOsFolderInto(dir, destTop, op)
             op.Adopt(await op.Factory.openProject(op.Storage))
             this.wireNodes(op.Root, op)
+            // Expand the destination folder so the freshly-imported subtree is visible.
+            this.revealImportTarget(op, target)
             this.Status = `Imported ${basename(destTop)}.`
         } catch (e) {
             this.Status = `Import failed: ${(e as Error).message}`
