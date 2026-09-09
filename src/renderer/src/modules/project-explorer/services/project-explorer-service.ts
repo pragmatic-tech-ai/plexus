@@ -323,7 +323,17 @@ export class ProjectExplorerService extends ServiceBase
     {
         const error = await this.validateNewProject(data)
         if (error !== null) return { created: false, error }
-        const op = await this.createProjectAt(data.type, data.name, data.location, data.metaModel, data.libraries)
+        // A project is ALWAYS self-contained in its own subfolder named after it,
+        // created inside the chosen location — and it's that subfolder we create in
+        // and then open. Writes don't mkdir parents, so create the subfolder first.
+        const name = data.name.trim()
+        const folder = joinPath(data.location, name)
+        try {
+            await this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, data.location).CreateDirectory(name)
+        } catch (e) {
+            return { created: false, error: `Could not create the project folder: ${(e as Error).message}` }
+        }
+        const op = await this.createProjectAt(data.type, name, folder, data.metaModel, data.libraries)
         if (op === undefined) return { created: false, error: this.Status }
         return { created: true, folder: op.Folder, name: op.Name, type: data.type }
     }
@@ -1255,8 +1265,11 @@ export class ProjectExplorerService extends ServiceBase
     // New Project validation: refuse a folder that already holds a project.
     private async validateNewProject(result: NewProjectResult): Promise<string | null>
     {
-        const storage = this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, result.location)
-        if (await storage.Exists(PROJECT_MANIFEST_FILENAME)) return 'Folder already contains a project.'
+        // Validate the SUBFOLDER we'll create in (location/name), not the chosen
+        // parent location — a project lives in its own named subfolder.
+        const folder = joinPath(result.location, result.name.trim())
+        const storage = this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, folder)
+        if (await storage.Exists(PROJECT_MANIFEST_FILENAME)) return 'That folder already contains a project.'
         return null
     }
 
@@ -1370,6 +1383,15 @@ function compareNodes(a: ProjectNode, b: ProjectNode): number
 function joinRel(dir: string, name: string): string
 {
     return dir === '' ? name : dir + '/' + name
+}
+
+// Join an ABSOLUTE OS location with a subfolder name using the location's own
+// separator (the renderer has no node:path). Used to place a new project in its
+// own named subfolder under the chosen location.
+function joinPath(dir: string, name: string): string
+{
+    const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/'
+    return dir.endsWith(sep) ? dir + name : dir + sep + name
 }
 
 function parentOf(path: string): string

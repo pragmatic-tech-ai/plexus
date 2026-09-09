@@ -162,6 +162,7 @@ function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | obje
     shownDialogs: unknown[]
     rec: Rec
     occupied: Set<string>
+    created: Set<string>
 }
 {
     const provider = new ServiceProvider()
@@ -174,9 +175,11 @@ function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | obje
     // Storage registry whose per-folder storage reports a project manifest only for
     // folders marked `occupied` — enough to exercise New-Project validation.
     const occupied = new Set<string>()
+    const created = new Set<string>()
     provider.registerInstance(StorageProviderRegistry.Key, {
         Create: (_backend: string, folder: string) => ({
             Exists: (name: string) => Promise.resolve(occupied.has(folder) && name === PROJECT_MANIFEST_FILENAME),
+            CreateDirectory: (rel: string) => { created.add(joinAbs(folder, rel)); return Promise.resolve() },
         }),
     } as unknown as StorageProviderRegistry)
     const store = new OpenProjectsStore(provider)
@@ -189,7 +192,16 @@ function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | obje
         GetByExtension: (ext: string) => ((ext === '.todl' || ext === '.diagram') ? { Factory: TodlDocFactoryToken } : undefined),
     } as unknown as DocumentTypeRegistry)
     const service = new ProjectExplorerService(provider)
-    return { service, host, store, priv: service as unknown as ExplorerPrivates, provider, shownDialogs, rec, occupied }
+    return { service, host, store, priv: service as unknown as ExplorerPrivates, provider, shownDialogs, rec, occupied, created }
+}
+
+// Mirror of the service's separator-aware absolute-path join, for asserting the
+// subfolder a new project lands in.
+function joinAbs(dir: string, name: string): string
+{
+    if (name === '') return dir
+    const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/'
+    return dir.endsWith(sep) ? dir + name : dir + sep + name
 }
 
 function childNode(op: OpenProject): ProjectNode
@@ -313,12 +325,24 @@ test('applyPrefill ignores meta-model/library refs not among the published choic
     expect(form.SelectedLibraries).toEqual([])
 })
 
-test('CreateProject refuses a folder that already contains a project', async () => {
+test('CreateProject refuses when the project SUBFOLDER already contains a project', async () => {
     const { service, occupied } = makeExplorer()
-    occupied.add('C:/taken')
-    const outcome = await service.CreateProject({ type: 'diagram', name: 'X', location: 'C:/taken' })
+    occupied.add('C:/loc/X')   // the subfolder location/name, not the parent
+    const outcome = await service.CreateProject({ type: 'diagram', name: 'X', location: 'C:/loc' })
     expect(outcome.created).toBe(false)
     expect(outcome.error).toContain('already contains a project')
+})
+
+test('CreateProject targets a subfolder named after the project inside the chosen location', async () => {
+    const { service, occupied, created, provider } = makeExplorer()
+    // No factory for the type → createProjectAt bails cleanly after the subfolder
+    // is created; we only assert the subfolder (location/name) was the target.
+    provider.registerInstance(ProjectFactoryRegistry.Key, { GetByType: () => undefined } as unknown as ProjectFactoryRegistry)
+    // Parent occupied, subfolder free → not refused for the manifest reason.
+    occupied.add('C:/loc')
+    const outcome = await service.CreateProject({ type: 'diagram', name: 'My App', location: 'C:/loc' })
+    expect(created.has('C:/loc/My App')).toBe(true)
+    expect(outcome.error ?? '').not.toContain('already contains a project')
 })
 
 test('opening a node opens it through the registered document editor', async () => {

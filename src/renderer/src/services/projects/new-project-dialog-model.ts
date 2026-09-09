@@ -205,7 +205,7 @@ export class NewProjectDialogModel extends MuralBase
 
     private async browse(): Promise<void>
     {
-        const folder = await this.fs.OpenFolder({ Title: 'Choose an empty folder for the project' })
+        const folder = await this.fs.OpenFolder({ Title: 'Choose a location for the new project folder' })
         if (folder !== null) this.Location = folder
     }
 
