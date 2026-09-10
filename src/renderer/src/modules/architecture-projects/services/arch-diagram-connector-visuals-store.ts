@@ -1,5 +1,5 @@
 import { Connector, type ConnectorEndpoint, type DiagramDocument, DiagramSettings, PortSide, ShapeText } from '@pragmatic-tech-ai/mural/framework'
-import { Point, PropertyValueSource } from '@pragmatic-tech-ai/mural/runtime'
+import { Panel, Point, PropertyValueSource } from '@pragmatic-tech-ai/mural/runtime'
 import { Brush, FontFamily, SolidColorBrush } from '@pragmatic-tech-ai/mural/visual-engine'
 import { LabelStyleCodec, type LabelStyle } from './label-style-codec.js'
 
@@ -41,6 +41,11 @@ export interface ConnectorVisual
     source?: EndpointVisual
     target?: EndpointVisual
     label?: ConnectorLabelVisual
+    // Paint z-order (Panel.ZIndex). Omitted when at the connector's behind-figures
+    // default (Connector.DefaultZIndex) so an un-reordered connector serializes
+    // nothing. A reorder command renumbers the unified figure+connector stack to
+    // 0..n-1, so a reordered connector always stores a concrete (>= 0) value.
+    zIndex?: number
 }
 
 // The full edgeKey → visual map recorded on the document ({} when absent/invalid).
@@ -79,6 +84,7 @@ function isEmptyVisual(v: ConnectorVisual): boolean
         && v.routingMode === undefined
         && endpointEmpty(v.source) && endpointEmpty(v.target)
         && labelEmpty(v.label)
+        && v.zIndex === undefined
 }
 
 // True when the DP holds an explicit (user/restore-set) value rather than its
@@ -168,6 +174,7 @@ export function captureConnectorVisual(c: Connector): ConnectorVisual
     const s = ep(c.Source); if (s !== undefined) v.source = s
     const t = ep(c.Target); if (t !== undefined) v.target = t
     const label = captureConnectorLabel(c); if (label !== undefined) v.label = label
+    if (Panel.GetZIndex(c) !== Connector.DefaultZIndex) v.zIndex = Panel.GetZIndex(c)
     return v
 }
 
@@ -187,4 +194,5 @@ export function applyConnectorVisual(c: Connector, v: ConnectorVisual): void
         if (v.target.portIndex !== undefined) c.Target.PortIndex = v.target.portIndex
     }
     if (v.label !== undefined) applyConnectorLabel(c, v.label)
+    if (v.zIndex !== undefined) Panel.SetZIndex(c, v.zIndex)
 }

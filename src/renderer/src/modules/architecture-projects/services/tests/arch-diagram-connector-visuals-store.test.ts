@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
-import { DiagramDocument, ConnectorEndpoint, type Connector } from '@pragmatic-tech-ai/mural/framework'
+import { DiagramDocument, ConnectorEndpoint, Connector } from '@pragmatic-tech-ai/mural/framework'
 import { SolidColorBrush, Color, FontWeight, FontStyle, TextAlignment } from '@pragmatic-tech-ai/mural/visual-engine'
-import { Point } from '@pragmatic-tech-ai/mural/runtime'
+import { Panel, Point } from '@pragmatic-tech-ai/mural/runtime'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { captureConnectorVisual, applyConnectorVisual, writeConnectorVisual, readConnectorVisuals } from '../arch-diagram-connector-visuals-store.js'
 
@@ -59,4 +59,27 @@ test('a label-only visual is persisted through the metadata bag (not dropped as 
     c.Text.FontStyle = FontStyle.Italic
     writeConnectorVisual(doc, 'A|calls|B', captureConnectorVisual(c))
     expect(readConnectorVisuals(doc)['A|calls|B']?.label?.style).toMatchObject({ fontStyle: FontStyle.Italic })
+})
+
+test('a default-behind connector stores no zIndex; a reordered one round-trips', () => {
+    const { c } = makeConnector()
+    // Behind-figures default → omitted (materializer re-stamps it on load).
+    Panel.SetZIndex(c, Connector.DefaultZIndex)
+    expect(captureConnectorVisual(c).zIndex).toBeUndefined()
+
+    // Reordered (Bring-to-Front / Send-to-Back renumbers the stack) → stored + restored.
+    Panel.SetZIndex(c, 3)
+    const v = captureConnectorVisual(c)
+    expect(v.zIndex).toBe(3)
+
+    const { c: c2 } = makeConnector()
+    applyConnectorVisual(c2, v)
+    expect(Panel.GetZIndex(c2)).toBe(3)
+})
+
+test('a z-order-only visual is persisted through the metadata bag (not dropped as empty)', () => {
+    const { doc, c } = makeConnector()
+    Panel.SetZIndex(c, 2)
+    writeConnectorVisual(doc, 'A|calls|B', captureConnectorVisual(c))
+    expect(readConnectorVisuals(doc)['A|calls|B']?.zIndex).toBe(2)
 })

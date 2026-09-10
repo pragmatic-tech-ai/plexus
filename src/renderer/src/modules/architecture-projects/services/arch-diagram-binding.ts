@@ -1,4 +1,5 @@
 import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
+import { Panel } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagram/content-container-figure.js'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
@@ -614,6 +615,10 @@ export class ArchDiagramBinding
         }
         c.AddPropertyChangedListener(Connector.WaypointsKey, onVisualEdit)
         c.AddPropertyChangedListener(Connector.RoutingModeKey, onVisualEdit)
+        // Paint z-order (Bring-to-Front / Send-to-Back) is view state on the
+        // connector's Panel.ZIndex attached property — capture it so a reorder
+        // survives reopen, same as a reroute. Applied under the guard on restore.
+        c.AddPropertyChangedListener(Panel.ZIndexKey, onVisualEdit)
         const wireEp = (e: ConnectorEndpoint | undefined): (() => void) => {
             if (e === undefined) return () => {}
             e.AddPropertyChangedListener(ConnectorEndpoint.PortSideKey, onVisualEdit)
@@ -640,6 +645,7 @@ export class ArchDiagramBinding
         this.connectorVisualTeardown.set(key, () => {
             c.RemovePropertyChangedListener(Connector.WaypointsKey, onVisualEdit)
             c.RemovePropertyChangedListener(Connector.RoutingModeKey, onVisualEdit)
+            c.RemovePropertyChangedListener(Panel.ZIndexKey, onVisualEdit)
             c.RemovePropertyChangedListener(Connector.LabelPositionKey, onVisualEdit)
             for (const k of labelKeys) label.RemovePropertyChangedListener(k, onVisualEdit)
             offSrc(); offTgt()
