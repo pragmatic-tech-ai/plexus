@@ -35,7 +35,7 @@
     "pptxgenjs": "^3.12.0",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver-types": "3.17.5",
-    "@pragmatic-tech-ai/todl-runtime": "^0.2.0"
+    "@pragmatic-tech-ai/todl-runtime": "^0.3.0"
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.2",
