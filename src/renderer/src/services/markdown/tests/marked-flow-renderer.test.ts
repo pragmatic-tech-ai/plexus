@@ -3,7 +3,7 @@ import {
     Bold, Border, FlowDocument, Hyperlink, Image, InlineUIContainer, Italic, LineBreak,
     List, ListItem, ListMarkerStyle, Paragraph, Run, Span, Table, TextAlignment,
 } from '@pragmatic-tech-ai/mural/basic'
-import { FontStyle, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
+import { BitmapImage, FontStyle, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
 import { renderMarkdown } from '../marked-flow-renderer.js'
 
 function blocks(md: string, ctx = {}): unknown[] { return renderMarkdown(md, ctx).Blocks.ToArray() }
@@ -124,6 +124,32 @@ test('block raw html strips unknown tags but keeps text', () => {
     const p = blocks('<div>kept text</div>')[0] as Paragraph
     expect(p).toBeInstanceOf(Paragraph)
     expect((inlines(p)[0] as Run).Text).toBe('kept text')
+})
+
+// The rendered image for the first block, or undefined if it isn't an SVG image.
+function svgImage(md: string): { w: number; h: number; uri: string } | undefined {
+    const c = inlines(blocks(md)[0] as Paragraph)[0]
+    if (!(c instanceof InlineUIContainer) || !(c.Child instanceof Image)) return undefined
+    const src = c.Child.Source as BitmapImage
+    return { w: src.NaturalSize.Width, h: src.NaturalSize.Height, uri: src.Uri }
+}
+
+test('a ```svg fence is DRAWN at its author-set size, not shown as source', () => {
+    const img = svgImage('```svg\n<svg width="512" height="512" viewBox="0 0 256 256"><path d="M0 0"/></svg>\n```')
+    expect(img).toBeDefined()
+    expect(img!.w).toBe(512)
+    expect(img!.h).toBe(512)
+    expect(img!.uri.startsWith('data:image/svg+xml')).toBe(true)
+})
+
+test('a raw <svg> block is DRAWN at its author-set size (not stripped to nothing)', () => {
+    const img = svgImage('<svg width="128" height="64"><rect/></svg>')
+    expect(img).toEqual(expect.objectContaining({ w: 128, h: 64 }))
+})
+
+test('a non-SVG fence is still highlighted source, not an image', () => {
+    const p = blocks('```js\nconst x = 1\n```')[0] as Paragraph
+    expect(inlines(p).every((x) => x instanceof Run)).toBe(true)   // code runs, no image container
 })
 
 test('blockquote renders italic and muted', () => {

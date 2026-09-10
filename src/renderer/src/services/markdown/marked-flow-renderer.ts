@@ -20,6 +20,7 @@ import { Thickness } from '@pragmatic-tech-ai/mural/runtime'
 import { highlightCode, codeScopeToToken } from './code-highlight.js'
 import { parseTag, openTagInline, HtmlTagKind } from './inline-html.js'
 import { createMarkdownImage, type MarkdownImageContext } from './markdown-image.js'
+import { SvgInline } from './svg-inline.js'
 import { MONO, HEADING_SIZE, BASE_SIZE, BODY_LINE_HEIGHT, blockGap, bindTheme, codeChip, preserveIndent } from './flow-style.js'
 
 // Injected context for the render. All fields optional; a bare call renders text,
@@ -64,11 +65,11 @@ function blocksFor(tok: Token, ctx: MarkdownRenderContext): Block[]
     switch (tok.type) {
         case 'space':      return []
         case 'heading':    return [headingBlock(tok as Tokens.Heading, ctx)]
-        case 'paragraph':  return [paragraphBlock((tok as Tokens.Paragraph).tokens, ctx)]
+        case 'paragraph':  return paragraphBlocks(tok as Tokens.Paragraph, ctx)
         case 'text':       return [paragraphBlock(textTokenInlines(tok), ctx)]
         case 'blockquote': return quoteBlocks(tok as Tokens.Blockquote, ctx)
         case 'list':       return [listBlock(tok as Tokens.List, ctx)]
-        case 'code':       return [codeBlock(tok as Tokens.Code, ctx)]
+        case 'code':       return codeBlocks(tok as Tokens.Code, ctx)
         case 'table':      return [tableBlock(tok as Tokens.Table, ctx)]
         case 'hr':         return [ruleBlock()]
         case 'html':       return htmlBlock(tok as Tokens.HTML, ctx)
@@ -140,6 +141,18 @@ function listItem(item: Tokens.ListItem, ctx: MarkdownRenderContext): ListItem
     return li
 }
 
+// A fenced code block. An ```svg fence whose body is an actual `<svg>` element is
+// DRAWN (sized to its width/height) rather than shown as source — the agent uses
+// the fence to display an image; everything else is a highlighted code paragraph.
+function codeBlocks(tok: Tokens.Code, ctx: MarkdownRenderContext): Block[]
+{
+    if ((tok.lang ?? '').trim().toLowerCase() === 'svg' && SvgInline.looksLikeSvg(tok.text)) {
+        const svg = SvgInline.extract(tok.text)
+        if (svg !== undefined) return [svgImageBlock(svg)]
+    }
+    return [codeBlock(tok, ctx)]
+}
+
 // A fenced code block — a monospace paragraph, syntax-highlighted unless disabled.
 function codeBlock(tok: Tokens.Code, ctx: MarkdownRenderContext): Paragraph
 {
@@ -148,6 +161,27 @@ function codeBlock(tok: Tokens.Code, ctx: MarkdownRenderContext): Paragraph
     p.Margin = new Thickness(8, 2, 0, 8)
     const tokens = ctx.highlight === false ? [{ text: tok.text }] : highlightCode(tok.text, tok.lang)
     emitCodeRuns(p, tokens)
+    return p
+}
+
+// A paragraph that IS a raw `<svg>` (marked emits a single-line svg as a paragraph
+// of inline HTML, not an html block) is DRAWN; anything else is a normal paragraph.
+function paragraphBlocks(tok: Tokens.Paragraph, ctx: MarkdownRenderContext): Block[]
+{
+    if (SvgInline.looksLikeSvg(tok.text)) {
+        const svg = SvgInline.extract(tok.text)
+        if (svg !== undefined) return [svgImageBlock(svg)]
+    }
+    return [paragraphBlock(tok.tokens, ctx)]
+}
+
+// Block wrapping a drawn `<svg>` (from a fence or a raw HTML block). The image
+// carries its own resolved size; the paragraph just gives it block spacing.
+function svgImageBlock(svg: string): Paragraph
+{
+    const p = new Paragraph()
+    p.Margin = blockGap()
+    p.AddChild(SvgInline.toImage(svg))
     return p
 }
 
@@ -234,6 +268,10 @@ function ruleBlock(): Paragraph
 // strip to text, all wrapped in a paragraph. Empty result yields no block.
 function htmlBlock(tok: Tokens.HTML, ctx: MarkdownRenderContext): Block[]
 {
+    // A raw `<svg>…</svg>` block is DRAWN (sized to its width/height) — mural
+    // renders no HTML, so without this the element strips to nothing.
+    const svg = SvgInline.extract(tok.text)
+    if (svg !== undefined) return [svgImageBlock(svg)]
     // Reuse the inline walker: lex the fragment's own inline tokens is overkill;
     // marked already handed us the raw string, so render it as an inline HTML run
     // sequence via the shared fragment parser.
