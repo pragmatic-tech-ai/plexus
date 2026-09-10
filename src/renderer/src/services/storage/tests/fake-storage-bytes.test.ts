@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { FakeStorage } from './fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 test('FakeStorage round-trips WriteBytes → ReadBytes', async () => {
     const s = new FakeStorage()

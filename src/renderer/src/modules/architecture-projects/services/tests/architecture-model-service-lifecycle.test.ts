@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
 import { load, toJSON } from '@pragmatic-tech-ai/todl'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
 import { ProjectExplorerService } from '../../../project-explorer/services/project-explorer-service.js'
 import { Project, ProjectNode } from '../../../../services/projects/project.js'

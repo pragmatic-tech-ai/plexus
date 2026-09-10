@@ -7,7 +7,7 @@
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 import { compile, DEFAULT_SYMBOLS } from '@pragmatic-tech-ai/mural/compiler'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     type CompiledPresentation, combinedSource, ICON_INDEX_FILE, readIcons, iconIncludeResolver,
 } from '../../meta-model/services/presentation-publisher.js'

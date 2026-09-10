@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MetaModelNodeKind, type EntityRef } from '../meta-model-tree-node.js'
 import { scanPublishedModels, buildCatalog, loadVersionEntities, type DeleteTarget } from '../meta-model-tree-builder.js'
 

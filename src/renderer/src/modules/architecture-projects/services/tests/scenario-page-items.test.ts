@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { scenarioPageItems } from '../arch-model-toolbox-contributor.js'
 import { ArchScenarioDropFactoryKey } from '../arch-scenario-drop-factory.js'

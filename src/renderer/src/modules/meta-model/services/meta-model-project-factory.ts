@@ -14,7 +14,7 @@ import {
 } from '../../../services/projects/project-factory.js'
 import { TodlProjectFactory, type ScaffoldFile } from '../../../services/projects/todl-project-factory.js'
 import type { Project } from '../../../services/projects/project.js'
-import { type IStorage } from '../../../services/storage/storage.js'
+import { type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StoragePackageSink } from '../../../services/storage/storage-package-sink.js'
 import { ensureMetaModelsBackend } from './meta-models-backend.js'
 import { META_MODEL_SCAFFOLD } from './meta-model-scaffold.js'

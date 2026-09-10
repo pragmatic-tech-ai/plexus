@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { ContentHostService, type IDocument, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
 
 import type { IDocumentFactory, IRelocatableDocumentFactory } from '../../../services/documents/document-factory.js'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../code-editor/code-document.js'
 import { StorageCodeFile } from '../../code-editor/code-file.js'
 import { TodlLanguageClient } from '../../../services/todl/todl-language-client.js'

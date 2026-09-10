@@ -46,7 +46,7 @@ import {
     readLayoutConfig, writeLayoutConfig,
     diagramPresetNames, getDiagramPreset, saveDiagramPreset, deleteDiagramPreset,
 } from '../persistence/diagram-layout-store.js'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Maps a catalog strategy-slot id to its PipelineConfiguration.layout field.
 // graph-transforms is intentionally absent — it is a transform list, not a

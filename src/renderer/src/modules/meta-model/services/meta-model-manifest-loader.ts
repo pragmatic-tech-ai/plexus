@@ -3,7 +3,7 @@
 // on-disk envelope (project.plexus / MetaModelManifest); it mirrors library.json:
 // identity plus the package-level annotations projected from the model graph, so
 // Plexus can understand a package without parsing model.json.
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 export interface MetaModelManifestFile
 {

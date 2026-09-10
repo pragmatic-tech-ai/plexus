@@ -1,6 +1,6 @@
 import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { safeStem } from './layout-presets-store.js'
 
 // Project-scoped layout presets: one `<name>.json` per preset under

@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../file-diagram-storage.js'
 
 // FileDiagramStorage bridges mural's synchronous DiagramStorage seam onto an

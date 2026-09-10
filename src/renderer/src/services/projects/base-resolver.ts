@@ -2,7 +2,7 @@ import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { TodlDocument, PackageRef } from '@pragmatic-tech-ai/todl'
 import { PackageKind } from '@pragmatic-tech-ai/todl'
 
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ensureMetaModelsBackend } from '../../modules/meta-model/services/meta-models-backend.js'
 import { ensureLibrariesBackend } from '../../modules/library/services/libraries-backend.js'
 import type { BaseBindings } from './base-binding.js'

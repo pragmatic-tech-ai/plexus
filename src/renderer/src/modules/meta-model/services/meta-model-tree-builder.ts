@@ -1,7 +1,7 @@
 import type { TodlDocument, JsonNode } from '@pragmatic-tech-ai/todl'
 import { RelayCommand } from '@pragmatic-tech-ai/mural/runtime'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MetaModelTreeNode, MetaModelNodeKind, type EntityRef } from './meta-model-tree-node.js'
 import { ontologyEntities, humanize, OntologyKind } from './presentation-generator.js'
 

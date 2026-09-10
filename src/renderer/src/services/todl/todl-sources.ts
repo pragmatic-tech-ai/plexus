@@ -1,5 +1,5 @@
 import type { SourceFile } from '@pragmatic-tech-ai/todl'
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Shared TODL source-collection + project-relative path helpers, used by both
 // the project factory (publish) and the validation service. Kept separate so

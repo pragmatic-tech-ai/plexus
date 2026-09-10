@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from '@pragmatic-tech-ai/todl'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { edgeKey, desiredEdges, connectorVisualKey, CONNECTOR_ENTITY_MEMBER_PREFIX } from '../edge-projection.js'
 

@@ -2,7 +2,7 @@ import { test, expect, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { toJSON, check } from '@pragmatic-tech-ai/todl'
 
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { WorkspaceBaseResolver } from '../../projects/workspace-base-resolver.js'
 import { TodlLanguageClient } from '../todl-language-client.js'
 import { TodlSemanticScope } from '../semantic-scopes.js'

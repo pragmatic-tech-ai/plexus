@@ -1,5 +1,5 @@
 import { PROJECT_MANIFEST_FILENAME } from '../../../services/projects/project-factory.js'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The per-diagram viewpoint selection lives in the architecture manifest under
 // `diagrams[<project-relative diagram path>].viewpoints`. Read-modify-write so

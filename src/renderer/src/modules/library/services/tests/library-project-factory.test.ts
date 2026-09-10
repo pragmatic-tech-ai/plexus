@@ -4,7 +4,7 @@ import { check, toJSON } from '@pragmatic-tech-ai/todl'
 
 import { PROJECT_MANIFEST_FILENAME } from '../../../../services/projects/project-factory.js'
 import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
 import { LibraryProjectFactory } from '../library-project-factory.js'

@@ -1,4 +1,4 @@
-import type { IStorage } from '../../../services/storage/storage'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { bytesToDataUri, mimeForPath } from '../../../services/markdown/markdown-image'
 import { MediaKind } from './media-kind'
 

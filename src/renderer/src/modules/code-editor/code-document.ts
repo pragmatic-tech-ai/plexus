@@ -2,7 +2,7 @@ import { MuralBase, MetaData, ObservableCollection, type PropertyDescriptor } fr
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 import type { ICodeFile } from './code-file.js'
 import type { EditorDiagnostic } from './editor-diagnostic.js'
-import type { IStorage } from '../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 function fileName(path: string): string
 {

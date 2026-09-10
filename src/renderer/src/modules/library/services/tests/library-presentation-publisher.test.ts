@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { publishLibraryPresentation } from '../library-presentation-publisher.js'
 
 const DOC: TodlDocument = {

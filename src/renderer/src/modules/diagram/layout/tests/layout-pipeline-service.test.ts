@@ -17,7 +17,7 @@ import { EnvironmentService } from '../../../../services/environment/environment
 import { FileSystemService } from '../../../../services/file-system/file-system-service.js'
 import { FileDiagramStorage } from '../../persistence/file-diagram-storage.js'
 import { readLayoutConfig, saveDiagramPreset, getDiagramPreset } from '../../persistence/diagram-layout-store.js'
-import type { IStorage, StorageEntry } from '../../../../services/storage/storage.js'
+import type { IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 
 // A provider whose content host reports `doc` as the active document — the
 // same ActiveDocument source the arch binding / viewpoint-scope services read.

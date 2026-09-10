@@ -1,4 +1,4 @@
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 export interface LoadProblem { uri: string | null; message: string; severity: 'error' | 'warning' }
 

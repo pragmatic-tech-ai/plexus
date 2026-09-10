@@ -1,6 +1,6 @@
 import type { PackageSink } from '@pragmatic-tech-ai/todl'
 
-import type { IStorage } from './storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Adapts the project IStorage to TODL's PackageSink so publish can write a
 // bundle's model.json + src/ through it — the ~5-line consumer adapter TODL's

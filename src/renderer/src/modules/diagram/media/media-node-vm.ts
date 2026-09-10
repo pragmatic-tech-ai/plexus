@@ -1,7 +1,7 @@
 import { MetaData, MuralBase, Size } from '@pragmatic-tech-ai/mural/runtime'
 import { NodeViewModel } from '@pragmatic-tech-ai/mural/framework'
 import { BitmapImage } from '@pragmatic-tech-ai/mural/visual-engine'
-import type { IStorage } from '../../../services/storage/storage'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { resolveImageUri } from '../../../services/markdown/markdown-image'
 import { MediaKind } from './media-kind'
 

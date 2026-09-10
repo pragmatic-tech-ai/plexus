@@ -1,7 +1,7 @@
 import { describe, test } from 'vitest'
 import assert from 'node:assert/strict'
 import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
-import type { IStorage } from '../../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { readViewpoints, writeViewpoints, writeViewpointsToFile, ARCH_VIEWPOINTS_KEY } from '../arch-diagram-viewpoints-store.js'
 
 // A minimal in-memory IStorage for the file-write path.

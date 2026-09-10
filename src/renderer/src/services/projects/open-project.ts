@@ -1,7 +1,7 @@
 import { MetaData, MuralBase, ObservableCollection, type ICommand, type PropertyDescriptor } from '@pragmatic-tech-ai/mural/runtime'
 
 import type { IProjectFactory } from './project-factory.js'
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectNode, type Project } from './project.js'
 import { NewItemChoice } from './new-item-choice.js'
 import type { AgentSkillChoice } from '../../modules/agent-chat/services/agent-skill-choice.js'

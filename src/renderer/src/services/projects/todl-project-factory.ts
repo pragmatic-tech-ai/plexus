@@ -10,7 +10,7 @@ import {
 } from './project-factory.js'
 import type { BaseBindings } from './base-binding.js'
 import { Project, ProjectNode, type ProjectNodeKind } from './project.js'
-import { compareStorageEntries, type IStorage } from '../storage/storage.js'
+import { compareStorageEntries, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The base for every TODL-authoring project type. It owns the whole project
 // lifecycle common to architecture / meta-model / library — manifest write+read,

@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { PROJECT_MANIFEST_FILENAME } from '../../../../services/projects/project-factory.js'
 import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MetaModelProjectFactory } from '../meta-model-project-factory.js'
 import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
 import { loadMetaModelManifest } from '../meta-model-manifest-loader.js'

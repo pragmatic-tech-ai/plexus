@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { loadMetaModelManifest } from '../meta-model-manifest-loader.js'
 
 describe('loadMetaModelManifest', () => {

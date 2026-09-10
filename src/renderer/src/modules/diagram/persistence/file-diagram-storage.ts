@@ -1,5 +1,5 @@
 import type { DiagramStorage } from '@pragmatic-tech-ai/mural/framework'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Backs a single `.diagram` file through mural's DiagramStorage seam, so a
 // DiagramDocument's native Save() / Load() persist the full scene (nodes,

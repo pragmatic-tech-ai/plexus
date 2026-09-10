@@ -6,7 +6,7 @@ import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-res
 import { ArchModelInstanceDropFactoryKey } from '../arch-model-instance-drop-factory.js'
 import { ModelToolboxPage, ScenarioToolboxPage } from '../scoped-toolbox-page.js'
 import { ArchModel } from '../arch-model.js'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 const item = (id: string): ArchToolboxItem =>
     new ArchToolboxItem('instance:' + id, id, new ToolboxVisualDescriptor(TodlVisualResolverKey, id), ArchModelInstanceDropFactoryKey, 'component')

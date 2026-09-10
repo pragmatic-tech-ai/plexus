@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { PROJECT_MANIFEST_FILENAME, type ProjectFileFormat, type ProjectManifestEnvelope } from '../project-factory.js'
 import type { BaseBindings } from '../base-binding.js'
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { TodlProjectFactory, isTodlProject, type ScaffoldFile } from '../todl-project-factory.js'
 
 // A minimal concrete factory: one extra scaffold file, a manifest that carries

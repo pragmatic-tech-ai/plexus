@@ -1,5 +1,5 @@
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The file-editing half of the old IProjectFactory — extracted so an EDITOR owns
 // a file format, not a project. A module contributes a DocumentDefinition (mural)

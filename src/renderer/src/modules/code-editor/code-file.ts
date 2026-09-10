@@ -1,5 +1,5 @@
 import type { FileSystemService } from '../../services/file-system/file-system-service.js'
-import type { IStorage } from '../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // A minimal read/write handle a CodeDocument persists through, decoupling the
 // document from where its bytes live. `id` is the document's stable identity —

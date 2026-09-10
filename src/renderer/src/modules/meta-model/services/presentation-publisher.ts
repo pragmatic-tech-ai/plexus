@@ -4,7 +4,7 @@ import {
     type IncludeResolver, type IncludeResolution,
 } from '@pragmatic-tech-ai/mural/compiler'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { distinctIcons, assignResourceKeys, buildIconIndex, isRasterIcon, includeLine } from './presentation-generator.js'
 
 const PRESENTATION_DIR = 'presentation'

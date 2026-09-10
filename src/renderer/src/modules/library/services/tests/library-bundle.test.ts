@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { deriveClasses, scanResources } from '../library-bundle.js'
 
 // A hand-built model mirroring what the sample `microsoft` taxonomy compiles to

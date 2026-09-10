@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../../code-editor/code-document.js'
 import { TodlDocumentFactory } from '../todl-document-factory.js'
 

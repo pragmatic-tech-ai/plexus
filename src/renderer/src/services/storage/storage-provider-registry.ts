@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 
 import { FileSystemService } from '../file-system/file-system-service.js'
 import { LocalFileStorage } from './local-file-storage.js'
-import type { IStorage } from './storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Builds a rooted IStorage for a location (an absolute folder locally, a
 // container id/URL remotely). Registered under a backend id.

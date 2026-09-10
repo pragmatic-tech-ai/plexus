@@ -16,7 +16,7 @@ import { TodlProjectFactory, type ScaffoldFile } from '../../../services/project
 import type { BaseBindings, BaseRef } from '../../../services/projects/base-binding.js'
 import type { Project } from '../../../services/projects/project.js'
 import { resolveBases } from '../../../services/projects/base-resolver.js'
-import { type IStorage } from '../../../services/storage/storage.js'
+import { type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StoragePackageSink } from '../../../services/storage/storage-package-sink.js'
 import { ensureLibrariesBackend } from './libraries-backend.js'
 import { LIBRARY_SCAFFOLD } from './library-scaffold.js'

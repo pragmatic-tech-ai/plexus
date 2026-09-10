@@ -8,7 +8,7 @@ import * as MuralFramework from '@pragmatic-tech-ai/mural/framework'
 import * as MuralEngine from '@pragmatic-tech-ai/mural/visual-engine'
 import { ResourceDictionary } from '@pragmatic-tech-ai/mural/runtime'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { CompiledPresentation } from './presentation-publisher.js'
 
 const COMPILED = 'presentation/presentation.compiled.json'

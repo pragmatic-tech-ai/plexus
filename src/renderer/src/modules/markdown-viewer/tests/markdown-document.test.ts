@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { FlowDocument, Paragraph } from '@pragmatic-tech-ai/mural/basic'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MarkdownDocument } from '../markdown-document.js'
 import { MarkdownDocumentFactory } from '../markdown-document-factory.js'
 

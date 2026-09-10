@@ -2,7 +2,7 @@ import { MetaData, MuralBase } from '@pragmatic-tech-ai/mural/runtime'
 import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 
-import type { IStorage } from '../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { renderMarkdown } from '../../services/markdown/marked-flow-renderer.js'
 
 // A markdown (.md) file opened as a READ-ONLY rendered document tab. Holds the

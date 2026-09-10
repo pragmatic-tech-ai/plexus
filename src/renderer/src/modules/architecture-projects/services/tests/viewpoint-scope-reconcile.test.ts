@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { nodesLeavingScope } from '../viewpoint-scope-reconcile.js'

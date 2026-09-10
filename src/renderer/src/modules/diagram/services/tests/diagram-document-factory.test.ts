@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { DiagramDocumentFactory } from '../diagram-document-factory.js'
 
 // Storage-facing behavior against a FakeStorage — no Electron, no disk.

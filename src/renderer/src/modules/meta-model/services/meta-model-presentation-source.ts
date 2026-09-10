@@ -1,6 +1,6 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { PresentationContribution, PresentationSource } from '../../diagram/services/todl-presentation-registry.js'
 import { ensureMetaModelsBackend } from './meta-models-backend.js'
 import { scanPublishedModels } from './meta-model-tree-builder.js'

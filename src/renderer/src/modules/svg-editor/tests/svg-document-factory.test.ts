@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { SvgDocumentFactory } from '../svg-document-factory.js'
-import type { IStorage, StorageEntry } from '../../../services/storage/storage.js'
+import type { IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 
 // Minimal in-memory IStorage.
 class MemStorage implements IStorage

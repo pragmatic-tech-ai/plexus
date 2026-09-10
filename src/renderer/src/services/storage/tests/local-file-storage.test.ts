@@ -3,7 +3,7 @@ import { test, expect } from 'vitest'
 import type { FileSystemService } from '../../file-system/file-system-service.js'
 import type { FileEntry } from '../../../../../shared/file-system-api.js'
 import { LocalFileStorage } from '../local-file-storage.js'
-import { isLocalFileAccess } from '../storage.js'
+import { isLocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 
 // A FileSystemService stub that records the absolute path each call receives, so
 // we can assert LocalFileStorage joins root + relative correctly and delegates.

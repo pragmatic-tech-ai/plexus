@@ -3,8 +3,8 @@ import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/
 import { check, toJSON, type TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { StorageProviderRegistry } from '../../storage/storage-provider-registry.js'
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
-import type { IStorage } from '../../storage/storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../modules/meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/libraries-backend.js'
 import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'

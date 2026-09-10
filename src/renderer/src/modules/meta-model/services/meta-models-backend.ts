@@ -4,7 +4,7 @@ import { StorageProviderRegistry } from '../../../services/storage/storage-provi
 import { LocalFileStorage } from '../../../services/storage/local-file-storage.js'
 import { FileSystemService } from '../../../services/file-system/file-system-service.js'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The storage backend where published meta-models live. It is a normal rooted
 // IStorage registered on the shared StorageProviderRegistry, so publishing flows

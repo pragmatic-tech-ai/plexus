@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest'
-import type { IStorage } from '../../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProducerKind } from '../project-factory.js'
 import {
     WikiOriginKind, openProjectOrigin, packageOrigin, locateWikiFile, packageWikiPath,

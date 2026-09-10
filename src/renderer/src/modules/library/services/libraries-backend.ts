@@ -4,7 +4,7 @@ import { StorageProviderRegistry } from '../../../services/storage/storage-provi
 import { LocalFileStorage } from '../../../services/storage/local-file-storage.js'
 import { FileSystemService } from '../../../services/file-system/file-system-service.js'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The storage backend where published libraries live. A normal rooted IStorage on
 // the shared StorageProviderRegistry — the same seam as project + meta-models

@@ -2,7 +2,7 @@ import { describe, test, expect, vi } from 'vitest'
 import { Size } from '@pragmatic-tech-ai/mural/runtime'
 import { Image } from '@pragmatic-tech-ai/mural/basic'
 import { BitmapImage } from '@pragmatic-tech-ai/mural/visual-engine'
-import type { IStorage } from '../../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     isRemoteUri, resolveLocalPath, mimeForPath, bytesToDataUri, resolveImageUri, loadImageInto,
 } from '../markdown-image.js'

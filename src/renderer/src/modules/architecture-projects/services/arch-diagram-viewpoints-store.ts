@@ -1,5 +1,5 @@
 import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { readDiagramViewpoints } from './diagram-viewpoints.js'
 
 // The governing viewpoints of an architecture diagram are serialized WITH the

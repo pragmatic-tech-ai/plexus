@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { PackageKind, type TodlDocument, type PackageRef } from '@pragmatic-tech-ai/todl'
 
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
 import { ensureMetaModelsBackend } from '../../modules/meta-model/services/meta-models-backend.js'
 import { ensureLibrariesBackend } from '../../modules/library/services/libraries-backend.js'

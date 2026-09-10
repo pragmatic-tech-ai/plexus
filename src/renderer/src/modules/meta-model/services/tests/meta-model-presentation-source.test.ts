@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
 import { MetaModelPresentationSource } from '../meta-model-presentation-source.js'
 

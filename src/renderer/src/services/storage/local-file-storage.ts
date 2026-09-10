@@ -1,5 +1,5 @@
 import type { FileSystemService } from '../file-system/file-system-service.js'
-import type { ILocalFileAccess, IStorage, StorageEntry } from './storage.js'
+import type { ILocalFileAccess, IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 
 // LocalFileStorage — the one storage backend today. Rooted at an absolute OS
 // folder; joins root + project-relative path → absolute and delegates every

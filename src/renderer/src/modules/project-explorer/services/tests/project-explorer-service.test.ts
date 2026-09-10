@@ -4,7 +4,7 @@ import { ContentHostService, DialogService, DocumentsContentHostService, Documen
 
 import { EnvironmentService } from '../../../../services/environment/environment-service.js'
 import { FileSystemService } from '../../../../services/file-system/file-system-service.js'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
 import { Project, ProjectNode } from '../../../../services/projects/project.js'
 import { OpenProject } from '../../../../services/projects/open-project.js'

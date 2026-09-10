@@ -1,6 +1,6 @@
 import { Size } from '@pragmatic-tech-ai/mural/runtime'
 import type { Diagram, DiagramDocument, ExternalDroppedArgs } from '@pragmatic-tech-ai/mural/framework'
-import type { IStorage } from '../../../services/storage/storage'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { classifyFile, classifyUri } from './classify-media'
 import { MediaKind } from './media-kind'
 import { LargeFileChoice, resolveDroppedFile } from './media-storage'

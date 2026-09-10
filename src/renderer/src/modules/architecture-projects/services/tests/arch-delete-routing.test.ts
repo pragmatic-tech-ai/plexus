@@ -1,7 +1,7 @@
 import { test, expect, vi } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
-import { FakeStorage } from '../../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBinding } from '../arch-diagram-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'

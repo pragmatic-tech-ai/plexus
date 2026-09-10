@@ -1,6 +1,6 @@
 import { deriveClasses as todlDeriveClasses, type PublishedClass as TodlPublishedClass, type TodlDocument } from '@pragmatic-tech-ai/todl'
 
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // One instantiable class a published library provides — a palette item. The
 // model-derived fields (id/localId/label/icon/concept) come from TODL's

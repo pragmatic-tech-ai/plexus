@@ -4,7 +4,7 @@ import { RelayCommand } from '@pragmatic-tech-ai/mural/runtime'
 import { Project, ProjectNode } from '../project.js'
 import { OpenProject } from '../open-project.js'
 import type { IProjectFactory } from '../project-factory.js'
-import type { IStorage } from '../../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 const fakeFactory = { formats: [] } as unknown as IProjectFactory
 const fakeStorage = { Root: 'C:/proj' } as unknown as IStorage

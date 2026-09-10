@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import { FakeStorage } from '../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../code-document.js'
 import { CodeDocumentFactory } from '../code-document-factory.js'
 

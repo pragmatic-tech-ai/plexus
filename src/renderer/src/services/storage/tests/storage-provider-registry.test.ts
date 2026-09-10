@@ -4,7 +4,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { FileSystemService } from '../../file-system/file-system-service.js'
 import { LocalFileStorage } from '../local-file-storage.js'
 import { StorageProviderRegistry } from '../storage-provider-registry.js'
-import { FakeStorage } from './fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Build a provider carrying a stub FileSystemService (the local backend factory
 // resolves it lazily, only when Create('local', …) runs).

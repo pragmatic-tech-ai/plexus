@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { editorSemanticLegend } from './semantic-scopes.js'
 import type { MessageConnection } from 'vscode-jsonrpc'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../modules/code-editor/code-document.js'
 import { collectTodlSources } from './todl-sources.js'
 import { WorkspaceBaseResolver } from '../projects/workspace-base-resolver.js'

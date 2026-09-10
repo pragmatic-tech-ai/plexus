@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { check, toJSON } from '@pragmatic-tech-ai/todl'
 
 import { StorageProviderRegistry } from '../../storage/storage-provider-registry.js'
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../modules/meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/libraries-backend.js'
 import { resolveBases } from '../base-resolver.js'

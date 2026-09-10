@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
-import type { IStorage, StorageEntry } from '../../../../services/storage/storage.js'
+import type { IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectLayoutPresetsStore } from '../project-layout-presets-store.js'
 
 function cfg(name: string): PipelineConfiguration {

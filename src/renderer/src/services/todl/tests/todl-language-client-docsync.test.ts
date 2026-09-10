@@ -3,7 +3,7 @@ import { TodlLanguageClient } from '../todl-language-client.js'
 import { providerWithFakeResolver } from './fake-resolver.js'
 import { CodeDocument } from '../../../modules/code-editor/code-document.js'
 import { StorageCodeFile } from '../../../modules/code-editor/code-file.js'
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 function fakeConn() {
   const notes: Array<{ method: string; params: unknown }> = []

@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { DiagramDocument, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import type { IDocumentFactory, IRelocatableDocumentFactory } from '../../../services/documents/document-factory.js'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
 import { PlexusDiagramDocument } from './plexus-diagram-document.js'
 // Side-effect import: registers the `media` node serializer at module load so a

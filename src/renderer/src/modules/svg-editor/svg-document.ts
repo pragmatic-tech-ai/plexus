@@ -2,7 +2,7 @@ import { MuralBase, MetaData, ObservableCollection, RelayCommand, type ICommand,
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 import type { ICodeFile } from '../code-editor/code-file.js'
 import type { EditorDiagnostic } from '../code-editor/editor-diagnostic.js'
-import type { IStorage } from '../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { SvgViewKind } from './svg-view-kind.js'
 import { SvgFormatSink } from './svg-format-sink.js'
 

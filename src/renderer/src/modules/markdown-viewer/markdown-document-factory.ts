@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import type { IDocumentFactory } from '../../services/documents/document-factory.js'
-import type { IStorage } from '../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MarkdownDocument } from './markdown-document.js'
 
 // Opens .md/.markdown files as READ-ONLY rendered MarkdownDocuments. Registered by

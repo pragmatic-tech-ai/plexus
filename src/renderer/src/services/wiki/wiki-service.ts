@@ -7,7 +7,7 @@ import { ContentHostService, type DocumentsContentHostService } from '@pragmatic
 
 import type { Repository } from '@pragmatic-tech-ai/todl'
 
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileSystemService } from '../file-system/file-system-service.js'
 import { WikiLocator, wikiPathOf } from './wiki-locator.js'
 import { WikiDocument } from './wiki-document.js'

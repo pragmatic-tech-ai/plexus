@@ -1,6 +1,6 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
-import type { IStorage } from '../storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { Project } from './project.js'
 import type { BaseBindings } from './base-binding.js'
 

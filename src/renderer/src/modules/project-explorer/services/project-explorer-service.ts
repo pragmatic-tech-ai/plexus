@@ -56,7 +56,7 @@ import { DiagramHeadlessRenderer } from '../../diagram-export/services/diagram-h
 import { ProjectAgentCatalog } from '../../agent-chat/services/project-agent-catalog.js'
 import { ChatSessionsService } from '../../agent-chat/services/chat-sessions-service.js'
 import { AgentSkillChoice, buildAgentSkillChoices } from '../../agent-chat/services/agent-skill-choice.js'
-import { copyTree } from '../../../services/storage/copy-tree.js'
+import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileFilter } from '../../../../../shared/file-system-api.js'
 import { ProjectNode } from '../../../services/projects/project.js'
 import type { Project } from '../../../services/projects/project.js'
@@ -92,7 +92,7 @@ import { CodeDocument } from '../../code-editor/code-document.js'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
 import { samePath } from '../../../services/file-watch/path-utils.js'
 import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
-import { isLocalFileAccess, type IStorage } from '../../../services/storage/storage.js'
+import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from '../../../../../shared/agent-api.js'
 
 // The result of CreateProject — the tool outcome minus its correlation id.

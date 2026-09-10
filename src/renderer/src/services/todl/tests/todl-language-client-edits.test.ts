@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { TodlLanguageClient } from '../todl-language-client.js'
 import { providerWithFakeResolver } from './fake-resolver.js'
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 function fakeConn() {
   return {

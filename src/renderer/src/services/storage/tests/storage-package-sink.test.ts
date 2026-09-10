@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { StoragePackageSink } from '../storage-package-sink.js'
-import type { IStorage } from '../storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 function fakeStorage() {
     const files = new Map<string, string>()

@@ -1,6 +1,6 @@
 import { ModelDraft } from '@pragmatic-tech-ai/todl'
 import type { Repository, Entity, SourceFile } from '@pragmatic-tech-ai/todl'
-import type { IStorage } from '../../../services/storage/storage.js'
+import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { type WikiOrigin, openProjectOrigin } from '../../../services/projects/wiki-origin.js'
 
 // One viewpoint's projection over the model: the concepts it frames and the

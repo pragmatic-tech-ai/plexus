@@ -3,7 +3,7 @@ import { ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
 
 import { CodeDocument } from '../code-document.js'
 import { StorageCodeFile, type ICodeFile } from '../code-file.js'
-import { FakeStorage } from '../../../services/storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // An in-memory ICodeFile — the document's ctor load() reads through it.
 function codeFile(id: string, text = ''): ICodeFile & { written?: string }

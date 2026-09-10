@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import { FakeStorage } from '../../storage/tests/fake-storage.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { collectTaxonomySources } from '../todl-sources.js'
 
 test('collects every .todl except those under excluded top-level folders', async () => {
