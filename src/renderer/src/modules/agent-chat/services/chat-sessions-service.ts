@@ -25,7 +25,8 @@ import type { NewProjectResult } from '../../../services/projects/new-project-di
 import { NewProjectCard } from './new-project-card.js'
 import { ApprovalRulesVM, type ApprovalRulesPort } from './approval-rules.js'
 import { ChatSession, type ChatSessionCallbacks } from './chat-session.js'
-import type { TranscriptReducer } from './transcript.js'
+import type { MarkdownRender, TranscriptReducer } from './transcript.js'
+import { AgentMarkdownRenderer } from './agent-markdown.js'
 import { ChatStore } from './chat-store.js'
 import { StoredConversationRow, type ConversationRowCallbacks } from './stored-conversation-row.js'
 import { serializeTranscript, rehydrateTranscript } from './transcript-serializer.js'
@@ -80,6 +81,10 @@ export class ChatSessionsService extends ServiceBase
     private readonly store: OpenProjectsStore
     private readonly fallbackCwd: string
     private readonly approvals: ApprovalRulesVM
+    // Renders assistant markdown → FlowDocument WITH inline images (resolved against
+    // each conversation's cwd, read via the fs bridge). One instance app-wide; its
+    // read/decode caches are keyed by path/uri so they're safe to share.
+    private readonly markdown = new AgentMarkdownRenderer()
     private workingDirs: readonly string[] = []
     private resumable = false
     // The docked "Agent Chat" (see PRIMARY_ID). All other sessions are document tabs
@@ -225,11 +230,15 @@ export class ChatSessionsService extends ServiceBase
     {
         if (this.primary !== undefined) return this.primary
         const rec = (await this.chatStore.List()).find((r) => r.Id === PRIMARY_ID)
-        const chat = new ChatSession(PRIMARY_ID, PRIMARY_TITLE, this.callbacks(), this.approvals)
+        const chat = new ChatSession(PRIMARY_ID, PRIMARY_TITLE, this.callbacks(), this.approvals, this.renderFor(PRIMARY_ID))
         chat.setStatus(this.statusText())
+        // Bind the cwd BEFORE rehydrating so restored assistant bubbles resolve their
+        // image paths against the right directory (rehydrate renders immediately).
+        const cwd = rec !== undefined && rec.Cwd ? rec.Cwd : this.currentCwd()
+        this.cwds.set(PRIMARY_ID, cwd)
         if (rec !== undefined)
         {
-            for (const item of rehydrateTranscript(rec.Transcript)) chat.Transcript.Add(item)
+            for (const item of rehydrateTranscript(rec.Transcript, this.renderFor(PRIMARY_ID))) chat.Transcript.Add(item)
             if (rec.ResumeToken !== '') this.tokens.set(PRIMARY_ID, rec.ResumeToken)
         }
         this.primary = chat
@@ -245,8 +254,6 @@ export class ChatSessionsService extends ServiceBase
         // by cwd) — NOT the current workspace cwd, which at startup may not have been
         // repopulated yet and would send --resume to the wrong directory ("No
         // conversation found"). A fresh primary (or an old record) binds to now().
-        const cwd = rec !== undefined && rec.Cwd ? rec.Cwd : this.currentCwd()
-        this.cwds.set(PRIMARY_ID, cwd)
         void this.agent.startSession(PRIMARY_ID, cwd, this.contextDirsFor(chat), resume, chat.Model())
         return chat
     }
@@ -266,7 +273,7 @@ export class ChatSessionsService extends ServiceBase
     private newSession(title: string): ChatSession
     {
         const sessionId = crypto.randomUUID()
-        const chat = new ChatSession(sessionId, title, this.callbacks(), this.approvals)
+        const chat = new ChatSession(sessionId, title, this.callbacks(), this.approvals, this.renderFor(sessionId))
         chat.setStatus(this.statusText())
         this.Open.Add(chat)
         this.contentHost.Open(chat)
@@ -311,9 +318,13 @@ export class ChatSessionsService extends ServiceBase
         if (existing !== undefined) { this.contentHost.ActivateById(id); return existing }
         const rec = (await this.chatStore.List()).find((r) => r.Id === id)
         if (rec === undefined) return undefined
-        const chat = new ChatSession(rec.Id, rec.Title, this.callbacks(), this.approvals)
+        const chat = new ChatSession(rec.Id, rec.Title, this.callbacks(), this.approvals, this.renderFor(rec.Id))
         chat.setStatus(this.statusText())
-        for (const item of rehydrateTranscript(rec.Transcript)) chat.Transcript.Add(item)
+        // Bind the cwd BEFORE rehydrating so restored assistant bubbles resolve their
+        // image paths against the right directory (rehydrate renders immediately).
+        const cwd = rec.Cwd || this.currentCwd()
+        this.cwds.set(rec.Id, cwd)
+        for (const item of rehydrateTranscript(rec.Transcript, this.renderFor(rec.Id))) chat.Transcript.Add(item)
         this.Open.Add(chat)
         this.contentHost.Open(chat)
         this.set_property_value(ChatSessionsService.ActiveChatKey, chat)
@@ -321,10 +332,6 @@ export class ChatSessionsService extends ServiceBase
         // SessionStarted, so without this a later TurnComplete (and close/quit flush)
         // would find no token and skip persisting the resumed conversation's new turns.
         if (rec.ResumeToken !== '') this.tokens.set(rec.Id, rec.ResumeToken)
-        // Resume under the conversation's bound cwd (the backend keys sessions by
-        // cwd); fall back to the current cwd for older records without a stored one.
-        const cwd = rec.Cwd || this.currentCwd()
-        this.cwds.set(rec.Id, cwd)
         void this.agent.startSession(rec.Id, cwd, this.contextDirsFor(chat), rec.ResumeToken, chat.Model())
         return chat
     }
@@ -467,6 +474,14 @@ export class ChatSessionsService extends ServiceBase
     private cwdFor(sessionId: string): string
     {
         return this.cwds.get(sessionId) ?? this.currentCwd()
+    }
+
+    // The markdown renderer for a conversation's assistant bubbles — reads the cwd
+    // LAZILY (per render) via cwdFor so relative image paths resolve even when the
+    // cwd binds after the session is created.
+    private renderFor(sessionId: string): MarkdownRender
+    {
+        return (text) => this.markdown.render(text, this.cwdFor(sessionId))
     }
 
     // Persist only when the provider can resume AND we have a token (per spec §6.4).

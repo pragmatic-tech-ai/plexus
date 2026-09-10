@@ -17,15 +17,22 @@
 import { Size } from '@pragmatic-tech-ai/mural/runtime'
 import { Image, InlineUIContainer } from '@pragmatic-tech-ai/mural/basic'
 import { BitmapImage, Stretch } from '@pragmatic-tech-ai/mural/visual-engine'
-import type { IStorage } from '../../services/storage/storage.js'
 
 // Widest an image renders before it's scaled down to fit the reading column.
 const DEFAULT_MAX_WIDTH = 680
 
+// The one storage capability image resolution needs: read a resolved path's raw
+// bytes. A project-relative IStorage satisfies it (the .md viewer), and so does an
+// absolute-OS-path reader (the agent chat) — the seam stays agnostic to which.
+export interface ImageByteSource
+{
+    ReadBytes(path: string): Promise<Uint8Array>
+}
+
 export interface MarkdownImageContext
 {
-    // Project storage the .md was opened from, for reading local image bytes.
-    readonly storage?: IStorage
+    // Byte source for local image paths (project storage, or an OS-path reader).
+    readonly storage?: ImageByteSource
     // Directory (project-relative) of the .md file — local image paths resolve
     // against it.
     readonly baseDir: string

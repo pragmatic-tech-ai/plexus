@@ -1,5 +1,6 @@
 import { test, expect } from 'vitest'
 import { MuralBase } from '@pragmatic-tech-ai/mural/runtime'
+import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
 import { AgentEventKind, type QuestionAnswer } from '../../../../../../shared/agent-api.js'
 import { TranscriptReducer, UserMessage, AssistantMessage, ErrorMessage, ToolActivity } from '../transcript.js'
 import { SessionRecoveryCard, type RecoveryMode } from '../session-recovery-card.js'
@@ -48,6 +49,19 @@ test('assistant text deltas accumulate into ONE growing bubble', () => {
     expect(list).toHaveLength(1)
     expect(list[0]).toBeInstanceOf(AssistantMessage)
     expect((list[0] as AssistantMessage).Text).toBe('Hello')
+})
+
+test('an injected render drives assistant-bubble documents (image-capable renderer seam)', () => {
+    const seen: string[] = []
+    const marker = new FlowDocument()
+    const render = (text: string): FlowDocument => { seen.push(text); return marker }
+    const r = new TranscriptReducer(render)
+    r.apply({ Kind: AgentEventKind.AssistantText, Text: '![shot](out/x.png)' })
+    const msg = items(r)[0] as AssistantMessage
+    // The reducer routed rendering through the injected function, not the default
+    // built-in parser — so the agent chat's image-capable renderer is what runs.
+    expect(seen).toEqual(['![shot](out/x.png)'])
+    expect(msg.Document).toBe(marker)
 })
 
 test('a tool use starts a new bubble after assistant text', () => {

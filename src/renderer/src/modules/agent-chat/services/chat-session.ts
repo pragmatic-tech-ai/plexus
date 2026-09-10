@@ -12,7 +12,7 @@ import {
     AgentEventKind,
     type AgentEvent, type CreateProjectRequest, type QuestionAnswer, type ToolApprovalAnswer,
 } from '../../../../../shared/agent-api.js'
-import { TranscriptReducer, UserMessage, AssistantMessage } from './transcript.js'
+import { TranscriptReducer, UserMessage, AssistantMessage, type MarkdownRender } from './transcript.js'
 import type { RecoveryMode } from './session-recovery-card.js'
 import type { ApprovalRulesVM } from './approval-rules.js'
 import { DEFAULT_MODELS, type ModelOption } from './agent-model.js'
@@ -91,7 +91,7 @@ export class ChatSession extends MuralBase implements IDockPanel, IDocument
     public static readonly AddContextCommandKey = MuralBase.RegisterProperty<ICommand>(
         ChatSession, 'AddContextCommand', undefined as unknown as ICommand, MetaData.None)
 
-    private readonly reducer = new TranscriptReducer()
+    private readonly reducer: TranscriptReducer
     private readonly sessionId: string
     private readonly callbacks: ChatSessionCallbacks
     // A one-shot context preamble prepended to the CLI text of the next send only
@@ -99,11 +99,15 @@ export class ChatSession extends MuralBase implements IDockPanel, IDocument
     // message to resend immediately.
     private pendingPreamble = ''
 
-    constructor(sessionId: string, title: string, callbacks: ChatSessionCallbacks, approvals?: ApprovalRulesVM)
+    constructor(sessionId: string, title: string, callbacks: ChatSessionCallbacks, approvals?: ApprovalRulesVM, render?: MarkdownRender)
     {
         super()
         this.sessionId = sessionId
         this.callbacks = callbacks
+        // render drives assistant-bubble markdown → FlowDocument. When omitted the
+        // reducer falls back to the lean built-in parser (used by tests); the
+        // ChatSessionsService injects the image-capable agent renderer.
+        this.reducer = new TranscriptReducer(render)
         this.set_property_value(ChatSession.IdKey, sessionId)
         this.set_property_value(ChatSession.TitleKey, title)
         this.set_property_value(ChatSession.TranscriptKey, this.reducer.Transcript)

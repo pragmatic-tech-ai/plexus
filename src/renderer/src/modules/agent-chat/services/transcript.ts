@@ -12,6 +12,11 @@ import { SessionRecoveryCard, type RecoveryMode } from './session-recovery-card.
 
 export enum TranscriptRole { User = 'user', Assistant = 'assistant', Tool = 'tool' }
 
+// Markdown → FlowDocument. Injected so the transcript can render assistant replies
+// with images (the agent-chat renderer, resolving `![](…)` against the conversation
+// cwd) while non-chat callers (wiki) and tests keep the lean default parser.
+export type MarkdownRender = (text: string) => FlowDocument
+
 export class UserMessage extends MuralBase
 {
     public static readonly TextKey = MuralBase.RegisterProperty<string>(UserMessage, 'Text', '', MetaData.None)
@@ -28,6 +33,12 @@ export class AssistantMessage extends MuralBase
     public static readonly DocumentKey = MuralBase.RegisterProperty<FlowDocument | undefined>(
         AssistantMessage, 'Document', undefined, MetaData.None)
 
+    // How Text becomes the rendered Document. Defaults to the lean built-in parser
+    // (no images); the agent chat injects an image-capable renderer.
+    private readonly render: MarkdownRender
+
+    constructor(render: MarkdownRender = buildFlowDocument) { super(); this.render = render }
+
     public get Text(): string { return this.get_property_value(AssistantMessage.TextKey) }
     public get Document(): FlowDocument | undefined { return this.get_property_value(AssistantMessage.DocumentKey) }
 
@@ -38,7 +49,7 @@ export class AssistantMessage extends MuralBase
     {
         const text = this.Text + delta
         this.set_property_value(AssistantMessage.TextKey, text)
-        this.set_property_value(AssistantMessage.DocumentKey, buildFlowDocument(text))
+        this.set_property_value(AssistantMessage.DocumentKey, this.render(text))
     }
 }
 
@@ -148,6 +159,12 @@ export class TranscriptReducer
 {
     public readonly Transcript = new ObservableCollection<MuralBase>()
 
+    // Renderer used for every AssistantMessage this reducer opens. Defaults to the
+    // lean built-in parser; the agent chat passes an image-capable one.
+    private readonly render: MarkdownRender
+
+    constructor(render: MarkdownRender = buildFlowDocument) { this.render = render }
+
     // The assistant bubble currently being streamed into, or null when the next
     // text delta should open a fresh one.
     private currentAssistant: AssistantMessage | null = null
@@ -255,7 +272,7 @@ export class TranscriptReducer
             case AgentEventKind.AssistantText:
                 if (this.currentAssistant === null)
                 {
-                    this.currentAssistant = new AssistantMessage()
+                    this.currentAssistant = new AssistantMessage(this.render)
                     this.Transcript.Add(this.currentAssistant)
                 }
                 this.currentAssistant.appendText(event.Text)
