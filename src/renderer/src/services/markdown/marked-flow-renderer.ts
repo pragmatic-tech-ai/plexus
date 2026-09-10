@@ -294,7 +294,18 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
     const stack: { name: string; add: (i: Inline) => void }[] = [{ name: '', add: (i) => root.push(i) }]
     const add = (i: Inline): void => stack[stack.length - 1]!.add(i)
 
-    for (const tok of tokens ?? []) {
+    const toks = tokens ?? []
+    let i = 0
+    while (i < toks.length) {
+        const tok = toks[i]!
+        // Inline <svg> arrives as a RUN of html tokens (<svg…>, <path/>, …, </svg>)
+        // with any whitespace between — reassemble it and DRAW it at its set size.
+        // mural renders no HTML, so otherwise the element strips to nothing (this is
+        // the icon-in-a-table-cell case). Everything else falls to the switch.
+        if (tok.type === 'html' && SvgInline.looksLikeSvg((tok as Tokens.HTML).text)) {
+            const run = collectInlineSvg(toks, i)
+            if (run !== undefined) { add(SvgInline.toImage(run.svg)); i = run.next; continue }
+        }
         switch (tok.type) {
             case 'text':
                 for (const i of textTokenInlinesRendered(tok, ctx)) add(i)
@@ -340,8 +351,25 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
                 if (typeof text === 'string' && text.length > 0) add(new Run(softBreak(text)))
             }
         }
+        i++
     }
     return root
+}
+
+// Reassemble a complete inline `<svg>…</svg>` starting at token `start`, by
+// concatenating tokens' raw text until one closes the element. Returns the svg
+// source and the index just past it, or undefined if no close is found.
+function collectInlineSvg(toks: readonly Token[], start: number): { svg: string; next: number } | undefined
+{
+    let raw = ''
+    for (let j = start; j < toks.length; j++) {
+        raw += (toks[j] as { raw?: string }).raw ?? ''
+        if (/<\/svg\s*>/i.test((toks[j] as { raw?: string }).raw ?? '')) {
+            const svg = SvgInline.extract(raw)
+            return svg !== undefined ? { svg, next: j + 1 } : undefined
+        }
+    }
+    return undefined
 }
 
 // A marked 'text' token is either a leaf (its .text) or a wrapper carrying nested

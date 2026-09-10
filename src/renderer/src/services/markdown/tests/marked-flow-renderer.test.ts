@@ -152,6 +152,29 @@ test('a non-SVG fence is still highlighted source, not an image', () => {
     expect(inlines(p).every((x) => x instanceof Run)).toBe(true)   // code runs, no image container
 })
 
+test('an inline <svg> inside a table cell is DRAWN at its set size (icon grid)', () => {
+    const md = [
+        '| home |',
+        '| :-: |',
+        '| <svg width="32" height="32" viewBox="0 0 24 24"><path d="M1 2"/></svg> |',
+    ].join('\n')
+    const table = blocks(md)[0] as Table
+    const bodyCell = table.Rows.ToArray()[1]!.Cells.ToArray()[0]!
+    const cellPara = bodyCell.Blocks.ToArray()[0] as Paragraph
+    const c = inlines(cellPara)[0]
+    expect(c).toBeInstanceOf(InlineUIContainer)
+    const img = (c as InlineUIContainer).Child as Image
+    expect(img).toBeInstanceOf(Image)
+    expect((img.Source as BitmapImage).NaturalSize.Width).toBe(32)
+})
+
+test('an inline <svg> among prose is drawn without dropping the surrounding text', () => {
+    const parts = firstInlines('icon <svg width="16" height="16"><rect/></svg> done')
+    expect(parts.some((x) => x instanceof InlineUIContainer && (x as InlineUIContainer).Child instanceof Image)).toBe(true)
+    expect(parts.some((x) => x instanceof Run && (x as Run).Text.includes('icon'))).toBe(true)
+    expect(parts.some((x) => x instanceof Run && (x as Run).Text.includes('done'))).toBe(true)
+})
+
 test('blockquote renders italic and muted', () => {
     const p = blocks('> quoted')[0] as Paragraph
     expect(p.FontStyle).toBe(FontStyle.Italic)
