@@ -50,7 +50,7 @@ export class FileWatchService extends ServiceBase
         for (const folder of [...this.watched]) if (!current.has(folder)) { this.watched.delete(folder); void this.api.unwatch(folder) }
     }
 
-    public Dispose(): void
+    public dispose(): void
     {
         for (const d of this.disposers) d()
         for (const folder of this.watched) void this.api.unwatch(folder)

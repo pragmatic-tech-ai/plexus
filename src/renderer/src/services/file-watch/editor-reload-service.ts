@@ -48,7 +48,7 @@ export class EditorReloadService extends ServiceBase
         return this.Provider.getRequired(ProjectExplorerService.Key).FindOpenCodeDocByOsPath(absPath)
     }
 
-    public Dispose(): void { this.unsubscribe() }
+    public dispose(): void { this.unsubscribe() }
 }
 
 export default EditorReloadService

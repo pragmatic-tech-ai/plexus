@@ -66,7 +66,7 @@ describe('WorkspaceRefreshService', () => {
         expect(result.id).toBe('r1')
         expect(result.projects.length).toBe(2)
         expect(result.projects.find((p) => p.folder === '/p/a')?.errorCount).toBe(1)
-        service.Dispose()
+        service.dispose()
     })
 
     test('path inside project A → refreshes only A', async () => {
@@ -76,7 +76,7 @@ describe('WorkspaceRefreshService', () => {
         await settle()
         expect(h.refreshedWith[0]).toEqual(['/p/a'])
         expect(h.results[0]!.projects.length).toBe(1)
-        service.Dispose()
+        service.dispose()
     })
 
     test('path matching nothing → empty projects with a note', async () => {
@@ -87,7 +87,7 @@ describe('WorkspaceRefreshService', () => {
         expect(h.refreshedWith[0]).toEqual([])
         expect(h.results[0]!.projects.length).toBe(0)
         expect((h.results[0]!.note ?? '').length).toBeGreaterThan(0)
-        service.Dispose()
+        service.dispose()
     })
 
     test('GetProblems → reads diagnostics and replies with the problems list (read-only, no refresh)', () => {
@@ -104,6 +104,6 @@ describe('WorkspaceRefreshService', () => {
         expect(res.total).toBe(2)
         expect(res.errorCount).toBe(1)
         expect(res.warningCount).toBe(1)
-        service.Dispose()
+        service.dispose()
     })
 })

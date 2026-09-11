@@ -50,7 +50,7 @@ export class ProjectRescanService extends ServiceBase
         return undefined
     }
 
-    public Dispose(): void
+    public dispose(): void
     {
         this.unsubscribe()
         for (const t of this.pending.values()) clearTimeout(t)

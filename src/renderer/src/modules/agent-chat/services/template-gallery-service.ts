@@ -53,7 +53,7 @@ export class TemplateGalleryService extends ServiceBase implements IDockPanel
 
     // Stop any live card timers (the approval card's countdown) when the tab is
     // torn down; harmless if it isn't.
-    public Dispose(): void
+    public dispose(): void
     {
         for (const card of this.Cards) (card as { dispose?: () => void }).dispose?.()
     }

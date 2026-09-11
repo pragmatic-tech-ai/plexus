@@ -43,7 +43,7 @@ describe('FileWatchService', () => {
     const explorer = makeExplorer(['C:/proj/a'])
     const svc = new FileWatchService(makeProvider(explorer) as never)
     expect(b.watch).toHaveBeenCalledWith('C:/proj/a')
-    svc.Dispose()
+    svc.dispose()
   })
 
   test('watches on open and unwatches on close', () => {
@@ -55,7 +55,7 @@ describe('FileWatchService', () => {
     expect(b.watch).toHaveBeenCalledWith('C:/proj/b')
     ;(explorer.OpenProjects as unknown as { _set: (f: string[]) => void })._set([])
     expect(b.unwatch).toHaveBeenCalledWith('C:/proj/b')
-    svc.Dispose()
+    svc.dispose()
   })
 
   test('broadcasts Changed events to subscribers', () => {
@@ -67,6 +67,6 @@ describe('FileWatchService', () => {
     svc.Subscribe((e) => seen.push(e))
     b.fire({ path: 'C:/proj/b/x.todl', kind: FileChangeKind.Changed })
     expect(seen).toEqual([{ path: 'C:/proj/b/x.todl', kind: FileChangeKind.Changed }])
-    svc.Dispose()
+    svc.dispose()
   })
 })

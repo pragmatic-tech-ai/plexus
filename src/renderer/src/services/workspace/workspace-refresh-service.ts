@@ -41,7 +41,7 @@ export class WorkspaceRefreshService extends ServiceBase
         })
     }
 
-    public Dispose(): void { this.unsubscribe() }
+    public dispose(): void { this.unsubscribe() }
 
     // Read the current diagnostics and return the (path/severity-filtered, capped)
     // problems list. Read-only — no project re-scan. A missing DiagnosticsService

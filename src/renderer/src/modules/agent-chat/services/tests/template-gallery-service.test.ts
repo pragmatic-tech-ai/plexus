@@ -10,11 +10,11 @@ test('exposes an IDockPanel identity and the fixture cards', () => {
     expect(svc.Id).toBe('template-gallery')
     expect(svc.Title).toBe('Card Gallery')
     expect(svc.Cards.Count).toBe(galleryCards().length)
-    svc.Dispose()
+    svc.dispose()
 })
 
 test('Dispose stops the approval-card countdown timers', () => {
     const svc = new TemplateGalleryService(new ServiceProvider())
     // Should not throw and should leave no live intervals behind.
-    expect(() => svc.Dispose()).not.toThrow()
+    expect(() => svc.dispose()).not.toThrow()
 })
