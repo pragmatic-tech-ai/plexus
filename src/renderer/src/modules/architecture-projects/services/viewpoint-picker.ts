@@ -50,7 +50,7 @@ export class ViewpointPickerModel extends MuralBase
         for (const v of viewpoints)
         {
             const row = new PickerRow(v, preselected === undefined ? true : preselected.has(v))
-            row.AddPropertyChangedListener(PickerRow.IsSelectedKey, () => this.recompute())
+            row.PropertyChanged(PickerRow.IsSelectedKey).subscribe(() => this.recompute())
             rows.Add(row)
         }
         this.set_property_value(ViewpointPickerModel.RowsKey, rows)

@@ -111,7 +111,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         services.get(LibrariesPanelService.Key)?.onLibrariesChanged(() => { void this.syncPageSet() })
         services.get(MetaModelsService.Key)?.onMetaModelsChanged(() => { void this.syncPageSet() })
         const host = services.get(ContentHostService.Key) as DocumentsContentHostService | undefined
-        host?.AddPropertyChangedListener(DocumentsContentHostService.ActiveDocumentKey, () => { void this.onActiveDocChanged() })
+        host?.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => { void this.onActiveDocChanged() })
         // Belt-and-suspenders: a document bound via the OpenDocuments sync path
         // (not the active-doc path) also gets its contexts stamped — re-apply so
         // its pages settle. Idempotent when the active doc is already stamped.
@@ -133,7 +133,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         const apply = (): void => applyToolboxItemSize(settings, app.Resources)
         apply()
         for (const key of [ITEM_WIDTH_SETTING, ITEM_HEIGHT_SETTING]) {
-            settings.GetSetting(key)?.AddPropertyChangedListener(Setting.ValueKey, apply)
+            settings.GetSetting(key)?.PropertyChanged(Setting.ValueKey).subscribe(apply)
         }
     }
 

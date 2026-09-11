@@ -54,7 +54,7 @@ export class LayoutStageVM extends MuralBase
         this.set_property_value(LayoutStageVM.OptionsKey, opts)
         this.set_property_value(LayoutStageVM.ParamsKey, new ObservableCollection<MuralBase>())
 
-        this.AddPropertyChangedListener(LayoutStageVM.SelectedKey, () => this.onSelected())
+        this.PropertyChanged(LayoutStageVM.SelectedKey).subscribe(() => this.onSelected())
     }
 
     public get Label(): string { return this.get_property_value(LayoutStageVM.LabelKey) }

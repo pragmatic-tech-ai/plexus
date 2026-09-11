@@ -9,12 +9,15 @@ import type { PersistentGuide } from '@pragmatic-tech-ai/mural/runtime'
 // Guides DP notifications without mounting the mural theme under jsdom.
 class Listenable {
     private readonly listeners = new Map<unknown, Set<() => void>>()
-    public AddPropertyChangedListener(key: unknown, fn: () => void): void {
-        if (!this.listeners.has(key)) this.listeners.set(key, new Set())
-        this.listeners.get(key)!.add(fn)
-    }
-    public RemovePropertyChangedListener(key: unknown, fn: () => void): void {
-        this.listeners.get(key)?.delete(fn)
+    public PropertyChanged(key: unknown): { subscribe(fn: () => void): { dispose(): void } } {
+        const listeners = this.listeners
+        return {
+            subscribe(fn: () => void): { dispose(): void } {
+                if (!listeners.has(key)) listeners.set(key, new Set())
+                listeners.get(key)!.add(fn)
+                return { dispose(): void { listeners.get(key)?.delete(fn) } }
+            },
+        }
     }
     // The document subscribes to the view's ContainerBound signal when it becomes
     // ActiveView (container-owned-geometry). No containers realize under this

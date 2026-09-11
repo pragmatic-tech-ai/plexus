@@ -1,4 +1,4 @@
-import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import {
     ContentHostService, Diagram, DiagramDocument, ScrollViewer,
     type DocumentsContentHostService, type IDocument,
@@ -63,6 +63,8 @@ export class DiagramCameraService extends ServiceBase
             timer = setTimeout(persist, this.persistDelayMs)
         }
 
+        let subActiveView: Disposable | undefined
+
         const rebindView = (): void => {
             detachView?.()
             detachView = undefined
@@ -78,23 +80,24 @@ export class DiagramCameraService extends ServiceBase
             // ScrollViewer's scroll offset. Watch both so a scroll-only change
             // (no zoom) still persists.
             const scroll = view.ScrollHost
-            view.AddPropertyChangedListener(Diagram.ZoomKey, onCameraChanged)
-            scroll?.AddPropertyChangedListener(ScrollViewer.HorizontalOffsetKey, onCameraChanged)
-            scroll?.AddPropertyChangedListener(ScrollViewer.VerticalOffsetKey, onCameraChanged)
+            const subZoom = view.PropertyChanged(Diagram.ZoomKey).subscribe(onCameraChanged)
+            const subH    = scroll?.PropertyChanged(ScrollViewer.HorizontalOffsetKey).subscribe(onCameraChanged)
+            const subV    = scroll?.PropertyChanged(ScrollViewer.VerticalOffsetKey).subscribe(onCameraChanged)
             detachView = (): void => {
-                view.RemovePropertyChangedListener(Diagram.ZoomKey, onCameraChanged)
-                scroll?.RemovePropertyChangedListener(ScrollViewer.HorizontalOffsetKey, onCameraChanged)
-                scroll?.RemovePropertyChangedListener(ScrollViewer.VerticalOffsetKey, onCameraChanged)
+                subZoom.dispose()
+                subH?.dispose()
+                subV?.dispose()
             }
         }
 
-        doc.AddPropertyChangedListener(DiagramDocument.ActiveViewKey, rebindView)
+        subActiveView = doc.PropertyChanged(DiagramDocument.ActiveViewKey).subscribe(rebindView)
         rebindView()
 
         this.bindings.set(doc, () => {
             if (timer !== undefined) clearTimeout(timer)
             detachView?.()
-            doc.RemovePropertyChangedListener(DiagramDocument.ActiveViewKey, rebindView)
+            subActiveView?.dispose()
+            subActiveView = undefined
         })
     }
 }

@@ -230,7 +230,7 @@ export class LayoutPipelineService extends ServiceBase
 
         // Selecting a preset loads it (scope-aware); whatever is selected also
         // drives whether Delete is enabled.
-        this.AddPropertyChangedListener(LayoutPipelineService.SelectedPresetKey, () => {
+        this.PropertyChanged(LayoutPipelineService.SelectedPresetKey).subscribe(() => {
             const ref = this.SelectedPreset
             this.set_property_value(LayoutPipelineService.CanDeleteKey, ref !== undefined)
             if (ref !== undefined) void this.loadRef(ref)
@@ -241,8 +241,8 @@ export class LayoutPipelineService extends ServiceBase
         // The fake host in unit tests has no property-change surface — guard so
         // construction there still works (and still lists global presets).
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
-        if (host !== undefined && typeof (host as unknown as MuralBase).AddPropertyChangedListener === 'function') {
-            host.AddPropertyChangedListener(DocumentsContentHostService.ActiveDocumentKey, () => this.onActiveDocumentChanged())
+        if (host !== undefined && typeof (host as unknown as MuralBase).PropertyChanged === 'function') {
+            host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => this.onActiveDocumentChanged())
             this.onActiveDocumentChanged()
         } else {
             void this.refreshPresets()

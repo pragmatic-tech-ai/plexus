@@ -1,4 +1,4 @@
-import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { editorSemanticLegend } from './semantic-scopes.js'
 import type { MessageConnection } from 'vscode-jsonrpc'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
@@ -87,9 +87,9 @@ export class TodlLanguageClient extends ServiceBase {
   private readonly openDocs = new Map<string, Set<string>>()
   // Monotonic didChange version per URI.
   private readonly versions = new Map<string, number>()
-  // Open editor documents → their current server URI, and → the Content unhook.
+  // Open editor documents → their current server URI, and → the Content subscription.
   private readonly docUris = new Map<CodeDocument, string>()
-  private readonly docListeners = new Map<CodeDocument, () => void>()
+  private readonly docListeners = new Map<CodeDocument, Disposable>()
   // Latest diagnostics per project (projectId → relpath → canonical), so a
   // per-URI publish can be flattened into the whole-project slice the store wants.
   private readonly diagsByProject = new Map<string, Map<string, Diagnostic[]>>()
@@ -325,12 +325,11 @@ export class TodlLanguageClient extends ServiceBase {
         textDocument: { uri, languageId: 'todl', version: this.nextVersion(uri), text: doc.Content },
       })
     }
-    const listener = (): void => {
+    const sub = doc.PropertyChanged(CodeDocument.ContentKey).subscribe((): void => {
       const current = this.docUris.get(doc)
       if (current !== undefined) this.sendDidChange(current, doc.Content)
-    }
-    doc.AddPropertyChangedListener(CodeDocument.ContentKey, listener)
-    this.docListeners.set(doc, () => doc.RemovePropertyChangedListener(CodeDocument.ContentKey, listener))
+    })
+    this.docListeners.set(doc, sub)
   }
 
   // Move a document to (storage, relpath): close the old server doc, open the new

@@ -1,4 +1,4 @@
-import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import {
     ContentHostService, Diagram, DiagramDocument,
     type DocumentsContentHostService, type IDocument,
@@ -59,6 +59,8 @@ export class DiagramGuidesService extends ServiceBase
             timer = setTimeout(persist, this.persistDelayMs)
         }
 
+        let subActiveView: Disposable | undefined
+
         const rebindView = (): void => {
             detachView?.()
             detachView = undefined
@@ -70,17 +72,18 @@ export class DiagramGuidesService extends ServiceBase
                 hydrating = true
                 try { view.Guides = saved.guides } finally { hydrating = false }
             }
-            view.AddPropertyChangedListener(Diagram.GuidesKey, onChanged)
-            detachView = (): void => view.RemovePropertyChangedListener(Diagram.GuidesKey, onChanged)
+            const subGuides = view.PropertyChanged(Diagram.GuidesKey).subscribe(onChanged)
+            detachView = (): void => { subGuides.dispose() }
         }
 
-        doc.AddPropertyChangedListener(DiagramDocument.ActiveViewKey, rebindView)
+        subActiveView = doc.PropertyChanged(DiagramDocument.ActiveViewKey).subscribe(rebindView)
         rebindView()
 
         this.bindings.set(doc, () => {
             if (timer !== undefined) clearTimeout(timer)
             detachView?.()
-            doc.RemovePropertyChangedListener(DiagramDocument.ActiveViewKey, rebindView)
+            subActiveView?.dispose()
+            subActiveView = undefined
         })
     }
 }

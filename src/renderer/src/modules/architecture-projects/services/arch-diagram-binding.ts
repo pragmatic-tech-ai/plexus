@@ -1,5 +1,5 @@
 import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
-import { Panel } from '@pragmatic-tech-ai/mural/runtime'
+import { Panel, type Disposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagram/content-container-figure.js'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
@@ -37,6 +37,7 @@ export class ArchDiagramBinding
     private detachView: (() => void) | undefined
     private modelLayerOff: (() => void) | undefined   // unregisters the undo model layer
     private appliedOff: (() => void) | undefined       // unsubscribes the post-undo re-projection
+    private _activeViewSub: Disposable | undefined     // doc.ActiveView property-changed subscription
     private readonly bound = new Map<string, Figure | ArchNodeVM>()   // entityId -> node
     private readonly boundEdges = new Map<string, Connector>()         // edgeKey -> projected connector
     private readonly connectorVisualTeardown = new Map<string, () => void>()   // edgeKey -> unwire route/port capture listeners
@@ -102,7 +103,7 @@ export class ArchDiagramBinding
         // The canvas view publishes itself on mount (ActiveView); (re)wire the
         // connector-authoring listener whenever it changes.
         this.attachView()
-        this.doc.AddPropertyChangedListener(DiagramDocument.ActiveViewKey, this.onActiveViewChanged)
+        this._activeViewSub = this.doc.PropertyChanged(DiagramDocument.ActiveViewKey).subscribe(this.onActiveViewChanged)
         // Bridge the model into the document's undo history for the binding's
         // lifetime, so model-mutating diagram edits (reparent, connector-draw,
         // Shift+Delete, drop-create — all inside a Diagram-event bracket — and the
@@ -242,8 +243,8 @@ export class ArchDiagramBinding
                 this.doc.History.Commit()
             }
         }
-        text.AddPropertyChangedListener(ShapeText.IsEditingKey, onEditEnd)
-        this.connectorLabelUnsubs.set(key, () => text.RemovePropertyChangedListener(ShapeText.IsEditingKey, onEditEnd))
+        const labelSub = text.PropertyChanged(ShapeText.IsEditingKey).subscribe(onEditEnd)
+        this.connectorLabelUnsubs.set(key, () => labelSub.dispose())
     }
 
     // A user drew a connector between two nodes. Reconcile away the raw connector
@@ -613,42 +614,34 @@ export class ArchDiagramBinding
             if (this._applyingConnectorVisual) return
             writeConnectorVisual(this.doc, metaKey, captureConnectorVisual(c))
         }
-        c.AddPropertyChangedListener(Connector.WaypointsKey, onVisualEdit)
-        c.AddPropertyChangedListener(Connector.RoutingModeKey, onVisualEdit)
+        const visualSubs: Disposable[] = []
+        visualSubs.push(c.PropertyChanged(Connector.WaypointsKey).subscribe(onVisualEdit))
+        visualSubs.push(c.PropertyChanged(Connector.RoutingModeKey).subscribe(onVisualEdit))
         // Paint z-order (Bring-to-Front / Send-to-Back) is view state on the
         // connector's Panel.ZIndex attached property — capture it so a reorder
         // survives reopen, same as a reroute. Applied under the guard on restore.
-        c.AddPropertyChangedListener(Panel.ZIndexKey, onVisualEdit)
-        const wireEp = (e: ConnectorEndpoint | undefined): (() => void) => {
-            if (e === undefined) return () => {}
-            e.AddPropertyChangedListener(ConnectorEndpoint.PortSideKey, onVisualEdit)
-            e.AddPropertyChangedListener(ConnectorEndpoint.PortIndexKey, onVisualEdit)
-            return () => {
-                e.RemovePropertyChangedListener(ConnectorEndpoint.PortSideKey, onVisualEdit)
-                e.RemovePropertyChangedListener(ConnectorEndpoint.PortIndexKey, onVisualEdit)
-            }
+        visualSubs.push(c.PropertyChanged(Panel.ZIndexKey).subscribe(onVisualEdit))
+        const wireEp = (e: ConnectorEndpoint | undefined): void => {
+            if (e === undefined) return
+            visualSubs.push(e.PropertyChanged(ConnectorEndpoint.PortSideKey).subscribe(onVisualEdit))
+            visualSubs.push(e.PropertyChanged(ConnectorEndpoint.PortIndexKey).subscribe(onVisualEdit))
         }
-        const offSrc = wireEp(c.Source)
-        const offTgt = wireEp(c.Target)
+        wireEp(c.Source)
+        wireEp(c.Target)
         // Capture LABEL presentation edits too: the label's along-connector position
         // (Connector.LabelPosition) and every text-style / block DP on its ShapeText
         // (font, colour, weight/style/decoration, alignment, drag offset, rotation).
         // Format-Shape edits land on these DPs, so this persists them like a reroute.
-        c.AddPropertyChangedListener(Connector.LabelPositionKey, onVisualEdit)
+        visualSubs.push(c.PropertyChanged(Connector.LabelPositionKey).subscribe(onVisualEdit))
         const label = c.Text
         const labelKeys = [
             ShapeText.FontFamilyKey, ShapeText.FontSizeKey, ShapeText.ForegroundKey,
             ShapeText.FontWeightKey, ShapeText.FontStyleKey, ShapeText.TextDecorationsKey,
             ShapeText.TextAlignmentKey, ShapeText.OffsetKey, ShapeText.AngleKey,
         ]
-        for (const k of labelKeys) label.AddPropertyChangedListener(k, onVisualEdit)
+        for (const k of labelKeys) visualSubs.push(label.PropertyChanged(k).subscribe(onVisualEdit))
         this.connectorVisualTeardown.set(key, () => {
-            c.RemovePropertyChangedListener(Connector.WaypointsKey, onVisualEdit)
-            c.RemovePropertyChangedListener(Connector.RoutingModeKey, onVisualEdit)
-            c.RemovePropertyChangedListener(Panel.ZIndexKey, onVisualEdit)
-            c.RemovePropertyChangedListener(Connector.LabelPositionKey, onVisualEdit)
-            for (const k of labelKeys) label.RemovePropertyChangedListener(k, onVisualEdit)
-            offSrc(); offTgt()
+            for (const sub of visualSubs) sub.dispose()
         })
     }
 
@@ -798,7 +791,8 @@ export class ArchDiagramBinding
     {
         this.off?.()
         this.off = undefined
-        this.doc.RemovePropertyChangedListener(DiagramDocument.ActiveViewKey, this.onActiveViewChanged)
+        this._activeViewSub?.dispose()
+        this._activeViewSub = undefined
         this.detachView?.()
         this.detachView = undefined
         this.modelLayerOff?.()

@@ -9,7 +9,7 @@ import { ArchModel } from './arch-model.js'
 import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
 import { normalizePath } from '../../../services/file-watch/path-utils.js'
-import { type FileChangeEvent } from '../../../../shared/file-watch-api.js'
+import { type FileChangeEvent } from '../../../../../shared/file-watch-api.js'
 
 // Debounce for the .todl-change → model-reload path (collapses a save burst).
 const RELOAD_DEBOUNCE_MS = 250

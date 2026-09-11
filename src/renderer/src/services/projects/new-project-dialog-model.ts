@@ -157,9 +157,9 @@ export class NewProjectDialogModel extends MuralBase
         this.set_property_value(NewProjectDialogModel.ConfirmCommandKey, new RelayCommand(() => void this.confirm()))
         this.set_property_value(NewProjectDialogModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
 
-        this.AddPropertyChangedListener(NewProjectDialogModel.NameKey, () => this.recompute())
-        this.AddPropertyChangedListener(NewProjectDialogModel.LocationKey, () => this.recompute())
-        this.AddPropertyChangedListener(NewProjectDialogModel.SelectedMetaModelKey, () => this.recompute())
+        this.PropertyChanged(NewProjectDialogModel.NameKey).subscribe(() => this.recompute())
+        this.PropertyChanged(NewProjectDialogModel.LocationKey).subscribe(() => this.recompute())
+        this.PropertyChanged(NewProjectDialogModel.SelectedMetaModelKey).subscribe(() => this.recompute())
 
         if (choices.length > 0) this.select(choices[0])
     }

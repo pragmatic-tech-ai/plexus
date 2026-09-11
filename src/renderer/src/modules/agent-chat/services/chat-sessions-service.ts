@@ -111,7 +111,7 @@ export class ChatSessionsService extends ServiceBase
         // Keep the filtered views in step with the query and either master list.
         this.Open.Subscribe(() => this.rebuildVisible())
         this.Stored.Subscribe(() => this.rebuildVisible())
-        this.AddPropertyChangedListener(ChatSessionsService.SearchTextKey, () => {
+        this.PropertyChanged(ChatSessionsService.SearchTextKey).subscribe(() => {
             this.set_property_value(ChatSessionsService.SearchEmptyKey, this.SearchText.trim() === '')
             this.rebuildVisible()
         })

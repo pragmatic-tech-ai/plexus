@@ -18,7 +18,7 @@ export class NumberParamVM extends MuralBase
         super()
         this.set_property_value(NumberParamVM.LabelKey, label)
         this.set_property_value(NumberParamVM.ValueKey, def)
-        this.AddPropertyChangedListener(NumberParamVM.ValueKey, () => this.onChange(this.Key, this.Value))
+        this.PropertyChanged(NumberParamVM.ValueKey).subscribe(() => this.onChange(this.Key, this.Value))
     }
 
     public get Label(): string { return this.get_property_value(NumberParamVM.LabelKey) }
@@ -36,7 +36,7 @@ export class BoolParamVM extends MuralBase
         super()
         this.set_property_value(BoolParamVM.LabelKey, label)
         this.set_property_value(BoolParamVM.ValueKey, def)
-        this.AddPropertyChangedListener(BoolParamVM.ValueKey, () => this.onChange(this.Key, this.Value))
+        this.PropertyChanged(BoolParamVM.ValueKey).subscribe(() => this.onChange(this.Key, this.Value))
     }
 
     public get Label(): string { return this.get_property_value(BoolParamVM.LabelKey) }

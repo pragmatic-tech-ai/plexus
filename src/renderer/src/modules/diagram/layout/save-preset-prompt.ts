@@ -53,7 +53,7 @@ export class SavePresetPromptModel extends MuralBase
 
         this.set_property_value(SavePresetPromptModel.ConfirmCommandKey, new RelayCommand(() => this.confirm()))
         this.set_property_value(SavePresetPromptModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
-        this.AddPropertyChangedListener(SavePresetPromptModel.NameKey, () => this.recompute())
+        this.PropertyChanged(SavePresetPromptModel.NameKey).subscribe(() => this.recompute())
         this.recompute()
     }
 

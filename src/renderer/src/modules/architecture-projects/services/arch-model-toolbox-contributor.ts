@@ -101,7 +101,7 @@ export class ArchModelToolboxContributor extends ServiceBase
         super(provider)
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         if (host === undefined) return
-        host.AddPropertyChangedListener(DocumentsContentHostService.ActiveDocumentKey, () => { void this.onActiveChanged(host) })
+        host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => { void this.onActiveChanged(host) })
         void this.onActiveChanged(host)
     }
 

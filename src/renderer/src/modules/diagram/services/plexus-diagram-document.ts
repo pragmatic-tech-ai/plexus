@@ -35,7 +35,7 @@ export class PlexusDiagramDocument extends DiagramDocument
         super(storage)
         // Wire OS media drop (files / links) whenever the diagram view mounts.
         // General to every .diagram — not just architecture projects.
-        this.AddPropertyChangedListener(DiagramDocument.ActiveViewKey, this._onActiveViewChanged)
+        this.PropertyChanged(DiagramDocument.ActiveViewKey).subscribe(this._onActiveViewChanged)
     }
 
     private readonly _onActiveViewChanged = (): void => {

@@ -35,7 +35,7 @@
     "pptxgenjs": "^3.12.0",
     "vscode-jsonrpc": "^8.2.0",
     "vscode-languageserver-types": "3.17.5",
-    "@pragmatic-tech-ai/todl-runtime": "^0.3.0"
+    "@pragmatic-tech-ai/todl-runtime": "^0.5.1"
   },
   "devDependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -43,7 +43,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@playwright/test": "^1.62.1",
     "@pragmatic-tech-ai/fresco": "^0.4.1",
-    "@pragmatic-tech-ai/mural": "^0.47.2",
+    "@pragmatic-tech-ai/mural": "^0.48.0",
     "electron": "^43.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",

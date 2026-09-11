@@ -32,7 +32,7 @@ export class SetVersionDialogModel extends MuralBase
         this.set_property_value(SetVersionDialogModel.NewVersionKey, current)
         this.set_property_value(SetVersionDialogModel.ConfirmCommandKey, new RelayCommand(() => this.confirm()))
         this.set_property_value(SetVersionDialogModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
-        this.AddPropertyChangedListener(SetVersionDialogModel.NewVersionKey, () => this.recompute())
+        this.PropertyChanged(SetVersionDialogModel.NewVersionKey).subscribe(() => this.recompute())
         this.recompute()
     }
 

@@ -37,8 +37,8 @@ export class AutosaveService extends ServiceBase
         super(provider)
         const settings = this.Provider.get(ApplicationSettings.Key)
         const reschedule = (): void => this.reschedule()
-        settings?.GetSetting(AUTOSAVE_ENABLED_SETTING)?.AddPropertyChangedListener(Setting.ValueKey, reschedule)
-        settings?.GetSetting(AUTOSAVE_INTERVAL_SETTING)?.AddPropertyChangedListener(Setting.ValueKey, reschedule)
+        settings?.GetSetting(AUTOSAVE_ENABLED_SETTING)?.PropertyChanged(Setting.ValueKey).subscribe(reschedule)
+        settings?.GetSetting(AUTOSAVE_INTERVAL_SETTING)?.PropertyChanged(Setting.ValueKey).subscribe(reschedule)
         this.reschedule()
     }
 

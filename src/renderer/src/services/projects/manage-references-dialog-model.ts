@@ -108,7 +108,7 @@ export class ManageReferencesDialogModel extends MuralBase
         this.set_property_value(ManageReferencesDialogModel.CancelCommandKey,
             new RelayCommand(() => this.close(undefined)))
 
-        this.AddPropertyChangedListener(ManageReferencesDialogModel.SelectedMetaModelKey, () => this.recompute())
+        this.PropertyChanged(ManageReferencesDialogModel.SelectedMetaModelKey).subscribe(() => this.recompute())
         this.recompute()
     }
 

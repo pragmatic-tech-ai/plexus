@@ -5,6 +5,7 @@ import {
     type IDockPanel,
     type PanelDockService,
 } from '@pragmatic-tech-ai/mural/framework'
+import { type Disposable } from '@pragmatic-tech-ai/mural/runtime'
 
 // The Id every DiagramInspector shares (DiagramInspector ctor: 'diagram-format').
 // The dock dedups panels by Id, so at most one Format Shape panel is ever docked
@@ -39,8 +40,8 @@ export function attachAutoOpenInspector(
     const openedFor = new WeakSet<DiagramDocument>()
 
     let watchedDoc: DiagramDocument | undefined
-    let detachView: (() => void) | undefined       // watchedDoc.ActiveViewKey listener
-    let detachSelection: (() => void) | undefined  // ActiveView.SelectionCountKey listener
+    let detachView: Disposable | undefined       // watchedDoc.ActiveViewKey listener
+    let detachSelection: Disposable | undefined  // ActiveView.SelectionCountKey listener
 
     // The Format Shape panel currently docked (any document's inspector), if any.
     const dockedInspector = (): IDockPanel | undefined =>
@@ -72,13 +73,11 @@ export function attachAutoOpenInspector(
     // (Re)bind the selection listener to the watched document's current ActiveView.
     const onViewChanged = (): void =>
     {
-        detachSelection?.()
+        detachSelection?.dispose()
         detachSelection = undefined
         const view = watchedDoc?.ActiveView
         if (view === undefined) return
-        view.AddPropertyChangedListener(Diagram.SelectionCountKey, onSelectionCountChanged)
-        detachSelection = (): void =>
-            view.RemovePropertyChangedListener(Diagram.SelectionCountKey, onSelectionCountChanged)
+        detachSelection = view.PropertyChanged(Diagram.SelectionCountKey).subscribe(onSelectionCountChanged)
         // A shape may already be selected by the time the view mounts / re-activates.
         onSelectionCountChanged()
     }
@@ -86,8 +85,8 @@ export function attachAutoOpenInspector(
     // Re-point everything at the newly active document.
     const onActiveDocChanged = (): void =>
     {
-        detachView?.();      detachView = undefined
-        detachSelection?.(); detachSelection = undefined
+        detachView?.dispose();      detachView = undefined
+        detachSelection?.dispose(); detachSelection = undefined
         const doc = host.ActiveDocument
         watchedDoc = doc instanceof DiagramDocument ? doc : undefined
         const active = watchedDoc
@@ -100,19 +99,17 @@ export function attachAutoOpenInspector(
             showInspectorFor(active)
             openedFor.add(active)
         }
-        active.AddPropertyChangedListener(DiagramDocument.ActiveViewKey, onViewChanged)
-        detachView = (): void =>
-            active.RemovePropertyChangedListener(DiagramDocument.ActiveViewKey, onViewChanged)
+        detachView = active.PropertyChanged(DiagramDocument.ActiveViewKey).subscribe(onViewChanged)
         onViewChanged()
     }
 
-    host.AddPropertyChangedListener(DocumentsContentHostService.ActiveDocumentKey, onActiveDocChanged)
+    const hostSub: Disposable = host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(onActiveDocChanged)
     onActiveDocChanged()
 
     return (): void =>
     {
-        host.RemovePropertyChangedListener(DocumentsContentHostService.ActiveDocumentKey, onActiveDocChanged)
-        detachView?.()
-        detachSelection?.()
+        hostSub.dispose()
+        detachView?.dispose()
+        detachSelection?.dispose()
     }
 }

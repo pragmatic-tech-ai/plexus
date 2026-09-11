@@ -171,7 +171,15 @@ class NotifyingHost {
     public readonly OpenDocuments = new ObservableCollection<IDocument>()
     public constructor(active?: IDocument) { this._active = active; if (active) this.OpenDocuments.Add(active) }
     public get ActiveDocument(): IDocument | undefined { return this._active }
-    public AddPropertyChangedListener(_key: unknown, cb: () => void): void { this.listeners.push(cb) }
+    public PropertyChanged(_key: unknown): { subscribe(cb: () => void): { dispose(): void } } {
+        const listeners = this.listeners
+        return {
+            subscribe(cb: () => void): { dispose(): void } {
+                listeners.push(cb)
+                return { dispose(): void { const i = listeners.indexOf(cb); if (i !== -1) listeners.splice(i, 1) } }
+            },
+        }
+    }
     public setActive(doc: IDocument | undefined): void { this._active = doc; for (const cb of this.listeners) cb() }
 }
 

@@ -90,12 +90,12 @@ export class DiagramCanvasService extends ServiceBase
             this.applyTo(canvas)
         }
 
-        doc.AddPropertyChangedListener(DiagramDocument.ActiveViewKey, rebindView)
+        const subActiveView = doc.PropertyChanged(DiagramDocument.ActiveViewKey).subscribe(rebindView)
         rebindView()
 
         this.bindings.set(doc, () => {
             if (canvas !== undefined) this.canvases.delete(canvas)
-            doc.RemovePropertyChangedListener(DiagramDocument.ActiveViewKey, rebindView)
+            subActiveView.dispose()
         })
     }
 
@@ -107,7 +107,7 @@ export class DiagramCanvasService extends ServiceBase
         if (settings === undefined) return
         const reapply = (): void => this.reapplyAll()
         for (const key of [SHOW_KEY, SIZE_KEY, WIDTH_KEY, HEIGHT_KEY]) {
-            settings.GetSetting(key)?.AddPropertyChangedListener(Setting.ValueKey, reapply)
+            settings.GetSetting(key)?.PropertyChanged(Setting.ValueKey).subscribe(reapply)
         }
     }
 
