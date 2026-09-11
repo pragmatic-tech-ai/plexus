@@ -490,10 +490,14 @@ resources DiagramResources {
             ToolboxVisualPresenter x:name="PART_Icon"
                 [ Descriptor          = $Descriptor,
                   Context             = VisualContext.Figure,
-                  // Sized from the shared shape-default-size setting so an arch
-                  // node's icon renders at the same size as a geometric shape.
-                  Width               = $IconSize,
-                  Height              = $IconSize,
+                  // Sized from the inheritable, setting-bound Diagram.DefaultIconWidth/
+                  // Height attached properties: the icon reads the per-diagram size
+                  // (default = the diagram.DefaultIcon* settings, 80) via a self-
+                  // relative bind to its own inherited attached property, so a user
+                  // override in ApplicationSettings — or a per-Diagram local set —
+                  // resizes every arch node icon live.
+                  Width               = $Self.(Diagram.DefaultIconWidth),
+                  Height              = $Self.(Diagram.DefaultIconHeight),
                   HorizontalAlignment = Center ]
             TextBlock x:name="PART_Title"
                 [ Text                = $Label,
