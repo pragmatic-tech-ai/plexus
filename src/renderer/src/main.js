@@ -12,7 +12,7 @@
 import './fonts.css'
 import { app } from './app.mu.js'
 import { HtmlTarget } from '@pragmatic-tech-ai/mural/visual-engine'
-import { ThemeManager, Density, RelayCommand } from '@pragmatic-tech-ai/mural/runtime'
+import { ThemeManager, Density, RelayCommand, SettingSourceKey } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, PanelDockService, DialogService, ApplicationSettings } from '@pragmatic-tech-ai/mural/framework'
 import { confirmCloseDocs } from './services/documents/confirm-close-docs.js'
 import { ChatSessionsService } from './modules/agent-chat/services/chat-sessions-service.js'
@@ -70,6 +70,16 @@ await document.fonts.load('24px "Material Symbols Outlined"')
 try {
     const renderTarget = new HtmlTarget(document.getElementById('app'))
     app.initialize(renderTarget)
+    // app.mu registers ApplicationSettings.Key itself (to wire the Electron settings
+    // store), which makes EditorShell SKIP wiring the SettingSourceKey→ApplicationSettings
+    // bridge — its guard is `!Services.has(ApplicationSettings.Key)`. Without that bridge
+    // the DP SettingValue tier (which resolves via SettingSourceKey, NOT ApplicationSettings.Key)
+    // finds no source, so every settings-backed DP — Diagram.DefaultIconWidth/Height, … —
+    // falls back to its registration default (0), collapsing canvas icons. Wire the bridge
+    // here to the SAME singleton, idempotently, before any document renders.
+    if (!app.Services.has(SettingSourceKey)) {
+        app.Services.register(SettingSourceKey, (p) => p.getRequired(ApplicationSettings.Key))
+    }
     // The shell chrome (title strip + @Surface) has mounted; drop the boot
     // splash once the browser has flushed a real frame. Double-rAF: the first
     // callback runs before paint, the second after — so we never reveal a blank
@@ -194,6 +204,11 @@ try {
     // Dev/e2e: read a live setting value by key (used by the save-ux e2e to assert
     // the autosave settings registered with their defaults).
     globalThis.__getSetting = (k) => app.Services.get(ApplicationSettings.Key)?.Get(k)
+    // Diagnostic: resolve via SettingSourceKey (the seam the DP SettingValue tier
+    // uses) vs ApplicationSettings.Key, to see whether the bridge is actually wired.
+    globalThis.__getSettingViaSource = (k) => app.Services.get(SettingSourceKey)?.Get(k)
+    globalThis.__hasSettingSource = () => app.Services.get(SettingSourceKey) !== undefined
+      && app.Services.get(SettingSourceKey) === app.Services.get(ApplicationSettings.Key)
 
     // Restore the previous session's open projects into the explorer (skips
     // folders whose project manifest is gone). Fire-and-forget after mount.
