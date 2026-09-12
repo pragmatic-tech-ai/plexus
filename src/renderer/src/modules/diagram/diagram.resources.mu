@@ -435,14 +435,16 @@ resources DiagramResources {
 
     // ── Toolbox tile — one draggable tile for every repository item (both mural
     // ShapeToolboxItems and Plexus ArchToolboxItems extend ToolboxItem, so the
-    // base-type match serves both). The picture is the item's descriptor resolved
-    // for the Tile context through the shared ToolboxVisualPresenter (shapes → the
-    // shape figure; library/meta-model terms → the class icon, upgraded in place
+    // base-type match serves both). The picture is the item's $Icon (an
+    // EntityIconVM) rendered by a ContentControl through @TodlVisualSelector in the
+    // Tile context (library/meta-model terms → the class icon, upgraded in place
     // when a lazily-compiled class arrives). Dragging emits the item id under
     // TOOLBOX_ITEM_FORMAT; dropping on the canvas routes id → repository → factory.
-    // The presenter renders the figure/icon ONLY; the tile owns the caption below
+    // The ContentControl renders the icon ONLY; the tile owns the caption below
     // it ($Label, wrapping), so shapes and class terms read the same and long names
-    // wrap within the tile instead of clipping into the 48×48 figure. ──
+    // wrap within the tile instead of clipping into the 48×48 figure. It carries an
+    // explicit @ToolboxItemWidth/@ToolboxItemHeight because the icon template
+    // stretches to fill its slot (no intrinsic size). ──
     DataTemplate [DataType = ToolboxItem] {
         Border x:root
             [ IsDraggable     = true,
@@ -454,12 +456,13 @@ resources DiagramResources {
               Margin          = (2,0,2,4),
               MaxWidth        = 104 ] {
             StackPanel [ Orientation = Vertical, HorizontalAlignment = Center ] {
-                ToolboxVisualPresenter
-                    [ Descriptor          = $Descriptor,
-                      Context             = VisualContext.Tile,
-                      Width               = @ToolboxItemWidth,
-                      Height              = @ToolboxItemHeight,
-                      HorizontalAlignment = Center ]
+                ContentControl
+                    [ Content                    = $Icon,
+                      ContentTemplateSelector    = @TodlVisualSelector,
+                      VisualContextScope.Context = VisualContext.Tile,
+                      Width                      = @ToolboxItemWidth,
+                      Height                     = @ToolboxItemHeight,
+                      HorizontalAlignment        = Center ]
                 TextBlock
                     [ Text                = $Label,
                       Style               = @BodySmall,
@@ -476,9 +479,10 @@ resources DiagramResources {
     }
 
     // ── Architecture node tile — icon + label for an ArchNodeVM dropped on an
-    // architecture diagram. ToolboxVisualPresenter renders the term's icon via the
-    // Figure context (same resolver path as the toolbox tile, but sized for the
-    // canvas); the TextBlock shows the entity's display label below the icon.
+    // architecture diagram. A ContentControl renders the term's $Icon via
+    // @TodlVisualSelector in the Figure context (same icon templates as the toolbox
+    // tile, but sized for the canvas); the TextBlock shows the entity's display
+    // label below the icon.
     DataTemplate [DataType = ArchNodeVM] {
         // Right-click a node → the SHARED diagram menu (Copy/Cut/Align/Export/Format
         // + a node-only "Open Wiki"). Its $ActiveView / $Inspector items resolve via
@@ -487,18 +491,19 @@ resources DiagramResources {
         StackPanel x:name="PART_TileStack"
             [ Orientation = Vertical, HorizontalAlignment = Center,
               ContextMenuService.ContextMenu = @DiagramContextMenu ] {
-            ToolboxVisualPresenter x:name="PART_Icon"
-                [ Descriptor          = $Descriptor,
-                  Context             = VisualContext.Figure,
+            ContentControl x:name="PART_Icon"
+                [ Content                    = $Icon,
+                  ContentTemplateSelector    = @TodlVisualSelector,
+                  VisualContextScope.Context = VisualContext.Figure,
                   // Sized from the inheritable, setting-bound Diagram.DefaultIconWidth/
                   // Height attached properties: the icon reads the per-diagram size
                   // (default = the diagram.DefaultIcon* settings, 80) via a self-
                   // relative bind to its own inherited attached property, so a user
                   // override in ApplicationSettings — or a per-Diagram local set —
                   // resizes every arch node icon live.
-                  Width               = $Self.(Diagram.DefaultIconWidth),
-                  Height              = $Self.(Diagram.DefaultIconHeight),
-                  HorizontalAlignment = Center ]
+                  Width                      = $Self.(Diagram.DefaultIconWidth),
+                  Height                     = $Self.(Diagram.DefaultIconHeight),
+                  HorizontalAlignment        = Center ]
             TextBlock x:name="PART_Title"
                 [ Text                = $Label,
                   Style               = @BodySmall,

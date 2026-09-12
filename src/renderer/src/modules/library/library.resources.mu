@@ -40,14 +40,15 @@ resources LibraryResources {
     // Bottom-pane preview for a selected class LEAF. Implicit-by-type (DataType =
     // LibraryTreeNode, no x:key), so the ContentControl in the panel resolves it for
     // the node it hosts; the TreeView rows use the EXPLICIT @LibraryNodeTemplate, so
-    // this template only ever renders in the preview pane. The shared
-    // ToolboxVisualPresenter resolves the node's Descriptor (Tile context) and
-    // upgrades the class visual in place when it lazily compiles; the presenter's
-    // DataContext is the node, so the class template's $Display binds here. $Concept
-    // labels it.
+    // this template only ever renders in the preview pane. A ContentControl renders
+    // the node's $Icon (an EntityIconVM) through @TodlVisualSelector in the Tile
+    // context, upgrading the class visual in place when it lazily compiles; the
+    // ContentControl carries an explicit @ToolboxItemWidth/@ToolboxItemHeight
+    // because the icon template stretches to fill its slot. $Display / $Concept
+    // label it.
     DataTemplate [ DataType = LibraryTreeNode ] {
         StackPanel [ Orientation = Vertical ] {
-            ToolboxVisualPresenter [ Descriptor = $Descriptor, Context = VisualContext.Tile ]
+            ContentControl [ Content = $Icon, ContentTemplateSelector = @TodlVisualSelector, VisualContextScope.Context = VisualContext.Tile, Width = @ToolboxItemWidth, Height = @ToolboxItemHeight ]
             TextBlock [ Text = $Display, Style = @BodyMedium, Foreground = @OnSurface, TextWrapping = Wrap, Margin = (0,4,0,0) ]
             TextBlock [ Text = $Concept, Style = @BodySmall, Foreground = @OnSurfaceVariant, TextWrapping = Wrap, Margin = (0,2,0,0) ]
         }

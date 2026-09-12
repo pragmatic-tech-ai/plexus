@@ -64,9 +64,9 @@ module DiagramModule [ Name = "Diagram" ] {
               Min         = 1,
               Max         = 20000,
               Category    = "Diagram" ]
-        // Toolbox item figure size. The toolbox tile's visual slot
-        // (ToolboxVisualPresenter) binds @ToolboxItemWidth/@ToolboxItemHeight,
-        // which ToolboxService mirrors from these settings.
+        // Toolbox item figure size. The toolbox tile's icon ContentControl binds
+        // @ToolboxItemWidth/@ToolboxItemHeight, which ToolboxService mirrors from
+        // these settings.
         SettingDefinition
             [ Key         = "toolbox.item.width",
               Label       = "Toolbox item width",
