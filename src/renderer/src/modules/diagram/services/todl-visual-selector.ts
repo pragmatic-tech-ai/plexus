@@ -1,7 +1,6 @@
 import { DataTemplateSelector, type DataTemplate } from '@pragmatic-tech-ai/mural/basic'
 import { VisualContext, VisualContextScope } from '@pragmatic-tech-ai/mural/framework'
 import type { Visual } from '@pragmatic-tech-ai/mural/runtime'
-import { buildCtx, buildDefaultTemplate, buildFigureTemplate } from '../../library/services/visual-library.js'
 
 // Picks the icon DataTemplate for a bound EntityIconVM by the container's
 // VisualContext (an inheritable attached property, default Figure): the Tile
@@ -12,17 +11,20 @@ import { buildCtx, buildDefaultTemplate, buildFigureTemplate } from '../../libra
 // the bound item's EntityIconVM owns the data ($Icon.IconKey). Registered as a
 // resource keyed `TodlVisualSelector` so `@TodlVisualSelector` resolves in the
 // diagram / library markup (the P3 ContentControl.ContentTemplateSelector binding).
+//
+// The two templates are compiled at build time as @TodlIconTileTemplate /
+// @TodlIconFigureTemplate (diagram.resources.mu) and injected here by the single
+// register site (registerArchToolboxAdapters), which resolves them from the merged
+// app resources. (Previously the selector built them at runtime from markup strings
+// via visual-library.ts + instantiate(); that module is gone.)
 export class TodlVisualSelector extends DataTemplateSelector
 {
-    private readonly tileTemplate: DataTemplate
-    private readonly figureTemplate: DataTemplate
-
-    constructor()
+    constructor(
+        private readonly tileTemplate: DataTemplate,
+        private readonly figureTemplate: DataTemplate,
+    )
     {
         super()
-        const ctx = buildCtx()
-        this.tileTemplate = buildDefaultTemplate(ctx)
-        this.figureTemplate = buildFigureTemplate(ctx)
     }
 
     public SelectTemplate(_item: unknown, container: Visual): DataTemplate

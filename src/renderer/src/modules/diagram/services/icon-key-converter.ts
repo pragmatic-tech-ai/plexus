@@ -64,3 +64,12 @@ export class ImageKeyConverter
         return isBitmap(hit) ? hit : undefined
     }
 }
+
+// Shared singleton converter instances for MARKUP use. A `.mu` binding converter
+// reference (`$IconKey << iconKeyConverter`) compiles to the bare symbol with
+// `.convert` called on it (see mural's compileConverterRef — no `new`, no dotted
+// paths), so the symbol must resolve to an INSTANCE, not the class. This mirrors
+// the ValueConverter-instance pattern of ZoomPercent. The classes above stay for
+// direct/typed use (and their unit test constructs them with `new`).
+export const iconKeyConverter = new IconKeyConverter()
+export const imageKeyConverter = new ImageKeyConverter()

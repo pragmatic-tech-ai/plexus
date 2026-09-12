@@ -1,6 +1,6 @@
 import { test, expect, afterEach } from 'vitest'
 import { Application, type Visual } from '@pragmatic-tech-ai/mural/runtime'
-import { DataTemplate, TextBlock } from '@pragmatic-tech-ai/mural/basic'
+import { Border, DataTemplate, TextBlock } from '@pragmatic-tech-ai/mural/basic'
 import { ContentControl, VisualContext, VisualContextScope } from '@pragmatic-tech-ai/mural/framework'
 
 import { LibraryResources } from '../../library.resources.mu.js'
@@ -28,7 +28,11 @@ function withApp(): Application {
     // the @TodlVisualSelector resource the preview ContentControl binds (registered
     // in the app by registerArchToolboxAdapters).
     app.Resources.AddMergedDictionary(LibraryResources.Clone())
-    app.Resources.Set('TodlVisualSelector', new TodlVisualSelector())
+    // The preview only checks the ContentControl wiring (selector + Tile context +
+    // $Icon binding + caption); it never applies the selector's returned template, so
+    // sentinel context templates suffice (the real ones live in DiagramResources).
+    app.Resources.Set('TodlVisualSelector',
+        new TodlVisualSelector(new DataTemplate(() => new Border()), new DataTemplate(() => new Border())))
     return app
 }
 

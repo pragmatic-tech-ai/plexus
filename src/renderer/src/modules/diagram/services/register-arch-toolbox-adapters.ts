@@ -1,4 +1,5 @@
 import { Application, type ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import type { DataTemplate } from '@pragmatic-tech-ai/mural/basic'
 import { LibraryRegistry } from '../../library/services/library-registry.js'
 import { ArchInstanceDropFactory, ArchInstanceDropFactoryKey } from '../../architecture-projects/services/arch-instance-drop-factory.js'
 import { ArchModelInstanceDropFactory, ArchModelInstanceDropFactoryKey } from '../../architecture-projects/services/arch-model-instance-drop-factory.js'
@@ -39,10 +40,14 @@ export function registerArchToolboxAdapters(services: ServiceProvider): void
     // `TodlVisualSelector` so `@TodlVisualSelector` resolves in the diagram / library
     // markup (the P3 ContentControl.ContentTemplateSelector binding). Resources live
     // on Application.current (undefined in headless tests — nothing to wire there);
-    // idempotent via Has so repeated reloads keep the one instance.
+    // idempotent via Has so repeated reloads keep the one instance. The selector's two
+    // context templates are compiled in diagram.resources.mu (merged app-global at
+    // bootstrap, before this reload-time call) and resolved by key here.
     const resources = Application.current?.Resources
     if (resources !== undefined && !resources.Has('TodlVisualSelector'))
     {
-        resources.Set('TodlVisualSelector', new TodlVisualSelector())
+        const tile = resources.Resolve('TodlIconTileTemplate') as DataTemplate
+        const figure = resources.Resolve('TodlIconFigureTemplate') as DataTemplate
+        resources.Set('TodlVisualSelector', new TodlVisualSelector(tile, figure))
     }
 }

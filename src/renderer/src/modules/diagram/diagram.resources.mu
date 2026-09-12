@@ -16,6 +16,9 @@ import WikiService from "../../services/wiki/wiki-service.js"
 import DropCandidateChooserService from "../architecture-projects/services/drop-candidate-chooser-service.js"
 import ArchNodeVM from "../architecture-projects/services/arch-node-vm.js"
 import ArchToolboxItem from "./services/arch-toolbox-item.js"
+import EntityIconVM from "./services/entity-icon-vm.js"
+import iconKeyConverter from "./services/icon-key-converter.js"
+import imageKeyConverter from "./services/icon-key-converter.js"
 import ArchNavItemVM from "../architecture-projects/services/arch-nav-item-vm.js"
 import MediaNodeVM from "./media/media-node-vm.js"
 import MediaOpenBehavior from "./media/media-open-behavior.js"
@@ -432,6 +435,46 @@ resources DiagramResources {
     // the palette reads as an even grid regardless of per-shape label width. ─
     ItemsPanelTemplate x:key="DiagramToolboxPanel" {
         WrapPanel [ IsUniformChildren = true ]
+    }
+
+    // ── Entity icon templates — the two context variants @TodlVisualSelector picks
+    // between (keyed, so never implicit type dispatch; the selector returns them by
+    // hand). Each draws the bound EntityIconVM's icon from $IconKey two ways, overlaid
+    // in a Grid: an Image for a RASTER icon (imageKeyConverter → BitmapImage) and an
+    // Icon for a VECTOR icon (iconKeyConverter → colored IconDefinition; empty/unknown
+    // key → the default glyph). Exactly one is non-empty per entity — each converter
+    // yields undefined for the other's asset kind — so they never collide. Recolor=false
+    // keeps each icon's own fills; Foreground themes any currentColor shapes;
+    // Stretch=Uniform preserves a bitmap's aspect. The icon STRETCHES to fill (no
+    // explicit size): the outer ContentControl is sized per context by its host, and
+    // the icon fills it. No label — the host draws the caption. (Was built at runtime
+    // by visual-library.ts via instantiate(); now compiled here at build time.)
+    //
+    // Tile context (toolbox tiles + library preview): a raised @SurfaceContainerHigh
+    // chip behind the icon. The ROOT is NOT hit-test visible — a tile is drag chrome,
+    // so the enclosing Border owns the gesture and the icon must not swallow hit-testing.
+    DataTemplate x:key="TodlIconTileTemplate" [DataType = EntityIconVM] {
+        Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6, IsHitTestVisible = false ] {
+            Grid {
+                Image [ Source = $IconKey << imageKeyConverter, Stretch = Uniform,
+                        HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
+                Icon  [ Source = $IconKey << iconKeyConverter, Recolor = false, Foreground = @OnSurface,
+                        HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
+            }
+        }
+    }
+
+    // Figure context (canvas nodes): NO background — the icon floats transparently on
+    // the diagram; the canvas node draws no chip behind it.
+    DataTemplate x:key="TodlIconFigureTemplate" [DataType = EntityIconVM] {
+        Border [ CornerRadius = 6 ] {
+            Grid {
+                Image [ Source = $IconKey << imageKeyConverter, Stretch = Uniform,
+                        HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
+                Icon  [ Source = $IconKey << iconKeyConverter, Recolor = false, Foreground = @OnSurface,
+                        HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
+            }
+        }
     }
 
     // ── Toolbox tile (base) — one draggable tile for every repository item. This

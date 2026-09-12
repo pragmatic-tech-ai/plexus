@@ -1,6 +1,7 @@
 import { test, expect, afterEach } from 'vitest'
 import { Application, ServiceKey, type Visual } from '@pragmatic-tech-ai/mural/runtime'
-import { DataTemplate, TextBlock, TextWrapping } from '@pragmatic-tech-ai/mural/basic'
+import { DataTemplate, Image, Icon, TextBlock, TextWrapping } from '@pragmatic-tech-ai/mural/basic'
+import { setIconResourceResolver } from '../icon-key-converter.js'
 import {
     ContentControl, ShapeToolboxItem, ToolboxItem, ToolboxVisualPresenter, ToolboxVisualDescriptor,
     VisualContext, VisualContextScope, type IToolboxDropFactory,
@@ -29,12 +30,15 @@ function withApp(): Application {
     app.Resources.AddMergedDictionary(DiagramResources.Clone())
     // The arch tile's icon ContentControl binds @TodlVisualSelector (a DynamicResource),
     // registered in the app by registerArchToolboxAdapters — register it here too so
-    // the binding resolves exactly as it does in the running app.
-    app.Resources.Set('TodlVisualSelector', new TodlVisualSelector())
+    // the binding resolves exactly as it does in the running app, resolving its two
+    // context templates from the merged DiagramResources (as the register site does).
+    const tile = app.Resources.Resolve('TodlIconTileTemplate') as DataTemplate
+    const figure = app.Resources.Resolve('TodlIconFigureTemplate') as DataTemplate
+    app.Resources.Set('TodlVisualSelector', new TodlVisualSelector(tile, figure))
     return app
 }
 
-afterEach(() => { Application.current = priorApp })
+afterEach(() => { Application.current = priorApp; setIconResourceResolver(undefined) })
 
 function find(root: Visual, pred: (v: Visual) => boolean): Visual | undefined {
     if (pred(root)) return root
@@ -80,4 +84,24 @@ test('arch term tile → ContentControl + @TodlVisualSelector (Tile context) + c
 
     const caption = find(root, (v) => v instanceof TextBlock && (v as TextBlock).Text === 'My Service') as TextBlock | undefined
     expect(caption).toBeDefined()
+})
+
+// P4-slim guard: the two icon templates now live in diagram.resources.mu (compiled
+// at build time), not built at runtime by visual-library.ts. Resolving + applying
+// them against an EntityIconVM must succeed and yield the Image (raster) + Icon
+// (vector) overlay the selector picks between. Stub the icon resolver so the vector
+// converter yields a shape without reaching a real asset dictionary.
+test('the compiled @TodlIconTile/@TodlIconFigure templates apply an Image + Icon for an EntityIconVM', () => {
+    setIconResourceResolver(() => ({ ViewBoxWidth: 24, ViewBoxHeight: 24, Shapes: [] }))
+    const app = withApp()
+    const vm = new EntityIconVM(fakeRegistry({ svc: 'icon-svc' }), 'svc')
+
+    for (const key of ['TodlIconTileTemplate', 'TodlIconFigureTemplate']) {
+        const tmpl = app.Resources.Resolve(key) as DataTemplate
+        expect(tmpl).toBeInstanceOf(DataTemplate)
+        let root: Visual | undefined
+        expect(() => { root = tmpl.Apply(vm); root.DataContext = vm }).not.toThrow()
+        expect(find(root!, (v) => v instanceof Image)).toBeDefined()
+        expect(find(root!, (v) => v instanceof Icon)).toBeDefined()
+    }
 })
