@@ -15,6 +15,7 @@ import DiagramExportService from "../diagram-export/services/diagram-export-serv
 import WikiService from "../../services/wiki/wiki-service.js"
 import DropCandidateChooserService from "../architecture-projects/services/drop-candidate-chooser-service.js"
 import ArchNodeVM from "../architecture-projects/services/arch-node-vm.js"
+import ArchToolboxItem from "./services/arch-toolbox-item.js"
 import ArchNavItemVM from "../architecture-projects/services/arch-nav-item-vm.js"
 import MediaNodeVM from "./media/media-node-vm.js"
 import MediaOpenBehavior from "./media/media-open-behavior.js"
@@ -433,19 +434,52 @@ resources DiagramResources {
         WrapPanel [ IsUniformChildren = true ]
     }
 
-    // ── Toolbox tile — one draggable tile for every repository item (both mural
-    // ShapeToolboxItems and Plexus ArchToolboxItems extend ToolboxItem, so the
-    // base-type match serves both). The picture is the item's $Icon (an
-    // EntityIconVM) rendered by a ContentControl through @TodlVisualSelector in the
-    // Tile context (library/meta-model terms → the class icon, upgraded in place
-    // when a lazily-compiled class arrives). Dragging emits the item id under
+    // ── Toolbox tile (base) — one draggable tile for every repository item. This
+    // BASE template serves mural's ShapeToolboxItems (geometric shapes/callouts/
+    // containers): their picture is the item's descriptor resolved for the Tile
+    // context through mural's ToolboxVisualPresenter (shape → the shape figure).
+    // Plexus's ArchToolboxItem (library / meta-model terms) matches the MORE-DERIVED
+    // [DataType = ArchToolboxItem] template below (type-keyed, most-derived-first),
+    // which renders the class ICON via the selector — arch items have no shape
+    // resolver, they carry an EntityIconVM. Dragging emits the item id under
     // TOOLBOX_ITEM_FORMAT; dropping on the canvas routes id → repository → factory.
-    // The ContentControl renders the icon ONLY; the tile owns the caption below
-    // it ($Label, wrapping), so shapes and class terms read the same and long names
-    // wrap within the tile instead of clipping into the 48×48 figure. It carries an
-    // explicit @ToolboxItemWidth/@ToolboxItemHeight because the icon template
-    // stretches to fill its slot (no intrinsic size). ──
+    // The presenter renders the figure ONLY; the tile owns the caption below. ──
     DataTemplate [DataType = ToolboxItem] {
+        Border x:root
+            [ IsDraggable     = true,
+              OnDragStart     = $BeginDragData,
+              Fill      = @Surface,
+              Stroke     = Pen [ Brush = @OutlineVariant ],
+              CornerRadius    = 4,
+              Padding         = (4,8,4,8),
+              Margin          = (2,0,2,4),
+              MaxWidth        = 104 ] {
+            StackPanel [ Orientation = Vertical, HorizontalAlignment = Center ] {
+                ToolboxVisualPresenter
+                    [ Descriptor          = $Descriptor,
+                      Context             = VisualContext.Tile,
+                      Width               = @ToolboxItemWidth,
+                      Height              = @ToolboxItemHeight,
+                      HorizontalAlignment = Center ]
+                TextBlock
+                    [ Text                = $Label,
+                      Style               = @BodySmall,
+                      Foreground          = @OnSurfaceVariant,
+                      TextWrapping        = Wrap,
+                      TextAlignment       = Center,
+                      HorizontalAlignment = Center,
+                      Margin              = (0,4,0,0) ]
+            }
+        }
+    }
+
+    // ── Toolbox tile (ArchToolboxItem) — library / meta-model term tiles. Same
+    // draggable chrome + caption as the base, but the picture is the item's $Icon
+    // (an EntityIconVM) rendered by a ContentControl through @TodlVisualSelector in
+    // the Tile context (class icon, upgraded in place when a lazily-compiled class
+    // arrives). Explicit @ToolboxItemWidth/@ToolboxItemHeight because the icon
+    // template stretches to fill its slot (no intrinsic size). ──
+    DataTemplate [DataType = ArchToolboxItem] {
         Border x:root
             [ IsDraggable     = true,
               OnDragStart     = $BeginDragData,
@@ -474,7 +508,6 @@ resources DiagramResources {
             }
         }
         // "Open Wiki" for arch tiles whose concept has an openable wiki page.
-        // Shape tiles have no HasWiki property → the trigger never fires for them.
         when ( $HasWiki = true ) { ContextMenuService.ContextMenu = @OpenWikiMenu; }
     }
 

@@ -1,10 +1,10 @@
 import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText } from '@pragmatic-tech-ai/mural/framework'
-import { Panel, type Disposable } from '@pragmatic-tech-ai/mural/runtime'
+import { Application, Panel, type Disposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagram/content-container-figure.js'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
 import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
-import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
+import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 import type { ArchModel } from './arch-model.js'
 import { ModelHistoryLayer } from './model-history-layer.js'
 import { ArchNodeVM } from './arch-node-vm.js'
@@ -147,7 +147,35 @@ export class ArchDiagramBinding
         }
         // Owner-driven icon reactivity: one registry subscription refreshes every
         // bound node's EntityIconVM in place when async discovery upgrades an icon.
-        this.registryOff = this.registry?.onChanged(() => {
+        // Established lazily (iconRegistry may be unavailable at attach time — the
+        // registry is created by registerArchToolboxAdapters, which can run AFTER a
+        // diagram binds; rescan re-attempts, so a node built later still gets it).
+        const registry = this.iconRegistry()
+        if (registry !== undefined) this.ensureIconReactivity(registry)
+    }
+
+    // The presentation registry each bound node's EntityIconVM resolves against.
+    // Prefer the constructor-injected instance, else resolve the app singleton
+    // lazily (the binding can be constructed BEFORE registerArchToolboxAdapters
+    // registers the registry — the toolbox contributor sidesteps this by resolving
+    // per-refresh, and this mirrors that). Caches only a found instance, so a
+    // still-absent registry is re-attempted on the next call.
+    private registryCached: TodlPresentationRegistry | undefined
+    private iconRegistry(): TodlPresentationRegistry | undefined
+    {
+        if (this.registryCached === undefined) {
+            this.registryCached = this.registry ?? Application.current?.Services.get(TodlPresentationRegistry.Key)
+        }
+        return this.registryCached
+    }
+
+    // Subscribe ONCE to registry.onChanged (owner-driven icon reactivity): on
+    // discovery it refreshes every bound node's EntityIconVM in place. Idempotent —
+    // safe to call from both attach() and rescan() (whichever first sees a registry).
+    private ensureIconReactivity(registry: TodlPresentationRegistry): void
+    {
+        if (this.registryOff !== undefined) return
+        this.registryOff = registry.onChanged(() => {
             for (const node of this.bound.values()) {
                 if (node instanceof ArchNodeVM) node.Icon?.refresh()
             }
@@ -398,9 +426,15 @@ export class ArchDiagramBinding
                 const key = iconEntityKey(this.model.repository(), entity) ?? entity.concept
                 // The icon-presentation VM the ContentControl + TodlVisualSelector
                 // binds ($Icon.IconKey). Rebuilt on each rescan (so a re-keyed entity
-                // picks up the right icon); reactivity to async discovery in between
-                // rescans is via the registryOff subscription above.
-                if (this.registry !== undefined) node.Icon = new EntityIconVM(this.registry, key)
+                // picks up the right icon). The registry is resolved lazily — a diagram
+                // can bind before registerArchToolboxAdapters registers it, so an early
+                // rescan may not set Icon yet; a later rescan (model change / discovery)
+                // does, and wires reactivity then.
+                const iconRegistry = this.iconRegistry()
+                if (iconRegistry !== undefined) {
+                    node.Icon = new EntityIconVM(iconRegistry, key)
+                    this.ensureIconReactivity(iconRegistry)
+                }
                 node.Concept = entity.concept
                 // A container concept realizes as a ContentContainerFigure (mural
                 // reads IsContainer duck-typed); its `in` refs project as nesting.
