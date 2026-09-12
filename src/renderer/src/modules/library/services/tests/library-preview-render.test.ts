@@ -5,6 +5,9 @@ import { ToolboxVisualPresenter } from '@pragmatic-tech-ai/mural/framework'
 
 import { LibraryResources } from '../../library.resources.mu.js'
 import { LibraryTreeNode } from '../library-tree-node.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+
+const noIconReg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 
 // View-level regression for the bottom preview pane. The preview renders a selected
 // class LEAF through an implicit DataTemplate[LibraryTreeNode] that hosts a shared
@@ -35,7 +38,7 @@ function findText(root: Visual, text: string): boolean {
     return find(root, (v) => v instanceof TextBlock && v.Text === text) !== undefined
 }
 function classLeaf(display: string, concept: string): LibraryTreeNode {
-    return LibraryTreeNode.leaf({ display, label: display, localId: display, termId: `t.${display}`, concept })
+    return LibraryTreeNode.leaf({ display, label: display, localId: display, termId: `t.${display}`, concept }, noIconReg)
 }
 
 test('the preview template resolves by type and hosts a descriptor-bound presenter + concept label', () => {

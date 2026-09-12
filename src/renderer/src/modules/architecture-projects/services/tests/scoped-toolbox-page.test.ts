@@ -3,13 +3,16 @@ import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-
 import { ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import { ArchToolboxItem } from '../../../diagram/services/arch-toolbox-item.js'
 import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-resolver.js'
+import { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 import { ArchModelInstanceDropFactoryKey } from '../arch-model-instance-drop-factory.js'
 import { ModelToolboxPage, ScenarioToolboxPage } from '../scoped-toolbox-page.js'
 import { ArchModel } from '../arch-model.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
+const noIconReg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 const item = (id: string): ArchToolboxItem =>
-    new ArchToolboxItem('instance:' + id, id, new ToolboxVisualDescriptor(TodlVisualResolverKey, id), ArchModelInstanceDropFactoryKey, 'component')
+    new ArchToolboxItem('instance:' + id, id, new ToolboxVisualDescriptor(TodlVisualResolverKey, id), ArchModelInstanceDropFactoryKey, new EntityIconVM(noIconReg, id), 'component')
 
 describe('context-scoped model / scenario pages', () => {
     it('reconciles on source change and on becoming the active context, keeping instances', () => {

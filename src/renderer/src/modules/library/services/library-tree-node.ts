@@ -1,6 +1,8 @@
 import { DataObject, DragDropEffects, MetaData, MuralBase, ObservableCollection, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { ToolboxVisualDescriptor, TOOLBOX_ITEM_FORMAT } from '@pragmatic-tech-ai/mural/framework'
 import { TodlVisualResolverKey } from '../../diagram/services/todl-visual-resolver.js'
+import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 
 // The three tiers of the Libraries tree. One node type carries all three, kept
 // apart by Kind (mirrors ProjectNode's single-type-plus-Kind shape).
@@ -47,6 +49,12 @@ export class LibraryTreeNode extends MuralBase
         LibraryTreeNode, 'Descriptor', undefined, MetaData.None)
     public static readonly BeginDragDataKey = MuralBase.RegisterProperty<(() => { data: DataObject; effects: DragDropEffects }) | undefined>(
         LibraryTreeNode, 'BeginDragData', undefined, MetaData.None)
+    // The icon-presentation VM the (P3) preview ContentControl + TodlVisualSelector
+    // binds ($Icon.IconKey), built from the leaf's term id. Set only on Class
+    // leaves. A DP (a leaf is a MuralBase) so the template can bind $Icon; not
+    // consumed yet (the preview still uses Descriptor via ToolboxVisualPresenter).
+    public static readonly IconKey = MuralBase.RegisterProperty<EntityIconVM | undefined>(
+        LibraryTreeNode, 'Icon', undefined, MetaData.None)
 
     constructor()
     {
@@ -76,6 +84,7 @@ export class LibraryTreeNode extends MuralBase
     public get BeginDragData(): (() => { data: DataObject; effects: DragDropEffects }) | undefined {
         return this.get_property_value(LibraryTreeNode.BeginDragDataKey)
     }
+    public get Icon(): EntityIconVM | undefined { return this.get_property_value(LibraryTreeNode.IconKey) }
 
     // A container node (Library or Concept): named, no drag, no preview surface.
     public static group(name: string, kind: LibraryNodeKind): LibraryTreeNode
@@ -101,6 +110,7 @@ export class LibraryTreeNode extends MuralBase
     // repository-item payload the architecture canvas accepts.
     public static leaf(
         info: { display: string; label: string; localId: string; termId: string; concept: string },
+        registry: TodlPresentationRegistry,
     ): LibraryTreeNode
     {
         const n = new LibraryTreeNode()
@@ -112,6 +122,11 @@ export class LibraryTreeNode extends MuralBase
         n.set_property_value(LibraryTreeNode.TermIdKey, info.termId)
         n.set_property_value(LibraryTreeNode.ConceptKey, info.concept)
         n.set_property_value(LibraryTreeNode.DescriptorKey, new ToolboxVisualDescriptor(TodlVisualResolverKey, info.termId))
+        // The preview's icon VM ($Icon.IconKey). Reactivity is via RECREATION: the
+        // LibrariesPanelService rebuilds the whole tree (roots.Clear + fresh leaves)
+        // on each discovery, so a fresh VM resolves the current key — no per-node
+        // registry subscription. See the owner's Reload().
+        n.set_property_value(LibraryTreeNode.IconKey, new EntityIconVM(registry, info.termId))
         n.set_property_value(LibraryTreeNode.IsDraggableKey, true)
         const itemId = 'term:' + info.termId
         n.set_property_value(LibraryTreeNode.BeginDragDataKey, () => ({

@@ -3,6 +3,7 @@ import { DiagramSettings, NodeViewModel, ToolboxVisualDescriptor, type Diagram, 
 import { Brush, FontFamily, FontStyle, FontWeight, TextAlignment, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ArchNavItemVM } from './arch-nav-item-vm.js'
 import type { NavTarget, NavTargets } from './arch-navigation-service.js'
+import type { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
 
 // Initial box for a freshly-dropped arch tile. The container fits its content
 // once measured (SizeToContent), but a drop needs a starting box before the
@@ -22,6 +23,18 @@ export class ArchNodeVM extends NodeViewModel {
     static readonly DescriptorKey = MuralBase.RegisterProperty<ToolboxVisualDescriptor | undefined>(
         ArchNodeVM,
         'Descriptor',
+        undefined,
+        MetaData.None,
+    )
+    // The icon-presentation VM the (P3) ContentControl + TodlVisualSelector renders:
+    // maps this node's entity key to its baked icon resource key ($Icon.IconKey).
+    // Set by ArchDiagramBinding.rescan alongside Descriptor; refreshed in place by
+    // the binding's registry.onChanged subscription when async discovery upgrades an
+    // icon. Mirrors the Descriptor DP (MetaData.None) — not consumed by templates
+    // yet (Descriptor still drives the tile; P3 flips the markup to $Icon).
+    static readonly IconKey = MuralBase.RegisterProperty<EntityIconVM | undefined>(
+        ArchNodeVM,
+        'Icon',
         undefined,
         MetaData.None,
     )
@@ -172,6 +185,14 @@ export class ArchNodeVM extends NodeViewModel {
 
     set Descriptor(v: ToolboxVisualDescriptor | undefined) {
         this.set_property_value(ArchNodeVM.DescriptorKey, v)
+    }
+
+    get Icon(): EntityIconVM | undefined {
+        return this.get_property_value(ArchNodeVM.IconKey)
+    }
+
+    set Icon(v: EntityIconVM | undefined) {
+        this.set_property_value(ArchNodeVM.IconKey, v)
     }
 
     get IconSize(): number {

@@ -3,6 +3,9 @@ import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { modelPageItems, scenarioPageItems, conceptToolboxVisible } from '../arch-model-toolbox-contributor.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+
+const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 
 // service: hidden (visible = false); widget: visible = true; gadget: no annotation.
 // A scenario concept is hidden so the Scenarios page collapses.
@@ -38,12 +41,12 @@ test('modelPageItems drops entities whose concept opts out of the toolbox', () =
     const w = model.createInViewpoint('widget', 'V') // visible = true
     const g = model.createInViewpoint('gadget', 'V') // no annotation → visible
 
-    const ids = modelPageItems(model, new Set(['V']), new Set()).map((i) => i.Id).sort()
+    const ids = modelPageItems(model, new Set(['V']), new Set(), reg).map((i) => i.Id).sort()
     expect(ids).toEqual(['instance:' + g.id, 'instance:' + w.id].sort())
 })
 
 test('scenarioPageItems is empty when the scenario concept opts out', () => {
     const model = buildModel()
     model.createInViewpoint('scenario', 'S')
-    expect(scenarioPageItems(model, new Set(['S']))).toEqual([])
+    expect(scenarioPageItems(model, new Set(['S']), reg)).toEqual([])
 })

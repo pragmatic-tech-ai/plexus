@@ -196,7 +196,8 @@ function seedTree(svc: LibrariesPanelService, termId: string): { lib: LibraryTre
     svc.Roots.Clear()
     const lib = LibraryTreeNode.library('Tech · 1.0', 'tech', '1.0')
     const grp = LibraryTreeNode.group('technology', LibraryNodeKind.Concept)
-    const leaf = LibraryTreeNode.leaf({ display: '.NET', label: '.NET', localId: 'dotnet', termId, concept: 'technology' })
+    const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
+    const leaf = LibraryTreeNode.leaf({ display: '.NET', label: '.NET', localId: 'dotnet', termId, concept: 'technology' }, reg)
     grp.Children.Add(leaf); lib.Children.Add(grp); svc.Roots.Add(lib)
     return { lib, grp, leaf }
 }

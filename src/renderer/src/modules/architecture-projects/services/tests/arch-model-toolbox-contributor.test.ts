@@ -4,6 +4,10 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { modelPageItems, scenarioPageTitle } from '../arch-model-toolbox-contributor.js'
 import { ArchModelInstanceDropFactoryKey } from '../arch-model-instance-drop-factory.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+
+// A registry stub exposing iconKeyFor (the EntityIconVM surface each tile carries).
+const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 
 const MM = `namespace archmm {
   concept service {}
@@ -24,7 +28,7 @@ test('modelPageItems lists in-scope, not-yet-placed entities as instance items',
     const svc = model.createInViewpoint('service', 'V')
     model.createInViewpoint('widget', 'W')   // out of scope for {V}
 
-    const items = modelPageItems(model, new Set(['V']), new Set())
+    const items = modelPageItems(model, new Set(['V']), new Set(), reg)
     expect(items.map((i) => i.Id)).toEqual(['instance:' + svc.id])
     expect(items[0].FactoryKey).toBe(ArchModelInstanceDropFactoryKey)
 })
@@ -33,7 +37,7 @@ test('modelPageItems excludes already-placed entities', () => {
     const model = buildModel()
     const svc = model.createInViewpoint('service', 'V')
 
-    const items = modelPageItems(model, new Set(['V']), new Set([svc.id]))
+    const items = modelPageItems(model, new Set(['V']), new Set([svc.id]), reg)
     expect(items).toEqual([])
 })
 
@@ -41,7 +45,7 @@ test('modelPageItems excludes out-of-scope entities', () => {
     const model = buildModel()
     model.createInViewpoint('widget', 'W')
 
-    expect(modelPageItems(model, new Set(['V']), new Set())).toEqual([])
+    expect(modelPageItems(model, new Set(['V']), new Set(), reg)).toEqual([])
 })
 
 test('scenarioPageTitle carries the model namespace, mirroring the model page', () => {

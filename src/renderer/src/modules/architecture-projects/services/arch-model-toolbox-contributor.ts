@@ -10,6 +10,8 @@ import {
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 
 import { TodlVisualResolverKey } from '../../diagram/services/todl-visual-resolver.js'
+import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
+import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
 import { ArchToolboxItem } from '../../diagram/services/arch-toolbox-item.js'
 import { iconEntityKey } from './arch-icon.js'
 import { ArchModelInstanceDropFactoryKey } from './arch-model-instance-drop-factory.js'
@@ -43,7 +45,7 @@ export function conceptToolboxVisible(repo: Repository, concept: string): boolea
 // The toolbox items for a diagram's "Model:" page: one per in-scope entity that
 // is NOT already placed on the diagram. Each drops through the place-existing
 // factory (keyed by the entity id, `instance:<id>`).
-export function modelPageItems(model: ArchModel, scope: ReadonlySet<string>, placed: ReadonlySet<string>): ArchToolboxItem[]
+export function modelPageItems(model: ArchModel, scope: ReadonlySet<string>, placed: ReadonlySet<string>, registry: TodlPresentationRegistry): ArchToolboxItem[]
 {
     const repo = model.repository()
     const inScope = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
@@ -52,7 +54,7 @@ export function modelPageItems(model: ArchModel, scope: ReadonlySet<string>, pla
         if (placed.has(e.id) || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
         const descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, key)
-        items.push(new ArchToolboxItem('instance:' + e.id, entityLabel(e), descriptor, ArchModelInstanceDropFactoryKey, e.concept))
+        items.push(new ArchToolboxItem('instance:' + e.id, entityLabel(e), descriptor, ArchModelInstanceDropFactoryKey, new EntityIconVM(registry, key), e.concept))
     }
     return items
 }
@@ -68,7 +70,7 @@ export function scenarioPageTitle(model: ArchModel): string
 // The toolbox items for a diagram's "Scenarios" page: one per in-scope scenario
 // entity. Each drops through the scenario factory (`scenario:<id>`), which
 // materializes the whole flow (participants + step connectors).
-export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>): ArchToolboxItem[]
+export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, registry: TodlPresentationRegistry): ArchToolboxItem[]
 {
     const repo = model.repository()
     const inScope = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
@@ -77,7 +79,7 @@ export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>):
         if (e.concept !== SCENARIO_CONCEPT || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
         const descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, key)
-        items.push(new ArchToolboxItem('scenario:' + e.id, entityLabel(e), descriptor, ArchScenarioDropFactoryKey, e.concept))
+        items.push(new ArchToolboxItem('scenario:' + e.id, entityLabel(e), descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(registry, key), e.concept))
     }
     return items
 }
@@ -94,6 +96,10 @@ export class ArchModelToolboxContributor extends ServiceBase
 
     private modelOff: (() => void) | undefined
     private nodesOff: (() => void) | undefined
+    // ONE registry subscription (owner-driven icon reactivity): on discovery it
+    // rebuilds the toolbox pages, so each recreated ArchToolboxItem's fresh
+    // EntityIconVM resolves the now-current icon key. Held for the service's life.
+    private registryOff: (() => void) | undefined
     private activeDoc: IDocument | undefined
 
     public constructor(provider: IServiceProvider)
@@ -102,7 +108,15 @@ export class ArchModelToolboxContributor extends ServiceBase
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         if (host === undefined) return
         host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => { void this.onActiveChanged(host) })
+        this.registryOff = this.Provider.get(TodlPresentationRegistry.Key)?.onChanged(() => this.refresh())
         void this.onActiveChanged(host)
+    }
+
+    public dispose(): void
+    {
+        this.modelOff?.(); this.modelOff = undefined
+        this.nodesOff?.(); this.nodesOff = undefined
+        this.registryOff?.(); this.registryOff = undefined
     }
 
     private async onActiveChanged(host: DocumentsContentHostService): Promise<void>
@@ -132,11 +146,15 @@ export class ArchModelToolboxContributor extends ServiceBase
 
         const repo = this.repository()
         if (repo === undefined) return
+        // Each tile carries an EntityIconVM resolved against the presentation
+        // registry; without it there is nothing to render an icon from, so skip.
+        const registry = this.Provider.get(TodlPresentationRegistry.Key)
+        if (registry === undefined) return
         const scope = bindingSvc.scopeForDocument(doc) ?? new Set(model.viewpoints().map((v) => v.id))
         const placed = bindingSvc.placedIds(doc)
         const page = repo.EnsurePage(PAGE_ID, 'Model: ' + model.namespace)
         page.Items.Clear()
-        const modelItems = modelPageItems(model, scope, placed)
+        const modelItems = modelPageItems(model, scope, placed, registry)
         for (const item of modelItems) page.Items.Add(item)
         // Generic drawing tools (container, text, callout) live on the framework's
         // "Callouts, Text & Containers" page (ensureToolboxDefaults), not here.
@@ -144,7 +162,7 @@ export class ArchModelToolboxContributor extends ServiceBase
 
         // A "Scenarios" page lists the in-scope scenarios; dropping one
         // materializes its whole flow. Removed when there are none in scope.
-        const scenarioItems = scenarioPageItems(model, scope)
+        const scenarioItems = scenarioPageItems(model, scope, registry)
         if (scenarioItems.length > 0) {
             const spage = repo.EnsurePage(SCENARIO_PAGE_ID, scenarioPageTitle(model))
             spage.Items.Clear()

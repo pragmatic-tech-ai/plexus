@@ -1,6 +1,8 @@
 import { ToolboxPage, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import { ArchToolboxItem } from './arch-toolbox-item.js'
 import { TodlVisualResolverKey } from './todl-visual-resolver.js'
+import { EntityIconVM } from './entity-icon-vm.js'
+import type { TodlPresentationRegistry } from './todl-presentation-registry.js'
 import { ArchInstanceDropFactoryKey } from '../../architecture-projects/services/arch-instance-drop-factory.js'
 
 // One toolbox page per published source ref (a library OR meta-model taxonomy).
@@ -12,7 +14,10 @@ export class LibraryToolboxPage extends ToolboxPage
 {
     // `keyPrefix` matches contributeTaxonomy's descriptor keying: '' for library
     // terms (bare id), 'mm:' for meta-model terms.
-    constructor(id: string, label: string, sourceRef: string, private readonly keyPrefix: string)
+    // `registry` resolves each tile's EntityIconVM icon key ($Icon.IconKey). A
+    // republish recreates items (reconcile-by-key keeps unchanged ones), so a fresh
+    // VM resolves the current key — no per-item registry subscription needed here.
+    constructor(id: string, label: string, sourceRef: string, private readonly keyPrefix: string, private readonly registry: TodlPresentationRegistry)
     {
         super(id, label)
         this.Context = sourceRef
@@ -27,11 +32,13 @@ export class LibraryToolboxPage extends ToolboxPage
         for (const t of terms) {
             if (seen.has(t.id)) continue
             seen.add(t.id)
+            const key = this.keyPrefix + t.id
             items.push(new ArchToolboxItem(
                 'term:' + t.id,
                 t.label,
-                new ToolboxVisualDescriptor(TodlVisualResolverKey, this.keyPrefix + t.id),
+                new ToolboxVisualDescriptor(TodlVisualResolverKey, key),
                 ArchInstanceDropFactoryKey,
+                new EntityIconVM(this.registry, key),
             ))
         }
         this.reconcileItems(items)

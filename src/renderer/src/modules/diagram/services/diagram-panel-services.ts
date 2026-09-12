@@ -209,7 +209,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
                 const existing = byId.get(id)
                 page = existing instanceof LibraryToolboxPage
                     ? existing
-                    : new LibraryToolboxPage(id, tax.label, sourceRef, isLibrary ? '' : 'mm:')
+                    : new LibraryToolboxPage(id, tax.label, sourceRef, isLibrary ? '' : 'mm:', this.services().getRequired(TodlPresentationRegistry.Key))
                 builtTax.set(id, page)
                 desired.push(page)
             }
@@ -305,16 +305,18 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     {
         const binding = this.services().get(ArchDiagramBindingService.Key)
         const doc = this.activeDoc() as IDocument | undefined
-        if (binding === undefined || doc === undefined || binding.modelForDocument(doc) !== model) return []
-        return modelPageItems(model, binding.scopeForDocument(doc) ?? new Set<string>(), binding.placedIds(doc))
+        const registry = this.services().get(TodlPresentationRegistry.Key)
+        if (binding === undefined || doc === undefined || registry === undefined || binding.modelForDocument(doc) !== model) return []
+        return modelPageItems(model, binding.scopeForDocument(doc) ?? new Set<string>(), binding.placedIds(doc), registry)
     }
 
     private scenarioItems(model: ArchModel): ToolboxItem[]
     {
         const binding = this.services().get(ArchDiagramBindingService.Key)
         const doc = this.activeDoc() as IDocument | undefined
-        if (binding === undefined || doc === undefined || binding.modelForDocument(doc) !== model) return []
-        return scenarioPageItems(model, binding.scopeForDocument(doc) ?? new Set<string>())
+        const registry = this.services().get(TodlPresentationRegistry.Key)
+        if (binding === undefined || doc === undefined || registry === undefined || binding.modelForDocument(doc) !== model) return []
+        return scenarioPageItems(model, binding.scopeForDocument(doc) ?? new Set<string>(), registry)
     }
 
     // Scan the published-content backends into (taxonomy, source) triples. Overridable

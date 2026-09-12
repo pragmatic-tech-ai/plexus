@@ -4,6 +4,8 @@ import { Point, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-resolver.js'
 import { ArchToolboxItem } from '../../../diagram/services/arch-toolbox-item.js'
+import { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
@@ -42,7 +44,8 @@ function buildModel(): ArchModel {
 
 function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext {
     const descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, 'scenario')
-    const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey)
+    const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
+    const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'scenario'))
     return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Diagram: undefined as never, Mutator: doc }
 }
 

@@ -3,13 +3,16 @@ import { Point, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-resolver.js'
 import { ArchToolboxItem } from '../../../diagram/services/arch-toolbox-item.js'
+import { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ArchModelInstanceDropFactory, ArchModelInstanceDropFactoryKey, entityIdOf } from '../arch-model-instance-drop-factory.js'
 
 function makeContext(doc: DiagramDocument, entityId: string): ToolboxDropContext {
     const descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, 'service')
-    const item = new ArchToolboxItem('instance:' + entityId, 'Svc', descriptor, ArchModelInstanceDropFactoryKey)
+    const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
+    const item = new ArchToolboxItem('instance:' + entityId, 'Svc', descriptor, ArchModelInstanceDropFactoryKey, new EntityIconVM(reg, 'service'))
     return { Item: item, Descriptor: descriptor, Position: new Point(10, 20), Diagram: undefined as never, Mutator: doc }
 }
 

@@ -146,6 +146,12 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
             return
         }
         this.set_property_value(LibrariesPanelService.IsLoadingKey, true)
+        // Each class leaf carries an EntityIconVM resolved against the presentation
+        // registry (the preview's $Icon). Ensure the adapters (which get-or-create
+        // the registry) are registered up front so a leaf built below can resolve it.
+        const services = (Application.current?.Services ?? this.Provider) as ServiceProvider
+        registerArchToolboxAdapters(services)
+        const presentation = services.getRequired(TodlPresentationRegistry.Key)
         // Cheap metadata discovery only — the tree is built from library metadata;
         // visual compilation is eager in the presentation sources (done by discover()
         // below), not deferred to preview/canvas.
@@ -166,6 +172,7 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
                 const display = cls.label ?? cls.localId ?? cls.id
                 const leaf = LibraryTreeNode.leaf(
                     { display, label: cls.label ?? '', localId: cls.localId ?? '', termId: cls.id, concept: cls.concept },
+                    presentation,
                 )
                 conceptNode.Children.Add(leaf)
                 leaves.push(leaf)
@@ -179,11 +186,10 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
 
         // Refresh the shared visual aggregate so the panel's preview (and any open
         // canvas) reflects installs/uninstalls even when the toolbox/canvas hasn't
-        // been the trigger.
-        const services = (Application.current?.Services ?? this.Provider) as ServiceProvider
+        // been the trigger. (Adapters were registered up front, above, so the leaf
+        // icon VMs could resolve the registry.)
         if (services.get(StorageProviderRegistry.Key) !== undefined) {
-            registerArchToolboxAdapters(services)
-            await services.get(TodlPresentationRegistry.Key)?.discover()
+            await presentation.discover()
         }
 
         // A newer Reload may have superseded this one across the awaits; only the

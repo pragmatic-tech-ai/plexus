@@ -4,6 +4,8 @@ import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagr
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
 import { TodlVisualResolverKey } from '../../diagram/services/todl-visual-resolver.js'
+import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 import type { ArchModel } from './arch-model.js'
 import { ModelHistoryLayer } from './model-history-layer.js'
 import { ArchNodeVM } from './arch-node-vm.js'
@@ -77,7 +79,18 @@ export class ArchDiagramBinding
         // each node's nav-target facet so its right-click submenu is live.
         private readonly nav?: ArchNavigationService,
         private readonly projectId?: string,
+        // The presentation registry each bound node's EntityIconVM resolves its
+        // icon key against. Optional so headless render binds (which don't need
+        // live icon upgrades) can omit it. When present, attach() holds ONE
+        // registry.onChanged subscription that refreshes every bound node's Icon
+        // in place (icons upgrade live once async library discovery finishes).
+        private readonly registry?: TodlPresentationRegistry,
     ) {}
+
+    // ONE registry subscription for the binding's lifetime (owner-driven icon
+    // reactivity): on discovery it refreshes each bound node's EntityIconVM in
+    // place, so their $Icon.IconKey re-resolves without per-item subscriptions.
+    private registryOff: (() => void) | undefined
 
     // Does `concept` declare a wiki page? A cheap `repo.resolve('X@wiki')` off the
     // loaded model, cached per concept. The cache is dropped when the repository is
@@ -133,6 +146,13 @@ export class ArchDiagramBinding
         if (typeof window !== 'undefined') {
             window.addEventListener('pointerdown', this.onPointerDownCapture, true)
         }
+        // Owner-driven icon reactivity: one registry subscription refreshes every
+        // bound node's EntityIconVM in place when async discovery upgrades an icon.
+        this.registryOff = this.registry?.onChanged(() => {
+            for (const node of this.bound.values()) {
+                if (node instanceof ArchNodeVM) node.Icon?.refresh()
+            }
+        })
     }
 
     // On a right-click, publish the arch node under the cursor (or undefined for
@@ -378,6 +398,12 @@ export class ArchDiagramBinding
                 // concept when nothing carries an icon (→ default glyph).
                 const key = iconEntityKey(this.model.repository(), entity) ?? entity.concept
                 node.Descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, key)
+                // The icon-presentation VM the (P3) ContentControl + TodlVisualSelector
+                // binds ($Icon.IconKey). Rebuilt on each rescan alongside Descriptor
+                // (so a re-keyed entity picks up the right icon); reactivity to async
+                // discovery in between rescans is via the registryOff subscription
+                // above. (KEEP Descriptor above for now — P4 removes it.)
+                if (this.registry !== undefined) node.Icon = new EntityIconVM(this.registry, key)
                 node.Concept = entity.concept
                 // A container concept realizes as a ContentContainerFigure (mural
                 // reads IsContainer duck-typed); its `in` refs project as nesting.
@@ -799,6 +825,8 @@ export class ArchDiagramBinding
         this.modelLayerOff = undefined
         this.appliedOff?.()
         this.appliedOff = undefined
+        this.registryOff?.()
+        this.registryOff = undefined
         for (const off of this.connectorVisualTeardown.values()) off()
         this.connectorVisualTeardown.clear()
         for (const un of this.connectorLabelUnsubs.values()) un()
