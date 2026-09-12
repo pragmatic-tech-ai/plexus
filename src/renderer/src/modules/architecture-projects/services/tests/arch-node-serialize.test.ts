@@ -1,7 +1,7 @@
 import { test, expect, beforeAll } from 'vitest'
 import { Application } from '@pragmatic-tech-ai/mural/runtime'
 import { Color, SolidColorBrush, TextAlignment } from '@pragmatic-tech-ai/mural/visual-engine'
-import { DiagramDocument, DiagramSettings } from '@pragmatic-tech-ai/mural/framework'
+import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { serializerByType } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
@@ -39,14 +39,6 @@ test('registerArchNodeSerializer registers type "arch" idempotently', () => {
     const s = serializerByType('arch')
     expect(s).toBeDefined()
     expect(s!.type).toBe('arch')
-})
-
-test('ArchNodeVM seeds IconSize from the shared shape-default-size setting', () => {
-    // The arch icon renders at the same size as a geometric shape — both read
-    // DiagramSettings.ShapeDefaultSize() at construction. With no settings host
-    // the helper returns its compiled-in default (80).
-    const vm = new ArchNodeVM()
-    expect(vm.IconSize).toBe(DiagramSettings.ShapeDefaultSize())
 })
 
 test('ArchNodeVM serialized record carries type "arch" and empty data', () => {

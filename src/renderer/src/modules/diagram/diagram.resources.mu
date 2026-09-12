@@ -571,17 +571,19 @@ resources DiagramResources {
                 [ Content                    = $Icon,
                   ContentTemplateSelector    = @TodlVisualSelector,
                   VisualContextScope.Context = VisualContext.Figure,
-                  // Sized to the node's own $IconSize — a real DP seeded from
-                  // DiagramSettings.ShapeDefaultSize() (80) at construction, so an
-                  // arch node's icon matches a geometric shape. This MUST be a
-                  // concrete non-zero size: the selector's icon template stretches
-                  // to fill the ContentControl, so a 0 would collapse it. (The
-                  // earlier $Self.(Diagram.DefaultIconWidth) bind resolved 0 here —
-                  // that settings-backed attached property isn't wired in this build
-                  // — which is harmless only when the icon has an intrinsic size,
-                  // as it did under the old ToolboxVisualPresenter.)
-                  Width                      = $IconSize,
-                  Height                     = $IconSize,
+                  // Sized from the inheritable Diagram.DefaultIconWidth/Height
+                  // attached DPs (mural). Their SettingValue tier reads the
+                  // diagram.DefaultIconWidth/Height app settings (contributed by
+                  // diagram.module.mu, default 80) through the SettingSourceKey→
+                  // ApplicationSettings bridge EditorShell wires, so the icon is
+                  // user-configurable + live. This MUST resolve non-zero: the
+                  // selector's icon template stretches to fill the ContentControl,
+                  // so a 0 would collapse it — hence the setting definitions, which
+                  // were missing before (the DP then fell back to its registration
+                  // default of 0). A per-diagram ancestor may override via
+                  // inheritance; absent that, the setting (80) applies.
+                  Width                      = $Self.(Diagram.DefaultIconWidth),
+                  Height                     = $Self.(Diagram.DefaultIconHeight),
                   HorizontalAlignment        = Center ]
             TextBlock x:name="PART_Title"
                 [ Text                = $Label,

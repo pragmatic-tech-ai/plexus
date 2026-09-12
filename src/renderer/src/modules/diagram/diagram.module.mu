@@ -64,6 +64,31 @@ module DiagramModule [ Name = "Diagram" ] {
               Min         = 1,
               Max         = 20000,
               Category    = "Diagram" ]
+        // Canvas icon-node default size. An arch node's PART_Icon ContentControl
+        // binds $Self.(Diagram.DefaultIconWidth/Height) — inheritable attached DPs
+        // (mural Diagram) whose SettingValue tier reads these keys via the
+        // SettingSourceKey→ApplicationSettings bridge. Without these definitions the
+        // DP falls back to its registration default (0) and the icon collapses; with
+        // them it resolves 80 and is user-configurable + live. Keys/defaults match
+        // mural's own DiagramSettingKey.DefaultIconWidth/Height.
+        SettingDefinition
+            [ Key         = "diagram.DefaultIconWidth",
+              Label       = "Default icon width",
+              Description = "Default width of an icon node, in pixels.",
+              Kind        = Number,
+              Default     = 80,
+              Min         = 8,
+              Max         = 400,
+              Category    = "Diagram" ]
+        SettingDefinition
+            [ Key         = "diagram.DefaultIconHeight",
+              Label       = "Default icon height",
+              Description = "Default height of an icon node, in pixels.",
+              Kind        = Number,
+              Default     = 80,
+              Min         = 8,
+              Max         = 400,
+              Category    = "Diagram" ]
         // Toolbox item figure size. The toolbox tile's icon ContentControl binds
         // @ToolboxItemWidth/@ToolboxItemHeight, which ToolboxService mirrors from
         // these settings.

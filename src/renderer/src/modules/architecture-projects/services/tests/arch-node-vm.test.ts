@@ -26,11 +26,6 @@ test('carries no geometry — the container Figure owns it', () => {
     }
 })
 
-test('IconSize is seeded from the shape-default-size setting', () => {
-    const vm = new ArchNodeVM()
-    expect(vm.IconSize).toBeGreaterThan(0)
-})
-
 test('Label setter round-trips', () => {
     const vm = new ArchNodeVM()
     vm.Label = 'My Component'

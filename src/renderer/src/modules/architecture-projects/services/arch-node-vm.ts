@@ -1,5 +1,5 @@
 import { MetaData, MuralBase, ObservableCollection, RelayCommand, type ICommand, type PropertyKey } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramSettings, NodeViewModel, type Diagram, type DiagramDocument, type DiagramInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
+import { NodeViewModel, type Diagram, type DiagramDocument, type DiagramInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
 import { Brush, FontFamily, FontStyle, FontWeight, TextAlignment, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ArchNavItemVM } from './arch-nav-item-vm.js'
 import type { NavTarget, NavTargets } from './arch-navigation-service.js'
@@ -11,8 +11,8 @@ import type { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
 // id (was the ArchNodeVM ctor's 72×56 before geometry moved off the VM).
 export const ARCH_TILE_DEFAULT = { w: 72, h: 56 } as const
 
-// A content view-model: identity (Id) + content (Label / Icon / IconSize /
-// Concept / wiki). It carries NO geometry — its container Figure is the geometry
+// A content view-model: identity (Id) + content (Label / Icon / Concept / wiki).
+// It carries NO geometry — its container Figure is the geometry
 // owner AND the side-endpoint host (connector endpoints resolve to the container,
 // which distributes them across its sides). The tile's default 72×56 box comes
 // from the drop factory's store record, and content-fit from the container's
@@ -30,11 +30,6 @@ export class ArchNodeVM extends NodeViewModel {
         undefined,
         MetaData.None,
     )
-    // Edge length of the icon glyph. Seeded from the shared shape-default-size
-    // setting (read once at construction, exactly as Figure.fromKind reads it)
-    // so an arch node's icon renders at the same size as a geometric shape.
-    // A real DP so the tile template can bind `$IconSize`.
-    static readonly IconSizeKey = MuralBase.RegisterProperty<number>(ArchNodeVM, 'IconSize', 80, MetaData.None)
 
     // The concept this node instantiates + whether it has an openable wiki page.
     // Drive the "Open Wiki" context menu (Visibility via HasWiki, CommandParameter
@@ -151,11 +146,8 @@ export class ArchNodeVM extends NodeViewModel {
 
     constructor() {
         super()
-        // Icon glyph edge length, seeded from the shared shape-default-size
-        // setting so an arch node's icon matches a geometric shape. A real DP so
-        // the tile template can bind `$IconSize`. Geometry (box size, content-fit)
-        // lives on the container Figure, not here.
-        this.IconSize = DiagramSettings.ShapeDefaultSize()
+        // Icon size is no longer a per-node concern: the canvas PART_Icon binds the
+        // inheritable Diagram.DefaultIconWidth/Height attached DPs (settings-backed).
         // Stable collections the submenu's ItemsSource subscribes to; ApplyNavTargets
         // mutates them in place (the DP reference never changes).
         this.set_property_value(ArchNodeVM.TechnologiesKey, new ObservableCollection<ArchNavItemVM>())
@@ -177,14 +169,6 @@ export class ArchNodeVM extends NodeViewModel {
 
     set Icon(v: EntityIconVM | undefined) {
         this.set_property_value(ArchNodeVM.IconKey, v)
-    }
-
-    get IconSize(): number {
-        return this.get_property_value(ArchNodeVM.IconSizeKey)
-    }
-
-    set IconSize(v: number) {
-        this.set_property_value(ArchNodeVM.IconSizeKey, v)
     }
 
     get Concept(): string {
