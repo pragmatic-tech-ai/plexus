@@ -528,14 +528,17 @@ resources DiagramResources {
                 [ Content                    = $Icon,
                   ContentTemplateSelector    = @TodlVisualSelector,
                   VisualContextScope.Context = VisualContext.Figure,
-                  // Sized from the inheritable, setting-bound Diagram.DefaultIconWidth/
-                  // Height attached properties: the icon reads the per-diagram size
-                  // (default = the diagram.DefaultIcon* settings, 80) via a self-
-                  // relative bind to its own inherited attached property, so a user
-                  // override in ApplicationSettings — or a per-Diagram local set —
-                  // resizes every arch node icon live.
-                  Width                      = $Self.(Diagram.DefaultIconWidth),
-                  Height                     = $Self.(Diagram.DefaultIconHeight),
+                  // Sized to the node's own $IconSize — a real DP seeded from
+                  // DiagramSettings.ShapeDefaultSize() (80) at construction, so an
+                  // arch node's icon matches a geometric shape. This MUST be a
+                  // concrete non-zero size: the selector's icon template stretches
+                  // to fill the ContentControl, so a 0 would collapse it. (The
+                  // earlier $Self.(Diagram.DefaultIconWidth) bind resolved 0 here —
+                  // that settings-backed attached property isn't wired in this build
+                  // — which is harmless only when the icon has an intrinsic size,
+                  // as it did under the old ToolboxVisualPresenter.)
+                  Width                      = $IconSize,
+                  Height                     = $IconSize,
                   HorizontalAlignment        = Center ]
             TextBlock x:name="PART_Title"
                 [ Text                = $Label,
