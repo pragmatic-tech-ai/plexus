@@ -204,11 +204,6 @@ try {
     // Dev/e2e: read a live setting value by key (used by the save-ux e2e to assert
     // the autosave settings registered with their defaults).
     globalThis.__getSetting = (k) => app.Services.get(ApplicationSettings.Key)?.Get(k)
-    // Diagnostic: resolve via SettingSourceKey (the seam the DP SettingValue tier
-    // uses) vs ApplicationSettings.Key, to see whether the bridge is actually wired.
-    globalThis.__getSettingViaSource = (k) => app.Services.get(SettingSourceKey)?.Get(k)
-    globalThis.__hasSettingSource = () => app.Services.get(SettingSourceKey) !== undefined
-      && app.Services.get(SettingSourceKey) === app.Services.get(ApplicationSettings.Key)
 
     // Restore the previous session's open projects into the explorer (skips
     // folders whose project manifest is gone). Fire-and-forget after mount.

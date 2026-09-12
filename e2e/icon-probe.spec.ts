@@ -67,17 +67,12 @@ async function probeIcons(l: Launched) {
         // What does the live ApplicationSettings return for the icon-size keys?
         // (main.js exposes __getSetting = (k) => ApplicationSettings.Get(k).)
         const gs = (window as any).__getSetting as ((k: string) => unknown) | undefined
-        const gvs = (window as any).__getSettingViaSource as ((k: string) => unknown) | undefined
-        const hasSrc = (window as any).__hasSettingSource as (() => boolean) | undefined
         const settings = gs
             ? {
                   hasGetter: true,
                   defaultIconWidth: gs('diagram.DefaultIconWidth'),
                   defaultIconHeight: gs('diagram.DefaultIconHeight'),
                   toolboxItemWidth: gs('toolbox.item.width'),   // known-working control
-                  // Via the SettingSourceKey seam (what the DP tier actually uses):
-                  viaSource_defaultIconWidth: gvs ? gvs('diagram.DefaultIconWidth') : 'no-fn',
-                  settingSourceWiredToAppSettings: hasSrc ? hasSrc() : 'no-fn',
               }
             : { hasGetter: false }
         return { partCount: parts.length, parts, nodeCount: nodes.length, nodes, settings }
@@ -138,14 +133,13 @@ test.describe.serial('canvas icon probe', () => {
         console.log('ICON-PROBE ' + JSON.stringify(data))
         expect(appErrors(l.errors), appErrors(l.errors).join('\n')).toEqual([])
 
-        // The DP SettingValue tier resolves via SettingSourceKey; app.mu registers
-        // ApplicationSettings.Key itself, so main.js must wire the bridge or the DP
-        // falls back to its default (0) and icons collapse.
-        expect(data.settings.settingSourceWiredToAppSettings, 'SettingSourceKey must bridge to ApplicationSettings').toBe(true)
-        expect(data.settings.viaSource_defaultIconWidth, 'Diagram.DefaultIconWidth resolves via the source seam').toBe(80)
-
         // The leaf arch node (business_agent, a component — not a container) must
         // paint its class icon at the ~80px settings size, with real glyph geometry.
+        // widthProp === 80 proves the DP resolved Diagram.DefaultIconWidth from the
+        // setting via the SettingSourceKey bridge — a default (0) would collapse it,
+        // which is the exact regression (bridge unwired when app.mu owns
+        // ApplicationSettings.Key). This is the user-facing guarantee, asserted on the
+        // rendered result rather than a debug seam.
         const leaf = data.parts.find((p: any) => p.iconKey === 'mm_icon_agent')
         expect(leaf, 'business_agent PART_Icon present with a resolved iconKey').toBeTruthy()
         expect(leaf.widthProp, 'icon ContentControl width = Diagram.DefaultIconWidth (80)').toBe(80)
