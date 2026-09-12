@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { Border, Icon, TextBlock } from '@pragmatic-tech-ai/mural/basic'
-import { DiagramSettings, VisualContext, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
+import { HorizontalAlignment, VerticalAlignment } from '@pragmatic-tech-ai/mural/visual-engine'
+import { VisualContext, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import type { Visual } from '@pragmatic-tech-ai/mural/runtime'
 
 import type { TodlPresentationRegistry } from '../todl-presentation-registry.js'
@@ -60,17 +61,18 @@ describe('TodlVisualResolver', () => {
         expect(tile.IsHitTestVisible).toBe(false)
     })
 
-    it('sizes the Figure-context icon to the shared shape-default-size setting', () => {
+    it('stretches the Figure-context icon to fill its container (no explicit size)', () => {
         const reg = fakeRegistry()
         setIconResourceResolver(reg.resolve)
         const r = new TodlVisualResolver(reg as unknown as TodlPresentationRegistry)
         const fig = r.Resolve(desc('mm:service'), VisualContext.Figure) as Border
         const icon = findFirst<Icon>(fig, Icon)
         expect(icon).toBeDefined()
-        // Same setting a geometric shape reads — with no settings host the helper
-        // returns its compiled-in default (80), not the old fixed 32.
-        expect(icon!.Width).toBe(DiagramSettings.ShapeDefaultSize())
-        expect(icon!.Height).toBe(DiagramSettings.ShapeDefaultSize())
+        // The shared icon body no longer carries an explicit width/height — the icon
+        // stretches to fill its Grid cell so the outer ContentControl sizes it per
+        // context (see visual-library ICON_BODY; the P3 markup owns the size).
+        expect(icon!.HorizontalAlignment).toBe(HorizontalAlignment.Stretch)
+        expect(icon!.VerticalAlignment).toBe(VerticalAlignment.Stretch)
     })
 
     it('does NOT force IsHitTestVisible=false in Figure context', () => {

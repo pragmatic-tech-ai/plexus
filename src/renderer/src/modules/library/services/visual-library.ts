@@ -52,18 +52,24 @@ export function compileTemplate(source: string, ctx: Record<string, unknown>): D
 // Exactly one is non-empty per entity — each converter yields undefined for the other's
 // asset kind — so they never collide. Recolor=false keeps each icon's own fills;
 // Foreground themes any currentColor shapes; Stretch=Uniform preserves a bitmap's
-// aspect. It carries NO label: the host (tile / canvas node / preview) draws the caption.
+// aspect. The templates now bind against an EntityIconVM, so $IconKey resolves off it.
+// The icon STRETCHES to fill its Grid cell (no explicit width/height): the outer
+// ContentControl is sized per context in the (P3) markup, and the icon fills it.
+// It carries NO label: the host (tile / canvas node / preview) draws the caption.
 const ICON_BODY =
       ' Grid {'
     + ' Image [ Source = $IconKey << ImageKeyConverter, Stretch = Uniform,'
-    + ' Width = $IconWidth, Height = $IconHeight, HorizontalAlignment = Center, VerticalAlignment = Center ]'
+    + ' HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]'
     + ' Icon [ Source = $IconKey << IconKeyConverter, Recolor = false, Foreground = @OnSurface,'
-    + ' Width = $IconWidth, Height = $IconHeight, HorizontalAlignment = Center, VerticalAlignment = Center ]'
+    + ' HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]'
     + ' }'
 
 // Tile context (toolbox tiles + library preview): a raised @SurfaceContainerHigh chip
 // behind the icon. The enclosing tile/preview draws its own outer chrome around this.
-const TILE_SOURCE = 'Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6 ] {' + ICON_BODY + ' }'
+// The ROOT is NOT hit-test visible — a tile is drag chrome: the enclosing Border owns
+// the gesture, so the rendered visual must not swallow hit-testing (preserves the old
+// TodlVisualResolver's `visual.IsHitTestVisible = false` for the Tile context).
+const TILE_SOURCE = 'Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6, IsHitTestVisible = false ] {' + ICON_BODY + ' }'
 
 // Figure context (canvas nodes): NO background — the icon floats transparently on the
 // diagram; the canvas node draws no chip behind it.
