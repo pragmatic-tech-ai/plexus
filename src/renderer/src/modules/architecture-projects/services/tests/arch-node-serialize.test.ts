@@ -92,7 +92,7 @@ test('ArchNodeVM round-trips id + content (geometry is the container/store conce
 
     // Icon / label must NOT be persisted — binding re-derives them on open.
     expect(archVM.Label).toBe('')
-    expect(archVM.Descriptor).toBeUndefined()
+    expect(archVM.Icon).toBeUndefined()
 })
 
 test('label text-style overrides round-trip; an unstyled node stays empty', () => {

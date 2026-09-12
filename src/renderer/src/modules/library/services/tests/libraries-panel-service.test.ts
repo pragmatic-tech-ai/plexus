@@ -7,7 +7,6 @@ import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
 import { LibraryRegistry } from '../library-registry.js'
 import { LibrariesPanelService } from '../libraries-panel-service.js'
 import { LibraryNodeKind, LibraryTreeNode } from '../library-tree-node.js'
-import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-resolver.js'
 import { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 
 // Synchronous seed (see the registry test) so all files exist before Reload lists.
@@ -60,10 +59,10 @@ test('builds a Library -> Concept -> Class tree, concepts sorted, leaves carry t
     expect(leaf.TermId).toBe('Stack.AzureOpenai')
     expect(leaf.Concept).toBe('technology')
     expect(leaf.IsDraggable).toBe(true)
-    // Leaves carry a library-class descriptor keyed on the term; the visual resolves
-    // (and lazily compiles) through the shared presenter on preview/canvas.
-    expect(leaf.Descriptor?.ResolverKey).toBe(TodlVisualResolverKey)
-    expect(leaf.Descriptor?.Key).toBe('Stack.AzureOpenai')
+    // Leaves carry an icon VM keyed on the term; the preview renders it through a
+    // ContentControl + TodlVisualSelector (upgraded in place as the class compiles).
+    expect(leaf.Icon).toBeDefined()
+    expect(leaf.TermId).toBe('Stack.AzureOpenai')
 })
 
 test('IsLoading is true while discovering and false once the tree is built', async () => {
@@ -104,11 +103,13 @@ test('selecting a class drives the bottom preview pane; selecting another moves 
     expect(svc.HasPreview).toBe(true)
     expect(svc.PreviewData).toBe(a)
     expect(a.Concept).toBe('technology')
-    expect(a.Descriptor?.Key).toBe('stack.a')   // node carries its own visual descriptor
+    expect(a.TermId).toBe('stack.a')   // node carries its own term identity + icon VM
+    expect(a.Icon).toBeDefined()
 
     svc.SelectedNode = b
     expect(svc.PreviewData).toBe(b)
-    expect(b.Descriptor?.Key).toBe('stack.b')   // the newly-selected node has its own too
+    expect(b.TermId).toBe('stack.b')   // the newly-selected node has its own too
+    expect(b.Icon).toBeDefined()
 
     svc.SelectedNode = lib          // a group node clears the preview
     expect(svc.HasPreview).toBe(false)

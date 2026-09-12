@@ -9,10 +9,9 @@ import {
 } from '@pragmatic-tech-ai/mural/framework'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 
-import { TodlVisualResolverKey } from '../../diagram/services/todl-visual-resolver.js'
 import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
-import { ArchToolboxItem } from '../../diagram/services/arch-toolbox-item.js'
+import { ArchToolboxItem, ArchToolboxVisualKey } from '../../diagram/services/arch-toolbox-item.js'
 import { iconEntityKey } from './arch-icon.js'
 import { ArchModelInstanceDropFactoryKey } from './arch-model-instance-drop-factory.js'
 import { ArchScenarioDropFactoryKey } from './arch-scenario-drop-factory.js'
@@ -53,7 +52,7 @@ export function modelPageItems(model: ArchModel, scope: ReadonlySet<string>, pla
     for (const e of model.entities()) {
         if (placed.has(e.id) || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
-        const descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, key)
+        const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, key)
         items.push(new ArchToolboxItem('instance:' + e.id, entityLabel(e), descriptor, ArchModelInstanceDropFactoryKey, new EntityIconVM(registry, key), e.concept))
     }
     return items
@@ -78,7 +77,7 @@ export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, 
     for (const e of model.entities()) {
         if (e.concept !== SCENARIO_CONCEPT || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
-        const descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, key)
+        const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, key)
         items.push(new ArchToolboxItem('scenario:' + e.id, entityLabel(e), descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(registry, key), e.concept))
     }
     return items

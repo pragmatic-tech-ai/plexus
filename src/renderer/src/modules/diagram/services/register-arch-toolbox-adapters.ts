@@ -4,7 +4,6 @@ import { ArchInstanceDropFactory, ArchInstanceDropFactoryKey } from '../../archi
 import { ArchModelInstanceDropFactory, ArchModelInstanceDropFactoryKey } from '../../architecture-projects/services/arch-model-instance-drop-factory.js'
 import { ArchScenarioDropFactory, ArchScenarioDropFactoryKey } from '../../architecture-projects/services/arch-scenario-drop-factory.js'
 import { TodlPresentationRegistry } from './todl-presentation-registry.js'
-import { TodlVisualResolver, TodlVisualResolverKey } from './todl-visual-resolver.js'
 import { TodlVisualSelector } from './todl-visual-selector.js'
 import { LibraryPresentationSource } from '../../library/services/library-presentation-source.js'
 import { MetaModelPresentationSource } from '../../meta-model/services/meta-model-presentation-source.js'
@@ -35,10 +34,6 @@ export function registerArchToolboxAdapters(services: ServiceProvider): void
     if (!services.has(ArchScenarioDropFactoryKey))
     {
         services.registerInstance(ArchScenarioDropFactoryKey, new ArchScenarioDropFactory(services))
-    }
-    if (!services.has(TodlVisualResolverKey))
-    {
-        services.registerInstance(TodlVisualResolverKey, new TodlVisualResolver(registry))
     }
     // Register the tile/figure template selector as an app resource keyed
     // `TodlVisualSelector` so `@TodlVisualSelector` resolves in the diagram / library

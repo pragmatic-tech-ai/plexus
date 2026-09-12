@@ -1,11 +1,11 @@
 import { test, expect } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument, Figure, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
-import { TodlVisualResolverKey } from '../../../diagram/services/todl-visual-resolver.js'
+import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBinding } from '../arch-diagram-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
+import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 
 const MM = `namespace archmm {
   concept Component {}
@@ -35,7 +35,7 @@ function addVM(doc: DiagramDocument, id: string): ArchNodeVM {
     return vm
 }
 
-test('attach binds ArchNodeVMs whose Id is an entity: derives Label + Descriptor; unknown VMs untouched', () => {
+test('attach binds ArchNodeVMs whose Id is an entity: derives Label; unknown VMs untouched', () => {
     const model = buildModel()
     const doc = new DiagramDocument()
     const web = addVM(doc, 'web')
@@ -45,11 +45,9 @@ test('attach binds ArchNodeVMs whose Id is an entity: derives Label + Descriptor
 
     new ArchDiagramBinding(doc, model).attach()
 
-    // web and host map to entities, get their Label and Descriptor derived.
+    // web and host map to entities, get their Label derived.
     expect(web.Label).toBe('web')     // id fallback (no label/name field)
     expect(host.Label).toBe('host')
-    expect(web.Descriptor).toEqual(new ToolboxVisualDescriptor(TodlVisualResolverKey, 'Component'))
-    expect(host.Descriptor).toEqual(new ToolboxVisualDescriptor(TodlVisualResolverKey, 'Node'))
     // ghost has no matching entity — left as-is.
     expect(ghost.Label).toBe('freeform')
 })
@@ -71,11 +69,18 @@ test('a node whose entity references an icon-bearing term is keyed by that term 
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'refmm' })
     const model = new ArchModel(draft, new FakeStorage('fake://Arch'), 'refmm')
 
+    // A registry that echoes the entity key back as its icon key, so the node's
+    // EntityIconVM.IconKey reflects exactly the key the binding derived.
+    const registry = { iconKeyFor: (k: string) => k, onChanged: () => () => {} } as unknown as TodlPresentationRegistry
+
     const doc = new DiagramDocument()
     const c1 = addVM(doc, 'c1')
-    new ArchDiagramBinding(doc, model).attach()
+    // registry is the 9th ctor param; the leading optionals stay undefined here.
+    new ArchDiagramBinding(doc, model, undefined, undefined, undefined, undefined, undefined, undefined, registry).attach()
 
-    expect(c1.Descriptor).toEqual(new ToolboxVisualDescriptor(TodlVisualResolverKey, 'Stack.azure'))
+    // The node is keyed by the icon-bearing referenced term (Stack.azure), not its
+    // own concept — surfaced now through the node's Icon VM instead of a Descriptor.
+    expect(c1.Icon?.IconKey).toBe('Stack.azure')
 })
 
 test('model label change re-syncs the bound VM; delete removes its VM', () => {

@@ -1,6 +1,5 @@
 import { test, expect, beforeAll } from 'vitest'
 import { Application } from '@pragmatic-tech-ai/mural/runtime'
-import { ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import { ArchNodeVM } from '../arch-node-vm.js'
 
 beforeAll(() => {
@@ -13,9 +12,9 @@ test('default Label is empty string', () => {
     expect(vm.Label).toBe('')
 })
 
-test('default Descriptor is undefined', () => {
+test('default Icon is undefined', () => {
     const vm = new ArchNodeVM()
-    expect(vm.Descriptor).toBeUndefined()
+    expect(vm.Icon).toBeUndefined()
 })
 
 test('carries no geometry — the container Figure owns it', () => {
@@ -36,13 +35,6 @@ test('Label setter round-trips', () => {
     const vm = new ArchNodeVM()
     vm.Label = 'My Component'
     expect(vm.Label).toBe('My Component')
-})
-
-test('Descriptor setter round-trips', () => {
-    const vm = new ArchNodeVM()
-    const desc = new ToolboxVisualDescriptor({} as any, 'some-key')
-    vm.Descriptor = desc
-    expect(vm.Descriptor).toBe(desc)
 })
 
 test('Id setter round-trips and EntityId returns Id', () => {

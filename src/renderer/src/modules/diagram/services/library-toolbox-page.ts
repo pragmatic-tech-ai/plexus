@@ -1,6 +1,5 @@
 import { ToolboxPage, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
-import { ArchToolboxItem } from './arch-toolbox-item.js'
-import { TodlVisualResolverKey } from './todl-visual-resolver.js'
+import { ArchToolboxItem, ArchToolboxVisualKey } from './arch-toolbox-item.js'
 import { EntityIconVM } from './entity-icon-vm.js'
 import type { TodlPresentationRegistry } from './todl-presentation-registry.js'
 import { ArchInstanceDropFactoryKey } from '../../architecture-projects/services/arch-instance-drop-factory.js'
@@ -36,7 +35,7 @@ export class LibraryToolboxPage extends ToolboxPage
             items.push(new ArchToolboxItem(
                 'term:' + t.id,
                 t.label,
-                new ToolboxVisualDescriptor(TodlVisualResolverKey, key),
+                new ToolboxVisualDescriptor(ArchToolboxVisualKey, key),
                 ArchInstanceDropFactoryKey,
                 new EntityIconVM(this.registry, key),
             ))

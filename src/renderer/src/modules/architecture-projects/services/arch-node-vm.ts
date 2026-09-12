@@ -1,5 +1,5 @@
 import { MetaData, MuralBase, ObservableCollection, RelayCommand, type ICommand, type PropertyKey } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramSettings, NodeViewModel, ToolboxVisualDescriptor, type Diagram, type DiagramDocument, type DiagramInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
+import { DiagramSettings, NodeViewModel, type Diagram, type DiagramDocument, type DiagramInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
 import { Brush, FontFamily, FontStyle, FontWeight, TextAlignment, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ArchNavItemVM } from './arch-nav-item-vm.js'
 import type { NavTarget, NavTargets } from './arch-navigation-service.js'
@@ -11,7 +11,7 @@ import type { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
 // id (was the ArchNodeVM ctor's 72×56 before geometry moved off the VM).
 export const ARCH_TILE_DEFAULT = { w: 72, h: 56 } as const
 
-// A content view-model: identity (Id) + content (Label / Descriptor / IconSize /
+// A content view-model: identity (Id) + content (Label / Icon / IconSize /
 // Concept / wiki). It carries NO geometry — its container Figure is the geometry
 // owner AND the side-endpoint host (connector endpoints resolve to the container,
 // which distributes them across its sides). The tile's default 72×56 box comes
@@ -20,18 +20,10 @@ export const ARCH_TILE_DEFAULT = { w: 72, h: 56 } as const
 // geometry redesign.
 export class ArchNodeVM extends NodeViewModel {
     static readonly LabelKey = MuralBase.RegisterProperty<string>(ArchNodeVM, 'Label', '', MetaData.None)
-    static readonly DescriptorKey = MuralBase.RegisterProperty<ToolboxVisualDescriptor | undefined>(
-        ArchNodeVM,
-        'Descriptor',
-        undefined,
-        MetaData.None,
-    )
-    // The icon-presentation VM the (P3) ContentControl + TodlVisualSelector renders:
+    // The icon-presentation VM the ContentControl + TodlVisualSelector renders:
     // maps this node's entity key to its baked icon resource key ($Icon.IconKey).
-    // Set by ArchDiagramBinding.rescan alongside Descriptor; refreshed in place by
-    // the binding's registry.onChanged subscription when async discovery upgrades an
-    // icon. Mirrors the Descriptor DP (MetaData.None) — not consumed by templates
-    // yet (Descriptor still drives the tile; P3 flips the markup to $Icon).
+    // Set by ArchDiagramBinding.rescan; refreshed in place by the binding's
+    // registry.onChanged subscription when async discovery upgrades an icon.
     static readonly IconKey = MuralBase.RegisterProperty<EntityIconVM | undefined>(
         ArchNodeVM,
         'Icon',
@@ -177,14 +169,6 @@ export class ArchNodeVM extends NodeViewModel {
 
     set Label(v: string) {
         this.set_property_value(ArchNodeVM.LabelKey, v)
-    }
-
-    get Descriptor(): ToolboxVisualDescriptor | undefined {
-        return this.get_property_value(ArchNodeVM.DescriptorKey)
-    }
-
-    set Descriptor(v: ToolboxVisualDescriptor | undefined) {
-        this.set_property_value(ArchNodeVM.DescriptorKey, v)
     }
 
     get Icon(): EntityIconVM | undefined {

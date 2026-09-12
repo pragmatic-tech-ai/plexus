@@ -28,10 +28,11 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     public static readonly IsLoadingKey = MuralBase.RegisterProperty<boolean>(LibrariesPanelService, 'IsLoading', false, MetaData.None)
 
     // Bottom preview pane, driven by the selected class leaf. The preview hosts
-    // the selected NODE itself (Content = $PreviewData); the node carries its visual
-    // Descriptor + Concept, which the preview DataTemplate renders through the shared
-    // ToolboxVisualPresenter (which owns the lazy-compile upgrade). Driving the
-    // preview off the node — rather than off a service-level DP — is deliberate: a
+    // the selected NODE itself (Content = $PreviewData); the node carries its $Icon
+    // VM + Concept, which the preview DataTemplate renders through a ContentControl +
+    // TodlVisualSelector (the icon VM upgrades in place as the class compiles).
+    // Driving the preview off the node — rather than off a service-level DP — is
+    // deliberate: a
     // bare ContentPresenter pins its own DataContext to the content it renders, which
     // would break a service-scoped binding after the first class (the preview then
     // froze on the first selection). See [[library-preview-datacontext]].
@@ -60,9 +61,9 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     {
         super(provider)
         this.set_property_value(LibrariesPanelService.RootsKey, new ObservableCollection<LibraryTreeNode>())
-        // The preview's ToolboxVisualPresenter owns the lazy-compile upgrade (it
-        // subscribes to the library resolver's changed signal), so the panel no
-        // longer tracks onChanged or resolves templates itself.
+        // Each leaf's EntityIconVM upgrades in place on library-discovery changes
+        // (owner-driven), so the panel no longer tracks onChanged or resolves
+        // templates itself.
         void this.Reload()
     }
 
@@ -220,8 +221,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         if (descriptor.Name !== 'SelectedNode') return
         const node = newValue instanceof LibraryTreeNode ? newValue : undefined
         if (node !== undefined && node.Kind === LibraryNodeKind.Class) {
-            // The node's Descriptor drives the preview through ToolboxVisualPresenter,
-            // which resolves + upgrades the class visual itself.
+            // The node's $Icon VM drives the preview through the ContentControl +
+            // TodlVisualSelector, which renders + upgrades the class visual itself.
             this.set_property_value(LibrariesPanelService.PreviewDataKey, node)
             this.set_property_value(LibrariesPanelService.HasPreviewKey, true)
         } else {

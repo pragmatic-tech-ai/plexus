@@ -1,9 +1,8 @@
-import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
+import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText } from '@pragmatic-tech-ai/mural/framework'
 import { Panel, type Disposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagram/content-container-figure.js'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
-import { TodlVisualResolverKey } from '../../diagram/services/todl-visual-resolver.js'
 import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
 import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 import type { ArchModel } from './arch-model.js'
@@ -397,12 +396,10 @@ export class ArchDiagramBinding
                 // (referenced term first, then own concept); fall back to the bare
                 // concept when nothing carries an icon (→ default glyph).
                 const key = iconEntityKey(this.model.repository(), entity) ?? entity.concept
-                node.Descriptor = new ToolboxVisualDescriptor(TodlVisualResolverKey, key)
-                // The icon-presentation VM the (P3) ContentControl + TodlVisualSelector
-                // binds ($Icon.IconKey). Rebuilt on each rescan alongside Descriptor
-                // (so a re-keyed entity picks up the right icon); reactivity to async
-                // discovery in between rescans is via the registryOff subscription
-                // above. (KEEP Descriptor above for now — P4 removes it.)
+                // The icon-presentation VM the ContentControl + TodlVisualSelector
+                // binds ($Icon.IconKey). Rebuilt on each rescan (so a re-keyed entity
+                // picks up the right icon); reactivity to async discovery in between
+                // rescans is via the registryOff subscription above.
                 if (this.registry !== undefined) node.Icon = new EntityIconVM(this.registry, key)
                 node.Concept = entity.concept
                 // A container concept realizes as a ContentContainerFigure (mural

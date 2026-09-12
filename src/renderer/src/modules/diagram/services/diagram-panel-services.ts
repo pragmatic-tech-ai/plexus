@@ -6,9 +6,9 @@
 // ToolboxRepository: mural's built-in *Shapes* page (via ensureToolboxDefaults)
 // plus one page per taxonomy an author marked `annotate toolbox { visible = true
 // }`, aggregated across every published meta-model and library. Each toolbox item
-// carries a visual descriptor resolved by the tile/canvas/preview through the
-// shared ToolboxVisualPresenter, and a drop factory key. A term marked `toolbox {
-// visible = false }` is dropped from its page.
+// carries an icon VM ($Icon) the tile/canvas/preview render via a ContentControl +
+// TodlVisualSelector, a descriptor whose Key is the drop identity, and a drop
+// factory key. A term marked `toolbox { visible = false }` is dropped from its page.
 import {
     Application,
     MetaData,
@@ -320,8 +320,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     }
 
     // Scan the published-content backends into (taxonomy, source) triples. Overridable
-    // seam for tests. Every term's visual resolves through the shared TodlVisualResolver;
-    // the `isLibrary` flag only decides the descriptor key (bare class id vs `mm:` term id).
+    // seam for tests. Every term's icon resolves through its tile's EntityIconVM;
+    // the `isLibrary` flag only decides the icon/descriptor key (bare class id vs `mm:` term id).
     // `sourceRef` is the source package key (`<id>@<version>`) reload() filters against
     // the active diagram's referenced bases (see activeScope).
     protected async collectTaxonomies(): Promise<Array<{ tax: ToolboxTaxonomy; isLibrary: boolean; sourceRef: string }>>
