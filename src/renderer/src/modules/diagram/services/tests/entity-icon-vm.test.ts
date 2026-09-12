@@ -3,19 +3,16 @@ import { describe, it, expect } from 'vitest'
 import type { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { EntityIconVM } from '../entity-icon-vm.js'
 
-// A registry stub exposing iconKeyFor + onChanged (EntityIconVM's surface).
+// A registry stub exposing iconKeyFor (EntityIconVM's surface). No onChanged —
+// the VM never subscribes; reactivity is owner-driven via refresh().
 function fakeRegistry(index: Map<string, string>) {
-    const listeners = new Set<(key: string) => void>()
     return {
         iconKeyFor: (k: string) => index.get(k),
-        onChanged: (cb: (key: string) => void) => { listeners.add(cb); return () => listeners.delete(cb) },
-        fire(key: string) { for (const l of listeners) l(key) },
-        listenerCount() { return listeners.size },
     }
 }
 
 const reg = (index: Map<string, string>) =>
-    fakeRegistry(index) as unknown as TodlPresentationRegistry & { fire(k: string): void; listenerCount(): number }
+    fakeRegistry(index) as unknown as TodlPresentationRegistry
 
 describe('EntityIconVM', () => {
     it('resolves the icon key directly', () => {
@@ -30,25 +27,23 @@ describe('EntityIconVM', () => {
         expect(new EntityIconVM(reg(new Map()), 'nope').IconKey).toBe('')
     })
 
-    it('re-emits IconKey when the registry index changes', () => {
+    it('refresh() recomputes + notifies IconKey when the registry index changes', () => {
         const index = new Map<string, string>()
-        const r = reg(index)
-        const vm = new EntityIconVM(r, 'a.b')
+        const vm = new EntityIconVM(reg(index), 'a.b')
         expect(vm.IconKey).toBe('')
         let fired = 0
         vm.PropertyChanged('IconKey').subscribe(() => fired++)
         index.set('a.b', 'now')
-        r.fire('a.b')
+        vm.refresh()
         expect(vm.IconKey).toBe('now')
         expect(fired).toBeGreaterThanOrEqual(1)
     })
 
-    it('dispose unsubscribes from the registry', () => {
-        const index = new Map<string, string>()
-        const r = reg(index)
-        const vm = new EntityIconVM(r, 'a.b')
-        expect(r.listenerCount()).toBe(1)
-        vm.dispose()
-        expect(r.listenerCount()).toBe(0)
+    it('refresh() with no change does not notify', () => {
+        const vm = new EntityIconVM(reg(new Map([['a.b', 'icon-ab']])), 'a.b')
+        let fired = 0
+        vm.PropertyChanged('IconKey').subscribe(() => fired++)
+        vm.refresh()
+        expect(fired).toBe(0)
     })
 })
