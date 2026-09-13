@@ -108,7 +108,7 @@ resources ProblemsResources {
                         }
                         // Left cluster: title + severity toggles + filter box.
                         StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
-                            TextBlock [ Text = "Problems", Style = @LabelLarge, Foreground = @OnSurface, VerticalAlignment = Center, Margin = (0,0,12,0) ]
+                            TextBlock [ Text = "Problems", Style = @TitleMedium, Foreground = @OnSurface, VerticalAlignment = Center, Margin = (0,0,12,0) ]
                             ToggleButton [ Template = @PanelToggle, IsChecked = $ShowErrors, VerticalAlignment = Center, Margin = (0,0,4,0) ] {
                                 TextBlock [ Text = $ErrorCount, Style = @LabelMedium, Foreground = @OnSurfaceVariant ]
                             }

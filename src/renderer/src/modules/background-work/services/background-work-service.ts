@@ -1,5 +1,5 @@
 import {
-    MuralBase, MetaData, ObservableCollection, RelayCommand, ServiceBase, ServiceKey,
+    ObservableCollection, RelayCommand, ServiceBase, ServiceKey,
     type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
@@ -24,14 +24,12 @@ interface QueuedItem { handle: TaskHandle; payload: unknown }
 export class BackgroundWorkService extends ServiceBase {
     public static readonly Key = BackgroundWorkServiceKey
 
-    public static readonly TasksKey = MuralBase.RegisterProperty<ObservableCollection<TaskHandle>>(
-        BackgroundWorkService, 'Tasks', undefined as unknown as ObservableCollection<TaskHandle>, MetaData.None)
-    public static readonly RunningCountKey = MuralBase.RegisterProperty<number>(BackgroundWorkService, 'RunningCount', 0, MetaData.None)
-    public static readonly QueuedCountKey  = MuralBase.RegisterProperty<number>(BackgroundWorkService, 'QueuedCount', 0, MetaData.None)
-    public static readonly SummaryTextKey  = MuralBase.RegisterProperty<string>(BackgroundWorkService, 'SummaryText', 'No background tasks', MetaData.None)
-    public static readonly IsOpenKey       = MuralBase.RegisterProperty<boolean>(BackgroundWorkService, 'IsOpen', false, MetaData.None)
-    public static readonly ClearCompletedCommandKey = MuralBase.RegisterProperty<ICommand>(
-        BackgroundWorkService, 'ClearCompletedCommand', undefined as unknown as ICommand, MetaData.None)
+    private readonly _tasks = new ObservableCollection<TaskHandle>()
+    private _runningCount = 0
+    private _queuedCount = 0
+    private _summaryText = 'No background tasks'
+    private _isOpen = false
+    private readonly _clearCompletedCommand: ICommand
 
     private readonly registry = new TaskExecutorRegistry()
     private readonly queues = new Map<string, QueuedItem[]>()   // per-kind FIFO of waiting tasks
@@ -42,18 +40,20 @@ export class BackgroundWorkService extends ServiceBase {
     constructor(provider: IServiceProvider)
     {
         super(provider)
-        this.set_property_value(BackgroundWorkService.TasksKey, new ObservableCollection<TaskHandle>())
-        this.set_property_value(BackgroundWorkService.ClearCompletedCommandKey, new RelayCommand(() => this.clearCompleted()))
+        this._clearCompletedCommand = new RelayCommand(() => this.clearCompleted())
         this.registry.register(new InlineExecutor())
     }
 
-    public get Tasks(): ObservableCollection<TaskHandle> { return this.get_property_value(BackgroundWorkService.TasksKey) }
-    public get RunningCount(): number { return this.get_property_value(BackgroundWorkService.RunningCountKey) }
-    public get QueuedCount(): number { return this.get_property_value(BackgroundWorkService.QueuedCountKey) }
-    public get SummaryText(): string { return this.get_property_value(BackgroundWorkService.SummaryTextKey) }
-    public get IsOpen(): boolean { return this.get_property_value(BackgroundWorkService.IsOpenKey) }
-    public set IsOpen(v: boolean) { this.set_property_value(BackgroundWorkService.IsOpenKey, v) }
-    public get ClearCompletedCommand(): ICommand { return this.get_property_value(BackgroundWorkService.ClearCompletedCommandKey) }
+    public get Tasks(): ObservableCollection<TaskHandle> { return this._tasks }
+    public get RunningCount(): number { return this._runningCount }
+    private setRunningCount(v: number): void { const o = this._runningCount; if (o === v) return; this._runningCount = v; this.RaisePropertyChanged('RunningCount', o, v) }
+    public get QueuedCount(): number { return this._queuedCount }
+    private setQueuedCount(v: number): void { const o = this._queuedCount; if (o === v) return; this._queuedCount = v; this.RaisePropertyChanged('QueuedCount', o, v) }
+    public get SummaryText(): string { return this._summaryText }
+    private setSummaryText(v: string): void { const o = this._summaryText; if (o === v) return; this._summaryText = v; this.RaisePropertyChanged('SummaryText', o, v) }
+    public get IsOpen(): boolean { return this._isOpen }
+    public set IsOpen(v: boolean) { const o = this._isOpen; if (o === v) return; this._isOpen = v; this.RaisePropertyChanged('IsOpen', o, v) }
+    public get ClearCompletedCommand(): ICommand { return this._clearCompletedCommand }
 
     // Register an executor for its kind (last wins). Domains call this to add
     // Publish/Layout/Worker executors; the InlineExecutor is built in.
@@ -139,9 +139,9 @@ export class BackgroundWorkService extends ServiceBase {
         const all = [...this.Tasks]
         const running = all.filter((t) => t.Status === TaskStatus.Running).length
         const queued  = all.filter((t) => t.Status === TaskStatus.Queued).length
-        this.set_property_value(BackgroundWorkService.RunningCountKey, running)
-        this.set_property_value(BackgroundWorkService.QueuedCountKey, queued)
-        this.set_property_value(BackgroundWorkService.SummaryTextKey, summarize(running, queued))
+        this.setRunningCount(running)
+        this.setQueuedCount(queued)
+        this.setSummaryText(summarize(running, queued))
     }
 }
 

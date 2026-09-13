@@ -4,7 +4,7 @@
 // ChatSession by sessionId, and persists resumable conversations via ChatStore.
 // Backs the Conversations nav panel. Root-registered (like ProblemsService).
 import {
-    MetaData, MuralBase, ObservableCollection, RelayCommand, ServiceBase, ServiceKey,
+    ObservableCollection, RelayCommand, ServiceBase, ServiceKey,
     type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import {
@@ -51,31 +51,22 @@ export class ChatSessionsService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<ChatSessionsService>('ChatSessionsService')
 
-    public static readonly OpenKey = MuralBase.RegisterProperty<ObservableCollection<ChatSession>>(
-        ChatSessionsService, 'Open', undefined as unknown as ObservableCollection<ChatSession>, MetaData.None)
-    public static readonly StoredKey = MuralBase.RegisterProperty<ObservableCollection<StoredConversationRow>>(
-        ChatSessionsService, 'Stored', undefined as unknown as ObservableCollection<StoredConversationRow>, MetaData.None)
-    public static readonly ActiveChatKey = MuralBase.RegisterProperty<ChatSession | undefined>(
-        ChatSessionsService, 'ActiveChat', undefined, MetaData.None)
-    public static readonly NewConversationCommandKey = MuralBase.RegisterProperty<ICommand>(
-        ChatSessionsService, 'NewConversationCommand', undefined as unknown as ICommand, MetaData.None)
+    private readonly _open = new ObservableCollection<ChatSession>()
+    private readonly _stored = new ObservableCollection<StoredConversationRow>()
+    private _activeChat: ChatSession | undefined = undefined
+    private _newConversationCommand!: ICommand
     // Opens the shared workspace approved-tools list (the persistent approval rules)
     // in a modal dialog — one list scoped to the agent cwd, so it lives here at the
     // panel level rather than duplicated inside every conversation.
-    public static readonly OpenApprovedToolsCommandKey = MuralBase.RegisterProperty<ICommand>(
-        ChatSessionsService, 'OpenApprovedToolsCommand', undefined as unknown as ICommand, MetaData.None)
+    private _openApprovedToolsCommand!: ICommand
     // The search box (two-way) and the filtered views the nav panel actually binds.
     // VisibleOpen/VisibleStored are rebuilt from Open/Stored whenever the query or
     // either master list changes — the master collections stay unfiltered.
-    public static readonly SearchTextKey = MuralBase.RegisterProperty<string>(
-        ChatSessionsService, 'SearchText', '', MetaData.None)
-    public static readonly VisibleOpenKey = MuralBase.RegisterProperty<ObservableCollection<ChatSession>>(
-        ChatSessionsService, 'VisibleOpen', undefined as unknown as ObservableCollection<ChatSession>, MetaData.None)
-    public static readonly VisibleStoredKey = MuralBase.RegisterProperty<ObservableCollection<StoredConversationRow>>(
-        ChatSessionsService, 'VisibleStored', undefined as unknown as ObservableCollection<StoredConversationRow>, MetaData.None)
+    private _searchText = ''
+    private readonly _visibleOpen = new ObservableCollection<ChatSession>()
+    private readonly _visibleStored = new ObservableCollection<StoredConversationRow>()
     // True while the search box is empty — drives the "Search sessions…" placeholder.
-    public static readonly SearchEmptyKey = MuralBase.RegisterProperty<boolean>(
-        ChatSessionsService, 'SearchEmpty', true, MetaData.None)
+    private _searchEmpty = true
 
     private readonly agent: IAgentApi
     private readonly store: OpenProjectsStore
@@ -101,18 +92,14 @@ export class ChatSessionsService extends ServiceBase
         this.store = provider.getRequired(OpenProjectsStore.Key)
         this.fallbackCwd = provider.get(EnvironmentService.Key)?.CurrentDirectory ?? ''
 
-        this.set_property_value(ChatSessionsService.OpenKey, new ObservableCollection<ChatSession>())
-        this.set_property_value(ChatSessionsService.StoredKey, new ObservableCollection<StoredConversationRow>())
-        this.set_property_value(ChatSessionsService.VisibleOpenKey, new ObservableCollection<ChatSession>())
-        this.set_property_value(ChatSessionsService.VisibleStoredKey, new ObservableCollection<StoredConversationRow>())
-        this.set_property_value(ChatSessionsService.NewConversationCommandKey, new RelayCommand(() => { this.NewConversation() }))
-        this.set_property_value(ChatSessionsService.OpenApprovedToolsCommandKey, new RelayCommand(() => { void this.openApprovedTools() }))
+        this._newConversationCommand = new RelayCommand(() => { this.NewConversation() })
+        this._openApprovedToolsCommand = new RelayCommand(() => { void this.openApprovedTools() })
 
         // Keep the filtered views in step with the query and either master list.
         this.Open.Subscribe(() => this.rebuildVisible())
         this.Stored.Subscribe(() => this.rebuildVisible())
-        this.PropertyChanged(ChatSessionsService.SearchTextKey).subscribe(() => {
-            this.set_property_value(ChatSessionsService.SearchEmptyKey, this.SearchText.trim() === '')
+        this.PropertyChanged('SearchText').subscribe(() => {
+            this.setSearchEmpty(this.SearchText.trim() === '')
             this.rebuildVisible()
         })
 
@@ -145,16 +132,19 @@ export class ChatSessionsService extends ServiceBase
         })
     }
 
-    public get Open(): ObservableCollection<ChatSession> { return this.get_property_value(ChatSessionsService.OpenKey) }
-    public get Stored(): ObservableCollection<StoredConversationRow> { return this.get_property_value(ChatSessionsService.StoredKey) }
-    public get VisibleOpen(): ObservableCollection<ChatSession> { return this.get_property_value(ChatSessionsService.VisibleOpenKey) }
-    public get VisibleStored(): ObservableCollection<StoredConversationRow> { return this.get_property_value(ChatSessionsService.VisibleStoredKey) }
-    public get ActiveChat(): ChatSession | undefined { return this.get_property_value(ChatSessionsService.ActiveChatKey) }
-    public get NewConversationCommand(): ICommand { return this.get_property_value(ChatSessionsService.NewConversationCommandKey) }
-    public get OpenApprovedToolsCommand(): ICommand { return this.get_property_value(ChatSessionsService.OpenApprovedToolsCommandKey) }
-    public get SearchText(): string { return this.get_property_value(ChatSessionsService.SearchTextKey) }
-    public set SearchText(value: string) { this.set_property_value(ChatSessionsService.SearchTextKey, value) }
-    public get SearchEmpty(): boolean { return this.get_property_value(ChatSessionsService.SearchEmptyKey) }
+    public get Open(): ObservableCollection<ChatSession> { return this._open }
+    public get Stored(): ObservableCollection<StoredConversationRow> { return this._stored }
+    public get VisibleOpen(): ObservableCollection<ChatSession> { return this._visibleOpen }
+    public get VisibleStored(): ObservableCollection<StoredConversationRow> { return this._visibleStored }
+    public get ActiveChat(): ChatSession | undefined { return this._activeChat }
+    public get NewConversationCommand(): ICommand { return this._newConversationCommand }
+    public get OpenApprovedToolsCommand(): ICommand { return this._openApprovedToolsCommand }
+    public get SearchText(): string { return this._searchText }
+    public set SearchText(value: string) { const old = this._searchText; this._searchText = value; this.RaisePropertyChanged('SearchText', old, value) }
+    public get SearchEmpty(): boolean { return this._searchEmpty }
+
+    private setActiveChat(v: ChatSession | undefined): void { const old = this._activeChat; this._activeChat = v; this.RaisePropertyChanged('ActiveChat', old, v) }
+    private setSearchEmpty(v: boolean): void { const old = this._searchEmpty; this._searchEmpty = v; this.RaisePropertyChanged('SearchEmpty', old, v) }
 
     private get dock(): PanelDockService { return this.Provider.getRequired(PanelDockService.Key) }
     private get contentHost(): DocumentsContentHostService { return this.Provider.getRequired(ContentHostService.Key) as DocumentsContentHostService }
@@ -244,7 +234,7 @@ export class ChatSessionsService extends ServiceBase
         this.primary = chat
         this.dock.Add(chat)
         this.dock.SelectedPanel = chat
-        this.set_property_value(ChatSessionsService.ActiveChatKey, chat)
+        this.setActiveChat(chat)
         this.dock.Panels.Subscribe((change) => {
             if (change.kind === 'removed' && change.items.some((p) => p === chat))
                 void Promise.resolve().then(() => { if (this.primary === chat) this.dock.Add(chat) })
@@ -277,7 +267,7 @@ export class ChatSessionsService extends ServiceBase
         chat.setStatus(this.statusText())
         this.Open.Add(chat)
         this.contentHost.Open(chat)
-        this.set_property_value(ChatSessionsService.ActiveChatKey, chat)
+        this.setActiveChat(chat)
         // Bind this conversation to the cwd it's created under, so every later turn +
         // its persisted record use the same directory the CLI session lives in.
         const cwd = this.currentCwd()
@@ -327,7 +317,7 @@ export class ChatSessionsService extends ServiceBase
         for (const item of rehydrateTranscript(rec.Transcript, this.renderFor(rec.Id))) chat.Transcript.Add(item)
         this.Open.Add(chat)
         this.contentHost.Open(chat)
-        this.set_property_value(ChatSessionsService.ActiveChatKey, chat)
+        this.setActiveChat(chat)
         // Seed the resume token now: a resumed CLI session may not re-emit
         // SessionStarted, so without this a later TurnComplete (and close/quit flush)
         // would find no token and skip persisting the resumed conversation's new turns.

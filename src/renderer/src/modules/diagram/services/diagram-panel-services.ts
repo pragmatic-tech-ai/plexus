@@ -11,8 +11,6 @@
 // factory key. A term marked `toolbox { visible = false }` is dropped from its page.
 import {
     Application,
-    MetaData,
-    MuralBase,
     ObservableCollection,
     ResourceDictionary,
     ServiceKey,
@@ -81,11 +79,9 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
 {
     public static readonly Key = new ServiceKey<ToolboxService>('ToolboxService')
 
-    // The palette panel binds `$Pages`; this DP is pointed at the repository's
+    // The palette panel binds `$Pages`; this is pointed at the repository's
     // Pages collection on the first reload so the panel reflects it live.
-    public static readonly PagesKey = MuralBase.RegisterProperty<ObservableCollection<ToolboxPage>>(
-        ToolboxService, 'Pages',
-        undefined as unknown as ObservableCollection<ToolboxPage>, MetaData.None)
+    private _pages: ObservableCollection<ToolboxPage> = new ObservableCollection<ToolboxPage>()
 
     // Bumped each syncPageSet; a slower earlier pass whose seq is stale skips its
     // mutation, so overlapping ctor / trigger reconciles can't interleave.
@@ -94,7 +90,6 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     constructor(provider: IServiceProvider)
     {
         super(provider, [])
-        this.set_property_value(ToolboxService.PagesKey, new ObservableCollection<ToolboxPage>())
         this.syncItemSize()
         this.wireTriggers()
         void this.syncPageSet()
@@ -145,7 +140,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         return this.services().getRequired(ToolboxRepository.Key)
     }
 
-    public get Pages(): ObservableCollection<ToolboxPage> { return this.get_property_value(ToolboxService.PagesKey) }
+    public get Pages(): ObservableCollection<ToolboxPage> { return this._pages }
+    private set Pages(v: ObservableCollection<ToolboxPage>) { const old = this._pages; this._pages = v; this.RaisePropertyChanged('Pages', old, v) }
 
     // IActivatable: on re-activation just re-apply visibility (the page set is kept
     // live by its own triggers — no rebuild).
@@ -190,7 +186,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         const archModels = await this.openArchModels()
         if (seq !== this.syncSeq) return   // a newer syncPageSet superseded this one
 
-        this.set_property_value(ToolboxService.PagesKey, repo.Pages)
+        this.Pages = repo.Pages
         const byId = new Map(repo.Pages.ToArray().map((p) => [p.Id, p]))
         const desired: ToolboxPage[] = []
 

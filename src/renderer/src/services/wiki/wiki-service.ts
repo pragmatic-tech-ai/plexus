@@ -1,5 +1,5 @@
 import {
-    MetaData, MuralBase, RelayCommand, ServiceBase, ServiceKey,
+    RelayCommand, ServiceBase, ServiceKey,
     type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 
@@ -30,10 +30,8 @@ export class WikiService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<WikiService>('WikiService')
 
-    public static readonly StatusKey = MuralBase.RegisterProperty<string>(
-        WikiService, 'Status', '', MetaData.None)
-    public static readonly OpenWikiCommandKey = MuralBase.RegisterProperty<ICommand>(
-        WikiService, 'OpenWikiCommand', undefined as unknown as ICommand, MetaData.None)
+    private _status = ''
+    private _openWikiCommand!: ICommand
 
     // Open wiki tabs keyed by their stable id, so re-opening a page re-activates
     // its tab (and refreshes its content) instead of stacking duplicates.
@@ -47,13 +45,12 @@ export class WikiService extends ServiceBase
     public constructor(provider: IServiceProvider)
     {
         super(provider)
-        this.set_property_value(WikiService.OpenWikiCommandKey,
-            new RelayCommand((p) => { void this.openWiki(String(p ?? '')) }))
+        this._openWikiCommand = new RelayCommand((p) => { void this.openWiki(String(p ?? '')) })
     }
 
-    public get Status(): string { return this.get_property_value(WikiService.StatusKey) }
-    private set Status(v: string) { this.set_property_value(WikiService.StatusKey, v) }
-    public get OpenWikiCommand(): ICommand { return this.get_property_value(WikiService.OpenWikiCommandKey) }
+    public get Status(): string { return this._status }
+    private set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
+    public get OpenWikiCommand(): ICommand { return this._openWikiCommand }
 
     private get locator(): WikiLocator { return this.Provider.getRequired(WikiLocator.Key) }
 

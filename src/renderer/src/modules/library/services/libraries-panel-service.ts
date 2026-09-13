@@ -1,4 +1,4 @@
-import { Application, MetaData, MuralBase, ObservableCollection, RelayCommand, ServiceBase, ServiceKey, type IServiceProvider, type PropertyDescriptor, type ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { Application, ObservableCollection, RelayCommand, ServiceBase, ServiceKey, type IServiceProvider, type ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService, type IActivatable } from '@pragmatic-tech-ai/mural/framework'
 
 import { LibraryRegistry } from './library-registry.js'
@@ -19,13 +19,11 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
 {
     public static readonly Key = new ServiceKey<LibrariesPanelService>('LibrariesPanelService')
 
-    public static readonly RootsKey = MuralBase.RegisterProperty<ObservableCollection<LibraryTreeNode>>(
-        LibrariesPanelService, 'Roots', undefined as unknown as ObservableCollection<LibraryTreeNode>, MetaData.None)
-    public static readonly SelectedNodeKey = MuralBase.RegisterProperty<LibraryTreeNode | undefined>(
-        LibrariesPanelService, 'SelectedNode', undefined, MetaData.None)
-    public static readonly IsEmptyKey = MuralBase.RegisterProperty<boolean>(LibrariesPanelService, 'IsEmpty', false, MetaData.None)
+    private readonly _roots = new ObservableCollection<LibraryTreeNode>()
+    private _selectedNode: LibraryTreeNode | undefined = undefined
+    private _isEmpty = false
     // True while discover() runs — bound to a loading indicator in the panel .mu.
-    public static readonly IsLoadingKey = MuralBase.RegisterProperty<boolean>(LibrariesPanelService, 'IsLoading', false, MetaData.None)
+    private _isLoading = false
 
     // Bottom preview pane, driven by the selected class leaf. The preview hosts
     // the selected NODE itself (Content = $PreviewData); the node carries its $Icon
@@ -36,12 +34,11 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     // bare ContentPresenter pins its own DataContext to the content it renders, which
     // would break a service-scoped binding after the first class (the preview then
     // froze on the first selection). See [[library-preview-datacontext]].
-    public static readonly PreviewDataKey = MuralBase.RegisterProperty<LibraryTreeNode | undefined>(
-        LibrariesPanelService, 'PreviewData', undefined, MetaData.None)
-    public static readonly HasPreviewKey = MuralBase.RegisterProperty<boolean>(LibrariesPanelService, 'HasPreview', false, MetaData.None)
+    private _previewData: LibraryTreeNode | undefined = undefined
+    private _hasPreview = false
     // Transient status line (e.g. a reveal miss). Bindable if the panel wants to
     // surface it; set by RevealTerm.
-    public static readonly StatusKey = MuralBase.RegisterProperty<string>(LibrariesPanelService, 'Status', '', MetaData.None)
+    private _status = ''
 
     private reloadSeq = 0
     private readonly changedListeners = new Set<() => void>()
@@ -60,23 +57,42 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     constructor(provider: IServiceProvider)
     {
         super(provider)
-        this.set_property_value(LibrariesPanelService.RootsKey, new ObservableCollection<LibraryTreeNode>())
         // Each leaf's EntityIconVM upgrades in place on library-discovery changes
         // (owner-driven), so the panel no longer tracks onChanged or resolves
         // templates itself.
         void this.Reload()
     }
 
-    public get Roots(): ObservableCollection<LibraryTreeNode> { return this.get_property_value(LibrariesPanelService.RootsKey) }
-    public get SelectedNode(): LibraryTreeNode | undefined { return this.get_property_value(LibrariesPanelService.SelectedNodeKey) }
-    public set SelectedNode(v: LibraryTreeNode | undefined) { this.set_property_value(LibrariesPanelService.SelectedNodeKey, v) }
-    public get IsEmpty(): boolean { return this.get_property_value(LibrariesPanelService.IsEmptyKey) }
-    public get IsLoading(): boolean { return this.get_property_value(LibrariesPanelService.IsLoadingKey) }
-    public get PreviewData(): LibraryTreeNode | undefined { return this.get_property_value(LibrariesPanelService.PreviewDataKey) }
-    public get HasPreview(): boolean { return this.get_property_value(LibrariesPanelService.HasPreviewKey) }
+    public get Roots(): ObservableCollection<LibraryTreeNode> { return this._roots }
+    public get SelectedNode(): LibraryTreeNode | undefined { return this._selectedNode }
+    // Selection drives the bottom preview pane: a Class leaf populates it with the
+    // class's data + mounted template + concept; any other selection clears it.
+    public set SelectedNode(v: LibraryTreeNode | undefined)
+    {
+        const old = this._selectedNode
+        this._selectedNode = v
+        this.RaisePropertyChanged('SelectedNode', old, v)
+        if (v !== undefined && v.Kind === LibraryNodeKind.Class) {
+            // The node's $Icon VM drives the preview through the ContentControl +
+            // TodlVisualSelector, which renders + upgrades the class visual itself.
+            this.setPreviewData(v)
+            this.setHasPreview(true)
+        } else {
+            this.clearPreview()
+        }
+    }
+    public get IsEmpty(): boolean { return this._isEmpty }
+    public get IsLoading(): boolean { return this._isLoading }
+    public get PreviewData(): LibraryTreeNode | undefined { return this._previewData }
+    public get HasPreview(): boolean { return this._hasPreview }
 
-    public get Status(): string { return this.get_property_value(LibrariesPanelService.StatusKey) }
-    public set Status(v: string) { this.set_property_value(LibrariesPanelService.StatusKey, v) }
+    public get Status(): string { return this._status }
+    public set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
+
+    private setIsEmpty(v: boolean): void { const old = this._isEmpty; this._isEmpty = v; this.RaisePropertyChanged('IsEmpty', old, v) }
+    private setIsLoading(v: boolean): void { const old = this._isLoading; this._isLoading = v; this.RaisePropertyChanged('IsLoading', old, v) }
+    private setPreviewData(v: LibraryTreeNode | undefined): void { const old = this._previewData; this._previewData = v; this.RaisePropertyChanged('PreviewData', old, v) }
+    private setHasPreview(v: boolean): void { const old = this._hasPreview; this._hasPreview = v; this.RaisePropertyChanged('HasPreview', old, v) }
 
     public OnActivated(): void { void this.Reload() }
 
@@ -142,11 +158,11 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         const roots = this.Roots
         if (registry === undefined) {
             roots.Clear()
-            this.set_property_value(LibrariesPanelService.IsEmptyKey, true)
-            this.set_property_value(LibrariesPanelService.IsLoadingKey, false)
+            this.setIsEmpty(true)
+            this.setIsLoading(false)
             return
         }
-        this.set_property_value(LibrariesPanelService.IsLoadingKey, true)
+        this.setIsLoading(true)
         // Each class leaf carries an EntityIconVM resolved against the presentation
         // registry (the preview's $Icon). Ensure the adapters (which get-or-create
         // the registry) are registered up front so a leaf built below can resolve it.
@@ -181,8 +197,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
             for (const conceptName of [...byConcept.keys()].sort()) libNode.Children.Add(byConcept.get(conceptName)!)
             roots.Add(libNode)
         }
-        this.set_property_value(LibrariesPanelService.IsEmptyKey, roots.Count === 0)
-        this.set_property_value(LibrariesPanelService.IsLoadingKey, false)
+        this.setIsEmpty(roots.Count === 0)
+        this.setIsLoading(false)
         this.markWiki(leaves)
 
         // Refresh the shared visual aggregate so the panel's preview (and any open
@@ -213,26 +229,9 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         }
     }
 
-    // Selection drives the bottom preview pane: a Class leaf populates it with the
-    // class's data + mounted template + concept; any other selection clears it.
-    protected override OnPropertyChanged(descriptor: PropertyDescriptor, oldValue: unknown, newValue: unknown): void
-    {
-        super.OnPropertyChanged(descriptor, oldValue, newValue)
-        if (descriptor.Name !== 'SelectedNode') return
-        const node = newValue instanceof LibraryTreeNode ? newValue : undefined
-        if (node !== undefined && node.Kind === LibraryNodeKind.Class) {
-            // The node's $Icon VM drives the preview through the ContentControl +
-            // TodlVisualSelector, which renders + upgrades the class visual itself.
-            this.set_property_value(LibrariesPanelService.PreviewDataKey, node)
-            this.set_property_value(LibrariesPanelService.HasPreviewKey, true)
-        } else {
-            this.clearPreview()
-        }
-    }
-
     private clearPreview(): void
     {
-        this.set_property_value(LibrariesPanelService.PreviewDataKey, undefined)
-        this.set_property_value(LibrariesPanelService.HasPreviewKey, false)
+        this.setPreviewData(undefined)
+        this.setHasPreview(false)
     }
 }

@@ -1,4 +1,4 @@
-import { MuralBase, MetaData, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { ProjectExplorerService } from '../modules/project-explorer/services/project-explorer-service.js'
 
@@ -44,14 +44,17 @@ function shellTitleSource(provider: IServiceProvider): ITitleSource
 export class TitleService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<TitleService>('TitleService')
-    public static readonly TitleKey = MuralBase.RegisterProperty<string>(TitleService, 'Title', APP_NAME, MetaData.None)
+
+    private _title = APP_NAME
 
     constructor(provider: IServiceProvider, source: ITitleSource = shellTitleSource(provider))
     {
         super(provider)
         const recompute = (): void => {
             const name = source.activeDocumentTitle() ?? source.firstProjectName() ?? APP_NAME
-            this.set_property_value(TitleService.TitleKey, name)
+            const old = this._title
+            this._title = name
+            this.RaisePropertyChanged('Title', old, name)
             if (typeof document !== 'undefined')
             {
                 document.title = name === APP_NAME ? APP_NAME : `${name} — ${APP_NAME}`
@@ -61,5 +64,5 @@ export class TitleService extends ServiceBase
         recompute()
     }
 
-    public get Title(): string { return this.get_property_value(TitleService.TitleKey) }
+    public get Title(): string { return this._title }
 }

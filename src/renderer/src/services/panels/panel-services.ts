@@ -51,20 +51,16 @@ export class PanelSection extends MuralBase
 // per-service token.
 export abstract class PlexusPanelService extends ServiceBase
 {
-    public static readonly SectionsKey = MuralBase.RegisterProperty<ObservableCollection<PanelSection>>(
-        PlexusPanelService, 'Sections',
-        undefined as unknown as ObservableCollection<PanelSection>, MetaData.None);
+    private readonly _sections = new ObservableCollection<PanelSection>();
 
     constructor(provider: IServiceProvider, sections: readonly string[])
     {
         super(provider);
-        const rows = new ObservableCollection<PanelSection>();
-        for (const s of sections) rows.Add(new PanelSection(s));
-        this.set_property_value(PlexusPanelService.SectionsKey, rows);
+        for (const s of sections) this._sections.Add(new PanelSection(s));
     }
 
     public get Sections(): ObservableCollection<PanelSection>
     {
-        return this.get_property_value(PlexusPanelService.SectionsKey);
+        return this._sections;
     }
 }

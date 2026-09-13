@@ -1,6 +1,6 @@
 import {
     MuralBase, MetaData, ObservableCollection, ServiceBase, ServiceKey, RelayCommand,
-    type ICommand, type IServiceProvider, type PropertyDescriptor,
+    type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagnosticsService } from '../../services/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity, type Diagnostic } from '../../services/diagnostics/diagnostic.js'
@@ -88,48 +88,42 @@ export class ProblemsService extends ServiceBase
 {
     public static readonly Key = ProblemsServiceKey
 
-    public static readonly RowsKey = MuralBase.RegisterProperty<ObservableCollection<ProblemsRow>>(
-        ProblemsService, 'Rows', undefined as unknown as ObservableCollection<ProblemsRow>, MetaData.None)
-    public static readonly ErrorCountKey = MuralBase.RegisterProperty<number>(ProblemsService, 'ErrorCount', 0, MetaData.None)
-    public static readonly WarningCountKey = MuralBase.RegisterProperty<number>(ProblemsService, 'WarningCount', 0, MetaData.None)
+    private readonly _rows = new ObservableCollection<ProblemsRow>()
+    private _errorCount = 0
+    private _warningCount = 0
     // The status-bar cell's face text (e.g. "3 errors, 2 warnings" / "No problems").
-    public static readonly SummaryTextKey = MuralBase.RegisterProperty<string>(ProblemsService, 'SummaryText', 'No problems', MetaData.None)
+    private _summaryText = 'No problems'
     // Drives the MenuButton popup open (bound one-way IsOpen = $IsOpen): a failed
     // publish sets it true via Expand() to surface the problems.
-    public static readonly IsOpenKey = MuralBase.RegisterProperty<boolean>(ProblemsService, 'IsOpen', false, MetaData.None)
+    private _isOpen = false
 
-    // Toolbar filter state. Any change re-runs rebuild() (see OnPropertyChanged),
+    // Toolbar filter state. Any change re-runs rebuild() (see the setters below),
     // which filters the diagnostics before grouping. Counts stay full totals.
-    public static readonly ShowErrorsKey = MuralBase.RegisterProperty<boolean>(ProblemsService, 'ShowErrors', true, MetaData.None)
-    public static readonly ShowWarningsKey = MuralBase.RegisterProperty<boolean>(ProblemsService, 'ShowWarnings', true, MetaData.None)
-    public static readonly FilterTextKey = MuralBase.RegisterProperty<string>(ProblemsService, 'FilterText', '', MetaData.None)
+    private _showErrors = true
+    private _showWarnings = true
+    private _filterText = ''
 
     // MaxHeight for the popup's scrollable list = 30% of the live window height.
     // Bound by the .mu ScrollViewer; recomputed whenever ViewportService.Height
     // changes.
-    public static readonly ListMaxHeightKey = MuralBase.RegisterProperty<number>(
-        ProblemsService, 'ListMaxHeight', FALLBACK_LIST_MAX_HEIGHT, MetaData.None)
+    private _listMaxHeight = FALLBACK_LIST_MAX_HEIGHT
 
     // Popup width = the live window width, so the dropdown spans the whole window.
     // Bound by the .mu popup container; recomputed on resize.
-    public static readonly PopupWidthKey = MuralBase.RegisterProperty<number>(
-        ProblemsService, 'PopupWidth', 0, MetaData.None)
+    private _popupWidth = 0
 
     // Toolbar commands: copy the (filtered) list to the clipboard; reset filters.
-    public static readonly CopyAllCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
-        ProblemsService, 'CopyAllCommand', undefined, MetaData.None)
-    public static readonly ClearFiltersCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
-        ProblemsService, 'ClearFiltersCommand', undefined, MetaData.None)
+    private readonly _copyAllCommand: ICommand
+    private readonly _clearFiltersCommand: ICommand
 
-    // Set true while ClearFilters mutates several filter DPs, so their individual
-    // property-change notifications don't each trigger a rebuild (ClearFilters
-    // rebuilds once at the end).
+    // Set true while ClearFilters mutates several filter properties, so their
+    // individual property-change notifications don't each trigger a rebuild
+    // (ClearFilters rebuilds once at the end).
     private suppressRebuild = false
 
     constructor(provider: IServiceProvider)
     {
         super(provider)
-        this.set_property_value(ProblemsService.RowsKey, new ObservableCollection<ProblemsRow>())
         const store = provider.get(DiagnosticsService.Key)
         // Subscribe to the store's coalesced change signal (once per Publish), NOT
         // to All's per-item collection events — the latter fires N+1 times per
@@ -139,32 +133,45 @@ export class ProblemsService extends ServiceBase
         if (viewport !== undefined) {
             const sync = (): void => {
                 this.updateListMaxHeight(viewport.Height)
-                this.set_property_value(ProblemsService.PopupWidthKey, viewport.Width)
+                this.setPopupWidth(viewport.Width)
             }
             sync()
             viewport.Subscribe(sync)
         }
-        this.set_property_value(ProblemsService.CopyAllCommandKey, new RelayCommand(() => void this.copyAll()))
-        this.set_property_value(ProblemsService.ClearFiltersCommandKey, new RelayCommand(() => this.clearFilters()))
+        this._copyAllCommand = new RelayCommand(() => void this.copyAll())
+        this._clearFiltersCommand = new RelayCommand(() => this.clearFilters())
         this.rebuild()
     }
 
-    public get Rows(): ObservableCollection<ProblemsRow> { return this.get_property_value(ProblemsService.RowsKey) }
-    public get ErrorCount(): number { return this.get_property_value(ProblemsService.ErrorCountKey) }
-    public get WarningCount(): number { return this.get_property_value(ProblemsService.WarningCountKey) }
-    public get SummaryText(): string { return this.get_property_value(ProblemsService.SummaryTextKey) }
-    public get IsOpen(): boolean { return this.get_property_value(ProblemsService.IsOpenKey) }
-    public set IsOpen(v: boolean) { this.set_property_value(ProblemsService.IsOpenKey, v) }
-    public get ShowErrors(): boolean { return this.get_property_value(ProblemsService.ShowErrorsKey) }
-    public set ShowErrors(v: boolean) { this.set_property_value(ProblemsService.ShowErrorsKey, v) }
-    public get ShowWarnings(): boolean { return this.get_property_value(ProblemsService.ShowWarningsKey) }
-    public set ShowWarnings(v: boolean) { this.set_property_value(ProblemsService.ShowWarningsKey, v) }
-    public get FilterText(): string { return this.get_property_value(ProblemsService.FilterTextKey) }
-    public set FilterText(v: string) { this.set_property_value(ProblemsService.FilterTextKey, v) }
-    public get ListMaxHeight(): number { return this.get_property_value(ProblemsService.ListMaxHeightKey) }
-    public get PopupWidth(): number { return this.get_property_value(ProblemsService.PopupWidthKey) }
-    public get CopyAllCommand(): ICommand | undefined { return this.get_property_value(ProblemsService.CopyAllCommandKey) }
-    public get ClearFiltersCommand(): ICommand | undefined { return this.get_property_value(ProblemsService.ClearFiltersCommandKey) }
+    public get Rows(): ObservableCollection<ProblemsRow> { return this._rows }
+    public get ErrorCount(): number { return this._errorCount }
+    private setErrorCount(v: number): void { const o = this._errorCount; if (o === v) return; this._errorCount = v; this.RaisePropertyChanged('ErrorCount', o, v) }
+    public get WarningCount(): number { return this._warningCount }
+    private setWarningCount(v: number): void { const o = this._warningCount; if (o === v) return; this._warningCount = v; this.RaisePropertyChanged('WarningCount', o, v) }
+    public get SummaryText(): string { return this._summaryText }
+    private setSummaryText(v: string): void { const o = this._summaryText; if (o === v) return; this._summaryText = v; this.RaisePropertyChanged('SummaryText', o, v) }
+    public get IsOpen(): boolean { return this._isOpen }
+    public set IsOpen(v: boolean) { const o = this._isOpen; if (o === v) return; this._isOpen = v; this.RaisePropertyChanged('IsOpen', o, v) }
+    public get ShowErrors(): boolean { return this._showErrors }
+    public set ShowErrors(v: boolean) { const o = this._showErrors; if (o === v) return; this._showErrors = v; this.RaisePropertyChanged('ShowErrors', o, v); this.onFilterChanged() }
+    public get ShowWarnings(): boolean { return this._showWarnings }
+    public set ShowWarnings(v: boolean) { const o = this._showWarnings; if (o === v) return; this._showWarnings = v; this.RaisePropertyChanged('ShowWarnings', o, v); this.onFilterChanged() }
+    public get FilterText(): string { return this._filterText }
+    public set FilterText(v: string) { const o = this._filterText; if (o === v) return; this._filterText = v; this.RaisePropertyChanged('FilterText', o, v); this.onFilterChanged() }
+    public get ListMaxHeight(): number { return this._listMaxHeight }
+    private setListMaxHeight(v: number): void { const o = this._listMaxHeight; if (o === v) return; this._listMaxHeight = v; this.RaisePropertyChanged('ListMaxHeight', o, v) }
+    public get PopupWidth(): number { return this._popupWidth }
+    private setPopupWidth(v: number): void { const o = this._popupWidth; if (o === v) return; this._popupWidth = v; this.RaisePropertyChanged('PopupWidth', o, v) }
+    public get CopyAllCommand(): ICommand | undefined { return this._copyAllCommand }
+    public get ClearFiltersCommand(): ICommand | undefined { return this._clearFiltersCommand }
+
+    // A filter property changed: re-run rebuild() unless we're in the middle of a
+    // ClearFilters batch (which rebuilds once at the end).
+    private onFilterChanged(): void
+    {
+        if (this.suppressRebuild) return
+        this.rebuild()
+    }
 
     public Expand(): void { this.IsOpen = true }
 
@@ -187,9 +194,9 @@ export class ProblemsService extends ServiceBase
             if (d.severity === DiagnosticSeverity.Error) errors += 1
             else if (d.severity === DiagnosticSeverity.Warning) warnings += 1
         }
-        this.set_property_value(ProblemsService.ErrorCountKey, errors)
-        this.set_property_value(ProblemsService.WarningCountKey, warnings)
-        this.set_property_value(ProblemsService.SummaryTextKey, summarize(errors, warnings))
+        this.setErrorCount(errors)
+        this.setWarningCount(warnings)
+        this.setSummaryText(summarize(errors, warnings))
 
         // Group by project (first-seen order) only to insert a project header when
         // more than one project has problems. Within a project, each diagnostic is
@@ -243,7 +250,7 @@ export class ProblemsService extends ServiceBase
     private updateListMaxHeight(height: number): void
     {
         const h = height > 0 ? Math.round(height * LIST_HEIGHT_FRACTION) : FALLBACK_LIST_MAX_HEIGHT
-        this.set_property_value(ProblemsService.ListMaxHeightKey, h)
+        this.setListMaxHeight(h)
     }
 
     // Copy every currently displayed (filtered) diagnostic as text — WYSIWYG with
@@ -267,19 +274,11 @@ export class ProblemsService extends ServiceBase
     private clearFilters(): void
     {
         this.suppressRebuild = true
-        this.set_property_value(ProblemsService.FilterTextKey, '')
-        this.set_property_value(ProblemsService.ShowErrorsKey, true)
-        this.set_property_value(ProblemsService.ShowWarningsKey, true)
+        this.FilterText = ''
+        this.ShowErrors = true
+        this.ShowWarnings = true
         this.suppressRebuild = false
         this.rebuild()
-    }
-
-    protected override OnPropertyChanged(descriptor: PropertyDescriptor, oldValue: unknown, newValue: unknown): void
-    {
-        super.OnPropertyChanged(descriptor, oldValue, newValue)
-        if (this.suppressRebuild) return
-        const n = descriptor.Name
-        if (n === 'ShowErrors' || n === 'ShowWarnings' || n === 'FilterText') this.rebuild()
     }
 }
 

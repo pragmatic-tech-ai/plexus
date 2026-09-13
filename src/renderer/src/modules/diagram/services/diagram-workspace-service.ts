@@ -1,6 +1,4 @@
 import {
-    MetaData,
-    MuralBase,
     ServiceBase,
     ServiceKey,
     type IServiceProvider,
@@ -29,8 +27,7 @@ export class DiagramWorkspaceService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<DiagramWorkspaceService>('DiagramWorkspaceService')
 
-    public static readonly DocumentKey = MuralBase.RegisterProperty<DiagramDocument>(
-        DiagramWorkspaceService, 'Document', undefined as unknown as DiagramDocument, MetaData.None)
+    private readonly _document: DiagramDocument
 
     constructor(provider: IServiceProvider)
     {
@@ -38,8 +35,8 @@ export class DiagramWorkspaceService extends ServiceBase
 
         const doc = new DiagramDocument()
         doc.Title = 'Untitled Diagram'
-        this.set_property_value(DiagramWorkspaceService.DocumentKey, doc)
+        this._document = doc
     }
 
-    public get Document(): DiagramDocument { return this.get_property_value(DiagramWorkspaceService.DocumentKey) }
+    public get Document(): DiagramDocument { return this._document }
 }

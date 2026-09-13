@@ -17,8 +17,6 @@
 // resources.mu): a command bar + a tree of DataTemplate[OpenProject] roots.
 import {
     Key,
-    MetaData,
-    MuralBase,
     ObservableCollection,
     RelayCommand,
     ServiceBase,
@@ -148,20 +146,15 @@ export class ProjectExplorerService extends ServiceBase
 
     // The open projects — the tree's roots (each a collapsible DataTemplate
     // [OpenProject]). Empty until a project is opened or the session restores.
-    public static readonly OpenProjectsKey = MuralBase.RegisterProperty<ObservableCollection<OpenProject>>(
-        ProjectExplorerService, 'OpenProjects', undefined as unknown as ObservableCollection<OpenProject>, MetaData.None)
-    public static readonly StatusKey = MuralBase.RegisterProperty<string>(
-        ProjectExplorerService, 'Status', 'No project open.', MetaData.None)
-    public static readonly OpenProjectCommandKey = MuralBase.RegisterProperty<ICommand>(
-        ProjectExplorerService, 'OpenProjectCommand', undefined as unknown as ICommand, MetaData.None)
-    public static readonly NewProjectCommandKey = MuralBase.RegisterProperty<ICommand>(
-        ProjectExplorerService, 'NewProjectCommand', undefined as unknown as ICommand, MetaData.None)
+    private readonly _openProjects = new ObservableCollection<OpenProject>()
+    private _status = 'No project open.'
+    private _openProjectCommand!: ICommand
+    private _newProjectCommand!: ICommand
     // Keyboard handler for the single project TreeView (bound `on KeyDown` from
     // the tree's wrapper). The whole tree is now ONE TreeView with unified
     // selection, so the key routes to whichever project currently holds the
     // selection (F2 rename / Delete / Enter-commit / Escape-cancel).
-    public static readonly TreeKeyCommandKey = MuralBase.RegisterProperty<ICommand>(
-        ProjectExplorerService, 'TreeKeyCommand', undefined as unknown as ICommand, MetaData.None)
+    private _treeKeyCommand!: ICommand
 
     // Which open project each open document belongs to — for save-routing (the
     // active doc saves through its own factory) and close-cleanup.
@@ -191,17 +184,16 @@ export class ProjectExplorerService extends ServiceBase
     constructor(provider: IServiceProvider)
     {
         super(provider)
-        this.set_property_value(ProjectExplorerService.OpenProjectsKey, new ObservableCollection<OpenProject>())
-        this.set_property_value(ProjectExplorerService.OpenProjectCommandKey, new RelayCommand(() => void this.openProject()))
-        this.set_property_value(ProjectExplorerService.NewProjectCommandKey, new RelayCommand(() => void this.newProject()))
-        this.set_property_value(ProjectExplorerService.TreeKeyCommandKey, new RelayCommand((arg) => this.handleTreeKeyGlobal(arg as KeyEventArgs)))
+        this._openProjectCommand = new RelayCommand(() => void this.openProject())
+        this._newProjectCommand = new RelayCommand(() => void this.newProject())
+        this._treeKeyCommand = new RelayCommand((arg) => this.handleTreeKeyGlobal(arg as KeyEventArgs))
     }
 
-    public get OpenProjects(): ObservableCollection<OpenProject> { return this.get_property_value(ProjectExplorerService.OpenProjectsKey) }
-    public get Status(): string { return this.get_property_value(ProjectExplorerService.StatusKey) }
-    public get OpenProjectCommand(): ICommand { return this.get_property_value(ProjectExplorerService.OpenProjectCommandKey) }
-    public get NewProjectCommand(): ICommand { return this.get_property_value(ProjectExplorerService.NewProjectCommandKey) }
-    public get TreeKeyCommand(): ICommand { return this.get_property_value(ProjectExplorerService.TreeKeyCommandKey) }
+    public get OpenProjects(): ObservableCollection<OpenProject> { return this._openProjects }
+    public get Status(): string { return this._status }
+    public get OpenProjectCommand(): ICommand { return this._openProjectCommand }
+    public get NewProjectCommand(): ICommand { return this._newProjectCommand }
+    public get TreeKeyCommand(): ICommand { return this._treeKeyCommand }
 
     // The project that owns `node` — the open project whose file tree contains
     // it. The single unified TreeView renders every project, so behaviors resolve
@@ -299,7 +291,7 @@ export class ProjectExplorerService extends ServiceBase
         if (op !== undefined) this.handleTreeKey(op, args)
     }
 
-    private set Status(v: string) { this.set_property_value(ProjectExplorerService.StatusKey, v) }
+    private set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
 
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
     private get storageRegistry(): StorageProviderRegistry { return this.Provider.getRequired(StorageProviderRegistry.Key) }

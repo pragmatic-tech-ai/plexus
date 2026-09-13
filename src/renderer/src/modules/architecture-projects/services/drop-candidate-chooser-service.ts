@@ -27,18 +27,17 @@ export class DropCandidateChooserService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<DropCandidateChooserService>('DropCandidateChooserService')
 
-    public static readonly IsOpenKey = MuralBase.RegisterProperty<boolean>(DropCandidateChooserService, 'IsOpen', false, MetaData.None)
-    public static readonly RowsKey = MuralBase.RegisterProperty<ObservableCollection<ChooserRow>>(
-        DropCandidateChooserService, 'Rows', undefined as unknown as ObservableCollection<ChooserRow>, MetaData.None)
+    private _isOpen = false
+    private readonly _rows = new ObservableCollection<ChooserRow>()
 
     public constructor(provider: IServiceProvider)
     {
         super(provider)
-        this.set_property_value(DropCandidateChooserService.RowsKey, new ObservableCollection<ChooserRow>())
     }
 
-    public get IsOpen(): boolean { return this.get_property_value(DropCandidateChooserService.IsOpenKey) }
-    public get Rows(): ObservableCollection<ChooserRow> { return this.get_property_value(DropCandidateChooserService.RowsKey) }
+    public get IsOpen(): boolean { return this._isOpen }
+    private setIsOpen(v: boolean): void { const o = this._isOpen; if (o === v) return; this._isOpen = v; this.RaisePropertyChanged('IsOpen', o, v) }
+    public get Rows(): ObservableCollection<ChooserRow> { return this._rows }
 
     // Generic over any candidate carrying a `label` — term-drop actions AND
     // connector-authoring actions both flow through the same popup.
@@ -50,12 +49,12 @@ export class DropCandidateChooserService extends ServiceBase
             const row = new ChooserRow(action.label, new RelayCommand(() => { this.close(); onPick(action) }))
             rows.Add(row)
         }
-        this.set_property_value(DropCandidateChooserService.IsOpenKey, true)
+        this.setIsOpen(true)
     }
 
     private close(): void
     {
-        this.set_property_value(DropCandidateChooserService.IsOpenKey, false)
+        this.setIsOpen(false)
         this.Rows.Clear()
     }
 }

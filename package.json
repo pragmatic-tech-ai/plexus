@@ -28,7 +28,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@pragmatic-tech-ai/todl": "^0.33.3",
-    "@pragmatic-tech-ai/todl-runtime": "^0.5.1",
+    "@pragmatic-tech-ai/todl-runtime": "^0.5.3",
     "chokidar": "^5.0.0",
     "electron-updater": "^6.8.9",
     "highlight.js": "^11.12.0",

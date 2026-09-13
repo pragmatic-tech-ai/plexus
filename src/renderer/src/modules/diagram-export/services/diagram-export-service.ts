@@ -1,5 +1,5 @@
 import {
-  MetaData, MuralBase, RelayCommand, ServiceBase, ServiceKey,
+  RelayCommand, ServiceBase, ServiceKey,
   type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import { Application } from '@pragmatic-tech-ai/mural/runtime'
@@ -25,28 +25,22 @@ export class DiagramExportService extends ServiceBase
 {
   public static readonly Key = new ServiceKey<DiagramExportService>('DiagramExportService')
 
-  public static readonly ExportSvgCommandKey = MuralBase.RegisterProperty<ICommand>(
-    DiagramExportService, 'ExportSvgCommand', undefined as unknown as ICommand, MetaData.None)
-  public static readonly ExportPptxCommandKey = MuralBase.RegisterProperty<ICommand>(
-    DiagramExportService, 'ExportPptxCommand', undefined as unknown as ICommand, MetaData.None)
-  public static readonly OpenExportDialogCommandKey = MuralBase.RegisterProperty<ICommand>(
-    DiagramExportService, 'OpenExportDialogCommand', undefined as unknown as ICommand, MetaData.None)
+  private readonly _exportSvgCommand: ICommand
+  private readonly _exportPptxCommand: ICommand
+  private readonly _openExportDialogCommand: ICommand
 
   public constructor(provider: IServiceProvider)
   {
     super(provider)
     const gate = (): boolean => this.canExportActive()
-    this.set_property_value(DiagramExportService.ExportSvgCommandKey,
-      new RelayCommand(() => { void this.exportActive(ExportFormat.Svg) }, gate))
-    this.set_property_value(DiagramExportService.ExportPptxCommandKey,
-      new RelayCommand(() => { void this.exportActive(ExportFormat.Pptx) }, gate))
-    this.set_property_value(DiagramExportService.OpenExportDialogCommandKey,
-      new RelayCommand(() => { void this.openExportDialog() }, gate))
+    this._exportSvgCommand = new RelayCommand(() => { void this.exportActive(ExportFormat.Svg) }, gate)
+    this._exportPptxCommand = new RelayCommand(() => { void this.exportActive(ExportFormat.Pptx) }, gate)
+    this._openExportDialogCommand = new RelayCommand(() => { void this.openExportDialog() }, gate)
   }
 
-  public get ExportSvgCommand(): ICommand { return this.get_property_value(DiagramExportService.ExportSvgCommandKey) }
-  public get ExportPptxCommand(): ICommand { return this.get_property_value(DiagramExportService.ExportPptxCommandKey) }
-  public get OpenExportDialogCommand(): ICommand { return this.get_property_value(DiagramExportService.OpenExportDialogCommandKey) }
+  public get ExportSvgCommand(): ICommand { return this._exportSvgCommand }
+  public get ExportPptxCommand(): ICommand { return this._exportPptxCommand }
+  public get OpenExportDialogCommand(): ICommand { return this._openExportDialogCommand }
 
   // The active document if it is a diagram with at least one node, else undefined.
   protected activeDiagram(): DiagramDocument | undefined

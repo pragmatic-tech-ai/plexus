@@ -1,4 +1,4 @@
-import { MuralBase, MetaData, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 // The window-height feed behind a seam so ViewportService is testable without a
 // real DOM. The default implementation (windowViewportSource) reads the renderer
@@ -29,25 +29,28 @@ function windowViewportSource(): IViewportSource
 export class ViewportService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<ViewportService>('ViewportService')
-    public static readonly HeightKey = MuralBase.RegisterProperty<number>(ViewportService, 'Height', 0, MetaData.None)
-    public static readonly WidthKey = MuralBase.RegisterProperty<number>(ViewportService, 'Width', 0, MetaData.None)
+
+    private _height = 0
+    private _width = 0
 
     private readonly listeners = new Set<() => void>()
 
     constructor(provider: IServiceProvider, source: IViewportSource = windowViewportSource())
     {
         super(provider)
-        this.set_property_value(ViewportService.HeightKey, source.height())
-        this.set_property_value(ViewportService.WidthKey, source.width())
+        this.setHeight(source.height())
+        this.setWidth(source.width())
         source.subscribe(() => {
-            this.set_property_value(ViewportService.HeightKey, source.height())
-            this.set_property_value(ViewportService.WidthKey, source.width())
+            this.setHeight(source.height())
+            this.setWidth(source.width())
             for (const l of this.listeners) l()
         })
     }
 
-    public get Height(): number { return this.get_property_value(ViewportService.HeightKey) }
-    public get Width(): number { return this.get_property_value(ViewportService.WidthKey) }
+    public get Height(): number { return this._height }
+    private setHeight(v: number): void { const old = this._height; if (old === v) return; this._height = v; this.RaisePropertyChanged('Height', old, v) }
+    public get Width(): number { return this._width }
+    private setWidth(v: number): void { const old = this._width; if (old === v) return; this._width = v; this.RaisePropertyChanged('Width', old, v) }
 
     // Fired on every resize (after Height is updated). Returns an unsubscribe thunk.
     public Subscribe(listener: () => void): () => void

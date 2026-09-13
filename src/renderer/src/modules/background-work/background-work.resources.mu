@@ -66,7 +66,7 @@ resources BackgroundWorkResources {
                         Button [ DockPanel.Dock = Right, Variant = Text, Command = $ClearCompletedCommand, VerticalAlignment = Center ] {
                             TextBlock [ Text = "Clear completed", Style = @LabelMedium, Foreground = @OnSurfaceVariant ]
                         }
-                        TextBlock [ Text = "Background Tasks", Style = @LabelLarge, Foreground = @OnSurface, VerticalAlignment = Center ]
+                        TextBlock [ Text = "Background Tasks", Style = @TitleMedium, Foreground = @OnSurface, VerticalAlignment = Center ]
                     }
                     // Hairline separating the header from the list.
                     Border [ DockPanel.Dock = Top, Height = 1, Fill = @OutlineVariant ]

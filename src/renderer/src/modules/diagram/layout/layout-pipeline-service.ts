@@ -1,5 +1,4 @@
 import {
-    MetaData,
     MuralBase,
     ObservableCollection,
     RelayCommand,
@@ -110,43 +109,29 @@ export class LayoutPipelineService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<LayoutPipelineService>('LayoutPipelineService')
 
-    // Every member bound from the .mu template MUST be a registered property:
-    // mural's binding engine reads a path on a MuralBase only via a registered
-    // PropertyKey (get_property_value) — it does NOT fall back to plain fields.
-    public static readonly StatusKey = MuralBase.RegisterProperty<string>(
-        LayoutPipelineService, 'Status', '', MetaData.None)
-    public static readonly StagesKey = MuralBase.RegisterProperty<ObservableCollection<LayoutStageVM>>(
-        LayoutPipelineService, 'Stages', undefined as unknown as ObservableCollection<LayoutStageVM>, MetaData.None)
-    public static readonly InspectorKey = MuralBase.RegisterProperty<LayoutInspector>(
-        LayoutPipelineService, 'Inspector', undefined as unknown as LayoutInspector, MetaData.None)
-    public static readonly PresetsKey = MuralBase.RegisterProperty<ObservableCollection<LayoutPresetRef>>(
-        LayoutPipelineService, 'Presets', undefined as unknown as ObservableCollection<LayoutPresetRef>, MetaData.None)
-    public static readonly SelectedPresetKey = MuralBase.RegisterProperty<LayoutPresetRef | undefined>(
-        LayoutPipelineService, 'SelectedPreset', undefined, MetaData.None)
-    public static readonly CanDeleteKey = MuralBase.RegisterProperty<boolean>(
-        LayoutPipelineService, 'CanDelete', false, MetaData.None)
-    public static readonly RunCommandKey = MuralBase.RegisterProperty<ICommand>(
-        LayoutPipelineService, 'RunCommand', undefined as unknown as ICommand, MetaData.None)
+    // Plain Observable-backed members bound from the .mu template: mural binds
+    // plain getters/setters on a service by NAME and subscribes its Observable
+    // INPC, so these need no dependency-property registration.
+    private _status = ''
+    private _stages: ObservableCollection<LayoutStageVM> = new ObservableCollection<LayoutStageVM>()
+    private _inspector!: LayoutInspector
+    private readonly _presetRefs = new ObservableCollection<LayoutPresetRef>()
+    private _selectedPreset: LayoutPresetRef | undefined = undefined
+    private _canDelete = false
+    private _runCommand!: ICommand
     // True while a preview overlay is showing — drives the Apply/Cancel buttons'
     // visibility in the preset strip.
-    public static readonly PreviewActiveKey = MuralBase.RegisterProperty<boolean>(
-        LayoutPipelineService, 'PreviewActive', false, MetaData.None)
+    private _previewActive = false
     // Logical inverse of PreviewActive, kept in lock-step by the setter. Drives
     // the `Visibility` of the non-preview controls (presets, Save/Delete, Preview,
     // Run) so they collapse while a preview is being confirmed — `ToVisibility`
     // only maps truthy→Visible, so hiding on a flag needs its negation.
-    public static readonly PreviewInactiveKey = MuralBase.RegisterProperty<boolean>(
-        LayoutPipelineService, 'PreviewInactive', true, MetaData.None)
-    public static readonly PreviewCommandKey = MuralBase.RegisterProperty<ICommand>(
-        LayoutPipelineService, 'PreviewCommand', undefined as unknown as ICommand, MetaData.None)
-    public static readonly ApplyPreviewCommandKey = MuralBase.RegisterProperty<ICommand>(
-        LayoutPipelineService, 'ApplyPreviewCommand', undefined as unknown as ICommand, MetaData.None)
-    public static readonly CancelPreviewCommandKey = MuralBase.RegisterProperty<ICommand>(
-        LayoutPipelineService, 'CancelPreviewCommand', undefined as unknown as ICommand, MetaData.None)
-    public static readonly SaveCommandKey = MuralBase.RegisterProperty<ICommand>(
-        LayoutPipelineService, 'SaveCommand', undefined as unknown as ICommand, MetaData.None)
-    public static readonly DeleteCommandKey = MuralBase.RegisterProperty<ICommand>(
-        LayoutPipelineService, 'DeleteCommand', undefined as unknown as ICommand, MetaData.None)
+    private _previewInactive = true
+    private _previewCommand!: ICommand
+    private _applyPreviewCommand!: ICommand
+    private _cancelPreviewCommand!: ICommand
+    private _saveCommand!: ICommand
+    private _deleteCommand!: ICommand
 
     // Plain fields — used only from TS (not bound in markup).
     public readonly Catalog: CatalogSlot[] = GetPipelineCatalog()
@@ -173,7 +158,7 @@ export class LayoutPipelineService extends ServiceBase
         super(provider)
 
         // The inspector panel host added to the shell's Inspector region.
-        this.set_property_value(LayoutPipelineService.InspectorKey, new LayoutInspector())
+        this._inspector = new LayoutInspector()
 
         // One ComboBox row per configurable strategy slot (the transform-list
         // slot is excluded). Selecting a strategy writes its className into
@@ -218,21 +203,20 @@ export class LayoutPipelineService extends ServiceBase
             this.stageKeys.set(stage, key)
             if (slot.slotId === 'port-assigner') portAssignerStage = stage
         }
-        this.set_property_value(LayoutPipelineService.StagesKey, stages)
-        this.set_property_value(LayoutPipelineService.PresetsKey, new ObservableCollection<LayoutPresetRef>())
+        this._stages = stages
 
-        this.set_property_value(LayoutPipelineService.RunCommandKey, new RelayCommand(() => this.Run()))
-        this.set_property_value(LayoutPipelineService.PreviewCommandKey, new RelayCommand(() => this.Preview()))
-        this.set_property_value(LayoutPipelineService.ApplyPreviewCommandKey, new RelayCommand(() => this.ApplyPreview()))
-        this.set_property_value(LayoutPipelineService.CancelPreviewCommandKey, new RelayCommand(() => this.CancelPreview()))
-        this.set_property_value(LayoutPipelineService.SaveCommandKey, new RelayCommand(() => { void this.save() }))
-        this.set_property_value(LayoutPipelineService.DeleteCommandKey, new RelayCommand(() => { void this.deleteSelected() }))
+        this._runCommand = new RelayCommand(() => this.Run())
+        this._previewCommand = new RelayCommand(() => this.Preview())
+        this._applyPreviewCommand = new RelayCommand(() => this.ApplyPreview())
+        this._cancelPreviewCommand = new RelayCommand(() => this.CancelPreview())
+        this._saveCommand = new RelayCommand(() => { void this.save() })
+        this._deleteCommand = new RelayCommand(() => { void this.deleteSelected() })
 
         // Selecting a preset loads it (scope-aware); whatever is selected also
         // drives whether Delete is enabled.
-        this.PropertyChanged(LayoutPipelineService.SelectedPresetKey).subscribe(() => {
+        this.PropertyChanged('SelectedPreset').subscribe(() => {
             const ref = this.SelectedPreset
-            this.set_property_value(LayoutPipelineService.CanDeleteKey, ref !== undefined)
+            this.setCanDelete(ref !== undefined)
             if (ref !== undefined) void this.loadRef(ref)
         })
 
@@ -249,28 +233,33 @@ export class LayoutPipelineService extends ServiceBase
         }
     }
 
-    public get Status(): string { return this.get_property_value(LayoutPipelineService.StatusKey) }
-    private set Status(v: string) { this.set_property_value(LayoutPipelineService.StatusKey, v) }
+    public get Status(): string { return this._status }
+    private set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
 
-    public get Stages(): ObservableCollection<LayoutStageVM> { return this.get_property_value(LayoutPipelineService.StagesKey) }
-    public get Inspector(): LayoutInspector { return this.get_property_value(LayoutPipelineService.InspectorKey) }
-    public get Presets(): ObservableCollection<LayoutPresetRef> { return this.get_property_value(LayoutPipelineService.PresetsKey) }
-    public get SelectedPreset(): LayoutPresetRef | undefined { return this.get_property_value(LayoutPipelineService.SelectedPresetKey) }
-    public set SelectedPreset(v: LayoutPresetRef | undefined) { this.set_property_value(LayoutPipelineService.SelectedPresetKey, v) }
-    public get CanDelete(): boolean { return this.get_property_value(LayoutPipelineService.CanDeleteKey) }
-    public get RunCommand(): ICommand { return this.get_property_value(LayoutPipelineService.RunCommandKey) }
-    public get PreviewActive(): boolean { return this.get_property_value(LayoutPipelineService.PreviewActiveKey) }
+    public get Stages(): ObservableCollection<LayoutStageVM> { return this._stages }
+    public get Inspector(): LayoutInspector { return this._inspector }
+    public get Presets(): ObservableCollection<LayoutPresetRef> { return this._presetRefs }
+    public get SelectedPreset(): LayoutPresetRef | undefined { return this._selectedPreset }
+    public set SelectedPreset(v: LayoutPresetRef | undefined) { const old = this._selectedPreset; this._selectedPreset = v; this.RaisePropertyChanged('SelectedPreset', old, v) }
+    public get CanDelete(): boolean { return this._canDelete }
+    private setCanDelete(v: boolean): void { const old = this._canDelete; this._canDelete = v; this.RaisePropertyChanged('CanDelete', old, v) }
+    public get RunCommand(): ICommand { return this._runCommand }
+    public get PreviewActive(): boolean { return this._previewActive }
     private set PreviewActive(v: boolean)
     {
-        this.set_property_value(LayoutPipelineService.PreviewActiveKey, v)
-        this.set_property_value(LayoutPipelineService.PreviewInactiveKey, !v)
+        const oldActive = this._previewActive
+        this._previewActive = v
+        this.RaisePropertyChanged('PreviewActive', oldActive, v)
+        const oldInactive = this._previewInactive
+        this._previewInactive = !v
+        this.RaisePropertyChanged('PreviewInactive', oldInactive, !v)
     }
-    public get PreviewInactive(): boolean { return this.get_property_value(LayoutPipelineService.PreviewInactiveKey) }
-    public get PreviewCommand(): ICommand { return this.get_property_value(LayoutPipelineService.PreviewCommandKey) }
-    public get ApplyPreviewCommand(): ICommand { return this.get_property_value(LayoutPipelineService.ApplyPreviewCommandKey) }
-    public get CancelPreviewCommand(): ICommand { return this.get_property_value(LayoutPipelineService.CancelPreviewCommandKey) }
-    public get SaveCommand(): ICommand { return this.get_property_value(LayoutPipelineService.SaveCommandKey) }
-    public get DeleteCommand(): ICommand { return this.get_property_value(LayoutPipelineService.DeleteCommandKey) }
+    public get PreviewInactive(): boolean { return this._previewInactive }
+    public get PreviewCommand(): ICommand { return this._previewCommand }
+    public get ApplyPreviewCommand(): ICommand { return this._applyPreviewCommand }
+    public get CancelPreviewCommand(): ICommand { return this._cancelPreviewCommand }
+    public get SaveCommand(): ICommand { return this._saveCommand }
+    public get DeleteCommand(): ICommand { return this._deleteCommand }
 
     // ── preset backends (one per scope) ─────────────────────────────────────
 
