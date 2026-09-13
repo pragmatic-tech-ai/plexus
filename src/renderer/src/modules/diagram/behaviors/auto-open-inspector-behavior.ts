@@ -103,7 +103,7 @@ export function attachAutoOpenInspector(
         onViewChanged()
     }
 
-    const hostSub: Disposable = host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(onActiveDocChanged)
+    const hostSub: Disposable = host.PropertyChanged('ActiveDocument').subscribe(onActiveDocChanged)
     onActiveDocChanged()
 
     return (): void =>

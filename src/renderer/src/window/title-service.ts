@@ -32,7 +32,7 @@ function shellTitleSource(provider: IServiceProvider): ITitleSource
             return projects && projects.Count > 0 ? (projects.Get(0)?.Name || undefined) : undefined
         },
         subscribe: (onChange) => {
-            host?.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(onChange)
+            host?.PropertyChanged('ActiveDocument').subscribe(onChange)
             const unsub = explorer?.OpenProjects.Subscribe(onChange)
             // App-lifetime service: the host subscription has no matching dispose in
             // use elsewhere, so we only forward the explorer unsubscribe.

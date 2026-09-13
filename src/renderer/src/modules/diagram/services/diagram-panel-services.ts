@@ -106,7 +106,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         services.get(LibrariesPanelService.Key)?.onLibrariesChanged(() => { void this.syncPageSet() })
         services.get(MetaModelsService.Key)?.onMetaModelsChanged(() => { void this.syncPageSet() })
         const host = services.get(ContentHostService.Key) as DocumentsContentHostService | undefined
-        host?.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => { void this.onActiveDocChanged() })
+        host?.PropertyChanged('ActiveDocument').subscribe(() => { void this.onActiveDocChanged() })
         // Belt-and-suspenders: a document bound via the OpenDocuments sync path
         // (not the active-doc path) also gets its contexts stamped — re-apply so
         // its pages settle. Idempotent when the active doc is already stamped.

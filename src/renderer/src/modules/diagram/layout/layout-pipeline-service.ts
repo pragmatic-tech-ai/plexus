@@ -226,7 +226,7 @@ export class LayoutPipelineService extends ServiceBase
         // construction there still works (and still lists global presets).
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         if (host !== undefined && typeof (host as unknown as MuralBase).PropertyChanged === 'function') {
-            host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => this.onActiveDocumentChanged())
+            host.PropertyChanged('ActiveDocument').subscribe(() => this.onActiveDocumentChanged())
             this.onActiveDocumentChanged()
         } else {
             void this.refreshPresets()

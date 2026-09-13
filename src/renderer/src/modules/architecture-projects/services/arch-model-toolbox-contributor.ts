@@ -106,7 +106,7 @@ export class ArchModelToolboxContributor extends ServiceBase
         super(provider)
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         if (host === undefined) return
-        host.PropertyChanged(DocumentsContentHostService.ActiveDocumentKey).subscribe(() => { void this.onActiveChanged(host) })
+        host.PropertyChanged('ActiveDocument').subscribe(() => { void this.onActiveChanged(host) })
         this.registryOff = this.Provider.get(TodlPresentationRegistry.Key)?.onChanged(() => this.refresh())
         void this.onActiveChanged(host)
     }

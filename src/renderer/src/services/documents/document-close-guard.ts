@@ -1,4 +1,4 @@
-import { MetaData, MuralBase, RelayCommand, ServiceBase, ServiceKey, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { RelayCommand, ServiceBase, ServiceKey, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, type DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { promptSave, SavePromptResult } from '../dialogs/save-prompt-model.js'
 
@@ -30,23 +30,24 @@ export class DocumentCloseGuard extends ServiceBase
 {
     public static readonly Key = new ServiceKey<DocumentCloseGuard>('DocumentCloseGuard')
 
-    public static readonly CloseDocumentCommandKey = MuralBase.RegisterProperty<ICommand>(
-        DocumentCloseGuard, 'CloseDocumentCommand', undefined as unknown as ICommand, MetaData.None)
-    public static readonly CloseAllCommandKey = MuralBase.RegisterProperty<ICommand>(
-        DocumentCloseGuard, 'CloseAllCommand', undefined as unknown as ICommand, MetaData.None)
+    // Plain commands (built once, never reassigned) — the guard is a backend
+    // service, not a bindable MuralBase. Templates bind these by name through
+    // ServiceBinding, which reads plain properties.
+    private readonly _closeDocumentCommand: ICommand
+    private readonly _closeAllCommand: ICommand
 
     public constructor(provider: IServiceProvider, private readonly deps: CloseGuardDeps = {})
     {
         super(provider)
-        this.set_property_value(DocumentCloseGuard.CloseDocumentCommandKey, new RelayCommand((id) => {
+        this._closeDocumentCommand = new RelayCommand((id) => {
             const doc = this.host()?.OpenDocuments.ToArray().find((d) => d.Id === id)
             if (doc !== undefined) void this.TryCloseDocument(doc)
-        }))
-        this.set_property_value(DocumentCloseGuard.CloseAllCommandKey, new RelayCommand(() => void this.TryCloseAll()))
+        })
+        this._closeAllCommand = new RelayCommand(() => void this.TryCloseAll())
     }
 
-    public get CloseDocumentCommand(): ICommand { return this.get_property_value(DocumentCloseGuard.CloseDocumentCommandKey) }
-    public get CloseAllCommand(): ICommand { return this.get_property_value(DocumentCloseGuard.CloseAllCommandKey) }
+    public get CloseDocumentCommand(): ICommand { return this._closeDocumentCommand }
+    public get CloseAllCommand(): ICommand { return this._closeAllCommand }
 
     // Resolved lazily so registration order is free (mirrors CodeEditorService).
     private host(): CloseGuardHost | undefined

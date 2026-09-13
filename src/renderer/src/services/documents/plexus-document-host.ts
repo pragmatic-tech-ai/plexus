@@ -1,4 +1,4 @@
-import { RelayCommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { DocumentCloseGuard } from './document-close-guard.js'
 
@@ -19,17 +19,28 @@ import { DocumentCloseGuard } from './document-close-guard.js'
 // host has no construction-order dependency on the guard's registration.
 export class PlexusDocumentHost extends DocumentsContentHostService
 {
-    public constructor(provider: IServiceProvider)
+    // Override the base's close-command getters (plain properties since the DI
+    // move) to route through the guard. Built lazily + memoized so the override
+    // is safe no matter when the base first reads the getter, and so the guard
+    // is resolved at click time (no construction-order dependency on it).
+    private _guardedClose: ICommand | undefined
+    private _guardedCloseAll: ICommand | undefined
+
+    public override get CloseDocumentCommand(): ICommand
     {
-        super(provider)
-        const guard = (): DocumentCloseGuard | undefined => provider.get(DocumentCloseGuard.Key)
-        this.set_property_value(DocumentsContentHostService.CloseDocumentCommandKey, new RelayCommand(
-            (id) => { const doc = this.byId(id); if (doc !== undefined) void guard()?.TryCloseDocument(doc) },
-            undefined, { Text: 'Close', Description: 'Close this document.' }))
-        this.set_property_value(DocumentsContentHostService.CloseAllCommandKey, new RelayCommand(
-            () => void guard()?.TryCloseAll(),
-            undefined, { Text: 'Close All', Description: 'Close all open documents.' }))
+        return this._guardedClose ??= new RelayCommand(
+            (id) => { const doc = this.byId(id); if (doc !== undefined) void this.guard()?.TryCloseDocument(doc) },
+            undefined, { Text: 'Close', Description: 'Close this document.' })
     }
+
+    public override get CloseAllCommand(): ICommand
+    {
+        return this._guardedCloseAll ??= new RelayCommand(
+            () => void this.guard()?.TryCloseAll(),
+            undefined, { Text: 'Close All', Description: 'Close all open documents.' })
+    }
+
+    private guard(): DocumentCloseGuard | undefined { return this.Provider.get(DocumentCloseGuard.Key) }
 
     private byId(id: unknown): IDocument | undefined
     {
