@@ -4,6 +4,10 @@
 // webContents.send on AgentChannel.Event — the first push channel in Plexus
 // (all prior IPC is request/response). Enums, not literals (repo rule).
 
+// Type-only (model-patch-api imports MCP_SERVER_KEY from here; a value import back
+// would cycle — the erased type import does not).
+import type { ProposedModelPatchRequest } from './model-patch-api.js'
+
 export enum AgentChannel
 {
     StartSession   = 'agent:start-session',
@@ -58,6 +62,10 @@ export enum AgentEventKind
     // tool (e.g. Bash): render an approval card and block until the user answers
     // or the countdown auto-approves (see PlexusMcpServer + AnswerToolApproval).
     ToolApproval   = 'tool-approval',
+    // The agent called propose_model_patch: the renderer shows a patch-preview card
+    // and, on Accept, applies the structured ops to the architecture model, replying
+    // via ModelPatchChannel.Resolve (see PlexusMcpServer + model-patch-api).
+    ProposedModelPatch = 'proposed-model-patch',
     TurnComplete   = 'turn-complete',
     Error          = 'error',
     // A --resume targeted a conversation the CLI no longer has ("No conversation
@@ -212,6 +220,7 @@ export interface RefreshProjectEvent { Kind: AgentEventKind.RefreshProject; Requ
 export interface CreateProjectEvent  { Kind: AgentEventKind.CreateProject; Request: CreateProjectRequest }
 export interface GetProblemsEvent    { Kind: AgentEventKind.GetProblems; Request: GetProblemsRequest }
 export interface ToolApprovalEvent   { Kind: AgentEventKind.ToolApproval; Request: ToolApprovalRequest }
+export interface ProposedModelPatchEvent { Kind: AgentEventKind.ProposedModelPatch; Request: ProposedModelPatchRequest }
 export interface TurnCompleteEvent   { Kind: AgentEventKind.TurnComplete }
 export interface AgentErrorEvent     { Kind: AgentEventKind.Error; Message: string }
 export interface SessionLostEvent    { Kind: AgentEventKind.SessionLost }
@@ -226,6 +235,7 @@ export type AgentEvent =
     | CreateProjectEvent
     | GetProblemsEvent
     | ToolApprovalEvent
+    | ProposedModelPatchEvent
     | TurnCompleteEvent
     | AgentErrorEvent
     | SessionLostEvent
