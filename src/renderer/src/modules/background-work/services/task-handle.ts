@@ -30,6 +30,10 @@ export class TaskHandle extends MuralBase {
     public static readonly IsDoneKey          = MuralBase.RegisterProperty<boolean>(TaskHandle, 'IsDone', false, MetaData.None)
     public static readonly CancelCommandKey     = MuralBase.RegisterProperty<ICommand | undefined>(TaskHandle, 'CancelCommand', undefined, MetaData.None)
     public static readonly OpenOutputCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(TaskHandle, 'OpenOutputCommand', undefined, MetaData.None)
+    // Optional Re-run affordance (Skills #4): a skill run sets this so the dock shows
+    // a Re-run button that re-opens the input form prefilled with the run's inputs.
+    public static readonly RerunCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(TaskHandle, 'RerunCommand', undefined, MetaData.None)
+    public static readonly HasRerunKey = MuralBase.RegisterProperty<boolean>(TaskHandle, 'HasRerun', false, MetaData.None)
 
     public readonly Id: string
     public readonly Kind: string
@@ -63,6 +67,9 @@ export class TaskHandle extends MuralBase {
     public get IsDone(): boolean { return this.get_property_value(TaskHandle.IsDoneKey) }
     public get OpenOutputCommand(): ICommand | undefined { return this.get_property_value(TaskHandle.OpenOutputCommandKey) }
     public set OpenOutputCommand(v: ICommand | undefined) { this.set_property_value(TaskHandle.OpenOutputCommandKey, v) }
+    public get RerunCommand(): ICommand | undefined { return this.get_property_value(TaskHandle.RerunCommandKey) }
+    public set RerunCommand(v: ICommand | undefined) { this.set_property_value(TaskHandle.RerunCommandKey, v); this.set_property_value(TaskHandle.HasRerunKey, v !== undefined) }
+    public get HasRerun(): boolean { return this.get_property_value(TaskHandle.HasRerunKey) }
     public get Signal(): AbortSignal { return this.controller.signal }
 
     public report(fraction: number, note?: string): void

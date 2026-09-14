@@ -13,9 +13,9 @@ import { ChatSessionsService } from '../../agent-chat/services/chat-sessions-ser
 // The collaborators the runner needs, injected for testing (the production set is
 // built from the provider in buildDeps).
 export interface RunnerDeps {
-    presentForm(skill: Skill): Promise<ResolvedInput[] | undefined>
+    presentForm(skill: Skill, seed?: ResolvedInput[]): Promise<ResolvedInput[] | undefined>
     bindingSourcesFor(projectDir: string, projectName: string): BindingContextSources
-    runAgentSkill(item: CatalogItem, dir: string, name: string, opts?: { contextBlock?: string; context?: SkillContext }): { Id: string }
+    runAgentSkill(item: CatalogItem, dir: string, name: string, opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void }): { Id: string }
 }
 
 // Orchestrates a typed, model-aware skill run: collect inputs (form) → resolve
@@ -32,10 +32,10 @@ export class SkillRunner extends ServiceBase {
         this.deps = deps ?? this.buildDeps()
     }
 
-    async run(skill: Skill, projectDir: string, projectName: string): Promise<void> {
+    async run(skill: Skill, projectDir: string, projectName: string, opts?: { seed?: ResolvedInput[] }): Promise<void> {
         let inputs: ResolvedInput[] = []
         if (skill.HasInputs) {
-            const collected = await this.deps.presentForm(skill)
+            const collected = await this.deps.presentForm(skill, opts?.seed)
             if (collected === undefined) return          // cancelled — no side effects
             inputs = collected
         }
@@ -44,24 +44,26 @@ export class SkillRunner extends ServiceBase {
         const contextBlock = this.composer.render(context)
         const item: CatalogItem = { kind: skill.Kind, name: skill.Name, description: skill.Description }
         const hasContext = inputs.length > 0 || bindings.length > 0
-        this.deps.runAgentSkill(item, projectDir, projectName, hasContext ? { contextBlock, context } : undefined)
+        // Re-run re-opens the form prefilled with the inputs this run collected.
+        const rerun = (): void => { void this.run(skill, projectDir, projectName, { seed: inputs }) }
+        this.deps.runAgentSkill(item, projectDir, projectName, { ...(hasContext ? { contextBlock, context } : {}), rerun })
     }
 
     // ── Production wiring ───────────────────────────────────────────────
     private buildDeps(): RunnerDeps {
         return {
-            presentForm: (skill) => this.presentModalForm(skill),
+            presentForm: (skill, seed) => this.presentModalForm(skill, seed),
             bindingSourcesFor: (dir, name) => this.liveSources(dir, name),
             runAgentSkill: (item, dir, name, opts) => this.chats().RunAgentSkill(item, dir, name, opts),
         }
     }
 
     // Show the generated input form as a modal dialog; resolves with the collected
-    // inputs or undefined on cancel/dismiss.
-    private async presentModalForm(skill: Skill): Promise<ResolvedInput[] | undefined> {
+    // inputs or undefined on cancel/dismiss. `seed` prefills the form on a re-run.
+    private async presentModalForm(skill: Skill, seed?: ResolvedInput[]): Promise<ResolvedInput[] | undefined> {
         const dialogs = this.Provider.get(DialogService.Key)
         if (dialogs === undefined) return []                 // no dialog host → run with defaults
-        const form = new SkillInputFormVm(skill.Descriptor.inputs, (r) => dialogs.Close(r))
+        const form = new SkillInputFormVm(skill.Descriptor.inputs, (r) => dialogs.Close(r), seed)
         const dialog = new SkillInputDialogVm(form, skill.Title)
         const result = await dialogs.Show<ResolvedInput[] | undefined>({ Title: skill.Title, Content: dialog, Width: 420 })
         return result ?? undefined

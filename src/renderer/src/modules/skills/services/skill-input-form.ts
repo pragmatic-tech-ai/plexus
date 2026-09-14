@@ -13,11 +13,14 @@ export class SkillInputFormVm extends Observable {
     private readonly _confirm: RelayCommand
     private readonly _cancel: RelayCommand
 
-    constructor(inputs: SkillInput[], onDone: (result: ResolvedInput[] | undefined) => void) {
+    constructor(inputs: SkillInput[], onDone: (result: ResolvedInput[] | undefined) => void, seed?: ResolvedInput[]) {
         super()
         this.onDone = onDone
         for (const i of inputs) {
             const vm = new SkillInputVm(i)
+            // Re-run prefill: a recorded value overrides the declared default.
+            const seeded = seed?.find(r => r.key === i.key)
+            if (seeded !== undefined) vm.Value = seeded.value
             // An input's validity flips as its value changes; re-raise the form's
             // IsValid and re-query the Run button's enablement.
             vm.PropertyChanged('IsValid').subscribe(() => {

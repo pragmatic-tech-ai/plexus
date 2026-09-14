@@ -33,7 +33,10 @@ function runner(deps: Partial<RunnerDeps>): { runner: SkillRunner; calls: Array<
 test('no-input skill hands off straight to RunAgentSkill with no context', async () => {
     const { runner: r, calls } = runner({})
     await r.run(skill(), '/p', 'P')
-    expect(calls[0].opts).toBeUndefined()
+    // A rerun thunk is always supplied; there is no context block/context for a bare skill.
+    expect(calls[0].opts?.contextBlock).toBeUndefined()
+    expect(calls[0].opts?.context).toBeUndefined()
+    expect(calls[0].opts?.rerun).toBeTypeOf('function')
 })
 
 test('input skill presents the form, resolves bindings, and appends a context block', async () => {

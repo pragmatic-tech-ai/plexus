@@ -8,6 +8,12 @@ const inputs: SkillInput[] = [
     { key: 'flag', label: 'Flag', type: InputKind.Bool, default: false },
 ]
 
+test('seed values override declared defaults (re-run prefill)', () => {
+    const form = new SkillInputFormVm(inputs, () => {}, [{ key: 'vp', value: 'b' }])
+    expect(form.Inputs.Get(0)!.Value).toBe('b')     // seeded
+    expect(form.Inputs.Get(1)!.Value).toBe(false)   // unseeded → default
+})
+
 test('confirm collects values when valid', () => {
     let result: ResolvedInput[] | undefined = []
     const vm = new SkillInputFormVm(inputs, (r) => { result = r })

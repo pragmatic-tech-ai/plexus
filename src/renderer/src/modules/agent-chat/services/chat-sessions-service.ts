@@ -287,7 +287,7 @@ export class ChatSessionsService extends ServiceBase
     // Launch a project's declared agent/skill as a seeded conversation tracked by a
     // Background Work task; clicking the task reveals the conversation.
     public RunAgentSkill(item: CatalogItem, _projectDir: string, projectName: string,
-        opts?: { contextBlock?: string; context?: SkillContext }): ChatSession
+        opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void }): ChatSession
     {
         const chat = this.newSession(`${item.name} · ${projectName}`)
         // Register the run's structured context BEFORE the turn, keyed by session, so
@@ -302,12 +302,14 @@ export class ChatSessionsService extends ServiceBase
 
         const turnDone = new Promise<void>((resolve) => this.pendingRuns.set(chat.Id, resolve))
         const bg = this.Provider.get(BackgroundWorkService.Key)
-        bg?.submit({
+        const submitted = bg?.submit({
             kind: TaskKind.Inline,
             title: `${item.name} · ${projectName}`,
             payload: async (ctx: { log(l: string): void }) => { ctx.log(`Running ${item.name}…`); await turnDone; return 'done' },
             open: () => { void this.Reveal(chat.Id) },
         })
+        // A skill run (not a bare agent) supplies a re-run thunk → dock Re-run button.
+        if (opts?.rerun !== undefined && submitted !== undefined) submitted.handle.RerunCommand = new RelayCommand(opts.rerun)
         return chat
     }
 
