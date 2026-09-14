@@ -19,6 +19,8 @@ import { ChatSessionsService } from './modules/agent-chat/services/chat-sessions
 import { ProjectAgentCatalog } from './modules/agent-chat/services/project-agent-catalog.js'
 import { TemplateGalleryService } from './modules/agent-chat/services/template-gallery-service.js'
 import { attachAutoOpenInspector } from './modules/diagram/behaviors/auto-open-inspector-behavior.js'
+import { attachHelpOverlay } from './modules/help-overlay/help-overlay-behavior.js'
+import { HelpDocumentStore } from './modules/help-overlay/help-document-store.js'
 import { attachSaveShortcuts } from './services/documents/save-shortcuts.js'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
 import { registerThemeSchemePicker } from './theme/register-scheme-picker.js'
@@ -248,6 +250,14 @@ try {
     {
         attachAutoOpenInspector(host, dock)
     }
+
+    // Help overlay: show a hover "?" next to controls tagged with Help.Topic,
+    // opening a scenario flyout from the lazy help-document store. Attached to
+    // the shell root so PointerMove bubbles reach it; the store is a module
+    // service. Mirrors the attach* behavior wiring above.
+    const helpStore = app.Services.get(HelpDocumentStore.Key)
+    const helpRoot = app.Resources.Root
+    if (helpStore !== undefined && helpRoot !== undefined) attachHelpOverlay(helpRoot, helpStore)
 } catch (err) {
     // Never let the splash hang over a failed mount — drop it so the error
     // surfaces (console / any error overlay) instead of a frozen loading screen.
