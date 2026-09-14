@@ -26,6 +26,7 @@ function fakeAgent() {
         abort: () => Promise.resolve(),
         isResumable: () => Promise.resolve(true),
         listAgentsAndSkills: () => Promise.resolve({ agents: [], skills: [] }),
+        listSkills: () => Promise.resolve([]),
         answerQuestion: () => Promise.resolve(),
         refreshProjectResult: () => Promise.resolve(),
         createProjectResult: () => Promise.resolve(),

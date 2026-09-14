@@ -51,9 +51,10 @@ import { NewFileParticipantKey } from '../../../services/documents/new-file-part
 import { NodeCommandContributorKey } from '../../../services/documents/node-command-contributor.js'
 import { DiagramExportService, ExportFormat } from '../../diagram-export/services/diagram-export-service.js'
 import { DiagramHeadlessRenderer } from '../../diagram-export/services/diagram-headless-renderer.js'
-import { ProjectAgentCatalog } from '../../agent-chat/services/project-agent-catalog.js'
 import { ChatSessionsService } from '../../agent-chat/services/chat-sessions-service.js'
-import { AgentSkillChoice, buildAgentSkillChoices } from '../../agent-chat/services/agent-skill-choice.js'
+import { AgentSkillChoice, SkillChoiceBuilder } from '../../agent-chat/services/agent-skill-choice.js'
+import { SkillCatalog } from '../../skills/services/skill-catalog.js'
+import { ProjectType } from '../../../../../shared/skill-api.js'
 import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileFilter } from '../../../../../shared/file-system-api.js'
 import { ProjectNode } from '../../../services/projects/project.js'
@@ -518,15 +519,28 @@ export class ProjectExplorerService extends ServiceBase
     // submenu, each choice launching a background run via ChatSessionsService.
     private async wireAgentSkillChoices(op: OpenProject): Promise<void>
     {
-        const catalog = this.Provider.get(ProjectAgentCatalog.Key)
+        const catalog = this.Provider.get(SkillCatalog.Key)
         const chats = this.Provider.get(ChatSessionsService.Key)
         if (catalog === undefined || chats === undefined) return
-        const found = await catalog.CatalogFor(op.Folder)
-        const choices = buildAgentSkillChoices(found, (item) => { chats.RunAgentSkill(item, op.Folder, op.Name) })
+        await catalog.discover(op.Folder)
+        const pt = this.projectTypeOf(op)
+        const skills = pt === undefined ? [...catalog.All] : catalog.forProjectType(pt)
+        const choices = SkillChoiceBuilder.fromSkills(skills, (s) => {
+            chats.RunAgentSkill({ kind: s.Kind, name: s.Name, description: s.Description }, op.Folder, op.Name)
+        })
         const collection = new ObservableCollection<AgentSkillChoice>()
         for (const c of choices) collection.Add(c)
         op.AgentSkillChoices = collection
         op.HasAgentSkills = choices.length > 0
+    }
+
+    // Best-effort project-type classification for the requiresProjectType gate.
+    // Only the arch case is unambiguous today (it requires a meta-model base);
+    // when the type can't be determined we return undefined and the menu shows
+    // every skill (the gate is advisory UX, not a hard boundary).
+    private projectTypeOf(op: OpenProject): ProjectType | undefined
+    {
+        return op.Factory.requiresMetaModel === true ? ProjectType.Architecture : undefined
     }
 
     // Create a new file of the project's primary format inside `parentFolder`
