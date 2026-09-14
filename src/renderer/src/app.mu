@@ -92,6 +92,7 @@ import TitleService from "./window/title-service.js"
 // document). Root-registered so any service can submit; its status-bar dock is
 // contributed by BackgroundWorkModule and rendered by BackgroundWorkResources.
 import BackgroundWorkService from "./modules/background-work/services/background-work-service.js"
+import SkillCatalog from "./modules/skills/services/skill-catalog.js"
 import BackgroundWorkModule from "./modules/background-work/background-work.module.mu.js"
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
@@ -237,6 +238,10 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // its status-bar dock binds $service(BackgroundWorkService). Eagerly
         // resolved in main.js.
         BackgroundWorkService
+        // Unified skill catalog across project/global/packaged scopes. Root-
+        // registered so the Project Explorer resolves it to build the
+        // Run Agent/Skill submenu; lazily discovers per project on demand.
+        SkillCatalog
         // Storage backends, keyed by id; the Project Explorer resolves this to
         // build a project's rooted IStorage. Root singleton so every consumer
         // shares the same registration set.
