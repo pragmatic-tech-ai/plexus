@@ -41,6 +41,8 @@ export class SkillEditSession extends Observable {
     get Problems(): readonly SkillProblem[] { return this._problems }
     get IsReadOnly(): boolean { return this._readOnly }
     get HasProblems(): boolean { return this._problems.length > 0 }
+    // Joined for a single bound TextBlock (problems are plain DTOs, not row VMs).
+    get ProblemText(): string { return this._problems.map(p => `• ${p.message}`).join('\n') }
 
     save(): Promise<void> { return this.buffer.Save() }
 
@@ -53,6 +55,7 @@ export class SkillEditSession extends Observable {
         this._problems = this.validator.validate(ext)
         this.RaisePropertyChanged('Problems', prev, this._problems)
         this.RaisePropertyChanged('HasProblems', prev.length > 0, this._problems.length > 0)
+        this.RaisePropertyChanged('ProblemText', undefined, this.ProblemText)
     }
 
     private isEmpty(ext: XPlexus): boolean {

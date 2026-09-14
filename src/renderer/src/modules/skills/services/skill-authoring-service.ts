@@ -12,6 +12,7 @@ import { SkillValidator } from './skill-validator.js'
 import { SkillEditSession, type EditBuffer } from './skill-edit-session.js'
 import { SkillScaffolder, type NewSkillRequest, type ScaffoldFs } from './skill-scaffolder.js'
 import { SkillNewFormVm, SkillNewDialogVm } from './skill-new-dialog.js'
+import { SkillListItemVm } from './skill-list-item.js'
 
 // Collaborators the authoring service needs, injected for testing; production is
 // built from the provider in buildDeps.
@@ -54,10 +55,15 @@ export class SkillAuthoringService extends ServiceBase {
         return all.filter(s => [s.Name, s.Title, s.Description].some(f => f.toLowerCase().includes(q)))
     }
 
+    // The list rows the panel binds — each wraps a Skill with a SelectCommand.
+    get Items(): SkillListItemVm[] { return this.Skills.map(s => new SkillListItemVm(s, sk => this.Select(sk))) }
+    get IsEmpty(): boolean { return this.Skills.length === 0 }
+
     get SearchText(): string { return this._search }
-    set SearchText(v: string) { if (v === this._search) return; this._search = v; this.RaisePropertyChanged('Skills', undefined, this.Skills) }
+    set SearchText(v: string) { if (v === this._search) return; this._search = v; this.notifyList() }
 
     get Session(): SkillEditSession | undefined { return this._session }
+    get HasSession(): boolean { return this._session !== undefined }
     get NewCommand(): ICommand { return this._new }
     get SaveCommand(): ICommand { return this._save }
     get RefreshCommand(): ICommand { return this._refresh }
@@ -68,11 +74,18 @@ export class SkillAuthoringService extends ServiceBase {
         const prev = this._session
         this._session = new SkillEditSession(skill, buffer, this.codec, this.validator)
         this.RaisePropertyChanged('Session', prev, this._session)
+        this.RaisePropertyChanged('HasSession', prev !== undefined, true)
         this._save.RaiseCanExecuteChanged()
     }
 
     Refresh(): Promise<void> {
-        return this.deps.discover().then(() => this.RaisePropertyChanged('Skills', undefined, this.Skills))
+        return this.deps.discover().then(() => this.notifyList())
+    }
+
+    private notifyList(): void {
+        this.RaisePropertyChanged('Skills', undefined, this.Skills)
+        this.RaisePropertyChanged('Items', undefined, this.Items)
+        this.RaisePropertyChanged('IsEmpty', undefined, this.IsEmpty)
     }
 
     // The ＋New flow (public so it is awaitable; the NewCommand delegates here).
@@ -81,7 +94,7 @@ export class SkillAuthoringService extends ServiceBase {
         if (req === undefined) return
         const folder = await this.deps.scaffold(req)
         await this.deps.discover()
-        this.RaisePropertyChanged('Skills', undefined, this.Skills)
+        this.notifyList()
         const created = this.deps.skills().find(s => s.Descriptor.folderPath === folder)
         if (created !== undefined) this.Select(created)
     }

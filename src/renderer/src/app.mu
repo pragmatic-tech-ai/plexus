@@ -40,6 +40,7 @@ import ProjectExplorerModule from "./modules/project-explorer/project-explorer.m
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
+import SkillsModule from "./modules/skills/skills.module.mu.js"
 import AgentChatModule from "./modules/agent-chat/agent-chat.module.mu.js"
 import ProblemsModule from "./modules/problems/problems.module.mu.js"
 import CodeEditorModule from "./modules/code-editor/code-editor.module.mu.js"
@@ -169,6 +170,7 @@ import DropCandidateChooserService from "./modules/architecture-projects/service
 import ChooserResources from "./modules/architecture-projects/services/chooser.resources.mu.js"
 import ViewpointPickerResources from "./modules/architecture-projects/services/viewpoint-picker.resources.mu.js"
 import SkillsResources from "./modules/skills/skills.resources.mu.js"
+import SkillsAuthoringResources from "./modules/skills/skills-authoring.resources.mu.js"
 import DiagramViewpointsEditor from "./modules/architecture-projects/services/diagram-viewpoints-editor.js"
 import DiagnosticsService from "./services/diagnostics/diagnostics-service.js"
 import WorkspaceRefreshService from "./services/workspace/workspace-refresh-service.js"
@@ -395,6 +397,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         MetaModelModule
         LibraryModule
         McpClientModule
+        SkillsModule
         AgentChatModule
         ProblemsModule
         CodeEditorModule
@@ -478,6 +481,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         merge SavePromptResources
         merge DiagramExportPreviewResources
         merge SkillsResources
+        merge SkillsAuthoringResources
 
         // Diagram editor: icons + canvas/toolbar-tile/shapes templates. The shell
         // chrome (command toolbar, document tabs, Format-Shape inspector) is now

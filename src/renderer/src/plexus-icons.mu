@@ -22,6 +22,8 @@ resources PlexusIcons {
 
     // Agent capability nav glyph + the send affordance for its input.
     include "icons/agent.svg"                    as Agent
+    // Skills capability nav glyph (authoring panel).
+    include "icons/skill.svg"                    as Skill
     include "icons/arrow-upward.svg"             as ArrowUpward
     // Stop/interrupt — the composer's send button becomes this while a turn runs.
     include "icons/stop.svg"                     as Stop

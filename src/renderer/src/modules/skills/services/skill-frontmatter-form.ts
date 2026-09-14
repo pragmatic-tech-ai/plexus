@@ -143,6 +143,8 @@ export class SkillFrontmatterFormVm extends Observable {
     }
 
     get IsReadOnly(): boolean { return this._readOnly }
+    // Inverse of IsReadOnly, for binding control IsEnabled in the template.
+    get IsEditable(): boolean { return !this._readOnly }
     // A block authored with a schema this Plexus doesn't understand — shown but not edited.
     get IsUnknownVersion(): boolean { return this._unknownVersion }
 
