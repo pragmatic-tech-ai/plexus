@@ -28,6 +28,11 @@ export class SkillInputVm extends Observable {
     }
     get IsValid(): boolean { return this.computeValid(this._value) }
 
+    // Control-selection flags for the form template (mutually exclusive).
+    get IsBool(): boolean { return this.input.type === InputKind.Bool }
+    get IsChoice(): boolean { return this.input.type === InputKind.Enum || this.input.type === InputKind.Selection }
+    get IsPlain(): boolean { return !this.IsBool && !this.IsChoice }
+
     private computeValid(value: string | number | boolean): boolean {
         return this.input.required !== true || String(value).trim() !== ''
     }

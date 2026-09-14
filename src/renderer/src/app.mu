@@ -168,6 +168,7 @@ import ArchNavigationService from "./modules/architecture-projects/services/arch
 import DropCandidateChooserService from "./modules/architecture-projects/services/drop-candidate-chooser-service.js"
 import ChooserResources from "./modules/architecture-projects/services/chooser.resources.mu.js"
 import ViewpointPickerResources from "./modules/architecture-projects/services/viewpoint-picker.resources.mu.js"
+import SkillsResources from "./modules/skills/skills.resources.mu.js"
 import DiagramViewpointsEditor from "./modules/architecture-projects/services/diagram-viewpoints-editor.js"
 import DiagnosticsService from "./services/diagnostics/diagnostics-service.js"
 import WorkspaceRefreshService from "./services/workspace/workspace-refresh-service.js"
@@ -476,6 +477,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         merge SettingsResources
         merge SavePromptResources
         merge DiagramExportPreviewResources
+        merge SkillsResources
 
         // Diagram editor: icons + canvas/toolbar-tile/shapes templates. The shell
         // chrome (command toolbar, document tabs, Format-Shape inspector) is now
