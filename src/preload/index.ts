@@ -15,6 +15,7 @@ import { SettingsChannel, type ISettingsBridge } from '../shared/settings-api.js
 import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, type TaggedAgentEvent } from '../shared/agent-api.js'
 import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
 import { SkillContextChannel, type SkillContext, type ISkillContextApi } from '../shared/skill-context-api.js'
+import { ModelPatchChannel } from '../shared/model-patch-api.js'
 import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
 import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '../shared/file-watch-api.js'
 import { WindowChannel, type IWindowApi, type OverlayColors } from '../shared/window-api.js'
@@ -97,6 +98,7 @@ const agent: IAgentApi = {
   createProjectResult: (result): Promise<void> => ipcRenderer.invoke(AgentChannel.CreateProjectResult, result),
   getProblemsResult: (result): Promise<void> => ipcRenderer.invoke(AgentChannel.GetProblemsResult, result),
   answerToolApproval: (answer): Promise<void> => ipcRenderer.invoke(AgentChannel.AnswerToolApproval, answer),
+  resolveModelPatch: (answer): Promise<void> => ipcRenderer.invoke(ModelPatchChannel.Resolve, answer),
   listApprovalRules: (projectKey): Promise<ApprovalRule[]> => ipcRenderer.invoke(AgentChannel.ListApprovalRules, projectKey),
   revokeApprovalRule: (projectKey, rule): Promise<void> => ipcRenderer.invoke(AgentChannel.RevokeApprovalRule, projectKey, rule),
   onEvent: (handler: (msg: TaggedAgentEvent) => void): (() => void) => {

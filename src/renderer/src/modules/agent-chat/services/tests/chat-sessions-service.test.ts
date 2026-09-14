@@ -32,6 +32,7 @@ function fakeAgent() {
         createProjectResult: () => Promise.resolve(),
         getProblemsResult: () => Promise.resolve(),
         answerToolApproval: () => Promise.resolve(),
+        resolveModelPatch: () => Promise.resolve(),
         listApprovalRules: () => Promise.resolve([]),
         revokeApprovalRule: () => Promise.resolve(),
         onEvent: (h) => { push = h; return () => {} },

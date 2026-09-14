@@ -48,6 +48,10 @@ import {
     type TaggedAgentEvent,
     type ToolApprovalAnswer,
 } from '../../shared/agent-api.js'
+import {
+    PROPOSE_MODEL_PATCH_TOOL_NAME, ModelPatchDecision,
+    type ModelPatch, type ModelPatchAnswer,
+} from '../../shared/model-patch-api.js'
 import { ruleFor, matches, type RuleStore } from './tool-approval-rules.js'
 import { SkillContextStore } from './skill-context-store.js'
 import type { SkillContext } from '../../shared/skill-context-api.js'
@@ -80,6 +84,9 @@ export class PlexusMcpServer
     // Pending tool-approval requests, keyed by minted id → a resolver that takes the
     // user's decision (or a timeout-supplied AllowOnce).
     private readonly pendingApprovals = new Map<string, (decision: ToolApprovalDecision) => void>()
+    // Pending propose_model_patch calls, keyed by minted id → resolver for the user's
+    // accept/reject decision (see model-patch-api).
+    private readonly pendingModelPatches = new Map<string, (answer: ModelPatchAnswer) => void>()
     // Session-scoped allow-list (cleared on process exit). The persistent per-project
     // list lives in `ruleStore`; both are consulted on each request.
     private readonly sessionRules: ApprovalRule[] = []
@@ -282,6 +289,29 @@ export class PlexusMcpServer
         })
     }
 
+    // Deliver the user's accept/reject to a blocked propose_model_patch call; no-op
+    // if stale (already resolved / server closed).
+    public resolveModelPatch(answer: ModelPatchAnswer): void
+    {
+        const done = this.pendingModelPatches.get(answer.id)
+        if (done === undefined) return
+        this.pendingModelPatches.delete(answer.id)
+        done(answer)
+    }
+
+    // Emit a ProposedModelPatch request and await the user's decision. No sink
+    // (probe / headless) → auto-reject so the tool round-trip completes.
+    private requestModelPatch(sessionId: string, projectPath: string, patch: ModelPatch): Promise<ModelPatchDecision>
+    {
+        const id = `mp${(this.seq += 1)}`
+        if (this.sink === undefined) return Promise.resolve(ModelPatchDecision.Reject)
+        return new Promise<ModelPatchDecision>((resolve) =>
+        {
+            this.pendingModelPatches.set(id, (answer) => resolve(answer.decision))
+            this.emit(sessionId, { Kind: AgentEventKind.ProposedModelPatch, Request: { id, projectPath, patch } })
+        })
+    }
+
     public async listen(host = '127.0.0.1'): Promise<void>
     {
         this.httpServer = http.createServer((req, res) => { void this.handle(req, res) })
@@ -299,6 +329,7 @@ export class PlexusMcpServer
         for (const [id, done] of [...this.pendingCreate]) { this.pendingCreate.delete(id); done({ id, created: false, error: 'Server closed.' }) }
         for (const [id, done] of [...this.pendingProblems]) { this.pendingProblems.delete(id); done({ id, problems: [], errorCount: 0, warningCount: 0, total: 0, truncated: false, error: 'Server closed.' }) }
         for (const [id, done] of [...this.pendingApprovals]) { this.pendingApprovals.delete(id); done(ToolApprovalDecision.AllowOnce) }
+        for (const [id, done] of [...this.pendingModelPatches]) { this.pendingModelPatches.delete(id); done({ id, decision: ModelPatchDecision.Reject }) }
         for (const transport of this.transports.values()) await transport.close()
         this.transports.clear()
         await new Promise<void>((resolve) => { if (this.httpServer) this.httpServer.close(() => resolve()); else resolve() })
@@ -433,6 +464,29 @@ export class PlexusMcpServer
                 inputSchema: {},
             },
             async () => ({ content: [{ type: 'text' as const, text: JSON.stringify(this.skillContext.get(sessionId)) }] }),
+        )
+
+        server.registerTool(
+            PROPOSE_MODEL_PATCH_TOOL_NAME,
+            {
+                title: 'Propose a change to the architecture model',
+                description:
+                    'Propose a structured change to the current architecture project\'s TODL model. Provide '
+                    + '`projectPath` (a file or folder inside the target architecture project) and a `patch` = an '
+                    + 'ordered list of `ops`: createEntity {concept,id}, setField {id,field,value}, addRef '
+                    + '{from,member,to}, removeRef {from,member,to}, removeEntity {id}. The user previews the patch '
+                    + 'and Accepts or Rejects; on Accept, Plexus validates it against the meta-model and applies it '
+                    + 'undoably. Returns {decision:"accept"|"reject"}. Only architecture projects can be patched.',
+                inputSchema: {
+                    projectPath: z.string(),
+                    patch: z.object({ summary: z.string().optional(), ops: z.array(z.any()) }),
+                },
+            },
+            async ({ projectPath, patch }) =>
+            {
+                const decision = await this.requestModelPatch(sessionId, projectPath, patch as ModelPatch)
+                return { content: [{ type: 'text' as const, text: JSON.stringify({ decision }) }] }
+            },
         )
 
         return server

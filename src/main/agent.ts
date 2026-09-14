@@ -15,6 +15,7 @@ import {
 import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
 import { GET_SKILL_CONTEXT_TOOL_QUALIFIED } from '../shared/agent-api.js'
 import { SkillContextChannel, type SkillContext } from '../shared/skill-context-api.js'
+import { ModelPatchChannel, PROPOSE_MODEL_PATCH_TOOL_QUALIFIED, type ModelPatchAnswer } from '../shared/model-patch-api.js'
 import { AiProviderService } from './agent/ai-provider-service.js'
 import { ClaudeCliProvider } from './agent/claude-cli-provider.js'
 import { AgentSessionManager } from './agent/agent-session-manager.js'
@@ -71,7 +72,7 @@ export async function registerAgentHandlers(): Promise<void>
         // The four Plexus MCP tools + read-only built-ins auto-approve; everything
         // else (Bash, WebFetch, Write outside edits, …) routes to approve_tool.
         allowedTools: [ASK_TOOL_QUALIFIED, REFRESH_TOOL_QUALIFIED, CREATE_PROJECT_TOOL_QUALIFIED, GET_PROBLEMS_TOOL_QUALIFIED,
-                       GET_SKILL_CONTEXT_TOOL_QUALIFIED, 'Read', 'Glob', 'Grep', 'LS'],
+                       GET_SKILL_CONTEXT_TOOL_QUALIFIED, PROPOSE_MODEL_PATCH_TOOL_QUALIFIED, 'Read', 'Glob', 'Grep', 'LS'],
         // Turn off Claude Code's built-in AskUserQuestion (it can't render in
         // headless -p mode → fails), so the model uses our MCP tool instead.
         disallowedTools: ['AskUserQuestion'],
@@ -110,6 +111,8 @@ export async function registerAgentHandlers(): Promise<void>
         mcpServer.setSkillContext(sessionId, context))
     ipcMain.handle(SkillContextChannel.ClearContext, (_e, sessionId: string): void =>
         mcpServer.clearSkillContext(sessionId))
+    ipcMain.handle(ModelPatchChannel.Resolve, (_e, answer: ModelPatchAnswer): void =>
+        mcpServer.resolveModelPatch(answer))
     ipcMain.handle(AgentChannel.IsResumable, (): boolean => providers.active().Resumable)
     ipcMain.handle(AgentChannel.ListAgentsAndSkills, (_e, projectDir: string): Promise<ProjectCatalog> =>
         providers.active().listAgentsAndSkills(projectDir))

@@ -6,7 +6,7 @@
 
 // Type-only (model-patch-api imports MCP_SERVER_KEY from here; a value import back
 // would cycle — the erased type import does not).
-import type { ProposedModelPatchRequest } from './model-patch-api.js'
+import type { ProposedModelPatchRequest, ModelPatchAnswer } from './model-patch-api.js'
 
 export enum AgentChannel
 {
@@ -285,5 +285,7 @@ export interface IAgentApi
     listApprovalRules(projectKey: string): Promise<ApprovalRule[]>;
     // Drop one persistent approval rule for a project.
     revokeApprovalRule(projectKey: string, rule: ApprovalRule): Promise<void>;
+    // Deliver the user's accept/reject for a proposed model patch (Skills #4).
+    resolveModelPatch(answer: ModelPatchAnswer): Promise<void>;
     onEvent(handler: (msg: TaggedAgentEvent) => void): () => void;
 }
