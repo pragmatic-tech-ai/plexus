@@ -60,7 +60,7 @@ resources SkillsAuthoringResources {
 
     // ── the x-plexus form ───────────────────────────────────────────────────
     DataTemplate [ DataType = SkillFrontmatterFormVm ] {
-        StackPanel [ Orientation = Vertical ] {
+        StackPanel [ Orientation = Vertical, Help.Topic = "skills#edit-frontmatter" ] {
             TextBlock [ Text = "Authored with a newer schema — editing disabled here.", Style = @BodySmall,
                         Foreground = @OnSurfaceVariant, TextWrapping = Wrap, Margin = (0,0,0,6),
                         Visibility = $IsUnknownVersion << ToVisibility ]
@@ -148,7 +148,7 @@ resources SkillsAuthoringResources {
             TextBlock [ Text = "Description", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
             TextBox [ Text = $Form.Description, Margin = (0,0,0,6) ]
             TextBlock [ Text = "Scope", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
-            ComboBox [ ItemsSource = $Form.Scopes, SelectedItem = $Form.Scope, HorizontalAlignment = Stretch, Margin = (0,0,0,6) ]
+            ComboBox [ ItemsSource = $Form.Scopes, SelectedItem = $Form.Scope, HorizontalAlignment = Stretch, Margin = (0,0,0,6), Help.Topic = "skills#scope-a-skill-to-a-project" ]
             TextBlock [ Text = "Project", Style = @BodySmall, Foreground = @OnSurfaceVariant, Visibility = $Form.ShowProjectPicker << ToVisibility ]
             ComboBox [ ItemsSource = $Form.Projects, SelectedItem = $Form.SelectedProject, HorizontalAlignment = Stretch, Margin = (0,0,0,6),
                        Visibility = $Form.ShowProjectPicker << ToVisibility ]
@@ -165,8 +165,8 @@ resources SkillsAuthoringResources {
     DataTemplate [ DataType = SkillAuthoringService ] {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
             StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,10) ] {
-                Button [ Variant = Tonal, Command = $NewCommand ] { TextBlock [ Text = "+ New Skill", Style = @BodySmall ] }
-                Button [ Variant = Text, Command = $RunCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Run", Style = @BodySmall ] }
+                Button [ Variant = Tonal, Command = $NewCommand, Help.Topic = "skills#create-a-skill" ] { TextBlock [ Text = "+ New Skill", Style = @BodySmall ] }
+                Button [ Variant = Text, Command = $RunCommand, Margin = (6,0,0,0), Help.Topic = "skills#run-a-skill" ] { TextBlock [ Text = "Run", Style = @BodySmall ] }
                 Button [ Variant = Text, Command = $RefreshCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Refresh", Style = @BodySmall ] }
                 Button [ Variant = Text, Command = $SaveCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Save", Style = @BodySmall ] }
             }
