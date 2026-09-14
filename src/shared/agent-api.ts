@@ -113,6 +113,8 @@ export const CREATE_PROJECT_TOOL_NAME = 'create_project'
 export const CREATE_PROJECT_TOOL_QUALIFIED = `mcp__${MCP_SERVER_KEY}__${CREATE_PROJECT_TOOL_NAME}`
 export const GET_PROBLEMS_TOOL_NAME = 'get_problems'
 export const GET_PROBLEMS_TOOL_QUALIFIED = `mcp__${MCP_SERVER_KEY}__${GET_PROBLEMS_TOOL_NAME}`
+export const GET_SKILL_CONTEXT_TOOL_NAME = 'get_skill_context'
+export const GET_SKILL_CONTEXT_TOOL_QUALIFIED = `mcp__${MCP_SERVER_KEY}__${GET_SKILL_CONTEXT_TOOL_NAME}`
 // The headless CLI's permission hook, passed as --permission-prompt-tool. Unlike
 // the tools above it is NOT allow-listed (allow-listed tools skip the prompt), so
 // consequential tools route here for a user verdict.

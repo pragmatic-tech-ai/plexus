@@ -14,6 +14,7 @@ import { EnvironmentChannel, type EnvironmentInfo } from '../shared/environment-
 import { SettingsChannel, type ISettingsBridge } from '../shared/settings-api.js'
 import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, type TaggedAgentEvent } from '../shared/agent-api.js'
 import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
+import { SkillContextChannel, type SkillContext, type ISkillContextApi } from '../shared/skill-context-api.js'
 import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
 import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '../shared/file-watch-api.js'
 import { WindowChannel, type IWindowApi, type OverlayColors } from '../shared/window-api.js'
@@ -156,7 +157,12 @@ const mcp: IMcpClientApi = {
   importCandidates: (projectRoot?: string): Promise<McpServerEntry[]> => ipcRenderer.invoke(McpClientChannel.ImportCandidates, projectRoot),
 }
 
-const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp }
+const skillContext: ISkillContextApi = {
+  set: (sessionId: string, context: SkillContext): Promise<void> => ipcRenderer.invoke(SkillContextChannel.SetContext, sessionId, context),
+  clear: (sessionId: string): Promise<void> => ipcRenderer.invoke(SkillContextChannel.ClearContext, sessionId),
+}
+
+const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp, skillContext }
 
 if (process.contextIsolated) {
   try {

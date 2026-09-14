@@ -32,6 +32,7 @@ import {
     ASK_TOOL_NAME,
     CREATE_PROJECT_TOOL_NAME,
     GET_PROBLEMS_TOOL_NAME,
+    GET_SKILL_CONTEXT_TOOL_NAME,
     MCP_SERVER_KEY,
     ProblemSeverity,
     REFRESH_TOOL_NAME,
@@ -48,6 +49,8 @@ import {
     type ToolApprovalAnswer,
 } from '../../shared/agent-api.js'
 import { ruleFor, matches, type RuleStore } from './tool-approval-rules.js'
+import { SkillContextStore } from './skill-context-store.js'
+import type { SkillContext } from '../../shared/skill-context-api.js'
 
 // The verdict JSON the CLI's permission hook expects: allow (optionally with an
 // echoed/edited input) or deny with a message. This is the sole resolver/return
@@ -94,9 +97,19 @@ export class PlexusMcpServer
     // One transport per MCP session (the CLI initialises once, then reuses it).
     private readonly transports = new Map<string, StreamableHTTPServerTransport>()
 
+    // Per-session skill-run context, read back by the get_skill_context tool. Fed
+    // by the renderer over IPC right before a skill's first turn.
+    private readonly skillContext = new SkillContextStore()
+
     // timeoutMs guards refresh_project against a dead/absent renderer so the tool
     // never hangs. ask_user_question has no timeout — the user may take their time.
     constructor(private readonly timeoutMs = 30000) {}
+
+    // Renderer→server context handoff (via IPC in agent.ts). Set before the turn,
+    // cleared on session close.
+    public setSkillContext(sessionId: string, context: SkillContext): void { this.skillContext.set(sessionId, context) }
+    public clearSkillContext(sessionId: string): void { this.skillContext.clear(sessionId) }
+    public skillContextFor(sessionId: string): SkillContext { return this.skillContext.get(sessionId) }
 
     // The MCP endpoint URL to hand the CLI via --mcp-config (empty until listen()).
     public get Url(): string { return this.url }
@@ -404,6 +417,22 @@ export class PlexusMcpServer
                 const verdict = await this.requestApproval(sessionId, toolName, input)
                 return { content: [{ type: 'text' as const, text: JSON.stringify(verdict) }] }
             },
+        )
+
+        // Read-only: returns the typed inputs + resolved model bindings the runner
+        // registered for THIS session. No renderer round-trip — a plain store read.
+        server.registerTool(
+            GET_SKILL_CONTEXT_TOOL_NAME,
+            {
+                title: 'Get the current skill run context',
+                description:
+                    'Return the typed inputs and resolved model bindings Plexus collected for the current '
+                    + 'skill run — the same information also rendered as a text block in the first message. '
+                    + 'Returns { skillName, inputs:[{key,value}], bindings:[{source,as,kind,data}] }; empty when '
+                    + 'the skill was run without Plexus context. Read-only; changes nothing.',
+                inputSchema: {},
+            },
+            async () => ({ content: [{ type: 'text' as const, text: JSON.stringify(this.skillContext.get(sessionId)) }] }),
         )
 
         return server
