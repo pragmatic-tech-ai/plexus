@@ -19,8 +19,8 @@ const emptySources: BindingContextSources = {
     primaryEntity: () => undefined, workspaceRoot: () => undefined,
 }
 
-function runner(deps: Partial<RunnerDeps>): { runner: SkillRunner; calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext } }> } {
-    const calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext } }> = []
+function runner(deps: Partial<RunnerDeps>): { runner: SkillRunner; calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void } }> } {
+    const calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void } }> = []
     const full: RunnerDeps = {
         presentForm: async () => { throw new Error('presentForm should not be called') },
         bindingSourcesFor: () => emptySources,

@@ -10,6 +10,8 @@ import { ApplyOutcome, type ApplyResult } from '../../architecture-projects/serv
 export class ModelPatchCard extends MuralBase {
     public static readonly SummaryKey     = MuralBase.RegisterProperty<string>(ModelPatchCard, 'Summary', '', MetaData.None)
     public static readonly OpLinesKey     = MuralBase.RegisterProperty<string[]>(ModelPatchCard, 'OpLines', [], MetaData.None)
+    // The op lines joined for a single bound TextBlock (the template renders this).
+    public static readonly OpTextKey      = MuralBase.RegisterProperty<string>(ModelPatchCard, 'OpText', '', MetaData.None)
     public static readonly IsPendingKey   = MuralBase.RegisterProperty<boolean>(ModelPatchCard, 'IsPending', true, MetaData.None)
     public static readonly IsAppliedKey   = MuralBase.RegisterProperty<boolean>(ModelPatchCard, 'IsApplied', false, MetaData.None)
     public static readonly IsRejectedKey  = MuralBase.RegisterProperty<boolean>(ModelPatchCard, 'IsRejected', false, MetaData.None)
@@ -32,7 +34,9 @@ export class ModelPatchCard extends MuralBase {
         this.onDecision = onDecision
         this.onUndo = onUndo
         this.set_property_value(ModelPatchCard.SummaryKey, request.patch.summary ?? 'Proposed model change')
-        this.set_property_value(ModelPatchCard.OpLinesKey, request.patch.ops.map(o => ModelPatchCard.describe(o)))
+        const lines = request.patch.ops.map(o => ModelPatchCard.describe(o))
+        this.set_property_value(ModelPatchCard.OpLinesKey, lines)
+        this.set_property_value(ModelPatchCard.OpTextKey, lines.join('\n'))
         this.set_property_value(ModelPatchCard.AcceptCommandKey, new RelayCommand(() => { void this.accept() }))
         this.set_property_value(ModelPatchCard.RejectCommandKey, new RelayCommand(() => { void this.reject() }))
         this.set_property_value(ModelPatchCard.UndoCommandKey, new RelayCommand(() => { this.onUndo?.() }))
@@ -40,6 +44,7 @@ export class ModelPatchCard extends MuralBase {
 
     public get Summary(): string { return this.get_property_value(ModelPatchCard.SummaryKey) }
     public get OpLines(): string[] { return this.get_property_value(ModelPatchCard.OpLinesKey) }
+    public get OpText(): string { return this.get_property_value(ModelPatchCard.OpTextKey) }
     public get IsPending(): boolean { return this.get_property_value(ModelPatchCard.IsPendingKey) }
     public get IsApplied(): boolean { return this.get_property_value(ModelPatchCard.IsAppliedKey) }
     public get IsRejected(): boolean { return this.get_property_value(ModelPatchCard.IsRejectedKey) }

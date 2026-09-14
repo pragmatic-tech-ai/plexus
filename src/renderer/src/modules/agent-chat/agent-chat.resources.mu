@@ -14,6 +14,7 @@ import QuestionVM from "./services/question-card.js"
 import OptionVM from "./services/question-card.js"
 import NewProjectCard from "./services/new-project-card.js"
 import ToolApprovalCard from "./services/approval-card.js"
+import ModelPatchCard from "./services/model-patch-card.js"
 import SessionRecoveryCard from "./services/session-recovery-card.js"
 import ApprovalRuleRow from "./services/approval-rules.js"
 import TemplateGalleryService from "./services/template-gallery-service.js"
@@ -323,6 +324,37 @@ resources AgentChatResources {
                 }
                 TextBlock [ Text = $Recap, Visibility = $IsAnswered << ToVisibility,
                             Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+            }
+        }
+    }
+
+    // A proposed model patch (Skills #4): summary + op list, Apply/Reject while
+    // pending, an Undo affordance once applied, and validation problems inline.
+    DataTemplate [ DataType = ModelPatchCard ] {
+        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 10,
+                 Fill = @SurfaceContainer, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
+            StackPanel [ Orientation = Vertical ] {
+                TextBlock [ Text = $Summary, Foreground = @OnSurface, Style = @BodyMedium, TextWrapping = Wrap ]
+                Border [ Style = @ToolMonoBox, Margin = (0,6,0,0) ] {
+                    TextBlock [ FontFamily = "Consolas", Text = $OpText, Foreground = @OnSurface, TextWrapping = Wrap ]
+                }
+                TextBlock [ Text = $ProblemText, Visibility = $HasProblems << ToVisibility,
+                            Foreground = @Error, TextWrapping = Wrap, Margin = (0,6,0,0) ]
+                StackPanel [ Orientation = Horizontal, Margin = (0,10,0,0), Visibility = $IsPending << ToVisibility ] {
+                    PanelButton [ Command = $AcceptCommand, Template = @CompactButton, Margin = (0,0,6,0) ] {
+                        TextBlock [ Text = "Apply", TextWrapping = Wrap ]
+                    }
+                    PanelButton [ Command = $RejectCommand, Template = @CompactButton ] {
+                        TextBlock [ Text = "Reject", TextWrapping = Wrap ]
+                    }
+                }
+                StackPanel [ Orientation = Horizontal, Margin = (0,10,0,0), Visibility = $IsApplied << ToVisibility ] {
+                    TextBlock [ Text = "Applied", Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,8,0) ]
+                    PanelButton [ Command = $UndoCommand, Template = @CompactButton ] {
+                        TextBlock [ Text = "Undo", TextWrapping = Wrap ]
+                    }
+                }
+                TextBlock [ Text = "Rejected", Visibility = $IsRejected << ToVisibility, Foreground = @OnSurfaceVariant ]
             }
         }
     }

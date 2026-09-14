@@ -8,10 +8,13 @@
 // standalone today and model-bound once the ArchitectureModelService lands.
 
 import ArchitectureProjectFactory from "./services/architecture-project-factory.js"
+import ModelPatchApplier from "./services/model-patch-applier.js"
 
 module ArchitectureProjectsModule [ Name = "Architecture Projects" ] {
     .services: {
         ArchitectureProjectFactory
+        // Applies agent-proposed model patches to this project's ArchModel (Skills #4).
+        ModelPatchApplier
     }
 
     // The 'architecture' project type — this module owns it (editors own files,

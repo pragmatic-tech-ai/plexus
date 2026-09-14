@@ -95,6 +95,12 @@ resources BackgroundWorkResources {
                 TextBlock [ Text = $Note, Foreground = @OnSurfaceVariant, Style = @LabelMedium ]
                 TextBlock [ Text = $Error, Foreground = @Error, Style = @LabelMedium,
                             Visibility = $Error << ToVisibility ]
+                // Re-run affordance for skill runs (Skills #4): re-opens the input
+                // form prefilled with this run's inputs.
+                Button [ Template = @TabMenuRowButton, Command = $RerunCommand, HorizontalAlignment = Left,
+                         Margin = (0,2,0,0), Visibility = $HasRerun << ToVisibility ] {
+                    TextBlock [ Text = "Re-run", Foreground = @Primary, Style = @LabelMedium ]
+                }
             }
         }
     }
