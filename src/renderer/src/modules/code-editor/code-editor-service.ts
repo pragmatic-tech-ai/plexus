@@ -31,6 +31,14 @@ export class CodeEditorService extends ServiceBase
     // Open (or re-activate) `path` as a code-document tab.
     public OpenFile(path: string): void
     {
+        this.OpenAndGet(path)
+    }
+
+    // Open (or re-activate) `path` and return its document — so callers that need
+    // to bind to the exact buffer (e.g. the skills authoring form, which edits the
+    // same Content the tab shows) get the instance directly, no round-trip.
+    public OpenAndGet(path: string): CodeDocument
+    {
         let doc = this.open.get(path)
         if (doc === undefined)
         {
@@ -38,6 +46,7 @@ export class CodeEditorService extends ServiceBase
             this.open.set(path, doc)
         }
         this.host.Open(doc)
+        return doc
     }
 
     // The open out-of-project document whose absolute path matches `absPath`, if
