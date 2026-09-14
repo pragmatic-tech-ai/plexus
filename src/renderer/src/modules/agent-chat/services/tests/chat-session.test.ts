@@ -17,6 +17,7 @@ function fakeCallbacks() {
         answerQuestion: () => {},
         answerToolApproval: () => {},
         createProject: (id) => calls.created.push(id),
+        proposeModelPatch: () => {},
         rename: (id, title) => calls.renamed.push({ id, title }),
         close: (id) => calls.closed.push(id),
         reveal: (id) => calls.revealed.push(id),

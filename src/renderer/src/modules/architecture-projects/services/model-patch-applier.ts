@@ -1,5 +1,7 @@
+import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { SkillProblemSeverity, type SkillProblem } from '../../../../../shared/skill-api.js'
 import type { ModelPatch, PatchOp } from '../../../../../shared/model-patch-api.js'
+import { ArchModelGateway } from './arch-model-gateway.js'
 
 // A resolved architecture model the applier drives, behind a narrow seam so the
 // engine unit-tests with a fake and the production adapter (ArchModelGateway) wraps
@@ -26,11 +28,19 @@ export interface ApplyResult { outcome: ApplyOutcome; problems: SkillProblem[] }
 // validation passes; a throwing op rolls back the same way. Keeps the last snapshot so
 // the applied patch can be undone.
 export class ModelPatchApplier {
+    public static readonly Key = new ServiceKey<ModelPatchApplier>('ModelPatchApplier')
+
     private readonly gateway: IArchModelGateway
     private lastHandle: ArchModelHandle | undefined
     private lastSnapshot: Map<string, string> | undefined
 
-    constructor(gateway: IArchModelGateway) { this.gateway = gateway }
+    // As a registered service, built with the provider (production ArchModelGateway).
+    // Tests pass a fake IArchModelGateway directly — distinguished by its `resolve`.
+    constructor(providerOrGateway: IServiceProvider | IArchModelGateway) {
+        this.gateway = 'resolve' in providerOrGateway
+            ? providerOrGateway
+            : new ArchModelGateway(providerOrGateway)
+    }
 
     async apply(projectPath: string, patch: ModelPatch): Promise<ApplyResult> {
         const handle = await this.gateway.resolve(projectPath)

@@ -12,6 +12,7 @@ import {
     AgentEventKind,
     type AgentEvent, type CreateProjectRequest, type QuestionAnswer, type ToolApprovalAnswer,
 } from '../../../../../shared/agent-api.js'
+import type { ProposedModelPatchRequest } from '../../../../../shared/model-patch-api.js'
 import { TranscriptReducer, UserMessage, AssistantMessage, type MarkdownRender } from './transcript.js'
 import type { RecoveryMode } from './session-recovery-card.js'
 import type { ApprovalRulesVM } from './approval-rules.js'
@@ -26,6 +27,7 @@ export interface ChatSessionCallbacks
     answerQuestion(sessionId: string, answer: QuestionAnswer): void
     answerToolApproval(sessionId: string, answer: ToolApprovalAnswer): void
     createProject(sessionId: string, req: CreateProjectRequest, reducer: TranscriptReducer): void
+    proposeModelPatch(sessionId: string, req: ProposedModelPatchRequest, reducer: TranscriptReducer): void
     // Persist a title change (and keep the store in sync); close the whole session;
     // focus this conversation's tab from the nav list.
     rename(sessionId: string, title: string): void
@@ -239,6 +241,7 @@ export class ChatSession extends MuralBase implements IDockPanel, IDocument
     public apply(event: AgentEvent): void
     {
         if (event.Kind === AgentEventKind.CreateProject) { this.callbacks.createProject(this.sessionId, event.Request, this.reducer); return }
+        if (event.Kind === AgentEventKind.ProposedModelPatch) { this.callbacks.proposeModelPatch(this.sessionId, event.Request, this.reducer); return }
         this.reducer.apply(event)
     }
 

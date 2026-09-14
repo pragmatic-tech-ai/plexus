@@ -24,6 +24,9 @@ import { OpenProjectsStore } from '../../../services/projects/open-projects-stor
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
 import type { NewProjectResult } from '../../../services/projects/new-project-dialog-model.js'
 import { NewProjectCard } from './new-project-card.js'
+import { ModelPatchHandler } from './model-patch-handler.js'
+import { ModelPatchApplier } from '../../architecture-projects/services/model-patch-applier.js'
+import type { ProposedModelPatchRequest } from '../../../../../shared/model-patch-api.js'
 import { ApprovalRulesVM, type ApprovalRulesPort } from './approval-rules.js'
 import { ChatSession, type ChatSessionCallbacks } from './chat-session.js'
 import type { MarkdownRender, TranscriptReducer } from './transcript.js'
@@ -170,6 +173,7 @@ export class ChatSessionsService extends ServiceBase
             answerQuestion: (_id, answer) => { void this.agent.answerQuestion(answer) },
             answerToolApproval: (_id, answer) => { void this.agent.answerToolApproval(answer) },
             createProject: (id, req, reducer) => { void this.handleCreateProject(id, req, reducer) },
+            proposeModelPatch: (id, req, reducer) => this.handleModelPatch(id, req, reducer),
             rename: (id, title) => { void this.Rename(id, title) },
             close: (id) => { const c = this.Open.ToArray().find((x) => x.Id === id); if (c !== undefined) this.Close(c) },
             reveal: (id) => { void this.Reveal(id) },
@@ -537,6 +541,15 @@ export class ChatSessionsService extends ServiceBase
         }
         card.Form = await explorer.NewProjectFormFor(close, req.prefill)
         reducer.addPendingCard(req.id, card)
+    }
+
+    // The agent called propose_model_patch: host a preview card in the transcript and,
+    // on Accept, apply the patch to the architecture model before replying. Delegated
+    // to ModelPatchHandler so the mediation is unit-tested independently.
+    private handleModelPatch(_sessionId: string, req: ProposedModelPatchRequest, reducer: TranscriptReducer): void
+    {
+        const applier = this.Provider.get(ModelPatchApplier.Key)
+        new ModelPatchHandler(applier, this.agent).handle(req, reducer)
     }
 }
 
