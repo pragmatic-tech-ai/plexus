@@ -2,7 +2,10 @@ import { SkillScope } from '../../../../../shared/skill-api.js'
 
 export enum SkillTemplateKind { Blank = 'blank', Superset = 'superset' }
 
-export interface NewSkillRequest { name: string; description: string; scope: SkillScope; template: SkillTemplateKind }
+// `projectDir` names the target project for a Project-scoped skill when several are
+// open (chosen in the New Skill dialog); the authoring service builds the scaffolder
+// rooted there. Ignored for Global scope.
+export interface NewSkillRequest { name: string; description: string; scope: SkillScope; template: SkillTemplateKind; projectDir?: string }
 
 // Minimal fs seam so the scaffolder unit-tests without Electron; production wires
 // FileSystemService (Exists / CreateDirectory / WriteText).

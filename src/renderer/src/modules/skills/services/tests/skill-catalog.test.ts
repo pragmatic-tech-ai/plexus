@@ -16,13 +16,42 @@ function catalogWith(descriptors: SkillDescriptor[]): SkillCatalog {
     return new SkillCatalog(undefined as never, () => Promise.resolve(descriptors))
 }
 
-test('dedupes by precedence: project shadows global shadows packaged', async () => {
+test('same-name skills across scopes all survive (no cross-scope shadowing)', async () => {
     const c = catalogWith([d('dup', SkillScope.Packaged), d('dup', SkillScope.Global), d('dup', SkillScope.Project), d('solo', SkillScope.Global)])
     await c.discover('/proj')
-    const dup = c.All.filter(s => s.Name === 'dup')
-    expect(dup).toHaveLength(1)
-    expect(dup[0].Scope).toBe(SkillScope.Project)
-    expect(c.All.map(s => s.Name).sort()).toEqual(['dup', 'solo'])
+    expect(c.All.filter(s => s.Name === 'dup')).toHaveLength(3)
+    expect(c.All.map(s => s.Name).sort()).toEqual(['dup', 'dup', 'dup', 'solo'])
+})
+
+test('discover tags project skills with the scanned dir as their origin', async () => {
+    const c = catalogWith([d('p', SkillScope.Project), d('g', SkillScope.Global)])
+    await c.discover('/proj')
+    expect(c.All.find(s => s.Name === 'p')!.OriginProjectPath).toBe('/proj')
+    expect(c.All.find(s => s.Name === 'g')!.OriginProjectPath).toBeUndefined()
+})
+
+test('discoverAll unions projects: project skills stay distinct per origin, shared scopes collapse', async () => {
+    const perDir: Record<string, SkillDescriptor[]> = {
+        '/a': [d('review', SkillScope.Project), d('shared', SkillScope.Global), d('pkg', SkillScope.Packaged)],
+        '/b': [d('review', SkillScope.Project), d('shared', SkillScope.Global), d('pkg', SkillScope.Packaged)],
+    }
+    const c = new SkillCatalog(undefined as never, (dir) => Promise.resolve(perDir[dir] ?? []))
+    await c.discoverAll(['/a', '/b'])
+    const reviews = c.All.filter(s => s.Name === 'review')
+    expect(reviews.map(s => s.OriginProjectPath).sort()).toEqual(['/a', '/b'])
+    expect(c.All.filter(s => s.Name === 'shared')).toHaveLength(1)
+    expect(c.All.filter(s => s.Name === 'pkg')).toHaveLength(1)
+})
+
+test('forProject narrows to a project own skills plus the shared scopes', async () => {
+    const perDir: Record<string, SkillDescriptor[]> = {
+        '/a': [d('a-only', SkillScope.Project), d('shared', SkillScope.Global)],
+        '/b': [d('b-only', SkillScope.Project), d('shared', SkillScope.Global)],
+    }
+    const c = new SkillCatalog(undefined as never, (dir) => Promise.resolve(perDir[dir] ?? []))
+    await c.discoverAll(['/a', '/b'])
+    expect(c.forProject('/a').map(s => s.Name).sort()).toEqual(['a-only', 'shared'])
+    expect(c.forProject('/b').map(s => s.Name).sort()).toEqual(['b-only', 'shared'])
 })
 
 test('search matches name, title, description, tags, category (case-insensitive)', async () => {

@@ -522,9 +522,14 @@ export class ProjectExplorerService extends ServiceBase
         const catalog = this.Provider.get(SkillCatalog.Key)
         const runner = this.Provider.get(SkillRunner.Key)
         if (catalog === undefined || runner === undefined) return
-        await catalog.discover(op.Folder)
+        // Discover across every open project (plus op, in case it isn't in the list
+        // yet), then narrow to op's own skills so the union catalog doesn't leak
+        // other projects' project-scoped skills into this menu.
+        const dirs = [...new Set([...this.OpenProjects.ToArray().map((o) => o.Folder), op.Folder])]
+        await catalog.discoverAll(dirs)
         const pt = this.projectTypeOf(op)
-        const skills = pt === undefined ? [...catalog.All] : catalog.forProjectType(pt)
+        const own = catalog.forProject(op.Folder)
+        const skills = pt === undefined ? own : own.filter((s) => s.appliesToProjectType(pt))
         // The runner collects typed inputs + resolves bindings before handing off to
         // ChatSessionsService.RunAgentSkill (#3).
         const choices = SkillChoiceBuilder.fromSkills(skills, (s) => { void runner.run(s, op.Folder, op.Name) })

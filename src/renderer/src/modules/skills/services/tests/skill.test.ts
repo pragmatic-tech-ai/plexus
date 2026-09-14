@@ -30,6 +30,19 @@ test('appliesToProjectType: gate restricts to listed types', () => {
     expect(s.appliesToProjectType(ProjectType.Library)).toBe(false)
 })
 
+test('origin project: path + basename for a project skill, undefined off a project scope', () => {
+    const p = new Skill(desc(), 'C:/work/my-proj')
+    expect(p.IsProjectScoped).toBe(true)
+    expect(p.OriginProjectPath).toBe('C:/work/my-proj')
+    expect(p.OriginProjectName).toBe('my-proj')
+    expect(new Skill(desc(), 'D:\\a\\proj\\').OriginProjectName).toBe('proj')
+
+    const g = new Skill(desc({ scope: SkillScope.Global }))
+    expect(g.IsProjectScoped).toBe(false)
+    expect(g.OriginProjectPath).toBeUndefined()
+    expect(g.OriginProjectName).toBeUndefined()
+})
+
 test('deprecation + problems flags', () => {
     const s = new Skill(desc({ deprecation: { note: 'old' }, problems: [{ message: 'm', severity: SkillProblemSeverity.Warning }] }))
     expect(s.IsDeprecated).toBe(true)

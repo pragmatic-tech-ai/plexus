@@ -16,6 +16,7 @@ import SkillInputRowVm from "./services/skill-frontmatter-form.js"
 import SkillBindingRowVm from "./services/skill-frontmatter-form.js"
 import SkillOutputRowVm from "./services/skill-frontmatter-form.js"
 import SkillNewDialogVm from "./services/skill-new-dialog.js"
+import SkillGroupVm from "./services/skill-group.js"
 
 resources SkillsAuthoringResources {
 
@@ -131,6 +132,14 @@ resources SkillsAuthoringResources {
         }
     }
 
+    // ── one project / scope group (header + its rows) ───────────────────────
+    DataTemplate x:key="SkillGroupTemplate" [ DataType = SkillGroupVm ] {
+        StackPanel [ Orientation = Vertical, Margin = (0,0,0,10) ] {
+            TextBlock [ Text = $Header, Style = @BodyMedium, Foreground = @OnSurface, Margin = (0,0,0,6) ]
+            ItemsControl [ ItemsSource = $Items, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillListItemTemplate ]
+        }
+    }
+
     // ── the new-skill modal ─────────────────────────────────────────────────
     DataTemplate [ DataType = SkillNewDialogVm ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
@@ -140,6 +149,9 @@ resources SkillsAuthoringResources {
             TextBox [ Text = $Form.Description, Margin = (0,0,0,6) ]
             TextBlock [ Text = "Scope", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
             ComboBox [ ItemsSource = $Form.Scopes, SelectedItem = $Form.Scope, HorizontalAlignment = Stretch, Margin = (0,0,0,6) ]
+            TextBlock [ Text = "Project", Style = @BodySmall, Foreground = @OnSurfaceVariant, Visibility = $Form.ShowProjectPicker << ToVisibility ]
+            ComboBox [ ItemsSource = $Form.Projects, SelectedItem = $Form.SelectedProject, HorizontalAlignment = Stretch, Margin = (0,0,0,6),
+                       Visibility = $Form.ShowProjectPicker << ToVisibility ]
             TextBlock [ Text = "Template", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
             ComboBox [ ItemsSource = $Form.Templates, SelectedItem = $Form.Template, HorizontalAlignment = Stretch, Margin = (0,0,0,6) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,10,0,0) ] {
@@ -154,6 +166,7 @@ resources SkillsAuthoringResources {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
             StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,10) ] {
                 Button [ Variant = Tonal, Command = $NewCommand ] { TextBlock [ Text = "+ New Skill", Style = @BodySmall ] }
+                Button [ Variant = Text, Command = $RunCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Run", Style = @BodySmall ] }
                 Button [ Variant = Text, Command = $RefreshCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Refresh", Style = @BodySmall ] }
                 Button [ Variant = Text, Command = $SaveCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Save", Style = @BodySmall ] }
             }
@@ -164,7 +177,7 @@ resources SkillsAuthoringResources {
                     TextBlock [ DockPanel.Dock = Top, Style = @BodyMedium, Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
                                 Text = "No skills found. Create one with + New Skill.",
                                 Visibility = $IsEmpty << ToVisibility ]
-                    ItemsControl [ ItemsSource = $Items, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillListItemTemplate ]
+                    ItemsControl [ ItemsSource = $Groups, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillGroupTemplate ]
                     ContentControl [ Content = $Session, Visibility = $HasSession << ToVisibility ]
                 }
             }
