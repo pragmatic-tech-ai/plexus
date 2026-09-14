@@ -2,6 +2,7 @@
 // every consumer. v1 has one implementation (ClaudeCliProvider); an API-key/SDK
 // provider slots in later without touching the session, IPC, or renderer.
 import type { AgentEvent, ProjectCatalog } from '../../shared/agent-api.js'
+import type { SkillDescriptor } from '../../shared/skill-api.js'
 
 // A single live conversation with a backend. Multi-turn: send() writes another
 // user turn to the SAME process.
@@ -40,6 +41,9 @@ export interface IAiProvider
     // Discover the project's declared .claude/ agents + skills (provider-owned so a
     // different provider can discover differently).
     listAgentsAndSkills(projectDir: string): Promise<ProjectCatalog>;
+    // Discover skills across project/global/packaged scopes as typed descriptors
+    // (the superset catalog; base scan above stays for back-compat).
+    listSkills(projectDir: string): Promise<SkillDescriptor[]>;
 }
 
 // An extra MCP server the provider mounts into the backend. Kept generic so the

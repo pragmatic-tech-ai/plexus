@@ -13,6 +13,7 @@ import {
 import { EnvironmentChannel, type EnvironmentInfo } from '../shared/environment-api.js'
 import { SettingsChannel, type ISettingsBridge } from '../shared/settings-api.js'
 import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, type TaggedAgentEvent } from '../shared/agent-api.js'
+import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
 import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
 import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '../shared/file-watch-api.js'
 import { WindowChannel, type IWindowApi, type OverlayColors } from '../shared/window-api.js'
@@ -88,6 +89,8 @@ const agent: IAgentApi = {
   isResumable: (): Promise<boolean> => ipcRenderer.invoke(AgentChannel.IsResumable),
   listAgentsAndSkills: (projectDir: string): Promise<ProjectCatalog> =>
     ipcRenderer.invoke(AgentChannel.ListAgentsAndSkills, projectDir),
+  listSkills: (projectDir: string): Promise<SkillDescriptor[]> =>
+    ipcRenderer.invoke(SkillChannel.ListSkills, projectDir),
   answerQuestion: (answer): Promise<void> => ipcRenderer.invoke(AgentChannel.AnswerQuestion, answer),
   refreshProjectResult: (result): Promise<void> => ipcRenderer.invoke(AgentChannel.RefreshProjectResult, result),
   createProjectResult: (result): Promise<void> => ipcRenderer.invoke(AgentChannel.CreateProjectResult, result),

@@ -7,10 +7,14 @@ import { spawn as nodeSpawn } from 'node:child_process'
 import { existsSync, writeFileSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { tmpdir } from 'node:os'
+import { tmpdir, homedir } from 'node:os'
 import { StreamJsonParser } from './stream-json-parser.js'
 import { scanClaudeCatalog, type CatalogIo } from './claude-catalog.js'
+import { SkillScanner } from './skill-scanner.js'
+import { SkillScopeResolver, type ScopePaths } from './skill-scope-resolver.js'
+import { SkillFrontmatterParser } from './skill-frontmatter-parser.js'
 import { AgentEventKind, type AgentEvent, type ProjectCatalog } from '../../shared/agent-api.js'
+import type { SkillDescriptor } from '../../shared/skill-api.js'
 import type { AiProviderSession, ChildLike, IAiProvider, McpHttpServerConfig, McpOptions, McpServerConfig, McpStdioServerConfig, SpawnFn } from './ai-provider.js'
 
 // Default catalog IO: a thin node:fs wrapper (the provider scans the real project).
@@ -56,12 +60,24 @@ export class ClaudeCliProvider implements IAiProvider
         private readonly mcpResolver: ((cwd: string) => McpOptions) | undefined = undefined,
         // Catalog IO seam (injectable for tests); defaults to node:fs.
         private readonly catalogIo: CatalogIo = defaultCatalogIo,
+        // Scope base dirs for the superset skill catalog. Defaults to os.homedir()
+        // (fine for project + global scope in tests); the main wiring in agent.ts
+        // overrides with Electron app.getPath('home'|'userData') so packaged-scope
+        // discovery hits the real library/meta-model backends.
+        private readonly skillPaths: () => ScopePaths = () => ({ home: homedir(), userData: join(homedir(), '.plexus') }),
     ) {}
 
     // Discover the project's .claude/ agents + skills.
     public listAgentsAndSkills(projectDir: string): Promise<ProjectCatalog>
     {
         return scanClaudeCatalog(projectDir, this.catalogIo)
+    }
+
+    // Discover skills across project/global/packaged scopes as typed descriptors.
+    public listSkills(projectDir: string): Promise<SkillDescriptor[]>
+    {
+        const resolver = new SkillScopeResolver(this.skillPaths())
+        return new SkillScanner(resolver, new SkillFrontmatterParser(), this.catalogIo).scan(projectDir)
     }
 
     public start(

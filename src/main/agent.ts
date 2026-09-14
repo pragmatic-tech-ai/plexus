@@ -12,6 +12,7 @@ import {
     type ApprovalRule, type CreateProjectResult, type GetProblemsResult, type ProjectCatalog, type QuestionAnswer,
     type RefreshProjectResult, type TaggedAgentEvent, type ToolApprovalAnswer,
 } from '../shared/agent-api.js'
+import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
 import { AiProviderService } from './agent/ai-provider-service.js'
 import { ClaudeCliProvider } from './agent/claude-cli-provider.js'
 import { AgentSessionManager } from './agent/agent-session-manager.js'
@@ -79,7 +80,8 @@ export async function registerAgentHandlers(): Promise<void>
     mcpRuntime.register()
 
     const providers = new AiProviderService()
-    providers.register(new ClaudeCliProvider(undefined, undefined, (cwd) => mcpRuntime.resolver.resolve(cwd)))
+    providers.register(new ClaudeCliProvider(undefined, undefined, (cwd) => mcpRuntime.resolver.resolve(cwd), undefined,
+        () => ({ home: app.getPath('home'), userData: app.getPath('userData') })))
     const manager = new AgentSessionManager(providers, emitToRenderer)
 
     // setRuleStore is process-global: approval-rule scope tracks the most recent
@@ -103,6 +105,8 @@ export async function registerAgentHandlers(): Promise<void>
     ipcMain.handle(AgentChannel.IsResumable, (): boolean => providers.active().Resumable)
     ipcMain.handle(AgentChannel.ListAgentsAndSkills, (_e, projectDir: string): Promise<ProjectCatalog> =>
         providers.active().listAgentsAndSkills(projectDir))
+    ipcMain.handle(SkillChannel.ListSkills, (_e, projectDir: string): Promise<SkillDescriptor[]> =>
+        providers.active().listSkills(projectDir))
     // The user's answer to a pending card → unblock the ask_user_question call.
     ipcMain.handle(AgentChannel.AnswerQuestion, (_e, answer: QuestionAnswer): void => {
         mcpServer.resolveAnswer(answer)

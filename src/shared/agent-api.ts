@@ -257,6 +257,8 @@ export interface IAgentApi
     isResumable(): Promise<boolean>;
     // Discover a project's declared .claude/ agents + skills.
     listAgentsAndSkills(projectDir: string): Promise<ProjectCatalog>;
+    // Discover skills across project/global/packaged scopes as typed descriptors.
+    listSkills(projectDir: string): Promise<import('./skill-api.js').SkillDescriptor[]>;
     // Reply to a pending AskUserQuestion card; unblocks the agent's tool call.
     answerQuestion(answer: QuestionAnswer): Promise<void>;
     // The renderer's summary for a pending refresh_project tool call.

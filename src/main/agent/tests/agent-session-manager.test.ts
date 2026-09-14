@@ -9,6 +9,7 @@ function recordingProvider() {
     const provider: IAiProvider = {
         Id: 'rec', Resumable: true,
         listAgentsAndSkills: () => Promise.resolve({ agents: [], skills: [] }),
+        listSkills: () => Promise.resolve([]),
         start: (sessionId, _cwd, _dirs, onEvent): AiProviderSession => {
             const rec = { sessionId, onEvent, disposed: false }
             started.push(rec)
