@@ -51,7 +51,7 @@ import { NewFileParticipantKey } from '../../../services/documents/new-file-part
 import { NodeCommandContributorKey } from '../../../services/documents/node-command-contributor.js'
 import { DiagramExportService, ExportFormat } from '../../diagram-export/services/diagram-export-service.js'
 import { DiagramHeadlessRenderer } from '../../diagram-export/services/diagram-headless-renderer.js'
-import { ChatSessionsService } from '../../agent-chat/services/chat-sessions-service.js'
+import { SkillRunner } from '../../skills/services/skill-runner.js'
 import { AgentSkillChoice, SkillChoiceBuilder } from '../../agent-chat/services/agent-skill-choice.js'
 import { SkillCatalog } from '../../skills/services/skill-catalog.js'
 import { ProjectType } from '../../../../../shared/skill-api.js'
@@ -520,14 +520,14 @@ export class ProjectExplorerService extends ServiceBase
     private async wireAgentSkillChoices(op: OpenProject): Promise<void>
     {
         const catalog = this.Provider.get(SkillCatalog.Key)
-        const chats = this.Provider.get(ChatSessionsService.Key)
-        if (catalog === undefined || chats === undefined) return
+        const runner = this.Provider.get(SkillRunner.Key)
+        if (catalog === undefined || runner === undefined) return
         await catalog.discover(op.Folder)
         const pt = this.projectTypeOf(op)
         const skills = pt === undefined ? [...catalog.All] : catalog.forProjectType(pt)
-        const choices = SkillChoiceBuilder.fromSkills(skills, (s) => {
-            chats.RunAgentSkill({ kind: s.Kind, name: s.Name, description: s.Description }, op.Folder, op.Name)
-        })
+        // The runner collects typed inputs + resolves bindings before handing off to
+        // ChatSessionsService.RunAgentSkill (#3).
+        const choices = SkillChoiceBuilder.fromSkills(skills, (s) => { void runner.run(s, op.Folder, op.Name) })
         const collection = new ObservableCollection<AgentSkillChoice>()
         for (const c of choices) collection.Add(c)
         op.AgentSkillChoices = collection

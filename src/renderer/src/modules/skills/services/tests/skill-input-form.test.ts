@@ -19,7 +19,7 @@ test('confirm collects values when valid', () => {
 test('confirm is a no-op while invalid (required empty)', () => {
     let called = false
     const vm = new SkillInputFormVm(inputs, () => { called = true })
-    vm.Inputs.Get(0).Value = ''            // required Enum now empty
+    vm.Inputs.Get(0)!.Value = ''            // required Enum now empty
     expect(vm.IsValid).toBe(false)
     vm.ConfirmCommand.Execute(undefined)
     expect(called).toBe(false)

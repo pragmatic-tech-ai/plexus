@@ -16,6 +16,7 @@ import {
     type AgentEvent, type CatalogItem, type CreateProjectRequest, type IAgentApi,
 } from '../../../../../shared/agent-api.js'
 import type { IFileSystemApi } from '../../../../../shared/file-system-api.js'
+import type { ISkillContextApi, SkillContext } from '../../../../../shared/skill-context-api.js'
 import { BackgroundWorkService } from '../../background-work/services/background-work-service.js'
 import { TaskKind } from '../../background-work/services/task-executor.js'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
@@ -281,10 +282,16 @@ export class ChatSessionsService extends ServiceBase
 
     // Launch a project's declared agent/skill as a seeded conversation tracked by a
     // Background Work task; clicking the task reveals the conversation.
-    public RunAgentSkill(item: CatalogItem, _projectDir: string, projectName: string): ChatSession
+    public RunAgentSkill(item: CatalogItem, _projectDir: string, projectName: string,
+        opts?: { contextBlock?: string; context?: SkillContext }): ChatSession
     {
         const chat = this.newSession(`${item.name} · ${projectName}`)
-        const seed = seedInvocation(item)
+        // Register the run's structured context BEFORE the turn, keyed by session, so
+        // the skill's get_skill_context tool sees it from its first call.
+        if (opts?.context !== undefined) void this.skillContextBridge()?.set(chat.Id, opts.context)
+        // The slash command must lead; the context block is appended as its argument.
+        const base = seedInvocation(item)
+        const seed = opts?.contextBlock !== undefined && opts.contextBlock !== '' ? `${base}\n\n${opts.contextBlock}` : base
         // Optimistic echo + send through the shared bridge (same path as a user turn).
         chat.Reducer.beginUserTurn(seed)
         void this.agent.sendTurn(chat.Id, this.cwdFor(chat.Id), this.contextDirsFor(chat), seed, chat.Model())
@@ -298,6 +305,11 @@ export class ChatSessionsService extends ServiceBase
             open: () => { void this.Reveal(chat.Id) },
         })
         return chat
+    }
+
+    // The preload skill-context bridge (absent outside the desktop host).
+    private skillContextBridge(): ISkillContextApi | undefined {
+        return (globalThis as unknown as { api?: { skillContext?: ISkillContextApi } }).api?.skillContext
     }
 
     // Rehydrate a stored conversation into a document tab (resuming its AI context on

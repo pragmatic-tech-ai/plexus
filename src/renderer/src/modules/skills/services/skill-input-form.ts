@@ -31,7 +31,7 @@ export class SkillInputFormVm extends Observable {
     }
 
     get IsValid(): boolean {
-        for (let i = 0; i < this.Inputs.Count; i++) if (!this.Inputs.Get(i).IsValid) return false
+        for (let i = 0; i < this.Inputs.Count; i++) { const vm = this.Inputs.Get(i); if (vm !== undefined && !vm.IsValid) return false }
         return true
     }
     get ConfirmCommand(): ICommand { return this._confirm }
@@ -40,7 +40,7 @@ export class SkillInputFormVm extends Observable {
     private confirm(): void {
         if (!this.IsValid) return
         const out: ResolvedInput[] = []
-        for (let i = 0; i < this.Inputs.Count; i++) { const vm = this.Inputs.Get(i); out.push({ key: vm.Key, value: vm.Value }) }
+        for (let i = 0; i < this.Inputs.Count; i++) { const vm = this.Inputs.Get(i); if (vm !== undefined) out.push({ key: vm.Key, value: vm.Value }) }
         this.onDone(out)
     }
 }

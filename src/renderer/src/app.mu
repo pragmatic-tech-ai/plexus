@@ -93,6 +93,7 @@ import TitleService from "./window/title-service.js"
 // contributed by BackgroundWorkModule and rendered by BackgroundWorkResources.
 import BackgroundWorkService from "./modules/background-work/services/background-work-service.js"
 import SkillCatalog from "./modules/skills/services/skill-catalog.js"
+import SkillRunner from "./modules/skills/services/skill-runner.js"
 import BackgroundWorkModule from "./modules/background-work/background-work.module.mu.js"
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
@@ -242,6 +243,9 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // registered so the Project Explorer resolves it to build the
         // Run Agent/Skill submenu; lazily discovers per project on demand.
         SkillCatalog
+        // Typed/model-aware skill runner (#3): collects inputs + resolves bindings,
+        // then hands off to ChatSessionsService. The Run Agent/Skill menu calls it.
+        SkillRunner
         // Storage backends, keyed by id; the Project Explorer resolves this to
         // build a project's rooted IStorage. Root singleton so every consumer
         // shares the same registration set.
