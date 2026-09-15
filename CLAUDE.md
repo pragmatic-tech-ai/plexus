@@ -33,3 +33,9 @@ body from a file:
   `src/main/agent/agent-session.test.ts`. Vitest globs `src/**/*.test.ts` either
   way (see `vitest.config.ts`), so this is organizational: keep source
   directories free of test files.
+
+## View models extend Observable
+
+New view-model classes derive from `Observable` (the lightweight INPC root),
+not `MuralBase`. Reserve `MuralBase` for the few things that genuinely need the
+dependency-property system. Default a VM to `Observable` unless told otherwise.
