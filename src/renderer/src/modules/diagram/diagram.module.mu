@@ -119,6 +119,19 @@ module DiagramModule [ Name = "Diagram" ] {
               Default     = "thumbnail-label",
               Choices     = ["icon-label", "thumbnail-label", "plain-link"],
               Category    = "Diagram" ]
+        // Which optimizer orders connectors sharing a node side. Mirrors mural's
+        // DiagramSettingKey.ConnectorSidePortsOptimizer (key/default/choices) so
+        // the setting is present in the settings page from startup — before any
+        // diagram mounts to self-publish it. Optimized = fast barycenter heuristic;
+        // BruteForce = the exhaustive O(k^4) hill-climb (best result, costly).
+        SettingDefinition
+            [ Key         = "diagram.connector.sidePortsOptimizer",
+              Label       = "Side ports optimizer",
+              Description = "Which optimizer orders connectors that share a node side. Optimized is a fast barycenter heuristic. BruteForce runs an exhaustive crossing-minimising search — the best result, but costly: it can hang for minutes on a large hub, and still cannot guarantee zero crossings on a non-planar graph.",
+              Kind        = Choice,
+              Default     = "Optimized",
+              Choices     = ["Optimized", "BruteForce"],
+              Category    = "Diagram · Connectors" ]
     }
 
     // The document type this module edits. Declarative schema aggregated by the
