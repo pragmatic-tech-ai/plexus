@@ -1,9 +1,10 @@
-// help-hotspot-adorner.ts — the "?" button that appears on hover next to a
-// control tagged with Help.Topic.
+// help-hotspot-adorner.ts — the "?" chip that appears on hover next to a control
+// tagged with Help.Topic. Display only: the controller opens the flyout from a
+// root-level PointerDown (the chip lives in the IsHitTestVisible=false adorner
+// layer, so its own click routing is unreliable).
 import { Adorner, AdornerLayer, Rect, Size } from '@pragmatic-tech-ai/mural/visual-engine'
 import type { Visual } from '@pragmatic-tech-ai/mural/visual-engine'
 import { Button } from '@pragmatic-tech-ai/mural/framework'
-import type { PointerEventArgs } from '@pragmatic-tech-ai/mural/runtime'
 
 // Type hook only: its look (round "?" chip) is authored as
 // `Style [TargetType = HelpHotspotButton]` in help-overlay.resources.mu.
@@ -15,13 +16,10 @@ const INSET   = 2    // px from the control's top-right corner
 export class HelpHotspotAdorner extends Adorner
 {
     private readonly button = new HelpHotspotButton()
-    private readonly clickHandler: (args: PointerEventArgs) => void
 
-    constructor(adorned: Visual, onActivate: () => void)
+    constructor(adorned: Visual)
     {
         super(adorned)
-        this.clickHandler = () => onActivate()
-        this.button.AddClickHandler(this.clickHandler)
         this.AttachVisual(this.button)
     }
 
@@ -47,18 +45,13 @@ export class HelpHotspotAdorner extends Adorner
         return finalSize
     }
 
-    public dispose(): void
-    {
-        this.button.RemoveClickHandler(this.clickHandler)
-    }
-
-    public static Attach(adorned: Visual, onActivate: () => void):
+    public static Attach(adorned: Visual):
         { adorner: HelpHotspotAdorner; detach: () => void } | undefined
     {
         const layer = AdornerLayer.GetAdornerLayer(adorned)
         if (layer === undefined) return undefined
-        const adorner = new HelpHotspotAdorner(adorned, onActivate)
+        const adorner = new HelpHotspotAdorner(adorned)
         layer.Add(adorner)
-        return { adorner, detach: () => { layer.Remove(adorner); adorner.dispose() } }
+        return { adorner, detach: () => { layer.Remove(adorner) } }
     }
 }

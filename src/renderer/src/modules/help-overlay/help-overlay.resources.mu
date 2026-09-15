@@ -21,14 +21,16 @@ resources HelpOverlayResources {
         Template = @HelpHotspotButtonTemplate;
     }
 
-    // The flyout card hosting the scenario RichTextBlock (surfaced via
-    // ContentPresenter). MaxHeight caps it; the ScrollViewer scrolls overflow.
+    // The flyout card. The ContentPresenter must be a DIRECT child of the Border:
+    // ControlTemplate's content-presenter search stops at any nameScope boundary
+    // (a nested templated control like ScrollViewer), so a presenter buried inside
+    // a ScrollViewer is never found and Content never slots. The adorner therefore
+    // wraps the scenario RichTextBlock in a ScrollViewer and sets THAT as Content;
+    // MaxHeight on the Border caps the card and the ScrollViewer scrolls overflow.
     Template x:key="HelpFlyoutCardTemplate" [ TargetType = HelpFlyoutCard ] {
         Border [ Fill = @Surface, Stroke = Pen [ Brush = @Outline ], CornerRadius = @ShapeSmall,
                  Padding = (@Spacing3,@Spacing3,@Spacing3,@Spacing3), MaxHeight = 360 ] {
-            ScrollViewer [ HorizontalScrollEnabled = false ] {
-                ContentPresenter {}
-            }
+            ContentPresenter {}
         }
     }
 
