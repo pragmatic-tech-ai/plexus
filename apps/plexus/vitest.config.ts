@@ -59,6 +59,10 @@ export default defineConfig({
                 inline: [
                     /@pragmatic-tech-ai\/fresco/,
                     /@pragmatic-tech-ai\/todl(?:-runtime)?/,
+                    // plexus-core's renderer code (e.g. StorageProviderRegistryBase)
+                    // extends mural values; inline it so Vite routes its mural imports
+                    // through the dist aliases instead of Node picking mural's src.
+                    /@pragmatic-tech-ai\/plexus-core/,
                 ],
             },
         },

@@ -8,6 +8,7 @@
     "./vite/mural-renderer": "./dist/vite/mural-renderer.js",
     "./main": "./dist/main/index.js",
     "./main/updater": "./dist/main/updater.js",
+    "./renderer/services/storage": "./dist/renderer/services/storage/index.js",
     "./shared/*.js": "./dist/shared/*.js"
   },
   "scripts": {
@@ -23,6 +24,7 @@
   },
   "devDependencies": {
     "@pragmatic-tech-ai/mural": "^0.55.14",
+    "@pragmatic-tech-ai/todl-runtime": "^0.5.4",
     "@types/node": "^26.0.0",
     "electron": "^43.0.0",
     "typescript": "^5.6.0"
