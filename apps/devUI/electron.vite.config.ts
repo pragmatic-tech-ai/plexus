@@ -103,10 +103,7 @@ export default defineConfig({
       // here (it's a published dep), so dist-in-dev is both correct and matches
       // the build.
       conditions: ["module", "browser"],
-      alias: [
-        ...todlAliases,
-        { find: /^opentype\.js$/, replacement: resolve(rendererSrc, "opentype-shim.mjs") },
-      ],
+      alias: [...todlAliases],
     },
     // Allow Vite to serve files from the whole workspace (hoisted node_modules
     // live at the workspace root, not app-local).

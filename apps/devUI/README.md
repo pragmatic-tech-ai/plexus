@@ -68,11 +68,12 @@ check against a preview build — see `src/ui-verify/render-check.mjs`).
   classes breaks it (`theme 'Material' has no scheme 'Lm'`).
 - **`build.target: 'esnext'`** — the bootstrap uses top-level `await`
   (`await document.fonts.ready` before mounting).
-- **opentype.js shim + exact-regex alias.** opentype's ESM bundle has no default
-  export but Mural imports it as one. `src/opentype-shim.mjs` re-exports the
-  namespace as default; the alias `{ find: /^opentype\.js$/ }` is an *exact*
-  regex so the shim's own deep import escapes the alias. `opentype.js` is a
-  **direct** dependency (Mural's transitive copy doesn't hoist under `file:`).
+- **No opentype.js shim (mural ≥ 0.55.14).** opentype's CJS `main` exposes its
+  members only via a default export while its ESM `module` exposes only named
+  exports — opposite forms Node and bundlers can't both satisfy through the bare
+  specifier. mural now imports the ESM bundle path directly
+  (`opentype.js/dist/opentype.mjs`), the one specifier both treat as real ESM, so
+  no shim or alias is needed here anymore.
 - **`@pragmatic-tech-ai/todl` alias → `../dist/index.js`.** The compiler is
   consumed from the parent package's built dist; run `npm run build` at the repo
   root first (or the alias resolves stale/missing output).

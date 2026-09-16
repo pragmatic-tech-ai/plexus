@@ -40,11 +40,11 @@ export default defineConfig({
   },
   renderer: {
     resolve: {
-      // Shared mural handling (dist-pinning conditions + opentype / node:module
-      // shims) comes from plexus-core so every app resolves mural identically.
+      // Shared mural handling (dist-pinning conditions) comes from plexus-core so
+      // every app resolves mural identically. mural 0.55.14+ needs no shim
+      // aliases (opentype ESM-bundle import + no node:module in shipped source).
       conditions: MuralRendererConfig.resolve().conditions,
       alias: [
-        ...MuralRendererConfig.resolve().alias,
         // App-specific: @pragmatic-tech-ai/todl exposes only a ROOT ('.') export
         // whose nested import.default → dist/index.js trips Vite's
         // resolvePackageEntry; redirect the bare specifier to the built entry.
