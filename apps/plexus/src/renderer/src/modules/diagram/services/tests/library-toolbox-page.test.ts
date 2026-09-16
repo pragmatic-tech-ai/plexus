@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import { LibraryToolboxPage } from '../library-toolbox-page.js'
+import { ArchToolboxItem } from '../arch-toolbox-item.js'
 import type { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 
 // A registry stub exposing iconKeyFor (the EntityIconVM surface the page's tiles use).
@@ -29,6 +30,6 @@ describe('LibraryToolboxPage', () => {
         const item = page.Items.Get(0)!
         expect((item.Descriptor as ToolboxVisualDescriptor).Key).toBe('mm:actors.internal')
         // The tile's icon VM resolves the same key through the registry index.
-        expect(item.Icon.IconKey).toBe('icon-int')
+        expect((item as ArchToolboxItem).Icon.IconKey).toBe('icon-int')
     })
 })

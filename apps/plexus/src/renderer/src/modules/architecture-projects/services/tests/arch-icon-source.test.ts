@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from '@pragmatic-tech-ai/todl'
 import { iconEntityKey } from '../arch-icon.js'
+import { jsonNode } from '../../../../test-support/todl-fixture.js'
 
 // component: implementedBy (order 1) and categorisedAs (order 2) both declare iconSource.
 const MM = `namespace t {
@@ -18,7 +19,7 @@ const MM = `namespace t {
 function repoWith(icons: string[], model: string): { repo: Repository; entity: (id: string) => Entity } {
     const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)
     for (const target of icons)
-        mmDoc.nodes.push({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } })
+        mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [{ uri: 'a.todl', text: model }], { namespace: 't' })
     const insts = new Map(draft.ownInstances().map((e) => [e.id, e]))

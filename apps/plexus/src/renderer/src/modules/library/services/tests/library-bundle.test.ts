@@ -3,17 +3,18 @@ import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { deriveClasses, scanResources } from '../library-bundle.js'
+import { jsonNode } from '../../../../test-support/todl-fixture.js'
 
 // A hand-built model mirroring what the sample `microsoft` taxonomy compiles to
 // (verified empirically): Ontology-tier concept/field/taxonomy DEFINITIONS plus
 // two Instance-tier CLASS clabjects (attrs.class === true).
 const MODEL: TodlDocument = {
     nodes: [
-        { id: 'Location',   tier: 'Ontology', metaKind: 'concept',  attrs: {} },
-        { id: 'Technology', tier: 'Ontology', metaKind: 'concept',  attrs: {} },
-        { id: 'Microsoft',  tier: 'Ontology', metaKind: 'taxonomy', attrs: {} },
-        { id: 'Microsoft.Azure',        tier: 'Instance', type: 'Location',   metaKind: 'term', isClass: true, localId: 'Azure',        attrs: { label: 'Azure' } },
-        { id: 'Microsoft.AzureOpenai', tier: 'Instance', type: 'Technology', metaKind: 'term', isClass: true, localId: 'AzureOpenai', attrs: { label: 'Azure OpenAI' } },
+        jsonNode({ id: 'Location',   tier: 'Ontology', metaKind: 'concept',  attrs: {} }),
+        jsonNode({ id: 'Technology', tier: 'Ontology', metaKind: 'concept',  attrs: {} }),
+        jsonNode({ id: 'Microsoft',  tier: 'Ontology', metaKind: 'taxonomy', attrs: {} }),
+        jsonNode({ id: 'Microsoft.Azure',        tier: 'Instance', type: 'Location',   metaKind: 'term', isClass: true, localId: 'Azure',        attrs: { label: 'Azure' } }),
+        jsonNode({ id: 'Microsoft.AzureOpenai', tier: 'Instance', type: 'Technology', metaKind: 'term', isClass: true, localId: 'AzureOpenai', attrs: { label: 'Azure OpenAI' } }),
     ],
     edges: [],
 }
@@ -28,8 +29,8 @@ test('derives only Instance-tier class clabjects, with localId/label/concept', (
 
 test('ignores Ontology-tier definitions and non-class instances', () => {
     const model: TodlDocument = { nodes: [
-        { id: 'x',     tier: 'Ontology', metaKind: 'concept',  attrs: {} },
-        { id: 'lib.i', tier: 'Instance', type: 'x',        localId: 'i', attrs: {} },   // an instance, not a class
+        jsonNode({ id: 'x',     tier: 'Ontology', metaKind: 'concept',  attrs: {} }),
+        jsonNode({ id: 'lib.i', tier: 'Instance', type: 'x',        localId: 'i', attrs: {} }),   // an instance, not a class
     ], edges: [] }
     expect(deriveClasses(model)).toEqual([])
 })
@@ -37,10 +38,10 @@ test('ignores Ontology-tier definitions and non-class instances', () => {
 test('derives the icon path from a class node icon annotation', () => {
     const model: TodlDocument = {
         nodes: [
-            { id: 'Location', tier: 'Ontology', metaKind: 'concept', attrs: {} },
-            { id: 'Microsoft', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} },
-            { id: 'Microsoft.Azure', tier: 'Instance', type: 'Location', metaKind: 'term', isClass: true, localId: 'Azure', attrs: { label: 'Azure' } },
-            { id: 'Microsoft.Azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } },
+            jsonNode({ id: 'Location', tier: 'Ontology', metaKind: 'concept', attrs: {} }),
+            jsonNode({ id: 'Microsoft', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} }),
+            jsonNode({ id: 'Microsoft.Azure', tier: 'Instance', type: 'Location', metaKind: 'term', isClass: true, localId: 'Azure', attrs: { label: 'Azure' } }),
+            jsonNode({ id: 'Microsoft.Azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } }),
         ],
         edges: [{ kind: 'Annotated', via: null, from: 'Microsoft.Azure', to: 'Microsoft.Azure@icon' }],
     }

@@ -5,14 +5,14 @@ import { HelpHotspotAdorner } from '../help-hotspot-adorner.js'
 
 describe('HelpHotspotAdorner', () => {
     test('Attach returns undefined when no adorner layer is reachable', () => {
-        expect(HelpHotspotAdorner.Attach(new Border(), () => {})).toBeUndefined()
+        expect(HelpHotspotAdorner.Attach(new Border())).toBeUndefined()
     })
 
     test('Attach adds an adorner under an AdornerDecorator; detach removes it', () => {
         const deco = new AdornerDecorator()
         const child = new Border()
         deco.Child = child
-        const res = HelpHotspotAdorner.Attach(child, () => {})
+        const res = HelpHotspotAdorner.Attach(child)
         expect(res).toBeDefined()
         expect(deco.AdornerLayer.GetAdorners(child)?.length).toBe(1)
         res!.detach()

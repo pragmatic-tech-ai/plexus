@@ -2,6 +2,7 @@ import { test, expect } from 'vitest'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { iconKey, humanize, ontologyEntities, classEntities, distinctIcons, generatePresentationAssets, isRasterIcon, includeLine, resolveFacets, assignResourceKeys, resourceKeyFor, stampResourceKeys, buildIconIndex } from '../presentation-generator.js'
+import { jsonNode } from '../../../../test-support/todl-fixture.js'
 
 function doc(nodes: TodlDocument['nodes']): TodlDocument { return { nodes, edges: [] } }
 
@@ -41,13 +42,13 @@ test('includeLine: monochrome mode uses a plain include for SVG too', () => {
 
 test('ontologyEntities keeps concept/relationship/taxonomy/viewpoint/primitive, drops field + instances', () => {
     const m = doc([
-        { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
-        { id: 'depends-on', tier: 'Ontology', metaKind: 'relationship', attrs: {} },
-        { id: 'actor-kind', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} },
-        { id: 'Model', tier: 'Ontology', metaKind: 'viewpoint', attrs: {} },
-        { id: 'text', tier: 'Ontology', metaKind: 'primitive', attrs: {} },
-        { id: 'actor.label', tier: 'Ontology', metaKind: 'field', attrs: {} },
-        { id: 'actors.internal', tier: 'Instance', type: 'actor', attrs: {} },
+        jsonNode({ id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} }),
+        jsonNode({ id: 'depends-on', tier: 'Ontology', metaKind: 'relationship', attrs: {} }),
+        jsonNode({ id: 'actor-kind', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} }),
+        jsonNode({ id: 'Model', tier: 'Ontology', metaKind: 'viewpoint', attrs: {} }),
+        jsonNode({ id: 'text', tier: 'Ontology', metaKind: 'primitive', attrs: {} }),
+        jsonNode({ id: 'actor.label', tier: 'Ontology', metaKind: 'field', attrs: {} }),
+        jsonNode({ id: 'actors.internal', tier: 'Instance', type: 'actor', attrs: {} }),
     ])
     expect(ontologyEntities(m).map((n) => n.id)).toEqual(['actor', 'depends-on', 'actor-kind', 'Model', 'text'])
 })
@@ -57,14 +58,14 @@ test('distinctIcons collects distinct annotation icon paths, sorted', () => {
         iconNode('a@icon', 'resources/b.svg'),
         iconNode('b@icon', 'resources/a.svg'),
         iconNode('c@icon', 'resources/b.svg'),   // dup path
-        { id: 'd', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+        jsonNode({ id: 'd', tier: 'Ontology', metaKind: 'concept', attrs: {} }),
     ])
     expect(distinctIcons(m)).toEqual(['resources/a.svg', 'resources/b.svg'])
 })
 
 test('distinctIcons ignores a raw attrs.icon field (annotation form only)', () => {
     const m = doc([
-        { id: 'a', tier: 'Ontology', metaKind: 'concept', attrs: { icon: 'resources/legacy.svg' } },
+        jsonNode({ id: 'a', tier: 'Ontology', metaKind: 'concept', attrs: { icon: 'resources/legacy.svg' } }),
         iconNode('b@icon', 'resources/b.svg'),
     ])
     expect(distinctIcons(m)).toEqual(['resources/b.svg'])
@@ -72,10 +73,10 @@ test('distinctIcons ignores a raw attrs.icon field (annotation form only)', () =
 
 test('classEntities returns Instance-tier class nodes only', () => {
     const m = doc([
-        { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
-        { id: 'actors.internal', tier: 'Instance', type: 'actor', isClass: true, localId: 'internal', attrs: {} },
-        { id: 'web-app', tier: 'Instance', type: 'component', isClass: true, localId: 'web-app', attrs: {} },
-        { id: 'storefront', tier: 'Instance', type: 'component', attrs: {} },   // concrete, not a class
+        jsonNode({ id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} }),
+        jsonNode({ id: 'actors.internal', tier: 'Instance', type: 'actor', isClass: true, localId: 'internal', attrs: {} }),
+        jsonNode({ id: 'web-app', tier: 'Instance', type: 'component', isClass: true, localId: 'web-app', attrs: {} }),
+        jsonNode({ id: 'storefront', tier: 'Instance', type: 'component', attrs: {} }),   // concrete, not a class
     ])
     expect(classEntities(m).map((n) => n.id)).toEqual(['actors.internal', 'web-app'])
 })
@@ -140,7 +141,7 @@ test('generatePresentationAssets in monochrome mode emits plain includes (no `co
 })
 
 test('generatePresentationAssets is deterministic', () => {
-    const m = doc([{ id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} }])
+    const m = doc([jsonNode({ id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} })])
     const a = generatePresentationAssets(m, 'LibraryPresentation', true)
     const b = generatePresentationAssets(m, 'LibraryPresentation', true)
     expect(a).toBe(b)
