@@ -6,10 +6,10 @@ import { publishPresentation } from '../presentation-publisher.js'
 
 const DOC: TodlDocument = {
     nodes: [
-        { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: { label: 'Actor' } },
-        { id: 'actor@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/actor.svg' } },
-        { id: 'component', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-        { id: 'depends-on', tier: 'Ontology', typeOf: 'relationship', attrs: {} },
+        { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: { label: 'Actor' } },
+        { id: 'actor@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/actor.svg' } },
+        { id: 'component', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+        { id: 'depends-on', tier: 'Ontology', metaKind: 'relationship', attrs: {} },
     ],
     edges: [{ kind: 'Annotated', via: null, from: 'actor', to: 'actor@icon' }],
 } as unknown as TodlDocument
@@ -59,7 +59,7 @@ test('a referenced icon with no project file blocks publish (names the path, wri
 
 test('a model with no icons still publishes a valid assets artifact + empty index', async () => {
     const noIcons: TodlDocument = {
-        nodes: [{ id: 'component', tier: 'Ontology', typeOf: 'concept', attrs: {} }], edges: [],
+        nodes: [{ id: 'component', tier: 'Ontology', metaKind: 'concept', attrs: {} }], edges: [],
     } as unknown as TodlDocument
     const dest = new FakeStorage('fake://backend')
     const res = await publishPresentation(new FakeStorage('fake://proj'), dest, 'ea/1.0.0', noIcons)

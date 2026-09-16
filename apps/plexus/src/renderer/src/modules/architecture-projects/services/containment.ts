@@ -22,7 +22,7 @@ export function isContainmentRelationship(repo: Repository, concept: string, mem
 // Every concept declared in the repo (meta-kind `concept`).
 function allConcepts(repo: Repository): string[]
 {
-    return repo.allNodes().filter((n) => n.typeOf === MetaKind.Concept).map((n) => n.id)
+    return repo.allNodes().filter((n) => n.metaKind === MetaKind.Concept).map((n) => n.id)
 }
 
 // The set of concepts that are the target of some containment relationship

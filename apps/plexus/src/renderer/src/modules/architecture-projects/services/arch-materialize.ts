@@ -17,7 +17,7 @@ export function materializeOf(repo: Repository, id: string): MaterializeSpec | u
 // A drop-created root: a concept carrying a materialize marker that does NOT
 // redirect elsewhere (no foreign `concept` param).
 export function isMaterializeRoot(repo: Repository, conceptId: string): boolean {
-    if (repo.resolve(conceptId)?.typeOf !== MetaKind.Concept) return false
+    if (repo.resolve(conceptId)?.metaKind !== MetaKind.Concept) return false
     const spec = materializeOf(repo, conceptId)
     return spec !== undefined && (spec.concept === undefined || spec.concept === conceptId)
 }
@@ -25,6 +25,6 @@ export function isMaterializeRoot(repo: Repository, conceptId: string): boolean 
 // Every concept id that is a materialize root.
 export function materializeRoots(repo: Repository): string[] {
     return repo.allNodes()
-        .filter((n) => n.typeOf === MetaKind.Concept && isMaterializeRoot(repo, n.id))
+        .filter((n) => n.metaKind === MetaKind.Concept && isMaterializeRoot(repo, n.id))
         .map((n) => n.id)
 }

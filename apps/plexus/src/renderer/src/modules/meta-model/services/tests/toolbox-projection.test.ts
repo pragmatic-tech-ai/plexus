@@ -8,13 +8,13 @@ import { projectToolbox } from '../toolbox-projection.js'
 function doc(): TodlDocument {
   return {
     nodes: [
-      { id: 'actors', tier: 'Ontology', typeOf: 'taxonomy', attrs: { label: 'Actors' } },
-      { id: 'actors@toolbox', tier: 'Ontology', typeOf: 'toolbox', attrs: { visible: true } },
-      { id: 'actors.internal', tier: 'Instance', typeOf: 'actor', attrs: { class: true, label: 'Internal' }, instanceOf: 'actor' },
-      { id: 'actors.external', tier: 'Instance', typeOf: 'actor', attrs: { class: true, label: 'External' }, instanceOf: 'actor' },
-      { id: 'actors.external@toolbox', tier: 'Instance', typeOf: 'toolbox', attrs: { visible: false } },
-      { id: 'plain', tier: 'Ontology', typeOf: 'taxonomy', attrs: { label: 'Plain' } },
-      { id: 'plain.x', tier: 'Instance', typeOf: 'actor', attrs: { class: true }, instanceOf: 'actor' },
+      { id: 'actors', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Actors' } },
+      { id: 'actors@toolbox', tier: 'Ontology', type: 'toolbox', attrs: { visible: true } },
+      { id: 'actors.internal', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: { label: 'Internal' } },
+      { id: 'actors.external', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: { label: 'External' } },
+      { id: 'actors.external@toolbox', tier: 'Instance', type: 'toolbox', attrs: { visible: false } },
+      { id: 'plain', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Plain' } },
+      { id: 'plain.x', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: {} },
     ],
     edges: [
       { kind: 'Annotated', via: null, from: 'actors', to: 'actors@toolbox' },
@@ -37,7 +37,7 @@ describe('projectToolbox', () => {
   })
 
   it('a doc with no visible taxonomies yields []', () => {
-    const d = { nodes: [{ id: 'plain', tier: 'Ontology', typeOf: 'taxonomy', attrs: {} }], edges: [] } as unknown as TodlDocument
+    const d = { nodes: [{ id: 'plain', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} }], edges: [] } as unknown as TodlDocument
     expect(projectToolbox(d)).toEqual([])
   })
 })

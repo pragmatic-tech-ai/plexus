@@ -17,9 +17,9 @@ function backendWith(entries: Array<[string, string]>): FakeStorage
 // A serialized TodlDocument (toJSON shape) with two concepts and one relationship.
 const MODEL_JSON = JSON.stringify({
     nodes: [
-        { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: { label: 'Actor' } },
-        { id: 'app-component', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-        { id: 'depends-on', tier: 'Ontology', typeOf: 'relationship', attrs: {} },
+        { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: { label: 'Actor' } },
+        { id: 'app-component', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+        { id: 'depends-on', tier: 'Ontology', metaKind: 'relationship', attrs: {} },
     ],
     edges: [],
 })
@@ -92,9 +92,9 @@ test('loadVersionEntities surfaces viewpoints in a Viewpoints group', async () =
     // the tree must present them like any other ontology kind.
     const model = JSON.stringify({
         nodes: [
-            { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'Model', tier: 'Ontology', typeOf: 'viewpoint', attrs: { namespace: 'tech' } },
-            { id: 'Scenarios', tier: 'Ontology', typeOf: 'viewpoint', attrs: {} },
+            { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'Model', tier: 'Ontology', metaKind: 'viewpoint', attrs: { namespace: 'tech' } },
+            { id: 'Scenarios', tier: 'Ontology', metaKind: 'viewpoint', attrs: {} },
         ],
         edges: [],
     })
@@ -137,9 +137,9 @@ test('entity leaves carry an EntityRef wired to the activate callback', async ()
 test('a taxonomy row nests its terms as child entity rows', async () => {
     const model = JSON.stringify({
         nodes: [
-            { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'actors', tier: 'Ontology', typeOf: 'taxonomy', attrs: { label: 'Actors' } },
-            { id: 'actors.internal', tier: 'Instance', typeOf: 'actor', attrs: { class: true, id: 'internal', label: 'Internal' } },
+            { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'actors', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Actors' } },
+            { id: 'actors.internal', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, localId: 'internal', attrs: { label: 'Internal' } },
         ],
         edges: [
             { kind: 'Contains', via: null, from: 'actors', to: 'actors.internal' },

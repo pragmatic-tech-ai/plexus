@@ -25,18 +25,18 @@ function toolboxVisible(doc: TodlDocument, id: string): boolean | undefined
     return typeof v === 'boolean' ? v : undefined
 }
 
-// A term node's concept: its `instanceOf` when present, else its `typeOf`.
+// A term node's concept: the concept it instantiates, which in the 0.33.x model
+// is the instance-tier `type` (e.g. a `location` term has `type = "location"`).
 function conceptOf(t: JsonNode): string
 {
-    const io = (t as unknown as { instanceOf?: string }).instanceOf
-    return typeof io === 'string' ? io : t.typeOf
+    return t.type ?? ''
 }
 
 export function projectToolbox(doc: TodlDocument): ToolboxTaxonomy[]
 {
     const out: ToolboxTaxonomy[] = []
     for (const n of doc.nodes) {
-        if (n.tier !== 'Ontology' || n.typeOf !== 'taxonomy') continue
+        if (n.tier !== 'Ontology' || n.metaKind !== 'taxonomy') continue
         if (toolboxVisible(doc, n.id) !== true) continue                   // taxonomy: opt-in
         const facets = resolveFacets(n, projectAnnotations(doc, n.id))
         const terms: ToolboxTermRef[] = []

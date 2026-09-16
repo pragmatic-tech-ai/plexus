@@ -63,7 +63,7 @@ test('a node whose entity references an icon-bearing term is keyed by that term 
       viewpoint CV : frames component
     }`
     const mmDoc = toJSON(load([{ uri: 'refmm.todl', text: REF_MM }]).model)
-    mmDoc.nodes.push({ id: 'Stack.azure@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/azure.svg' } })
+    mmDoc.nodes.push({ id: 'Stack.azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } })
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const file = { uri: 'refmodel.todl', text: 'namespace refmm { model Arch : refmm conforms CV { component c1 { realisedBy = Stack.azure; } } }' }
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'refmm' })

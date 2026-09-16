@@ -35,7 +35,7 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
     const ct = conceptTypeOf(repo, termId)
     const accept = acceptSet(repo, ct)
     const framed = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
-    const isClassTerm = node.attrs.get('class') === true
+    const isClassTerm = node.isClass
 
     // 0. PLACE: the dropped term is itself a container-concept entity (e.g. a
     //    library location like `microsoft_tech.azure`). Place THAT entity as a
@@ -113,16 +113,17 @@ function legacyResolveDropActions(repo: Repository, termId: string, scope: Reado
 {
     const node = repo.resolve(termId)
     if (node === undefined) return []
-    const ct = repo.classOf(termId) ?? repo.represents(node.typeOf)[0] ?? node.typeOf
+    const type = node.type ?? termId
+    const ct = repo.classOf(termId) ?? repo.represents(type)[0] ?? type
     const accept = new Set<string>([ct, ...repo.supertypesOf(ct)])
     const framed = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
-    const isClassTerm = node.attrs.get('class') === true
+    const isClassTerm = node.isClass
 
     const actions: DropAction[] = []
     if (!isClassTerm && framed(ct)) actions.push({ kind: DropActionKind.Instance, concept: ct, label: ct })
 
     for (const n of repo.allNodes()) {
-        if (n.typeOf !== MetaKind.Concept) continue
+        if (n.metaKind !== MetaKind.Concept) continue
         const x = n.id
         if (!framed(x)) continue
         for (const rel of repo.effectiveSchema(x).relationships) {

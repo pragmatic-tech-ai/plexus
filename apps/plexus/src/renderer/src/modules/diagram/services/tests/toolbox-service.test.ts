@@ -11,9 +11,9 @@ import { LIBRARIES_BACKEND_ID } from '../../../library/services/libraries-backen
 
 const MODEL = JSON.stringify({
   nodes: [
-    { id: 'actors', tier: 'Ontology', typeOf: 'taxonomy', attrs: { label: 'Actors' } },
-    { id: 'actors@toolbox', tier: 'Ontology', typeOf: 'toolbox', attrs: { visible: true } },
-    { id: 'actors.internal', tier: 'Instance', typeOf: 'actor', attrs: { class: true, label: 'Internal' }, instanceOf: 'actor' },
+    { id: 'actors', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Actors' } },
+    { id: 'actors@toolbox', tier: 'Ontology', type: 'toolbox', attrs: { visible: true } },
+    { id: 'actors.internal', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: { label: 'Internal' } },
   ],
   edges: [
     { kind: 'Annotated', via: null, from: 'actors', to: 'actors@toolbox' },
@@ -24,9 +24,9 @@ const MODEL = JSON.stringify({
 // A second taxonomy from a different published package, so context filtering can hide it.
 const MODEL2 = JSON.stringify({
   nodes: [
-    { id: 'services', tier: 'Ontology', typeOf: 'taxonomy', attrs: { label: 'Services' } },
-    { id: 'services@toolbox', tier: 'Ontology', typeOf: 'toolbox', attrs: { visible: true } },
-    { id: 'services.web', tier: 'Instance', typeOf: 'service', attrs: { class: true, label: 'Web' }, instanceOf: 'service' },
+    { id: 'services', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Services' } },
+    { id: 'services@toolbox', tier: 'Ontology', type: 'toolbox', attrs: { visible: true } },
+    { id: 'services.web', tier: 'Instance', type: 'service', metaKind: 'term', isClass: true, attrs: { label: 'Web' } },
   ],
   edges: [
     { kind: 'Annotated', via: null, from: 'services', to: 'services@toolbox' },

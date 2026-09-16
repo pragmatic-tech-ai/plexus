@@ -5,9 +5,9 @@ import { MetaKind, type Repository } from '@pragmatic-tech-ai/todl'
 // Mirrors the long-standing derivation the drop resolver uses for a dropped term.
 export function conceptTypeOf(repo: Repository, id: string): string {
     const node = repo.resolve(id)
-    if (node?.typeOf === MetaKind.Concept) return id
-    const typeOf = node?.typeOf ?? id
-    return repo.classOf(id) ?? repo.represents(typeOf)[0] ?? typeOf
+    if (node?.metaKind === MetaKind.Concept) return id
+    const type = node?.type ?? id
+    return repo.classOf(id) ?? repo.represents(type)[0] ?? type
 }
 
 // A concept id plus all its supertypes — the set of concept ids a reference

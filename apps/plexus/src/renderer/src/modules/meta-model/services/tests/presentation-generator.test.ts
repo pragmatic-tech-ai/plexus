@@ -8,7 +8,7 @@ function doc(nodes: TodlDocument['nodes']): TodlDocument { return { nodes, edges
 // An `<x>@icon` annotation application node — the sole icon source now that the
 // legacy `attrs.icon` field form is gone.
 function iconNode(id: string, path: string): TodlDocument['nodes'][number] {
-    return { id, tier: 'Ontology', typeOf: 'icon', attrs: { path } } as unknown as TodlDocument['nodes'][number]
+    return { id, tier: 'Ontology', type: 'icon', attrs: { path } } as unknown as TodlDocument['nodes'][number]
 }
 
 test('iconKey slugs an icon path to a stable identifier', () => {
@@ -41,13 +41,13 @@ test('includeLine: monochrome mode uses a plain include for SVG too', () => {
 
 test('ontologyEntities keeps concept/relationship/taxonomy/viewpoint/primitive, drops field + instances', () => {
     const m = doc([
-        { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-        { id: 'depends-on', tier: 'Ontology', typeOf: 'relationship', attrs: {} },
-        { id: 'actor-kind', tier: 'Ontology', typeOf: 'taxonomy', attrs: {} },
-        { id: 'Model', tier: 'Ontology', typeOf: 'viewpoint', attrs: {} },
-        { id: 'text', tier: 'Ontology', typeOf: 'primitive', attrs: {} },
-        { id: 'actor.label', tier: 'Ontology', typeOf: 'field', attrs: {} },
-        { id: 'actors.internal', tier: 'Instance', typeOf: 'actor', attrs: {} },
+        { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+        { id: 'depends-on', tier: 'Ontology', metaKind: 'relationship', attrs: {} },
+        { id: 'actor-kind', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} },
+        { id: 'Model', tier: 'Ontology', metaKind: 'viewpoint', attrs: {} },
+        { id: 'text', tier: 'Ontology', metaKind: 'primitive', attrs: {} },
+        { id: 'actor.label', tier: 'Ontology', metaKind: 'field', attrs: {} },
+        { id: 'actors.internal', tier: 'Instance', type: 'actor', attrs: {} },
     ])
     expect(ontologyEntities(m).map((n) => n.id)).toEqual(['actor', 'depends-on', 'actor-kind', 'Model', 'text'])
 })
@@ -57,14 +57,14 @@ test('distinctIcons collects distinct annotation icon paths, sorted', () => {
         iconNode('a@icon', 'resources/b.svg'),
         iconNode('b@icon', 'resources/a.svg'),
         iconNode('c@icon', 'resources/b.svg'),   // dup path
-        { id: 'd', tier: 'Ontology', typeOf: 'concept', attrs: {} },
+        { id: 'd', tier: 'Ontology', metaKind: 'concept', attrs: {} },
     ])
     expect(distinctIcons(m)).toEqual(['resources/a.svg', 'resources/b.svg'])
 })
 
 test('distinctIcons ignores a raw attrs.icon field (annotation form only)', () => {
     const m = doc([
-        { id: 'a', tier: 'Ontology', typeOf: 'concept', attrs: { icon: 'resources/legacy.svg' } },
+        { id: 'a', tier: 'Ontology', metaKind: 'concept', attrs: { icon: 'resources/legacy.svg' } },
         iconNode('b@icon', 'resources/b.svg'),
     ])
     expect(distinctIcons(m)).toEqual(['resources/b.svg'])
@@ -72,32 +72,32 @@ test('distinctIcons ignores a raw attrs.icon field (annotation form only)', () =
 
 test('classEntities returns Instance-tier class nodes only', () => {
     const m = doc([
-        { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-        { id: 'actors.internal', tier: 'Instance', typeOf: 'actor', attrs: { class: true, id: 'internal' } },
-        { id: 'web-app', tier: 'Instance', typeOf: 'component', attrs: { class: true, id: 'web-app' } },
-        { id: 'storefront', tier: 'Instance', typeOf: 'component', attrs: {} },   // concrete, not a class
+        { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+        { id: 'actors.internal', tier: 'Instance', type: 'actor', isClass: true, localId: 'internal', attrs: {} },
+        { id: 'web-app', tier: 'Instance', type: 'component', isClass: true, localId: 'web-app', attrs: {} },
+        { id: 'storefront', tier: 'Instance', type: 'component', attrs: {} },   // concrete, not a class
     ])
     expect(classEntities(m).map((n) => n.id)).toEqual(['actors.internal', 'web-app'])
 })
 
 test('resolveFacets: icon comes from the annotation only; label is attr-primary', () => {
-    const node = { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: { icon: 'a.svg', label: 'Attr' } } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
+    const node = { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: { icon: 'a.svg', label: 'Attr' } } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
     // The attrs.icon field is ignored; the annotation supplies the icon. Label still prefers the attr.
     expect(resolveFacets(node, { icon: { path: 'ann.svg' }, label: { text: 'Ann' } })).toEqual({ icon: 'ann.svg', label: 'Attr' })
 })
 
 test('resolveFacets: no icon when the annotation is absent, even with a raw attrs.icon', () => {
-    const node = { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: { icon: 'a.svg' } } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
+    const node = { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: { icon: 'a.svg' } } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
     expect(resolveFacets(node, {})).toEqual({ icon: undefined, label: 'Actor' })
 })
 
 test('resolveFacets: annotation icon + annotation label when no attr label present', () => {
-    const node = { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
+    const node = { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
     expect(resolveFacets(node, { icon: { path: 'ann.svg' }, label: { text: 'Ann' } })).toEqual({ icon: 'ann.svg', label: 'Ann' })
 })
 
 test('resolveFacets: humanize label and no icon when neither present', () => {
-    const node = { id: 'app-component', tier: 'Ontology', typeOf: 'concept', attrs: {} } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
+    const node = { id: 'app-component', tier: 'Ontology', metaKind: 'concept', attrs: {} } as unknown as import('@pragmatic-tech-ai/todl').JsonNode
     expect(resolveFacets(node, {})).toEqual({ icon: undefined, label: 'App Component' })
 })
 
@@ -122,8 +122,8 @@ test('generatePresentationAssets emits icon includes only — no DataTemplates, 
 test('generatePresentationAssets includes annotation-sourced icons', () => {
     const m = {
         nodes: [
-            { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'actor@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/actor.svg' } },
+            { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'actor@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/actor.svg' } },
         ],
         edges: [{ kind: 'Annotated', via: null, from: 'actor', to: 'actor@icon' }],
     } as unknown as TodlDocument
@@ -140,7 +140,7 @@ test('generatePresentationAssets in monochrome mode emits plain includes (no `co
 })
 
 test('generatePresentationAssets is deterministic', () => {
-    const m = doc([{ id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} }])
+    const m = doc([{ id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} }])
     const a = generatePresentationAssets(m, 'LibraryPresentation', true)
     const b = generatePresentationAssets(m, 'LibraryPresentation', true)
     expect(a).toBe(b)
@@ -196,11 +196,11 @@ test('generatePresentationAssets suffixes colliding icon stems in its includes',
 test('buildIconIndex maps each icon-bearing entity to its resource key under the prefix', () => {
     const m = {
         nodes: [
-            { id: 'service', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'service@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/svc.svg' } },
-            { id: 'db', tier: 'Instance', typeOf: 'component', attrs: { class: true, id: 'db' } },
-            { id: 'db@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/db.svg' } },
-            { id: 'plain', tier: 'Ontology', typeOf: 'concept', attrs: {} },   // no icon → omitted
+            { id: 'service', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'service@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/svc.svg' } },
+            { id: 'db', tier: 'Instance', type: 'component', isClass: true, localId: 'db', attrs: {} },
+            { id: 'db@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/db.svg' } },
+            { id: 'plain', tier: 'Ontology', metaKind: 'concept', attrs: {} },   // no icon → omitted
         ],
         edges: [
             { kind: 'Annotated', via: null, from: 'service', to: 'service@icon' },
@@ -216,8 +216,8 @@ test('buildIconIndex maps each icon-bearing entity to its resource key under the
 test('buildIconIndex indexes raster (PNG) icons too — they render via the Image element', () => {
     const m = {
         nodes: [
-            { id: 'aml', tier: 'Instance', typeOf: 'component', attrs: { class: true, id: 'aml' } },
-            { id: 'aml@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/aml.png' } },
+            { id: 'aml', tier: 'Instance', type: 'component', isClass: true, localId: 'aml', attrs: {} },
+            { id: 'aml@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/aml.png' } },
         ],
         edges: [{ kind: 'Annotated', via: null, from: 'aml', to: 'aml@icon' }],
     } as unknown as TodlDocument
@@ -228,8 +228,8 @@ test('buildIconIndex indexes raster (PNG) icons too — they render via the Imag
 test('buildIconIndex applies an empty prefix for the library keyspace', () => {
     const m = {
         nodes: [
-            { id: 'service', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'service@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/svc.svg' } },
+            { id: 'service', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'service@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/svc.svg' } },
         ],
         edges: [{ kind: 'Annotated', via: null, from: 'service', to: 'service@icon' }],
     } as unknown as TodlDocument
@@ -240,10 +240,10 @@ test('buildIconIndex applies an empty prefix for the library keyspace', () => {
 test('stampResourceKeys writes the assigned key onto icon application nodes only', () => {
     const m = {
         nodes: [
-            { id: 'actor', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'actor@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'a/az.svg' } },
-            { id: 'comp@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'b/az.svg' } },
-            { id: 'raw', tier: 'Instance', typeOf: 'x', attrs: { icon: 'c/other.svg' } }, // raw attr, not an app
+            { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'actor@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'a/az.svg' } },
+            { id: 'comp@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'b/az.svg' } },
+            { id: 'raw', tier: 'Instance', type: 'x', attrs: { icon: 'c/other.svg' } }, // raw attr, not an app
         ],
         edges: [],
     } as unknown as TodlDocument

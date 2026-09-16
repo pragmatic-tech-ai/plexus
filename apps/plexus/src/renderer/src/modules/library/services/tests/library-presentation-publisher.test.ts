@@ -5,10 +5,10 @@ import { publishLibraryPresentation } from '../library-presentation-publisher.js
 
 const DOC: TodlDocument = {
     nodes: [
-        { id: 'microsoft.azure', tier: 'Instance', typeOf: 'location',
-          attrs: { class: true, id: 'azure', label: 'Azure' } },
-        { id: 'microsoft.azure@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/azure.svg' } },
-        { id: 'microsoft.aws', tier: 'Instance', typeOf: 'location', attrs: { class: true, id: 'aws', label: 'AWS' } },
+        { id: 'microsoft.azure', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'azure',
+          attrs: { label: 'Azure' } },
+        { id: 'microsoft.azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } },
+        { id: 'microsoft.aws', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'aws', attrs: { label: 'AWS' } },
     ],
     edges: [{ kind: 'Annotated', via: null, from: 'microsoft.azure', to: 'microsoft.azure@icon' }],
 } as unknown as TodlDocument
@@ -48,9 +48,9 @@ test('a referenced icon with no project file blocks publish (names the path, wri
 // the default template's Image element.
 const RASTER_DOC: TodlDocument = {
     nodes: [
-        { id: 'microsoft.aml', tier: 'Instance', typeOf: 'technology',
-          attrs: { class: true, id: 'aml', label: 'Azure ML' } },
-        { id: 'microsoft.aml@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/azure-machine-learning.png' } },
+        { id: 'microsoft.aml', tier: 'Instance', type: 'technology', metaKind: 'term', isClass: true, localId: 'aml',
+          attrs: { label: 'Azure ML' } },
+        { id: 'microsoft.aml@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure-machine-learning.png' } },
     ],
     edges: [{ kind: 'Annotated', via: null, from: 'microsoft.aml', to: 'microsoft.aml@icon' }],
 } as unknown as TodlDocument
@@ -83,7 +83,7 @@ test('a referenced raster icon with no project file blocks publish', async () =>
 
 test('a model with no icons still bakes a valid artifact', async () => {
     const noIcons: TodlDocument = {
-        nodes: [{ id: 'microsoft.aws', tier: 'Instance', typeOf: 'location', attrs: { class: true, id: 'aws', label: 'AWS' } }],
+        nodes: [{ id: 'microsoft.aws', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'aws', attrs: { label: 'AWS' } }],
         edges: [],
     } as unknown as TodlDocument
     const dest = new FakeStorage('fake://backend')

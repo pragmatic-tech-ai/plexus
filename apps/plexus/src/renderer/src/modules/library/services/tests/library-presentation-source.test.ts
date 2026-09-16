@@ -32,11 +32,11 @@ async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
     if (withIcon) void proj.WriteText('resources/azure.svg', SVG)
     const doc = withIcon
         ? { nodes: [
-            { id: 'microsoft.azure', tier: 'Instance', typeOf: 'location', attrs: { class: true, id: 'azure', label: 'Azure' } },
-            { id: 'microsoft.azure@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/azure.svg' } },
+            { id: 'microsoft.azure', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'azure', attrs: { label: 'Azure' } },
+            { id: 'microsoft.azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } },
           ], edges: [{ kind: 'Annotated', via: null, from: 'microsoft.azure', to: 'microsoft.azure@icon' }] } as any
         : { nodes: [
-            { id: 'microsoft.azure', tier: 'Instance', typeOf: 'location', attrs: { class: true, id: 'azure', label: 'Azure' } },
+            { id: 'microsoft.azure', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'azure', attrs: { label: 'Azure' } },
           ], edges: [] } as any
     const { publishLibraryPresentation } = await import('../library-presentation-publisher.js')
     await publishLibraryPresentation(proj, backend, 'microsoft/0.1.0', doc)

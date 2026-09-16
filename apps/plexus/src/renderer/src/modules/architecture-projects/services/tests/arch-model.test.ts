@@ -42,6 +42,6 @@ test('viewpoints() lists framed concepts and subtype-aware members', () => {
 test('repository() returns the working repo composing base concepts + own instances', () => {
     const m = buildModel()
     const repo = m.repository()
-    expect(repo.resolve('Component')?.typeOf).toBe('concept')   // from the meta-model base
-    expect(repo.resolve('web')?.typeOf).toBe('Component')       // own instance over the base
+    expect(repo.resolve('Component')?.metaKind).toBe('concept')   // from the meta-model base
+    expect(repo.resolve('web')?.type).toBe('Component')           // own instance over the base
 })

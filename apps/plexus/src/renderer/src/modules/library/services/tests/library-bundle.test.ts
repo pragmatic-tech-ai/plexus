@@ -9,11 +9,11 @@ import { deriveClasses, scanResources } from '../library-bundle.js'
 // two Instance-tier CLASS clabjects (attrs.class === true).
 const MODEL: TodlDocument = {
     nodes: [
-        { id: 'Location',   tier: 'Ontology', typeOf: 'concept',  attrs: {} },
-        { id: 'Technology', tier: 'Ontology', typeOf: 'concept',  attrs: {} },
-        { id: 'Microsoft',  tier: 'Ontology', typeOf: 'taxonomy', attrs: {} },
-        { id: 'Microsoft.Azure',        tier: 'Instance', typeOf: 'Location',   attrs: { class: true, id: 'Azure',        label: 'Azure' } },
-        { id: 'Microsoft.AzureOpenai', tier: 'Instance', typeOf: 'Technology', attrs: { class: true, id: 'AzureOpenai', label: 'Azure OpenAI' } },
+        { id: 'Location',   tier: 'Ontology', metaKind: 'concept',  attrs: {} },
+        { id: 'Technology', tier: 'Ontology', metaKind: 'concept',  attrs: {} },
+        { id: 'Microsoft',  tier: 'Ontology', metaKind: 'taxonomy', attrs: {} },
+        { id: 'Microsoft.Azure',        tier: 'Instance', type: 'Location',   metaKind: 'term', isClass: true, localId: 'Azure',        attrs: { label: 'Azure' } },
+        { id: 'Microsoft.AzureOpenai', tier: 'Instance', type: 'Technology', metaKind: 'term', isClass: true, localId: 'AzureOpenai', attrs: { label: 'Azure OpenAI' } },
     ],
     edges: [],
 }
@@ -28,8 +28,8 @@ test('derives only Instance-tier class clabjects, with localId/label/concept', (
 
 test('ignores Ontology-tier definitions and non-class instances', () => {
     const model: TodlDocument = { nodes: [
-        { id: 'x',     tier: 'Ontology', typeOf: 'concept',  attrs: {} },
-        { id: 'lib.i', tier: 'Instance', typeOf: 'x',        attrs: { id: 'i' } },   // an instance, not a class
+        { id: 'x',     tier: 'Ontology', metaKind: 'concept',  attrs: {} },
+        { id: 'lib.i', tier: 'Instance', type: 'x',        localId: 'i', attrs: {} },   // an instance, not a class
     ], edges: [] }
     expect(deriveClasses(model)).toEqual([])
 })
@@ -37,10 +37,10 @@ test('ignores Ontology-tier definitions and non-class instances', () => {
 test('derives the icon path from a class node icon annotation', () => {
     const model: TodlDocument = {
         nodes: [
-            { id: 'Location', tier: 'Ontology', typeOf: 'concept', attrs: {} },
-            { id: 'Microsoft', tier: 'Ontology', typeOf: 'taxonomy', attrs: {} },
-            { id: 'Microsoft.Azure', tier: 'Instance', typeOf: 'Location', attrs: { class: true, id: 'Azure', label: 'Azure' } },
-            { id: 'Microsoft.Azure@icon', tier: 'Ontology', typeOf: 'icon', attrs: { path: 'resources/azure.svg' } },
+            { id: 'Location', tier: 'Ontology', metaKind: 'concept', attrs: {} },
+            { id: 'Microsoft', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} },
+            { id: 'Microsoft.Azure', tier: 'Instance', type: 'Location', metaKind: 'term', isClass: true, localId: 'Azure', attrs: { label: 'Azure' } },
+            { id: 'Microsoft.Azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } },
         ],
         edges: [{ kind: 'Annotated', via: null, from: 'Microsoft.Azure', to: 'Microsoft.Azure@icon' }],
     }

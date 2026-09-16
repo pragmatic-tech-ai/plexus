@@ -21,7 +21,7 @@ const ONTOLOGY_KINDS = new Set<string>(Object.values(OntologyKind))
 // taxonomy/primitive), in model order.
 export function ontologyEntities(model: TodlDocument): JsonNode[]
 {
-    return model.nodes.filter((n) => n.tier === 'Ontology' && ONTOLOGY_KINDS.has(n.typeOf))
+    return model.nodes.filter((n) => n.tier === 'Ontology' && ONTOLOGY_KINDS.has(n.metaKind ?? ''))
 }
 
 // Instance-tier `class` nodes — a taxonomy term (staged with `class: true`) or a
@@ -29,7 +29,7 @@ export function ontologyEntities(model: TodlDocument): JsonNode[]
 // icon/label renders. In model order.
 export function classEntities(model: TodlDocument): JsonNode[]
 {
-    return model.nodes.filter((n) => n.tier === 'Instance' && n.attrs['class'] === true)
+    return model.nodes.filter((n) => n.tier === 'Instance' && n.isClass)
 }
 
 // Distinct icon paths across every node, sorted — the SVGs the generated
@@ -41,9 +41,9 @@ export function distinctIcons(model: TodlDocument): string[]
 {
     const set = new Set<string>()
     for (const n of model.nodes) {
-        // Annotation-sourced icon: a `<x>@icon` application node (typeOf 'icon')
-        // carries the path on its `path` attr.
-        if (n.typeOf === 'icon') {
+        // Annotation-sourced icon: a `<x>@icon` application node (its `type` is
+        // the annotation name 'icon') carries the path on its `path` attr.
+        if (n.type === 'icon') {
             const path = n.attrs['path']
             if (typeof path === 'string' && path.length > 0) set.add(path)
         }
@@ -142,7 +142,7 @@ export function stampResourceKeys(doc: TodlDocument): void
 {
     const keys = assignResourceKeys(doc)
     for (const n of doc.nodes) {
-        if (n.typeOf !== 'icon') continue
+        if (n.type !== 'icon') continue
         const attrs = n.attrs as Record<string, unknown>
         const path = attrs['path']
         if (typeof path !== 'string' || path.length === 0) continue

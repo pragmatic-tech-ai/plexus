@@ -8,13 +8,14 @@ import { ontologyEntities, humanize, OntologyKind } from './presentation-generat
 // A term is a taxonomy's `Contains` target that is a class node.
 const CONTAINS = 'Contains'
 
-// The term nodes of a taxonomy: its `Contains` targets with `attrs.class === true`.
+// The term nodes of a taxonomy: its `Contains` targets that are class nodes
+// (`isClass`, promoted from the old `attrs.class`).
 export function termsOf(doc: TodlDocument, taxonomyId: string): JsonNode[]
 {
     const targets = new Set(
         doc.edges.filter((e) => e.kind === CONTAINS && e.from === taxonomyId).map((e) => e.to),
     )
-    return doc.nodes.filter((n) => targets.has(n.id) && n.attrs['class'] === true)
+    return doc.nodes.filter((n) => targets.has(n.id) && n.isClass)
 }
 
 // A published meta-model as plain data: its id and the versions found under it.
@@ -100,7 +101,9 @@ export async function loadVersionEntities(
     const out: MetaModelTreeNode[] = []
     for (const g of GROUPS)
     {
-        const inGroup = entities.filter((n) => n.typeOf === g.kind)
+        // OntologyKind mirrors MetaKind's string values (concept/taxonomy/…); the
+        // node's metaKind is the todl MetaKind enum, so compare on the shared string.
+        const inGroup = entities.filter((n) => n.metaKind === (g.kind as string))
         if (inGroup.length === 0) continue
         const group = MetaModelTreeNode.leaf(MetaModelNodeKind.Group, g.label)
         for (const n of inGroup)
