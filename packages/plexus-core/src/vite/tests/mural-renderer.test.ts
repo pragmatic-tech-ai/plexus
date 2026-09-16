@@ -8,9 +8,11 @@ describe('MuralRendererConfig', () => {
         expect(r.conditions).not.toContain('development')
     })
 
-    test('optimizeDeps excludes mural and fresco', () => {
+    test('optimizeDeps excludes mural (bare + subpaths) and fresco', () => {
         const ex = MuralRendererConfig.optimizeDepsExclude()
         expect(ex).toContain('@pragmatic-tech-ai/mural')
+        expect(ex).toContain('@pragmatic-tech-ai/mural/runtime')
+        expect(ex).toContain('@pragmatic-tech-ai/mural/resources/material')
         expect(ex).toContain('@pragmatic-tech-ai/fresco')
     })
 })

@@ -1,5 +1,6 @@
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import { vitePluginMural } from "@pragmatic-tech-ai/mural/tooling";
+import { MuralRendererConfig } from "@pragmatic-tech-ai/plexus-core/vite/mural-renderer";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -78,31 +79,24 @@ export default defineConfig({
     // theme/scheme modules (Material builds before its dark scheme is ready) ->
     // ThemeManager.ActivateTheme fails and the shell renders empty in dev. Served
     // as real ESM, live bindings + URL dedup keep a single, correctly-ordered
-    // mural. The condition set below still routes it to dist, not src.
+    // mural. The shared exclude list (canonical for both apps) lives in
+    // plexus-core; the condition set below still routes mural to dist, not src.
     optimizeDeps: {
-      exclude: [
-        "@pragmatic-tech-ai/mural",
-        "@pragmatic-tech-ai/mural/runtime",
-        "@pragmatic-tech-ai/mural/basic",
-        "@pragmatic-tech-ai/mural/framework",
-        "@pragmatic-tech-ai/mural/visual-engine",
-        "@pragmatic-tech-ai/mural/tooling",
-        "@pragmatic-tech-ai/mural/resources/material",
-      ],
+      exclude: MuralRendererConfig.optimizeDepsExclude(),
       esbuildOptions: { conditions: ["module", "browser"] },
     },
     build: { target: "esnext" }, // top-level await in the renderer bootstrap
     resolve: {
       // Consume published mural via its compiled `dist` (the tested artifact),
-      // NOT its `src`. Dropping the "development" condition means the mural
+      // NOT its `src`. The shared condition set drops "development", so the mural
       // exports map resolves to `default` (dist) even in `electron-vite dev`.
       // Its `development` -> `./src` path relies on a src/build theme-registration
       // seam that only holds when bundled (build), so under native-ESM dev it
       // left the Material dark scheme unregistered -> ThemeManager.ActivateTheme
       // threw and the shell rendered empty. We no longer live-edit mural source
       // here (it's a published dep), so dist-in-dev is both correct and matches
-      // the build.
-      conditions: ["module", "browser"],
+      // the build. Shared with Plexus via plexus-core's MuralRendererConfig.
+      conditions: MuralRendererConfig.resolve().conditions,
       alias: [...todlAliases],
     },
     // Allow Vite to serve files from the whole workspace (hoisted node_modules

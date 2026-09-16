@@ -15,10 +15,24 @@ export class MuralRendererConfig {
         }
     }
 
-    // Packages to keep out of Vite's dep pre-bundler so a rebuilt framework dist
-    // is served live (mural is under active development upstream) and fresco
-    // shares the same single mural instance.
+    // Specifiers to keep out of Vite's dep pre-bundler. mural must be served as
+    // live ESM (not esbuild-optimized): the optimize pass mis-orders mural's
+    // theme/scheme modules (Material builds before its dark scheme is ready) so
+    // ThemeManager.ActivateTheme fails and the shell renders empty. Vite treats
+    // each subpath as its own optimize target, so every mural subpath an app can
+    // import must be listed explicitly — the bare specifier alone doesn't cover
+    // them. fresco shares mural, so exclude it too. This is the canonical list
+    // for BOTH apps; excluding a specifier an app never imports is harmless.
     public static optimizeDepsExclude(): string[] {
-        return ['@pragmatic-tech-ai/mural', '@pragmatic-tech-ai/fresco']
+        return [
+            '@pragmatic-tech-ai/mural',
+            '@pragmatic-tech-ai/mural/runtime',
+            '@pragmatic-tech-ai/mural/basic',
+            '@pragmatic-tech-ai/mural/framework',
+            '@pragmatic-tech-ai/mural/visual-engine',
+            '@pragmatic-tech-ai/mural/tooling',
+            '@pragmatic-tech-ai/mural/resources/material',
+            '@pragmatic-tech-ai/fresco',
+        ]
     }
 }
