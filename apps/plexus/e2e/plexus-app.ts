@@ -13,7 +13,12 @@ import os from 'node:os'
 
 export const PLEXUS_ROOT = path.resolve(__dirname, '..')
 export const MAIN = path.join(PLEXUS_ROOT, 'out/main/index.js')
-export const ELECTRON_EXE = path.join(PLEXUS_ROOT, 'node_modules/electron/dist/electron.exe')
+// electron's binary — probe app-local then the hoisted workspace-root
+// node_modules (npm workspaces hoist electron to the repo root).
+export const ELECTRON_EXE = [
+    path.join(PLEXUS_ROOT, 'node_modules/electron/dist/electron.exe'),
+    path.join(PLEXUS_ROOT, '../../node_modules/electron/dist/electron.exe'),
+].find((p) => fs.existsSync(p)) ?? path.join(PLEXUS_ROOT, 'node_modules/electron/dist/electron.exe')
 
 // Live corpus of test projects (meta-model + two libraries + arch consumer).
 // Override the root with PLEXUS_TEST_CORPUS if it lives elsewhere.
