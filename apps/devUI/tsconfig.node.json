@@ -1,0 +1,11 @@
+{
+  // Node side: main process, preload, and the electron-vite config. todl types
+  // resolve from node_modules via the package's exports "types" (it is a
+  // registry dependency now, not a file: link), so no custom `paths`.
+  "extends": "@electron-toolkit/tsconfig/tsconfig.node.json",
+  "include": ["electron.vite.config.ts", "src/main/**/*", "src/preload/**/*"],
+  "compilerOptions": {
+    "composite": true,
+    "types": ["electron-vite/node", "node"]
+  }
+}

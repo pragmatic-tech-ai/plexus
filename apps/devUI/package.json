@@ -1,0 +1,46 @@
+{
+  "name": "@pragmatic-tech-ai/devui",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "author": "Pragmatic Lab <evgen.napryaglo@gmail.com>",
+  "description": "devUI - TODL package/registry developer tool built on mural, packaged as an Electron desktop app (electron-vite). Sibling app to Plexus in the workspace; consumes @pragmatic-tech-ai/todl from the registry and shares mural handling via @pragmatic-tech-ai/plexus-core.",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "package": "npm run build && electron-builder",
+    "package:win": "npm run build && electron-builder --win",
+    "package:linux": "npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@pragmatic-tech-ai/plexus-core": "*",
+    "@pragmatic-tech-ai/todl": "^0.33.5",
+    "@pragmatic-tech-ai/todl-runtime": "^0.5.4",
+    "electron-updater": "^6.8.9",
+    "monaco-editor": "^0.52.0",
+    "opentype.js": "^2.0.0",
+    "vscode-jsonrpc": "^8.2.0",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12",
+    "vscode-languageserver-types": "^3.17.5"
+  },
+  "devDependencies": {
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@electron-toolkit/utils": "^4.0.0",
+    "@playwright/test": "^1.62.1",
+    "@pragmatic-tech-ai/mural": "^0.55.13",
+    "electron": "^43.0.0",
+    "electron-builder": "^25.1.8",
+    "electron-vite": "^5.0.0",
+    "jsdom": "^30.0.1",
+    "playwright": "^1.62.1",
+    "vite": "^7.3.6",
+    "vitest": "^4.1.10"
+  }
+}

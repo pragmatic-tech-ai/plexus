@@ -1,0 +1,14 @@
+{
+  // Web side: the renderer. mural + todl type-check against their built dist
+  // `.d.ts` resolved from node_modules (registry deps) — the same public surface
+  // an external consumer sees. Vite resolves the runtime `.js` (see
+  // electron.vite.config resolve.alias/conditions). The dead @shared/@examples
+  // aliases from the TODL repo are dropped (the app never imported them).
+  "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
+  "include": ["src/renderer/**/*"],
+  "compilerOptions": {
+    "composite": true,
+    "allowJs": true,
+    "types": ["electron-vite/node"]
+  }
+}

@@ -45,11 +45,22 @@ export default defineConfig({
     test: {
         include: ['src/**/*.test.ts'],
         environment: 'node',
-        // Inline ONLY fresco: it ships a nested mural 0.45.2 whose imports would
-        // otherwise resolve (natively) to that copy's uncompiled src. Transforming
-        // fresco routes its `@pragmatic-tech-ai/mural/*` imports through the dist
-        // aliases above → the single root mural dist. mural itself stays external
-        // (transforming it breaks its circular init).
-        server: { deps: { inline: [/@pragmatic-tech-ai\/fresco/] } },
+        // Inline fresco AND todl/todl-runtime so Vite TRANSFORMS them and routes
+        // their `@pragmatic-tech-ai/mural/*` imports through the dist aliases above
+        // → the single root mural dist. Left external, an imported module's mural
+        // subpath imports are resolved natively by Node, which (a) can't be
+        // redirected by a Vite alias and (b) picks mural's `development` export
+        // condition → uncompiled `src/*.ts`, and Node refuses to strip types under
+        // node_modules. fresco ships a nested mural 0.45.2; todl@0.33.5 declares a
+        // real mural dependency (its solution/* view-models extend mural types).
+        // mural itself stays external (transforming it breaks its circular init).
+        server: {
+            deps: {
+                inline: [
+                    /@pragmatic-tech-ai\/fresco/,
+                    /@pragmatic-tech-ai\/todl(?:-runtime)?/,
+                ],
+            },
+        },
     },
 })
