@@ -1,10 +1,10 @@
 {
-  // Solution file — electron-vite pattern. The two leaf configs type-check
-  // the Node side (main + preload + the vite config) and the web side
-  // (renderer) with the right lib/globals for each.
+  // Workspace solution file — references each buildable project so an
+  // editor / `tsc -b` can resolve the whole graph. Per-app builds still run
+  // through electron-vite + each app's own leaf configs.
   "files": [],
   "references": [
-    { "path": "./tsconfig.node.json" },
-    { "path": "./tsconfig.web.json" }
+    { "path": "./packages/plexus-core" },
+    { "path": "./apps/plexus" }
   ]
 }

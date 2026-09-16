@@ -1,6 +1,19 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { existsSync } from 'node:fs'
 import { defineConfig } from 'electron-vite'
+
+// @pragmatic-tech-ai/todl's dist entry — probe app-local then hoisted
+// workspace-root node_modules (npm workspaces hoist todl to the repo root).
+const TODL_DIST: string = (() => {
+  const rel = '@pragmatic-tech-ai/todl/dist/index.js'
+  const hit = [
+    new URL(`./node_modules/${rel}`, import.meta.url),
+    new URL(`../../node_modules/${rel}`, import.meta.url),
+  ].map(fileURLToPath).find(existsSync)
+  if (hit === undefined) throw new Error(`cannot resolve ${rel} in app or workspace-root node_modules`)
+  return hit
+})()
 
 // electron-vite drives three separate Rollup/Vite builds — main (Node),
 // preload (Node, isolated bridge), and renderer (Chromium). The renderer is
@@ -37,7 +50,7 @@ export default defineConfig({
         // Redirect the bare specifier straight to the built entry.
         {
           find: /^@pragmatic-tech-ai\/todl$/,
-          replacement: fileURLToPath(new URL('./node_modules/@pragmatic-tech-ai/todl/dist/index.js', import.meta.url)),
+          replacement: TODL_DIST,
         },
         // mural's COMPILER (run in-process by LibraryRegistry to compile `.mural`
         // visual templates at runtime) statically imports `createRequire` from

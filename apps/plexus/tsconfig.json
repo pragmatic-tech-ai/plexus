@@ -1,0 +1,10 @@
+{
+  // Solution file — electron-vite pattern. The two leaf configs type-check
+  // the Node side (main + preload + the vite config) and the web side
+  // (renderer) with the right lib/globals for each.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.node.json" },
+    { "path": "./tsconfig.web.json" }
+  ]
+}

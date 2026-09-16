@@ -9,11 +9,14 @@ import { build } from 'esbuild'
 import { builtinModules } from 'node:module'
 import { existsSync } from 'node:fs'
 
-const ENTRY = 'node_modules/@pragmatic-tech-ai/todl/dist/language-server/stdio.js'
+// Probe app-local then hoisted workspace-root node_modules — under npm
+// workspaces @pragmatic-tech-ai/todl is hoisted to the repo root.
+const REL = '@pragmatic-tech-ai/todl/dist/language-server/stdio.js'
+const ENTRY = [`node_modules/${REL}`, `../../node_modules/${REL}`].find((p) => existsSync(p))
 
-if (!existsSync(ENTRY)) {
+if (ENTRY === undefined) {
   console.error(
-    `\n[build-todl-server] Missing ${ENTRY}.\n` +
+    `\n[build-todl-server] Missing ${REL} in app or workspace-root node_modules.\n` +
     `The TODL language server must be available: publish @pragmatic-tech-ai/todl (>=0.3.0, ` +
     `with dist built) to the registry and reinstall, or 'npm run build' in the TODL ` +
     `checkout and 'npm link @pragmatic-tech-ai/todl' here.\n`,
