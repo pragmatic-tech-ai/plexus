@@ -9,6 +9,8 @@
     "./main": "./dist/main/index.js",
     "./main/updater": "./dist/main/updater.js",
     "./renderer/services/storage": "./dist/renderer/services/storage/index.js",
+    "./renderer/window": "./dist/renderer/window/index.js",
+    "./renderer/window/*": "./dist/renderer/window/*",
     "./shared/*.js": "./dist/shared/*.js"
   },
   "scripts": {
