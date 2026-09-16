@@ -6,7 +6,7 @@
     "outDir": "dist",
     "allowJs": true,
     "checkJs": false,
-    "declaration": false,
+    "declaration": true,
     "noEmit": false,
     "types": ["node"]
   },

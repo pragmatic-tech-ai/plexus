@@ -1,5 +1,5 @@
 import type { ISettingsStore } from '@pragmatic-tech-ai/mural/framework'
-import type { ISettingsBridge } from '../../../../shared/settings-api.js'
+import type { ISettingsBridge } from '@pragmatic-tech-ai/plexus-core/shared/settings-api.js'
 
 // ElectronSettingsStore — the Plexus host's ISettingsStore, adapting the preload
 // settings bridge (window.api.settings) to the framework contract the

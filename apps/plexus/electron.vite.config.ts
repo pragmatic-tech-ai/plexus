@@ -1,8 +1,15 @@
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
-import { defineConfig } from 'electron-vite'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import { MuralRendererConfig } from '@pragmatic-tech-ai/plexus-core/vite/mural-renderer'
+
+// plexus-core is first-party workspace code, not a third-party runtime dep — it
+// must be BUNDLED into the app's (CJS) main + preload, not externalized. Left
+// external, its ESM dist runs natively in Electron's main and its CommonJS deps
+// (electron-updater's `autoUpdater` named export, …) fail the ESM interop that
+// esbuild handles when bundling. electron/chokidar/etc. stay external as usual.
+const CORE = '@pragmatic-tech-ai/plexus-core'
 
 // @pragmatic-tech-ai/todl's dist entry — probe app-local then hoisted
 // workspace-root node_modules (npm workspaces hoist todl to the repo root).
@@ -11,7 +18,7 @@ const TODL_DIST: string = (() => {
   const hit = [
     new URL(`./node_modules/${rel}`, import.meta.url),
     new URL(`../../node_modules/${rel}`, import.meta.url),
-  ].map(fileURLToPath).find(existsSync)
+  ].map((u) => fileURLToPath(u)).find(existsSync)
   if (hit === undefined) throw new Error(`cannot resolve ${rel} in app or workspace-root node_modules`)
   return hit
 })()
@@ -24,8 +31,13 @@ export default defineConfig({
   // Don't empty out/main on build: the vendored TODL language-server bundle
   // (out/main/todl-language-server.cjs, produced by scripts/build-todl-server.mjs
   // before electron-vite runs) lives here and must survive the main build.
-  main: { build: { emptyOutDir: false } },
-  preload: {},
+  main: {
+    plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
+    build: { emptyOutDir: false },
+  },
+  preload: {
+    plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
+  },
   renderer: {
     resolve: {
       // Shared mural handling (dist-pinning conditions + opentype / node:module

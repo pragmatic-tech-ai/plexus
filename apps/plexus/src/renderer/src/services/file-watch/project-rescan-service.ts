@@ -2,7 +2,7 @@
 // re-scanning + re-validating that project (the same path the agent's
 // refresh_project uses). Debounced per folder so a burst collapses to one rescan.
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { type FileChangeEvent } from '../../../../shared/file-watch-api.js'
+import { type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
 import { normalizePath } from './path-utils.js'
 import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'

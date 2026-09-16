@@ -1,15 +1,17 @@
 import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import { registerFileSystemHandlers } from './filesystem.js'
-import { registerFileWatchHandlers } from './file-watcher.js'
-import { registerEnvironmentHandlers } from './environment.js'
-import { registerSettingsHandlers } from './settings.js'
+import {
+  registerFileSystemHandlers,
+  registerFileWatchHandlers,
+  registerEnvironmentHandlers,
+  registerSettingsHandlers,
+  registerWindowHandlers,
+  initAutoUpdate,
+} from '@pragmatic-tech-ai/plexus-core/main'
 import { registerAgentHandlers } from './agent.js'
 import { registerTodlServerHandlers } from './todl/register.js'
-import { registerWindowHandlers } from './window.js'
-import { initAutoUpdate } from './updater.js'
-import { TITLE_BAR_HEIGHT } from '../shared/window-api.js'
+import { TITLE_BAR_HEIGHT } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
 // the native caption strip to that scheme's title-bar surface + glyph ink; the

@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 
 import type { FileSystemService } from '../../file-system/file-system-service.js'
-import type { FileEntry } from '../../../../../shared/file-system-api.js'
+import type { FileEntry } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
 import { LocalFileStorage } from '../local-file-storage.js'
 import { isLocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 

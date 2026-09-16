@@ -1,5 +1,5 @@
 import { autoUpdater } from 'electron-updater'
-import { shouldAutoUpdate } from './updater-guard'
+import { shouldAutoUpdate } from './updater-guard.js'
 
 // Called once after the first window is ready. On non-Linux-AppImage runs this
 // is a no-op; on a Linux AppImage it checks the GitHub Release feed and notifies

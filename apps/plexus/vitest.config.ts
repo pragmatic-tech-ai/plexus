@@ -19,7 +19,7 @@ function pkgRoot(spec: string): string {
     const hit = [
         new URL(`./node_modules/${spec}`, import.meta.url),
         new URL(`../../node_modules/${spec}`, import.meta.url),
-    ].map(fileURLToPath).find(existsSync)
+    ].map((u) => fileURLToPath(u)).find(existsSync)
     if (hit === undefined) throw new Error(`cannot locate ${spec} in app or workspace-root node_modules`)
     return hit
 }

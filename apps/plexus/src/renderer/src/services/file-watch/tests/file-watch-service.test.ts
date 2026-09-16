@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { FileChangeKind, type FileChangeEvent, type IFileWatchApi } from '../../../../../shared/file-watch-api.js'
+import { FileChangeKind, type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from '../file-watch-service.js'
 import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
 

@@ -56,7 +56,7 @@ import { AgentSkillChoice, SkillChoiceBuilder } from '../../agent-chat/services/
 import { SkillCatalog } from '../../skills/services/skill-catalog.js'
 import { ProjectType } from '../../../../../shared/skill-api.js'
 import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
-import type { FileFilter } from '../../../../../shared/file-system-api.js'
+import type { FileFilter } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
 import { ProjectNode } from '../../../services/projects/project.js'
 import type { Project } from '../../../services/projects/project.js'
 import { OpenProject } from '../../../services/projects/open-project.js'

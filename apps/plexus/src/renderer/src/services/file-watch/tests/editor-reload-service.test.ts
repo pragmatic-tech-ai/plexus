@@ -1,5 +1,5 @@
 import { describe, expect, test, vi } from 'vitest'
-import { FileChangeKind, type FileChangeEvent } from '../../../../../shared/file-watch-api.js'
+import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { EditorReloadService } from '../editor-reload-service.js'
 import { FileWatchService } from '../file-watch-service.js'
 import { CodeEditorService } from '../../../modules/code-editor/code-editor-service.js'

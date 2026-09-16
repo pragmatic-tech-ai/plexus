@@ -15,7 +15,7 @@ import {
     AgentEventKind, AgentSkillKind,
     type AgentEvent, type CatalogItem, type CreateProjectRequest, type IAgentApi,
 } from '../../../../../shared/agent-api.js'
-import type { IFileSystemApi } from '../../../../../shared/file-system-api.js'
+import type { IFileSystemApi } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
 import type { ISkillContextApi, SkillContext } from '../../../../../shared/skill-context-api.js'
 import { BackgroundWorkService } from '../../background-work/services/background-work-service.js'
 import { TaskKind } from '../../background-work/services/task-executor.js'

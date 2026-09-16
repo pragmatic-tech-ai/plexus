@@ -13,7 +13,7 @@
 // cached per path/uri — a settled image isn't re-read on each subsequent delta.
 import { Size } from '@pragmatic-tech-ai/mural/runtime'
 import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
-import type { IFileSystemApi } from '../../../../../shared/file-system-api.js'
+import type { IFileSystemApi } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
 import { renderMarkdown } from '../../../services/markdown/marked-flow-renderer.js'
 import type { ImageByteSource } from '../../../services/markdown/markdown-image.js'
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { shouldAutoUpdate } from '../updater-guard'
+import { shouldAutoUpdate } from '../updater-guard.js'
 
 describe('shouldAutoUpdate', () => {
   it('is true only for a Linux AppImage run', () => {

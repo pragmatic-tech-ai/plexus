@@ -9,16 +9,16 @@ import {
   type OpenFileResult,
   type OpenFolderOptions,
   type SaveFileOptions,
-} from '../shared/file-system-api.js'
-import { EnvironmentChannel, type EnvironmentInfo } from '../shared/environment-api.js'
-import { SettingsChannel, type ISettingsBridge } from '../shared/settings-api.js'
+} from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
+import { EnvironmentChannel, type EnvironmentInfo } from '@pragmatic-tech-ai/plexus-core/shared/environment-api.js'
+import { SettingsChannel, type ISettingsBridge } from '@pragmatic-tech-ai/plexus-core/shared/settings-api.js'
 import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, type TaggedAgentEvent } from '../shared/agent-api.js'
 import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
 import { SkillContextChannel, type SkillContext, type ISkillContextApi } from '../shared/skill-context-api.js'
 import { ModelPatchChannel } from '../shared/model-patch-api.js'
 import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
-import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '../shared/file-watch-api.js'
-import { WindowChannel, type IWindowApi, type OverlayColors } from '../shared/window-api.js'
+import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
+import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.

@@ -3,7 +3,7 @@
 // Eagerly resolved at startup so it listens from boot.
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
-import { FileChangeKind, type FileChangeEvent } from '../../../../shared/file-watch-api.js'
+import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
 import { CodeEditorService } from '../../modules/code-editor/code-editor-service.js'
 import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
