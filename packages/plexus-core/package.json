@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./renderer/probe": "./dist/renderer/probe/index.js"
+    "./renderer/probe": "./dist/renderer/probe/index.js",
+    "./vite/mural-renderer": "./dist/vite/mural-renderer.js"
   },
   "scripts": {
     "compile:mu": "node scripts/compile-mu.mjs",
     "build": "npm run compile:mu && tsc -p tsconfig.json",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "devDependencies": {

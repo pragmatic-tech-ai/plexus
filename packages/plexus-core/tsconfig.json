@@ -8,7 +8,8 @@
     "checkJs": false,
     "declaration": false,
     "noEmit": false,
-    "types": []
+    "types": ["node"]
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["src/**/tests/**", "**/*.test.ts"]
 }

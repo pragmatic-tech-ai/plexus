@@ -2,6 +2,7 @@ import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { existsSync } from 'node:fs'
 import { defineConfig } from 'electron-vite'
+import { MuralRendererConfig } from '@pragmatic-tech-ai/plexus-core/vite/mural-renderer'
 
 // @pragmatic-tech-ai/todl's dist entry — probe app-local then hoisted
 // workspace-root node_modules (npm workspaces hoist todl to the repo root).
@@ -27,59 +28,26 @@ export default defineConfig({
   preload: {},
   renderer: {
     resolve: {
-      // Pin mural to its BUILT dist (the `default`/`import` export
-      // conditions), NOT the `development` condition (which points at
-      // src/*.ts). mural's source uses NodeNext `.js` import specifiers that
-      // resolve to `.ts` under tsc but that Vite's resolver will not remap —
-      // so bundling src would break. Consume the compiled dist instead and
-      // rebuild it (root `npm run build`) when framework source changes.
-      conditions: ['import', 'module', 'browser', 'default'],
-      // Redirect ONLY the bare `opentype.js` specifier (regex-anchored, so
-      // the shim's own deep import to dist/opentype.mjs is untouched) to a
-      // shim that provides the default export mural imports. opentype.js's
-      // ESM bundle ships named exports only; a pure-ESM bundler won't
-      // synthesise the default the way Node's CJS interop does.
+      // Shared mural handling (dist-pinning conditions + opentype / node:module
+      // shims) comes from plexus-core so every app resolves mural identically.
+      conditions: MuralRendererConfig.resolve().conditions,
       alias: [
-        {
-          find: /^opentype\.js$/,
-          replacement: fileURLToPath(new URL('./src/renderer/opentype-shim.mjs', import.meta.url)),
-        },
-        // @pragmatic-tech-ai/todl exposes only a ROOT ('.') export, whose nested
-        // import.default → dist/index.js trips Vite's resolvePackageEntry (as
-        // it does for mural's root — hence subpath imports everywhere else).
-        // Redirect the bare specifier straight to the built entry.
+        ...MuralRendererConfig.resolve().alias,
+        // App-specific: @pragmatic-tech-ai/todl exposes only a ROOT ('.') export
+        // whose nested import.default → dist/index.js trips Vite's
+        // resolvePackageEntry; redirect the bare specifier to the built entry.
+        // The path is app-specific (probed above), so it stays here.
         {
           find: /^@pragmatic-tech-ai\/todl$/,
           replacement: TODL_DIST,
         },
-        // mural's COMPILER (run in-process by LibraryRegistry to compile `.mural`
-        // visual templates at runtime) statically imports `createRequire` from
-        // `node:module`. In the Chromium renderer that specifier externalises to a
-        // proxy that throws on access, crashing the page at module load. Redirect
-        // it to a browser shim (no-op createRequire); the compiler's materialBundle
-        // try/catch tolerates the empty result. Renderer-only — the Node CLI
-        // (`compile:mu`) uses the real builtin.
-        {
-          find: /^node:module$/,
-          replacement: fileURLToPath(new URL('./src/renderer/node-module-shim.mjs', import.meta.url)),
-        },
       ],
     },
-    // mural is a `file:../..` linked package under active development. Vite's
-    // dep pre-bundler snapshots node_modules deps into .vite/deps at dev-server
-    // start and does NOT re-optimize when the linked dist changes underneath it —
-    // so a framework rebuild (new DPs, services, controls) is silently masked by
-    // a stale pre-bundle until the cache is manually cleared. Excluding mural from
-    // pre-bundling makes Vite serve the live dist on every request: rebuild the
-    // root dist and the renderer picks it up on reload, no cache dance. Safe —
-    // exclude only skips bundling, resolution is unaffected.
+    // Keep mural + fresco out of Vite's dep pre-bundler so a rebuilt framework
+    // dist is served live and both share one mural instance (see plexus-core's
+    // MuralRendererConfig.optimizeDepsExclude for the rationale).
     optimizeDeps: {
-      // Exclude fresco alongside mural: fresco imports @pragmatic-tech-ai/mural,
-      // and pre-bundling fresco while mural is excluded leaves fresco's mural
-      // import external — a mixed optimized/non-optimized graph that produces
-      // stale "504 Outdated Optimize Dep" errors. Excluding both serves them as
-      // live dist ESM sharing one mural instance.
-      exclude: ['@pragmatic-tech-ai/mural', '@pragmatic-tech-ai/fresco'],
+      exclude: MuralRendererConfig.optimizeDepsExclude(),
     },
     build: {
       rollupOptions: {
