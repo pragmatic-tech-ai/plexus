@@ -7,7 +7,7 @@ import {
   registerEnvironmentHandlers,
   registerSettingsHandlers,
   registerWindowHandlers,
-  initAutoUpdate,
+  Updater,
 } from '@pragmatic-tech-ai/plexus-core/main'
 import { registerAgentHandlers } from './agent.js'
 import { registerTodlServerHandlers } from './todl/register.js'
@@ -137,7 +137,7 @@ app.whenReady().then(async () => {
   registerWindowHandlers()
 
   createWindow()
-  initAutoUpdate()
+  Updater.init()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

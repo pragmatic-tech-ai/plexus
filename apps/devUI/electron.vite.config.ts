@@ -61,7 +61,9 @@ export default defineConfig({
     // ESM-interop dependency on Electron's Node version.
     plugins: [
       externalizeDepsPlugin({
-        exclude: ["@pragmatic-tech-ai/todl", "@pragmatic-tech-ai/todl-runtime"],
+        // plexus-core is first-party ESM: bundle it into the CJS main (don't
+        // externalize) so its updater is inlined and CJS interop holds.
+        exclude: ["@pragmatic-tech-ai/todl", "@pragmatic-tech-ai/todl-runtime", "@pragmatic-tech-ai/plexus-core"],
       }),
     ],
     resolve: {

@@ -9,7 +9,7 @@ import { RegistryBridge } from "./registry/registry-bridge.js";
 import { RegistryIpc } from "./registry/register-ipc.js";
 import { FsIpc } from "./fs/fs-ipc.js";
 import { SafeStorageEncryptor } from "./registry/safe-storage-encryptor.js";
-import { Updater } from "./updater.js";
+import { Updater } from "@pragmatic-tech-ai/plexus-core/main/updater";
 
 function createWindow(): void {
   const window = new BrowserWindow({
