@@ -11,6 +11,9 @@
 // round-trips (was a multi-second white window). See fonts.css.
 import './fonts.css'
 import { app } from './app.mu.js'
+// PHASE A probe: prove a plexus-core .mu resolves + merges across the package
+// boundary. Removed in Phase B once real shared resources land.
+import { ProbeResources } from '@pragmatic-tech-ai/plexus-core/renderer/probe'
 import { HtmlTarget } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ThemeManager, Density, RelayCommand, SettingSourceKey } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, PanelDockService, DialogService, ApplicationSettings } from '@pragmatic-tech-ai/mural/framework'
@@ -72,6 +75,10 @@ await document.fonts.load('24px "Material Symbols Outlined"')
 try {
     const renderTarget = new HtmlTarget(document.getElementById('app'))
     app.initialize(renderTarget)
+    // PHASE A probe: merge a plexus-core resource dictionary (compiled .mu class
+    // with a static Clone()) to prove cross-package .mu import resolves + applies.
+    app.Resources.AddMergedDictionary(ProbeResources.Clone())
+    globalThis.__coreProbe = () => { try { return ProbeResources.Clone() !== undefined } catch { return false } }
     // app.mu registers ApplicationSettings.Key itself (to wire the Electron settings
     // store), which makes EditorShell SKIP wiring the SettingSourceKey→ApplicationSettings
     // bridge — its guard is `!Services.has(ApplicationSettings.Key)`. Without that bridge

@@ -27,6 +27,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@pragmatic-tech-ai/plexus-core": "*",
     "@pragmatic-tech-ai/todl": "^0.33.3",
     "@pragmatic-tech-ai/todl-runtime": "^0.5.4",
     "chokidar": "^5.0.0",
