@@ -49,19 +49,23 @@ import {
 import { isRelocatable, isRelocatableAcrossStorage, type IDocumentFactory } from '../../../services/documents/document-factory.js'
 import { NewFileParticipantKey } from '../../../services/documents/new-file-participant.js'
 import { NodeCommandContributorKey } from '../../../services/documents/node-command-contributor.js'
-import { DiagramExportService, ExportFormat } from '../../diagram-export/services/diagram-export-service.js'
-import { DiagramHeadlessRenderer } from '../../diagram-export/services/diagram-headless-renderer.js'
-import { SkillRunner } from '../../skills/services/skill-runner.js'
-import { SkillChoiceBuilder } from '../../agent-chat/services/agent-skill-choice.js'
-import { ProjectMenuChoice, type MoveArg } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
-import { SkillCatalog } from '../../skills/services/skill-catalog.js'
-import { ProjectType } from '../../../../../shared/skill-api.js'
+import {
+    ProjectMenuChoice,
+    type MoveArg,
+    type IProjectTreeHost,
+    PublishedBasesKey,
+    LiveValidationKey,
+    BaseResolverKey,
+    DiagramTreeExportKey,
+    DiagramExportFormat,
+    ProjectMenuSourceKey,
+    ProblemsDockKey,
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileFilter } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
 import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
-import { isTodlProject } from '../../../services/projects/todl-project-factory.js'
 import { VersionPart, bumpVersion } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
 import { SetVersionDialogModel, type SetVersionResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/set-version-dialog-model.js'
 import { NewItemChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-item-choice.js'
@@ -76,11 +80,6 @@ import {
     type OpenProjectResult,
 } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project-dialog-model.js'
 import type { BaseBindings, BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
-import { ensureMetaModelsBackend } from '../../meta-model/services/meta-models-backend.js'
-import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
-import { TodlLanguageClient } from '../../../services/todl/todl-language-client.js'
-import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
-import { ProblemsService } from '../../problems/problems-service.js'
 import { DiagnosticsService } from '../../../services/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '../../../services/diagnostics/diagnostic.js'
 import { planNodeMoves } from '@pragmatic-tech-ai/plexus-core/renderer/projects/node-move.js'
@@ -88,7 +87,6 @@ import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-mod
 import { DocumentCloseGuard } from '../../../services/documents/document-close-guard.js'
 import { ManageReferencesDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/projects/manage-references-dialog-model.js'
 import { RecentProjectsService } from '@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js'
-import { CodeDocument } from '../../code-editor/code-document.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { samePath } from '../../../services/file-watch/path-utils.js'
 import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
@@ -142,7 +140,7 @@ function subtreeContains(root: ProjectNode, node: ProjectNode): boolean
     return false
 }
 
-export class ProjectExplorerService extends ServiceBase
+export class ProjectExplorerService extends ServiceBase implements IProjectTreeHost
 {
     public static readonly Key = new ServiceKey<ProjectExplorerService>('ProjectExplorerService')
 
@@ -166,16 +164,17 @@ export class ProjectExplorerService extends ServiceBase
     // it stale.
     private readonly docPaths = new Map<IDocument, string>()
 
-    // The open code-document whose resolved OS path matches `absPath`, if any —
-    // for the file-watch editor-reload consumer. Matches a watcher-reported
+    // The open reloadable document whose resolved OS path matches `absPath`, if
+    // any — for the file-watch editor-reload consumer. Matches a watcher-reported
     // absolute path against each open project document's ResolveOsPath, narrowing
-    // to CodeDocument (only code buffers can be reloaded from disk).
-    public FindOpenCodeDocByOsPath(absPath: string): CodeDocument | undefined
+    // to a reloadable buffer (only code buffers can be reloaded from disk). Duck-
+    // typed via isReloadable so the explorer stays off the code-editor module.
+    public FindOpenCodeDocByOsPath(absPath: string): ReloadableDocument | undefined
     {
         const ci = this.Provider.getRequired(EnvironmentService.Key).IsWindows
         for (const [doc, rel] of this.docPaths)
         {
-            if (!(doc instanceof CodeDocument)) continue
+            if (!isReloadable(doc)) continue
             const storage = this.docOwners.get(doc)?.Storage
             if (storage === undefined || !isLocalFileAccess(storage)) continue
             if (samePath(storage.ResolveOsPath(rel), absPath, ci)) return doc
@@ -469,7 +468,7 @@ export class ProjectExplorerService extends ServiceBase
         this.OpenProjects.Add(op)
         // Register the project for whole-project live validation (populates the
         // Problems dock even before any file is opened).
-        void this.Provider.get(TodlLanguageClient.Key)?.AttachProject(op.Project.RootPath, op.Project.Name, op.Storage)
+        void this.Provider.get(LiveValidationKey)?.AttachProject(op.Project.RootPath, op.Project.Name, op.Storage)
         await this.openStore.Add(op.Folder)
         return op
     }
@@ -501,7 +500,7 @@ export class ProjectExplorerService extends ServiceBase
             () => op.Factory.requiresMetaModel === true)
         // Refresh the agent scaffold docs to the current bundled version — any TODL project.
         op.UpdateAgentMetadataCommand = new RelayCommand(
-            () => void this.updateAgentMetadata(op), () => isTodlProject(op.Factory))
+            () => void this.updateAgentMetadata(op), () => supportsScaffold(op.Factory))
         // Open the References manager — only for a consumer that binds a
         // meta-model (architecture / library), not a meta-model project.
         op.ManageReferencesCommand = new RelayCommand(
@@ -513,40 +512,21 @@ export class ProjectExplorerService extends ServiceBase
             if (a.source === op) void this.moveNodes(op, a.nodes, a.destPath)
             else void this.moveNodesAcross(a.source, a.nodes, op, a.destPath)
         })
-        void this.wireAgentSkillChoices(op)
+        void this.wireProjectMenu(op)
     }
 
-    // Fetch the project's .claude catalog and populate its "Run Agent / Skill"
-    // submenu, each choice launching a background run via ChatSessionsService.
-    private async wireAgentSkillChoices(op: OpenProject): Promise<void>
+    // Populate the project's host-contributed header menu (e.g. the app's "Run
+    // Agent / Skill" entries) from the registered IProjectMenuSource. Empty (and
+    // HasProjectMenu=false) when no host contributes rows for this project.
+    private async wireProjectMenu(op: OpenProject): Promise<void>
     {
-        const catalog = this.Provider.get(SkillCatalog.Key)
-        const runner = this.Provider.get(SkillRunner.Key)
-        if (catalog === undefined || runner === undefined) return
-        // Discover across every open project (plus op, in case it isn't in the list
-        // yet), then narrow to op's own skills so the union catalog doesn't leak
-        // other projects' project-scoped skills into this menu.
-        const dirs = [...new Set([...this.OpenProjects.ToArray().map((o) => o.Folder), op.Folder])]
-        await catalog.discoverAll(dirs)
-        const pt = this.projectTypeOf(op)
-        const own = catalog.forProject(op.Folder)
-        const skills = pt === undefined ? own : own.filter((s) => s.appliesToProjectType(pt))
-        // The runner collects typed inputs + resolves bindings before handing off to
-        // ChatSessionsService.RunAgentSkill (#3).
-        const choices = SkillChoiceBuilder.fromSkills(skills, (s) => { void runner.run(s, op.Folder, op.Name) })
+        const source = this.Provider.get(ProjectMenuSourceKey)
+        if (source === undefined) return
+        const choices = await source.MenuFor(op)
         const collection = new ObservableCollection<ProjectMenuChoice>()
-        for (const c of choices) collection.Add(new ProjectMenuChoice(c.Label, c.Command))
+        for (const c of choices) collection.Add(c)
         op.ProjectMenuChoices = collection
         op.HasProjectMenu = choices.length > 0
-    }
-
-    // Best-effort project-type classification for the requiresProjectType gate.
-    // Only the arch case is unambiguous today (it requires a meta-model base);
-    // when the type can't be determined we return undefined and the menu shows
-    // every skill (the gate is advisory UX, not a hard boundary).
-    private projectTypeOf(op: OpenProject): ProjectType | undefined
-    {
-        return op.Factory.requiresMetaModel === true ? ProjectType.Architecture : undefined
     }
 
     // Create a new file of the project's primary format inside `parentFolder`
@@ -927,7 +907,7 @@ export class ProjectExplorerService extends ServiceBase
         this.wireNodes(op.Root, op)
         // Reconcile the language server's open document set with the new tree
         // (created/deleted/renamed .todl files) so diagnostics stay in sync.
-        void this.Provider.get(TodlLanguageClient.Key)?.ResyncProject(op.Project.RootPath, op.Storage)
+        void this.Provider.get(LiveValidationKey)?.ResyncProject(op.Project.RootPath, op.Storage)
     }
 
     // Move the given nodes into destParentPath (project-relative; '' = root),
@@ -1034,7 +1014,7 @@ export class ProjectExplorerService extends ServiceBase
     // file appears in the tree. Menu item is disabled for non-TODL types, but guard.
     private async updateAgentMetadata(op: OpenProject): Promise<void>
     {
-        if (!isTodlProject(op.Factory)) { this.Status = 'This project type has no agent docs.'; return }
+        if (!supportsScaffold(op.Factory)) { this.Status = 'This project type has no agent docs.'; return }
         const written = await op.Factory.updateScaffold(op.Storage)
         await this.rescan(op)
         this.Status = `Agent docs updated (${written.length} refreshed).`
@@ -1046,7 +1026,7 @@ export class ProjectExplorerService extends ServiceBase
     {
         if (!isPublishable(op.Factory)) { this.Status = "This project type can't be published."; return }
         // Refresh diagnostics so the Problems dock reflects exactly what publish sees.
-        await this.Provider.get(TodlLanguageClient.Key)?.RefreshBases(op.Storage)
+        await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
         try {
             const result = await op.Factory.publish(op.Project, op.Storage, this.Provider)
             if (result.ok) {
@@ -1058,11 +1038,11 @@ export class ProjectExplorerService extends ServiceBase
             // the status pane, which shows just a neutral pointer.
             this.Status = 'Publish failed — see Problems.'
             this.reportProjectProblem(op, 'publish', result.message)
-            this.Provider.get(ProblemsService.Key)?.Expand()
+            this.Provider.get(ProblemsDockKey)?.Expand()
         } catch (e) {
             this.Status = 'Publish failed — see Problems.'
             this.reportProjectProblem(op, 'publish', `Publish failed: ${(e as Error).message}`)
-            this.Provider.get(ProblemsService.Key)?.Expand()
+            this.Provider.get(ProblemsDockKey)?.Expand()
         }
     }
 
@@ -1082,7 +1062,7 @@ export class ProjectExplorerService extends ServiceBase
             const message = `Generate presentation failed: ${(e as Error).message}`
             this.Status = message
             this.reportProjectProblem(op, 'presentation', message)
-            this.Provider.get(ProblemsService.Key)?.Expand()
+            this.Provider.get(ProblemsDockKey)?.Expand()
         }
     }
 
@@ -1107,7 +1087,7 @@ export class ProjectExplorerService extends ServiceBase
     // the project opened is picked up (its live squiggles re-resolve).
     private refreshBases(op: OpenProject): void
     {
-        void this.Provider.get(TodlLanguageClient.Key)?.RefreshBases(op.Storage)
+        void this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
         this.Status = `Refreshed bases for ${op.Name}.`
     }
 
@@ -1122,7 +1102,7 @@ export class ProjectExplorerService extends ServiceBase
         const manifest = JSON.parse(await op.Storage.ReadText(PROJECT_MANIFEST_FILENAME)) as {
             metaModel?: BaseRef; libraries?: BaseRef[]; [k: string]: unknown
         }
-        const resolver = this.Provider.get(WorkspaceBaseResolver.Key)
+        const resolver = this.Provider.get(BaseResolverKey)
         const offersLibraries = op.Factory.offersLibraries === true
 
         const availableMetaModels = [
@@ -1146,7 +1126,7 @@ export class ProjectExplorerService extends ServiceBase
         manifest.metaModel = result.metaModel
         if (offersLibraries) manifest.libraries = [...(result.libraries ?? [])]
         await op.Storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
-        await this.Provider.get(TodlLanguageClient.Key)?.RefreshBases(op.Storage)
+        await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
         this.Status = `Updated references for ${op.Name}.`
     }
 
@@ -1156,8 +1136,8 @@ export class ProjectExplorerService extends ServiceBase
     // folders are skipped. Awaitable so the caller knows validation has settled.
     public async RefreshProjects(folders: readonly string[]): Promise<void>
     {
-        const client = this.Provider.get(TodlLanguageClient.Key)
-        const resolver = this.Provider.get(WorkspaceBaseResolver.Key)
+        const client = this.Provider.get(LiveValidationKey)
+        const resolver = this.Provider.get(BaseResolverKey)
         const producerIds: string[] = []
         for (const folder of folders)
         {
@@ -1167,7 +1147,7 @@ export class ProjectExplorerService extends ServiceBase
             await client?.RefreshBases(op.Storage)
             // Signal A: if the refreshed project is a producer, its dependents
             // consume its (now-changed) live source and must revalidate too.
-            const id = resolver?.producedIdOf(op.Storage)
+            const id = resolver?.ProducedIdOf(op.Storage)
             if (id !== undefined) producerIds.push(id)
         }
         if (resolver !== undefined && producerIds.length > 0)
@@ -1193,7 +1173,7 @@ export class ProjectExplorerService extends ServiceBase
             this.docOwners.delete(doc); this.docPaths.delete(doc)
         }
         // Unregister from the language client and drop this project's diagnostics.
-        this.Provider.get(TodlLanguageClient.Key)?.DetachProject(op.Storage)
+        this.Provider.get(LiveValidationKey)?.DetachProject(op.Storage)
         this.OpenProjects.Remove(op)
         await this.openStore.Remove(op.Folder)
         this.Status = `Closed ${op.Name}.`
@@ -1287,34 +1267,18 @@ export class ProjectExplorerService extends ServiceBase
             })
     }
 
-    // Enumerate every published meta-model in the backend as a BaseRef
-    // (`<id>/<version>/`), offered by the New-Project meta-model picker.
+    // The published meta-models offered by the New-Project meta-model picker —
+    // enumerated by the host's IPublishedBases, or empty when none is registered.
     private async publishedMetaModels(): Promise<BaseRef[]>
     {
-        const backend = ensureMetaModelsBackend(this.Provider)
-        const refs: BaseRef[] = []
-        for (const id of await backend.List('')) {
-            if (!id.IsDirectory) continue
-            for (const version of await backend.List(id.Name)) {
-                if (version.IsDirectory) refs.push({ id: id.Name, version: version.Name })
-            }
-        }
-        return refs
+        return (await this.Provider.get(PublishedBasesKey)?.ListMetaModels()) ?? []
     }
 
-    // Enumerate every published library in the backend as a BaseRef
-    // (`<id>/<version>/`), offered by the New-Project libraries multi-select.
+    // The published libraries offered by the New-Project libraries multi-select —
+    // enumerated by the host's IPublishedBases, or empty when none is registered.
     private async publishedLibraries(): Promise<BaseRef[]>
     {
-        const backend = ensureLibrariesBackend(this.Provider)
-        const refs: BaseRef[] = []
-        for (const id of await backend.List('')) {
-            if (!id.IsDirectory) continue
-            for (const version of await backend.List(id.Name)) {
-                if (version.IsDirectory) refs.push({ id: id.Name, version: version.Name })
-            }
-        }
-        return refs
+        return (await this.Provider.get(PublishedBasesKey)?.ListLibraries()) ?? []
     }
 
     // New Project validation: refuse a folder that already holds a project.
@@ -1383,33 +1347,24 @@ export class ProjectExplorerService extends ServiceBase
             node.HasNodeAction = true
         }
         // Diagram export — a .diagram file can be exported straight from the tree
-        // (SVG / PPTX) without being opened, when the diagram-export module is
-        // loaded. The commands render the file headlessly then save via the shared
-        // export pipeline; HasExport gates the context-menu submenu.
-        if (node.Kind === 'diagram'
-            && this.Provider.get(DiagramHeadlessRenderer.Key) !== undefined
-            && this.Provider.get(DiagramExportService.Key) !== undefined) {
-            node.ExportSvgCommand  = new RelayCommand(() => void this.exportNode(node, op, ExportFormat.Svg))
-            node.ExportPptxCommand = new RelayCommand(() => void this.exportNode(node, op, ExportFormat.Pptx))
+        // (SVG / PPTX) without being opened, when a host provides IDiagramTreeExport.
+        // HasExport gates the context-menu submenu.
+        if (node.Kind === 'diagram' && this.Provider.get(DiagramTreeExportKey) !== undefined) {
+            node.ExportSvgCommand  = new RelayCommand(() => void this.exportNode(node, op, DiagramExportFormat.Svg))
+            node.ExportPptxCommand = new RelayCommand(() => void this.exportNode(node, op, DiagramExportFormat.Pptx))
             node.HasExport = true
         }
         for (const child of node.Children.ToArray()) this.wireNodes(child, op)
     }
 
-    // Render a .diagram node HEADLESSLY (no editor open) and save it in the chosen
-    // format through the export service's shared save pipeline. Render returning
-    // undefined (empty / unrenderable diagram) or a thrown error surfaces on the
-    // status strip rather than silently failing.
-    private async exportNode(node: ProjectNode, op: OpenProject, format: ExportFormat): Promise<void>
+    // Export a .diagram node in the chosen format via the host's IDiagramTreeExport
+    // (headless render + save). A thrown error surfaces on the status strip.
+    private async exportNode(node: ProjectNode, op: OpenProject, format: DiagramExportFormat): Promise<void>
     {
-        const renderer = this.Provider.get(DiagramHeadlessRenderer.Key)
-        const exporter = this.Provider.get(DiagramExportService.Key)
-        if (renderer === undefined || exporter === undefined) return
+        const exporter = this.Provider.get(DiagramTreeExportKey)
+        if (exporter === undefined) return
         try {
-            const rendered = await renderer.renderFile(op, node.Path)
-            if (rendered === undefined) { this.Status = `Nothing to export in ${node.Name}.`; return }
-            const dot = node.Name.lastIndexOf('.')
-            await exporter.exportRendered(format, rendered, dot > 0 ? node.Name.slice(0, dot) : node.Name)
+            await exporter.Export(op, node.Path, format)
         } catch (e) {
             this.Status = `Export failed: ${(e as Error).message}`
         }
@@ -1421,6 +1376,23 @@ export class ProjectExplorerService extends ServiceBase
 function isRevealable(doc: unknown): doc is { RequestReveal(line: number, column: number): void }
 {
     return typeof (doc as Partial<{ RequestReveal: unknown }>).RequestReveal === 'function'
+}
+
+// A document that can reload itself from disk (the code buffer can). IDocument
+// supplies Id/IsDirty; Reload is the buffer's own. Duck-typed so the explorer
+// stays decoupled from the code-editor module.
+export type ReloadableDocument = IDocument & { Reload(): Promise<void> }
+function isReloadable(doc: IDocument): doc is ReloadableDocument
+{
+    return typeof (doc as Partial<{ Reload: unknown }>).Reload === 'function'
+}
+
+// A factory that ships an agent scaffold it can refresh (.claude/**). Duck-typed
+// so the explorer's "Update Agent Meta-data" gate doesn't depend on the concrete
+// TodlProjectFactory.
+function supportsScaffold(f: IProjectFactory): f is IProjectFactory & { updateScaffold(s: IStorage): Promise<readonly string[]> }
+{
+    return typeof (f as { updateScaffold?: unknown }).updateScaffold === 'function'
 }
 
 // Sibling order in the tree: folders before files, then case-insensitive by

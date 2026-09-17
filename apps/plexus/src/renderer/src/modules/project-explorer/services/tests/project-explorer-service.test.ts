@@ -17,11 +17,9 @@ import { ConfirmDialogModel } from '../../../../services/dialogs/confirm-dialog-
 import { ProjectExplorerService, applyPrefill, importFilters, uniqueStorageName } from '../project-explorer-service.js'
 import { NewProjectDialogModel, ProjectTypeChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
 import { MetaModelProjectFactory } from '../../../meta-model/services/meta-model-project-factory.js'
-import { TodlLanguageClient } from '../../../../services/todl/todl-language-client.js'
 import { DiagnosticsService } from '../../../../services/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '../../../../services/diagnostics/diagnostic.js'
-import { DiagramExportService } from '../../../diagram-export/services/diagram-export-service.js'
-import { DiagramHeadlessRenderer } from '../../../diagram-export/services/diagram-headless-renderer.js'
+import { LiveValidationKey, DiagramTreeExportKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 
 // A picked file as the OS dialog would hand it back (absolute path + raw bytes).
 type Picked = { Path: string; Bytes: Uint8Array }
@@ -285,10 +283,10 @@ test('RefreshProjects rescans each named project and refreshes its bases; unknow
 
     // A recording language client, registered AFTER open so AttachProject stays skipped.
     const calls: string[] = []
-    provider.registerInstance(TodlLanguageClient.Key, {
+    provider.registerInstance(LiveValidationKey, {
         RefreshBases: async () => { calls.push('refresh') },
         ResyncProject: async () => { calls.push('resync') },
-    } as unknown as TodlLanguageClient)
+    } as never)
 
     // Count rescans via the factory's openProject.
     let opened = 0
@@ -1260,9 +1258,8 @@ function projectWithDiagram(folder: string): Project
 
 test('a .diagram node is wired with an Export submenu (SVG + PPTX); a non-diagram node is not', async () => {
     const { priv, provider } = makeExplorer()
-    // Gating requires both diagram-export services present in the provider.
-    provider.registerInstance(DiagramHeadlessRenderer.Key, {} as never)
-    provider.registerInstance(DiagramExportService.Key, {} as never)
+    // Gating requires the IDiagramTreeExport capability present in the provider.
+    provider.registerInstance(DiagramTreeExportKey, { Export: async () => {} } as never)
     const op = await priv.addOpenProject(projectWithDiagram('C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
 
     const [diagram, todl] = op.Root.Children.ToArray()

@@ -7,7 +7,7 @@ import type { ProjectMenuChoice } from '../project-menu-choice.js'
 // host returns; a host with nothing to add simply isn't registered.
 export interface IProjectMenuSource
 {
-    menuFor(op: OpenProject): Promise<readonly ProjectMenuChoice[]>
+    MenuFor(op: OpenProject): Promise<readonly ProjectMenuChoice[]>
 }
 
 export const ProjectMenuSourceKey = new ServiceKey<IProjectMenuSource>('IProjectMenuSource')

@@ -6,12 +6,14 @@ import type { ProducerKind } from '../project-factory.js'
 // Resolves bases produced by *other open projects* in the workspace (local
 // inter-project references) and drives re-validation of a producer's dependents
 // when it changes. The impl (app-side) knows how producers publish; core only
-// needs the workspace-producer list + the produced-id lookup.
+// needs the workspace-producer list, the produced-id lookup, and the dependent
+// refresh. Method names match WorkspaceBaseResolver so it registers under this
+// key with no adapter.
 export interface IBaseResolver
 {
-    workspaceProducers(kind: ProducerKind): Promise<BaseRef[]>
-    producedIdOf(storage: IStorage): string | undefined
-    refreshDependentsOfIds(ids: readonly string[]): Promise<void>
+    WorkspaceProducers(kind: ProducerKind): Promise<BaseRef[]>
+    ProducedIdOf(storage: IStorage): string | undefined
+    RefreshDependentsOfIds(ids: readonly string[]): Promise<void>
 }
 
 export const BaseResolverKey = new ServiceKey<IBaseResolver>('IBaseResolver')

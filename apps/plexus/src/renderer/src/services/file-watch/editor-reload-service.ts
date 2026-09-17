@@ -6,8 +6,7 @@ import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
 import { CodeEditorService } from '../../modules/code-editor/code-editor-service.js'
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
-import { CodeDocument } from '../../modules/code-editor/code-document.js'
+import { ProjectExplorerService, type ReloadableDocument } from '../../modules/project-explorer/services/project-explorer-service.js'
 import { ConfirmDialogModel } from '../dialogs/confirm-dialog-model.js'
 
 export class EditorReloadService extends ServiceBase
@@ -40,7 +39,7 @@ export class EditorReloadService extends ServiceBase
         if (confirmed === true) await doc.Reload()
     }
 
-    private find(absPath: string): CodeDocument | undefined
+    private find(absPath: string): ReloadableDocument | undefined
     {
         const editor = this.Provider.getRequired(CodeEditorService.Key)
         const fromEditor = editor.FindOpenByOsPath(absPath)

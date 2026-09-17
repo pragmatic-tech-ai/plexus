@@ -6,8 +6,8 @@ import type { BaseRef } from '../base-binding.js'
 // (app-side) talks to the registry backends; core stays registry-agnostic.
 export interface IPublishedBases
 {
-    listMetaModels(): Promise<BaseRef[]>
-    listLibraries(): Promise<BaseRef[]>
+    ListMetaModels(): Promise<BaseRef[]>
+    ListLibraries(): Promise<BaseRef[]>
 }
 
 export const PublishedBasesKey = new ServiceKey<IPublishedBases>('IPublishedBases')

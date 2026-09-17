@@ -9,7 +9,7 @@ export enum DiagramExportFormat { Svg = 'svg', Pptx = 'pptx' }
 // the node's path and the chosen format.
 export interface IDiagramTreeExport
 {
-    export(op: OpenProject, path: string, format: DiagramExportFormat): Promise<void>
+    Export(op: OpenProject, path: string, format: DiagramExportFormat): Promise<void>
 }
 
 export const DiagramTreeExportKey = new ServiceKey<IDiagramTreeExport>('IDiagramTreeExport')

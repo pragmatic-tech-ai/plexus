@@ -4,7 +4,7 @@ import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 // may surface diagnostics (e.g. a publish); the impl (app-side) owns the panel.
 export interface IProblemsDock
 {
-    expand(): void
+    Expand(): void
 }
 
 export const ProblemsDockKey = new ServiceKey<IProblemsDock>('IProblemsDock')

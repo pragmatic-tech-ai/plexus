@@ -103,7 +103,7 @@ export class WorkspaceBaseResolver extends ServiceBase
     }
 
     // The producer id this storage publishes, or undefined if it is not a producer.
-    public producedIdOf(storage: IStorage): string | undefined
+    public ProducedIdOf(storage: IStorage): string | undefined
     {
         const snap = this.snapshot
         if (snap === undefined) return undefined
@@ -112,7 +112,7 @@ export class WorkspaceBaseResolver extends ServiceBase
     }
 
     // Open projects whose bindings reference `id` (direct dependents).
-    public dependentsOf(id: string): OpenProject[]
+    public DependentsOf(id: string): OpenProject[]
     {
         const snap = this.snapshot
         if (snap === undefined) return []
@@ -133,10 +133,10 @@ export class WorkspaceBaseResolver extends ServiceBase
             const id = queue.shift()!
             if (seenIds.has(id)) continue
             seenIds.add(id)
-            for (const dep of this.dependentsOf(id))
+            for (const dep of this.DependentsOf(id))
             {
                 toRefresh.add(dep.Storage)
-                const depId = this.producedIdOf(dep.Storage)
+                const depId = this.ProducedIdOf(dep.Storage)
                 if (depId !== undefined) queue.push(depId)
             }
         }

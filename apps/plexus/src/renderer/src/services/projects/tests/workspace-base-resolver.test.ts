@@ -213,17 +213,17 @@ test('RefreshDependentsOfIds refreshes a changed producer\'s transitive dependen
     expect(refreshed).not.toContain(mm.Storage)
 })
 
-test('producedIdOf reports a producer\'s id and undefined for a consumer', async () => {
+test('ProducedIdOf reports a producer\'s id and undefined for a consumer', async () => {
     const mm = await openProject('meta-model', 'ea', '0.1.0',
         producer(ProducerKind.MetaModel, 'namespace ea { concept c { label : string; } }'))
     const arch = await openProject('architecture', 'sys', '0.1.0', { formats: [] } as unknown as IProjectFactory,
         { metaModel: { id: 'ea', version: '0.1.0' } })
     const { provider } = env([mm, arch])
     const resolver = new WorkspaceBaseResolver(provider)
-    // Force snapshot construction (producedIdOf reads the current snapshot).
+    // Force snapshot construction (ProducedIdOf reads the current snapshot).
     await resolver.ResolveForStorage(arch.Storage)
-    expect(resolver.producedIdOf(mm.Storage)).toBe('ea')
-    expect(resolver.producedIdOf(arch.Storage)).toBeUndefined()
+    expect(resolver.ProducedIdOf(mm.Storage)).toBe('ea')
+    expect(resolver.ProducedIdOf(arch.Storage)).toBeUndefined()
 })
 
 // An own-only model.json with recorded base deps.
