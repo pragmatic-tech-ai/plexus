@@ -6,8 +6,8 @@ import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
 import { CodeEditorService } from '../../modules/code-editor/code-editor-service.js'
-import { ProjectExplorerService, type ReloadableDocument } from '../../modules/project-explorer/services/project-explorer-service.js'
-import { ConfirmDialogModel } from '../dialogs/confirm-dialog-model.js'
+import { ProjectExplorerService, type ReloadableDocument } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 
 export class EditorReloadService extends ServiceBase
 {

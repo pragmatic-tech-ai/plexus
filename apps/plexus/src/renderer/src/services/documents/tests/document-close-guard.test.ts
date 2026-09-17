@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import { DocumentCloseGuard } from '../document-close-guard.js'
-import { SavePromptResult } from '../../dialogs/save-prompt-model.js'
+import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js'
+import { SavePromptResult } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
 
 function doc(id: string, dirty: boolean) { return { Id: id, Title: id, IsDirty: dirty, Save: vi.fn() } }
 function makeHost(docs: ReturnType<typeof doc>[]) {

@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import { collectProblems, resolveOwningProject, summarizeProject, type OpenProjectRef } from '../refresh-targets.js'
-import { DiagnosticSeverity, type Diagnostic, type DiagnosticSpan } from '../../diagnostics/diagnostic.js'
+import { DiagnosticSeverity, type Diagnostic, type DiagnosticSpan } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { ProblemSeverity } from '../../../../../shared/agent-api.js'
 
 const OPEN: OpenProjectRef[] = [

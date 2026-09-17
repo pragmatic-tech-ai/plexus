@@ -1,4 +1,5 @@
 import type * as monaco from 'monaco-editor'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 
 // A generic, host-neutral diagnostics channel for the code editor. A producer
 // (e.g. the meta-model validator) sets EditorDiagnostics on a CodeDocument; the
@@ -49,6 +50,30 @@ export function toMarkers(diags: readonly EditorDiagnostic[]): monaco.editor.IMa
         endLineNumber:   d.endLine,
         endColumn:       d.endColumn,
     }))
+}
+
+// DiagnosticSeverity (the canonical, source-agnostic severity) → EditorSeverity.
+const EDITOR_SEVERITY: Record<DiagnosticSeverity, EditorSeverity> = {
+    [DiagnosticSeverity.Error]:   EditorSeverity.Error,
+    [DiagnosticSeverity.Warning]: EditorSeverity.Warning,
+    [DiagnosticSeverity.Info]:    EditorSeverity.Info,
+    [DiagnosticSeverity.Hint]:    EditorSeverity.Hint,
+}
+
+// Project a canonical Diagnostic down to the editor's host-neutral shape. A null
+// span (a project-level diagnostic) collapses to the document start, the same
+// convention the validator already used for unattributed diagnostics.
+export function toEditorDiagnostic(d: Diagnostic): EditorDiagnostic
+{
+    const span = d.span ?? { startLine: 1, startColumn: 1, endLine: 1, endColumn: 2 }
+    return {
+        severity:    EDITOR_SEVERITY[d.severity],
+        message:     d.message,
+        startLine:   span.startLine,
+        startColumn: span.startColumn,
+        endLine:     span.endLine,
+        endColumn:   span.endColumn,
+    }
 }
 
 // A stable, order-independent fingerprint of a diagnostics set. Setting Monaco

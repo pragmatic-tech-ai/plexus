@@ -6,8 +6,8 @@ import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../modules/code-editor/code-document.js'
 import { collectTodlSources } from './todl-sources.js'
 import { WorkspaceBaseResolver } from '../projects/workspace-base-resolver.js'
-import { DiagnosticsService } from '../diagnostics/diagnostics-service.js'
-import { DiagnosticSeverity, type Diagnostic } from '../diagnostics/diagnostic.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { lspToMonacoRange, type MonacoRange } from '../../modules/meta-model/todl-lsp/position.js'
 
 // An LSP TextEdit + WorkspaceEdit slice, as returned by rename/code-action.

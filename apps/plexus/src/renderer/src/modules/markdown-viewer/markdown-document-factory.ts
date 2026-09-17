@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 
-import type { IDocumentFactory } from '../../services/documents/document-factory.js'
+import type { IDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MarkdownDocument } from './markdown-document.js'
 

@@ -4,7 +4,7 @@
 // at startup (main.js) so it listens before any project work.
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 
 export class FileWatchService extends ServiceBase
 {

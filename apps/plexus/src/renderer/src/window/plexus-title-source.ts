@@ -1,7 +1,7 @@
 import { type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { type ITitleSource } from '@pragmatic-tech-ai/plexus-core/renderer/window'
-import { ProjectExplorerService } from '../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 
 // Plexus's window-title feed for the shared PragmaticWindowChrome TitleService:
 // the active document's title, else the first open project's name, else "Plexus"

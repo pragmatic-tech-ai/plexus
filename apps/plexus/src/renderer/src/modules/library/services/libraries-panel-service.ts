@@ -3,7 +3,7 @@ import { DialogService, type IActivatable } from '@pragmatic-tech-ai/mural/frame
 
 import { LibraryRegistry } from './library-registry.js'
 import { LibraryTreeNode, LibraryNodeKind } from './library-tree-node.js'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
 import { registerArchToolboxAdapters } from '../../diagram/services/register-arch-toolbox-adapters.js'
 import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'

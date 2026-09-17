@@ -36,7 +36,7 @@ import { StorageProviderRegistry } from '../../../services/storage/storage-provi
 import { ArchDiagramBindingService } from '../../architecture-projects/services/arch-diagram-binding-service.js'
 import { ArchitectureModelService } from '../../architecture-projects/services/architecture-model-service.js'
 import type { ArchModel } from '../../architecture-projects/services/arch-model.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
 import { MetaModelsService } from '../../meta-model/services/meta-models-service.js'
 import { LibraryToolboxPage } from './library-toolbox-page.js'

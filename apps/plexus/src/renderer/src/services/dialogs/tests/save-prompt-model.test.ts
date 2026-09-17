@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { SavePromptModel, SavePromptResult, promptSave } from '../save-prompt-model.js'
+import { SavePromptModel, SavePromptResult, promptSave } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
 
 describe('SavePromptModel', () => {
     it('each command closes with the matching result', () => {

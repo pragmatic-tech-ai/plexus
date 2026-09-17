@@ -1,11 +1,11 @@
 import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { checkAgainst, toJSON, Severity, compilePackage, BlobPackageStore, PackageKind, type PackageRef, type TodlDocument } from '@pragmatic-tech-ai/todl'
+import type { IProducerProjectFactory } from '../../../services/projects/producer-project-factory.js'
 
 import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,
     type IPresentationProjectFactory,
-    type IProducerProjectFactory,
     type IPublishableProjectFactory,
     type IVersionedProjectFactory,
     type ProjectFileFormat,

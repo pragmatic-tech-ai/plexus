@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { ContentHostService, DiagramDocument, DialogService, StatusService, type DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchitectureModelService } from './architecture-model-service.js'

@@ -8,7 +8,7 @@ import {
     MuralBase, ObservableCollection, ServiceBase, ServiceKey, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import type { IDockPanel } from '@pragmatic-tech-ai/mural/framework'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { NewProjectCard } from './new-project-card.js'
 import { galleryCards } from './gallery-fixtures.js'
 

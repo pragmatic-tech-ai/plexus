@@ -1,6 +1,6 @@
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import type { Repository } from '@pragmatic-tech-ai/todl'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 import { humanize } from './arch-default-label.js'
 import { conceptTypeOf, acceptSet } from './arch-concept-type.js'
 import { materializeRoots } from './arch-materialize.js'

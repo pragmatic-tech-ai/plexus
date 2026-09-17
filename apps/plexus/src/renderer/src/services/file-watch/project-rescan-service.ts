@@ -4,8 +4,8 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
-import { normalizePath } from './path-utils.js'
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { normalizePath } from '@pragmatic-tech-ai/plexus-core/renderer/file-watch/path-utils.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
 const DEBOUNCE_MS = 250

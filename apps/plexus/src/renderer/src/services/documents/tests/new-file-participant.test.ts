@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { NewFileParticipantKey, type INewFileParticipant } from '../new-file-participant.js'
+import { NewFileParticipantKey, type INewFileParticipant } from '@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js'
 
 test('the seam key is a ServiceKey and a participant satisfies the interface', () => {
     const p: INewFileParticipant = { OnCreated: async () => true }

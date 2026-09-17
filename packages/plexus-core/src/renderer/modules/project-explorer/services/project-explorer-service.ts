@@ -35,7 +35,7 @@ import {
     type IDocument,
 } from '@pragmatic-tech-ai/mural/framework'
 
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import { FileSystemService } from '../../../file-system-storage/index.js'
 import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,
@@ -45,10 +45,10 @@ import {
     type IProjectFactory,
     type ProjectFileFormat,
     type ProjectManifestEnvelope,
-} from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
-import { isRelocatable, isRelocatableAcrossStorage, type IDocumentFactory } from '../../../services/documents/document-factory.js'
-import { NewFileParticipantKey } from '../../../services/documents/new-file-participant.js'
-import { NodeCommandContributorKey } from '../../../services/documents/node-command-contributor.js'
+} from '../../../projects/project-factory.js'
+import { isRelocatable, isRelocatableAcrossStorage, type IDocumentFactory } from '../../../documents/document-factory.js'
+import { NewFileParticipantKey } from '../../../documents/new-file-participant.js'
+import { NodeCommandContributorKey } from '../../../documents/node-command-contributor.js'
 import {
     ProjectMenuChoice,
     type MoveArg,
@@ -60,38 +60,38 @@ import {
     DiagramExportFormat,
     ProjectMenuSourceKey,
     ProblemsDockKey,
-} from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+} from '../../../projects/index.js'
 import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
-import type { FileFilter } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
-import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
-import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
-import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
-import { VersionPart, bumpVersion } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
-import { SetVersionDialogModel, type SetVersionResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/set-version-dialog-model.js'
-import { NewItemChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-item-choice.js'
-import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
+import type { FileFilter } from '../../../../shared/file-system-api.js'
+import { ProjectNode } from '../../../projects/project.js'
+import type { Project } from '../../../projects/project.js'
+import { OpenProject } from '../../../projects/open-project.js'
+import { VersionPart, bumpVersion } from '../../../projects/semver-bump.js'
+import { SetVersionDialogModel, type SetVersionResult } from '../../../projects/set-version-dialog-model.js'
+import { NewItemChoice } from '../../../projects/new-item-choice.js'
+import { OpenProjectsStore } from '../../../projects/open-projects-store.js'
 import {
     NewProjectDialogModel,
     ProjectTypeChoice,
     type NewProjectResult,
-} from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
+} from '../../../projects/new-project-dialog-model.js'
 import {
     OpenProjectDialogModel,
     type OpenProjectResult,
-} from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project-dialog-model.js'
-import type { BaseBindings, BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
-import { DiagnosticsService } from '../../../services/diagnostics/diagnostics-service.js'
-import { DiagnosticSeverity } from '../../../services/diagnostics/diagnostic.js'
-import { planNodeMoves } from '@pragmatic-tech-ai/plexus-core/renderer/projects/node-move.js'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
-import { DocumentCloseGuard } from '../../../services/documents/document-close-guard.js'
-import { ManageReferencesDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/projects/manage-references-dialog-model.js'
-import { RecentProjectsService } from '@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js'
-import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
-import { samePath } from '../../../services/file-watch/path-utils.js'
-import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
+} from '../../../projects/open-project-dialog-model.js'
+import type { BaseBindings, BaseRef } from '../../../projects/base-binding.js'
+import { DiagnosticsService } from '../../../diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity } from '../../../diagnostics/diagnostic.js'
+import { planNodeMoves } from '../../../projects/node-move.js'
+import { ConfirmDialogModel } from '../../../dialogs/confirm-dialog-model.js'
+import { DocumentCloseGuard } from '../../../documents/document-close-guard.js'
+import { ManageReferencesDialogModel } from '../../../projects/manage-references-dialog-model.js'
+import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
+import { EnvironmentService } from '../../../environment/environment-service.js'
+import { samePath } from '../../../file-watch/path-utils.js'
+import { StorageProviderRegistryBase } from '../../../services/storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import type { CreateProjectPrefill, CreateProjectResult } from '../../../../../shared/agent-api.js'
+import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 
 // The result of CreateProject — the tool outcome minus its correlation id.
 export type CreateOutcome = Omit<CreateProjectResult, 'id'>
@@ -295,7 +295,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
 
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
-    private get storageRegistry(): StorageProviderRegistry { return this.Provider.getRequired(StorageProviderRegistry.Key) }
+    private get storageRegistry(): StorageProviderRegistryBase { return this.Provider.getRequired(StorageProviderRegistryBase.Key) }
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get recents(): RecentProjectsService { return this.Provider.getRequired(RecentProjectsService.Key) }
     private get openStore(): OpenProjectsStore { return this.Provider.getRequired(OpenProjectsStore.Key) }
@@ -361,7 +361,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const name = data.name.trim()
         const folder = joinPath(data.location, name)
         try {
-            await this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, data.location).CreateDirectory(name)
+            await this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, data.location).CreateDirectory(name)
         } catch (e) {
             return { created: false, error: `Could not create the project folder: ${(e as Error).message}` }
         }
@@ -378,7 +378,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const already = this.findByFolder(folder)
         if (already !== undefined) { this.Status = `${already.Name} is already open.`; return }
 
-        const bootstrap = this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, folder)
+        const bootstrap = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
 
         let envelope: ProjectManifestEnvelope
         try {
@@ -393,8 +393,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
 
         let storage: IStorage
         try {
-            const backendId = envelope.storage ?? StorageProviderRegistry.DefaultBackendId
-            storage = backendId === StorageProviderRegistry.DefaultBackendId
+            const backendId = envelope.storage ?? StorageProviderRegistryBase.DefaultBackendId
+            storage = backendId === StorageProviderRegistryBase.DefaultBackendId
                 ? bootstrap
                 : this.storageRegistry.Create(backendId, folder)
         } catch (e) {
@@ -422,7 +422,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const factory = this.resolveFactory(type)
         if (factory === undefined) { this.Status = `No factory for project type "${type}".`; return undefined }
 
-        const storage = this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, folder)
+        const storage = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
         try {
             const bindings = (metaModel !== undefined || (libraries !== undefined && libraries.length > 0))
                 ? { metaModel, libraries }
@@ -445,7 +445,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         for (const folder of await this.openStore.List()) {
             let hasManifest = false
             try {
-                const storage = this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, folder)
+                const storage = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
                 hasManifest = await storage.Exists(PROJECT_MANIFEST_FILENAME)
             } catch { hasManifest = false }
             if (hasManifest) await this.openProjectAt(folder)
@@ -1287,7 +1287,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         // Validate the SUBFOLDER we'll create in (location/name), not the chosen
         // parent location — a project lives in its own named subfolder.
         const folder = joinPath(result.location, result.name.trim())
-        const storage = this.storageRegistry.Create(StorageProviderRegistry.DefaultBackendId, folder)
+        const storage = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
         if (await storage.Exists(PROJECT_MANIFEST_FILENAME)) return 'That folder already contains a project.'
         return null
     }

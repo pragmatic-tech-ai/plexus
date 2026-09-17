@@ -5,7 +5,7 @@ import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
 import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
-import { ProjectExplorerService } from '../../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ArchitectureModelService } from '../architecture-model-service.js'
 import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'

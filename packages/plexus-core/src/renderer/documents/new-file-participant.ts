@@ -1,5 +1,5 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { OpenProject } from '../projects/open-project.js'
 
 // Optional post-new-file hook the ProjectExplorer calls after creating a file
 // (before opening it). A no-op when unregistered — keeps the generic explorer

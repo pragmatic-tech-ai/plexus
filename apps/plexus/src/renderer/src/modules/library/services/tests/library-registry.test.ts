@@ -3,8 +3,8 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { DiagnosticsService } from '../../../../services/diagnostics/diagnostics-service.js'
-import { DiagnosticSeverity } from '../../../../services/diagnostics/diagnostic.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
 import { LibraryRegistry } from '../library-registry.js'
 

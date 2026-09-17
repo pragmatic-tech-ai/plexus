@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { isRelocatable, type IDocumentFactory, type IRelocatableDocumentFactory } from '../document-factory.js'
+import { isRelocatable, type IDocumentFactory, type IRelocatableDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 
 const doc = (): IDocument => ({ Id: 'x', Title: 'x', IsDirty: false, Save() {} })
 

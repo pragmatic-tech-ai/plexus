@@ -2,13 +2,14 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { PackageKind, type TodlDocument, type PackageRef } from '@pragmatic-tech-ai/todl'
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ensureMetaModelsBackend } from '../../modules/meta-model/services/meta-models-backend.js'
 import { ensureLibrariesBackend } from '../../modules/library/services/libraries-backend.js'
 import { TodlLanguageClient } from '../todl/todl-language-client.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
-import { PROJECT_MANIFEST_FILENAME, ProducerKind, isProducer } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { PROJECT_MANIFEST_FILENAME, ProducerKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { isProducer } from './producer-project-factory.js'
 import { type WikiOrigin, openProjectOrigin, packageOrigin } from './wiki-origin.js'
 
 // The provenance of every base node — where its declaring artifact lives — keyed

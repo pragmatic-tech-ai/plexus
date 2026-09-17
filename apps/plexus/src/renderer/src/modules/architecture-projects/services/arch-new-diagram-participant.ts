@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
-import type { INewFileParticipant } from '../../../services/documents/new-file-participant.js'
+import type { INewFileParticipant } from '@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import { pickViewpoints } from './viewpoint-picker.js'

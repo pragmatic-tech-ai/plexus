@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
 import { ModelDraft } from '@pragmatic-tech-ai/todl'
-import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { WikiLocator, wikiPathOf } from '../wiki-locator.js'
 
 // A fake OpenProject: its Storage yields one .todl source (its own model text).

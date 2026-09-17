@@ -2,7 +2,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { ProjectRescanService } from '../project-rescan-service.js'
 import { FileWatchService } from '../file-watch-service.js'
-import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
 function harness(folders: string[]) {

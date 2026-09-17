@@ -1,5 +1,5 @@
 import type { DialogService } from '@pragmatic-tech-ai/mural/framework'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 import { LargeFileChoice } from './media-storage.js'
 
 // Build the large-file Embed/Link prompt. Reuses the shared two-button confirm

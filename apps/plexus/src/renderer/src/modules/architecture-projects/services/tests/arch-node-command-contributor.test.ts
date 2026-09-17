@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ProjectExplorerService } from '../../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { DiagramViewpointsEditor } from '../diagram-viewpoints-editor.js'
 import { ArchNodeCommandContributor } from '../arch-node-command-contributor.js'

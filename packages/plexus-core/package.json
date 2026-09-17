@@ -16,6 +16,12 @@
     "./renderer/projects": "./dist/renderer/projects/index.js",
     "./renderer/projects/*": "./dist/renderer/projects/*",
     "./renderer/environment/*": "./dist/renderer/environment/*",
+    "./renderer/documents/*": "./dist/renderer/documents/*",
+    "./renderer/diagnostics/*": "./dist/renderer/diagnostics/*",
+    "./renderer/dialogs/*": "./dist/renderer/dialogs/*",
+    "./renderer/file-watch/*": "./dist/renderer/file-watch/*",
+    "./renderer/modules/project-explorer": "./dist/renderer/modules/project-explorer/index.js",
+    "./renderer/modules/project-explorer/*": "./dist/renderer/modules/project-explorer/*",
     "./shared/*.js": "./dist/shared/*.js"
   },
   "scripts": {

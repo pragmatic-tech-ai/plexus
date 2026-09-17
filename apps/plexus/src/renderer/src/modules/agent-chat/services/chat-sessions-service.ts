@@ -21,7 +21,7 @@ import { BackgroundWorkService } from '../../background-work/services/background
 import { TaskKind } from '../../background-work/services/task-executor.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import type { NewProjectResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
 import { NewProjectCard } from './new-project-card.js'
 import { ModelPatchHandler } from './model-patch-handler.js'

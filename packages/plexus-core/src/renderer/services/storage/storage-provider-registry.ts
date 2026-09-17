@@ -1,4 +1,4 @@
-import { ServiceBase } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // Builds a rooted IStorage for a location (an absolute folder locally, a
@@ -15,6 +15,11 @@ export type StorageProviderFactory = (location: string) => IStorage
 // surface. Kept abstract: it is never instantiated or registered directly.
 export abstract class StorageProviderRegistryBase extends ServiceBase
 {
+    // The token every consumer resolves the registry through. Declared on the base
+    // (not each app subclass) so core services — the Project Explorer — can resolve
+    // it; the app's concrete subclass inherits this token and registers under it.
+    public static readonly Key = new ServiceKey<StorageProviderRegistryBase>('StorageProviderRegistry')
+
     // The conventional built-in backend every app ships.
     public static readonly DefaultBackendId = 'local'
 

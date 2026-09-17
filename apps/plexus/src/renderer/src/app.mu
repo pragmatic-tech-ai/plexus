@@ -36,7 +36,7 @@ import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 import DiagramModule from "./modules/diagram/diagram.module.mu.js"
 import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
-import ProjectExplorerModule from "./modules/project-explorer/project-explorer.module.mu.js"
+import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
@@ -127,7 +127,7 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 
 // Project Explorer view — the generic project tree + command bar
 // (DataTemplate[ProjectExplorerService] + recursive DataTemplate[ProjectNode]).
-import ProjectExplorerResources from "./modules/project-explorer/project-explorer.resources.mu.js"
+import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
 
 // Meta-models capability panel: the published-meta-models virtualized tree
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
@@ -178,7 +178,7 @@ import SkillsResources from "./modules/skills/skills.resources.mu.js"
 import SkillsAuthoringResources from "./modules/skills/skills-authoring.resources.mu.js"
 import HelpOverlayResources from "./modules/help-overlay/help-overlay.resources.mu.js"
 import DiagramViewpointsEditor from "./modules/architecture-projects/services/diagram-viewpoints-editor.js"
-import DiagnosticsService from "./services/diagnostics/diagnostics-service.js"
+import DiagnosticsService from "@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js"
 import WorkspaceRefreshService from "./services/workspace/workspace-refresh-service.js"
 import FileWatchService from "./services/file-watch/file-watch-service.js"
 import EditorReloadService from "./services/file-watch/editor-reload-service.js"
@@ -196,14 +196,14 @@ import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.r
 import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
 import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
 import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
-import DocumentCloseGuard from "./services/documents/document-close-guard.js"
+import DocumentCloseGuard from "@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js"
 import AutosaveService from "./services/autosave/autosave-service.js"
 import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
-import NewFileParticipantKey from "./services/documents/new-file-participant.js"
+import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
 import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"
 import DiagramCommandExtensionKey from "./modules/diagram/services/diagram-command-extension.js"
 import ArchNodeCommandContributor from "./modules/architecture-projects/services/arch-node-command-contributor.js"
-import NodeCommandContributorKey from "./services/documents/node-command-contributor.js"
+import NodeCommandContributorKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/node-command-contributor.js"
 
 // Project Explorer capability impls + their DI keys (interfaces in plexus-core).
 import PublishedBases from "./modules/meta-model/services/published-bases.js"

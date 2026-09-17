@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
-import type { IDocumentFactory, IRelocatableDocumentFactory } from '../../../services/documents/document-factory.js'
+import type { IDocumentFactory, IRelocatableDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
 import { PlexusDiagramDocument } from './plexus-diagram-document.js'

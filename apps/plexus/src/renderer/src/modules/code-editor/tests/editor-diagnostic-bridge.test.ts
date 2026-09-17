@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
-import { EditorSeverity } from '../../../modules/code-editor/editor-diagnostic.js'
-import { DiagnosticSeverity, toEditorDiagnostic, type Diagnostic } from '../diagnostic.js'
+import { EditorSeverity, toEditorDiagnostic } from '../editor-diagnostic.js'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 
 const spanned: Diagnostic = {
     owner: 'todl', projectId: '/p', projectName: 'P', uri: 'a.todl',

@@ -3,7 +3,7 @@ import { Diagram, DiagramDocument, DocumentTypeRegistry } from '@pragmatic-tech-
 import { HeadlessTarget } from '@pragmatic-tech-ai/mural/visual-engine'
 import { PaginatedCanvas, ItemsPanelTemplate } from '@pragmatic-tech-ai/mural/basic'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
-import type { IDocumentFactory } from '../../../services/documents/document-factory.js'
+import type { IDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 import { ArchDiagramBindingService } from '../../architecture-projects/services/arch-diagram-binding-service.js'
 import { DiagramSvgRenderer } from './diagram-svg-renderer.js'
 

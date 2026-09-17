@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
 import { pickViewpoints } from './viewpoint-picker.js'
 import type { LeavingNode } from './viewpoint-scope-reconcile.js'

@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest'
 import { FileChangeKind, type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from '../file-watch-service.js'
-import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 
 // Minimal fakes: a fake preload bridge and a fake explorer exposing an OpenProjects
 // collection with a Subscribe(cb) + ToArray().

@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { TodlLanguageClient } from '../todl-language-client.js'
 import { WorkspaceBaseResolver } from '../../projects/workspace-base-resolver.js'
-import { DiagnosticsService } from '../../diagnostics/diagnostics-service.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 function fakeConn() {
