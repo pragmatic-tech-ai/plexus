@@ -11,7 +11,7 @@ function stubWindow(overrides: Record<string, (...a: any[]) => any> = {}) {
   (globalThis as any).window = {
     todl: {
       registry: { list: record("list"), versions: record("versions"), getContent: record("getContent"), getPackage: record("getPackage"), getMeta: record("getMeta"), resolveClosure: record("resolveClosure"), publishDir: record("publishDir"), getSources: record("getSources") },
-      config: { get: record("get"), setToken: record("setToken"), useEnvToken: record("useEnvToken"), listEnvVars: record("listEnvVars"), setSettings: record("setSettings") },
+      connections: { list: record("connections.list"), add: record("add"), update: record("update"), remove: record("remove"), setToken: record("setToken"), useEnvToken: record("useEnvToken"), setDefault: record("setDefault"), test: record("test"), listEnvVars: record("listEnvVars") },
       dialog: { pickDirectory: record("pickDirectory") },
     },
   };
@@ -24,7 +24,7 @@ afterEach(() => {
 test("list forwards to window.todl.registry.list and returns its result", async () => {
   stubWindow({ list: () => Promise.resolve(["aws"]) });
   assert.deepEqual(await new RegistryClient().list(), ["aws"]);
-  assert.deepEqual(calls[0], ["list", []]);
+  assert.deepEqual(calls[0], ["list", [undefined]]); // connectionId omitted ⇒ default connection
 });
 
 test("versions/getPackage/resolveClosure forward their arguments", async () => {
@@ -41,12 +41,14 @@ test("versions/getPackage/resolveClosure forward their arguments", async () => {
   assert.deepEqual(calls[3]![1], [{ name: "aws" }]);
 });
 
-test("getConfig / setToken / setSettings forward to the config namespace", async () => {
-  stubWindow({ get: () => Promise.resolve({ registry: "r", scope: "@s", org: "o", hasToken: true }) });
+test("connection CRUD + token ops forward to the connections namespace", async () => {
+  stubWindow({ "connections.list": () => Promise.resolve([{ id: "gh", name: "GitHub" }]) });
   const client = new RegistryClient();
-  assert.deepEqual(await client.getConfig(), { registry: "r", scope: "@s", org: "o", hasToken: true });
-  await client.setStoredToken("ghp_x");
-  await client.setSettings({ org: "acme" });
-  assert.deepEqual(calls.map((c) => c[0]), ["get", "setToken", "setSettings"]);
-  assert.deepEqual(calls[1]![1], ["ghp_x"]);
+  assert.deepEqual(await client.listConnections(), [{ id: "gh", name: "GitHub" }]);
+  await client.setConnectionToken("gh", "ghp_x");
+  await client.updateConnection("gh", { org: "acme" });
+  await client.testConnection("gh");
+  assert.deepEqual(calls.map((c) => c[0]), ["connections.list", "setToken", "update", "test"]);
+  assert.deepEqual(calls[1]![1], ["gh", "ghp_x"]);
+  assert.deepEqual(calls[2]![1], ["gh", { org: "acme" }]);
 });

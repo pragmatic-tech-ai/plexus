@@ -38,6 +38,9 @@ const GRAPH = JSON.stringify({
 function installFakeRegistry(window: Page): Promise<void> {
   return window.evaluate((graph) => {
     (window as unknown as { __todlBridge: unknown }).__todlBridge = {
+      connections: {
+        list: () => Promise.resolve([{ id: "gh", name: "GitHub Packages", isDefault: true, hasToken: true }]),
+      },
       registry: {
         list: () => Promise.resolve(["aws"]),
         getPackageContents: () =>
@@ -70,6 +73,18 @@ async function clickRailCapability(window: Page, index: number): Promise<void> {
   });
   const c = cells[index];
   await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
+}
+
+// Robustly activate a capability — a fresh-startup first rail click is sometimes
+// swallowed, so retry until the panel responds.
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await clickRailCapability(window, index);
+    const landed = await hasText(window, expectText)
+      .then((v) => v || new Promise<boolean>((r) => setTimeout(() => r(hasText(window, expectText)), 1200)));
+    if (await landed) return;
+  }
+  throw new Error(`capability ${index} did not activate (no "${expectText}")`);
 }
 
 function hasText(window: Page, text: string): Promise<boolean> {
@@ -128,7 +143,9 @@ test("selecting Raw model.json shows the Visual+Text tabbed graph view", async (
   await window.waitForSelector("#app svg", { timeout: 30_000 });
 
   await installFakeRegistry(window);
-  await clickRailCapability(window, 1);
+  // Packages tree roots are the connections; expand the connection to reach "aws".
+  await activateCapability(window, 1, "GitHub Packages");
+  await expandRow(window, "GitHub Packages");
   await expect.poll(() => hasText(window, "aws"), { timeout: 10_000 }).toBe(true);
 
   await expandRow(window, "aws");

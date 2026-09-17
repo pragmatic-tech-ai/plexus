@@ -19,7 +19,8 @@ import type {
   PackageContents,
 } from "@pragmatic-tech-ai/todl/package-manager";
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
-import type { ConfigView, CompileResultView } from "../../../main/registry/registry-bridge.js";
+import type { CompileResultView } from "../../../main/registry/registry-bridge.js";
+import type { ConnectionView, ConnectionInput, ConnectionTestResult } from "../../../main/registry/registry-connection.js";
 import type { DirEntry } from "../../../main/registry/register-ipc.js";
 import type { TodlBridge } from "../../env.js";
 
@@ -35,8 +36,8 @@ export class RegistryClient {
   private bridge(): TodlBridge {
     return (window as unknown as { __todlBridge?: TodlBridge }).__todlBridge ?? window.todl;
   }
-  list(): Promise<string[]> {
-    return this.bridge().registry.list();
+  list(connectionId?: string): Promise<string[]> {
+    return this.bridge().registry.list(connectionId);
   }
   versions(name: string): Promise<VersionList> {
     return this.bridge().registry.versions(name);
@@ -47,17 +48,17 @@ export class RegistryClient {
   getPackage(ref: PackageRef): Promise<InstalledPackage> {
     return this.bridge().registry.getPackage(ref);
   }
-  resolvePackage(ref: DomainPackageRef): Promise<ResolvedPackage> {
-    return this.bridge().registry.resolvePackage(ref);
+  resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage> {
+    return this.bridge().registry.resolvePackage(ref, connectionId);
   }
-  packageVersions(model: string): Promise<string[]> {
-    return this.bridge().registry.packageVersions(model);
+  packageVersions(model: string, connectionId?: string): Promise<string[]> {
+    return this.bridge().registry.packageVersions(model, connectionId);
   }
   getSources(ref: PackageRef): Promise<PackageSource[]> {
     return this.bridge().registry.getSources(ref);
   }
-  getPackageContents(name: string): Promise<PackageContents> {
-    return this.bridge().registry.getPackageContents(name);
+  getPackageContents(name: string, connectionId?: string): Promise<PackageContents> {
+    return this.bridge().registry.getPackageContents(name, connectionId);
   }
   deleteVersion(name: string, version: string): Promise<void> {
     return this.bridge().registry.deleteVersion(name, version);
@@ -77,20 +78,33 @@ export class RegistryClient {
   resolveClosure(rootDeps: string[]): Promise<ResolvedClosure> {
     return this.bridge().registry.resolveClosure(rootDeps);
   }
-  getConfig(): Promise<ConfigView> {
-    return this.bridge().config.get();
+  // --- Registry connections (the Connections manager) -------------------------
+  listConnections(): Promise<ConnectionView[]> {
+    return this.bridge().connections.list();
   }
-  setStoredToken(token: string): Promise<void> {
-    return this.bridge().config.setToken(token);
+  addConnection(input: ConnectionInput): Promise<ConnectionView> {
+    return this.bridge().connections.add(input);
   }
-  useEnvToken(name: string): Promise<void> {
-    return this.bridge().config.useEnvToken(name);
+  updateConnection(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined> {
+    return this.bridge().connections.update(id, partial);
+  }
+  removeConnection(id: string): Promise<void> {
+    return this.bridge().connections.remove(id);
+  }
+  setConnectionToken(id: string, token: string): Promise<void> {
+    return this.bridge().connections.setToken(id, token);
+  }
+  useConnectionEnvToken(id: string, name: string): Promise<void> {
+    return this.bridge().connections.useEnvToken(id, name);
+  }
+  setDefaultConnection(id: string): Promise<void> {
+    return this.bridge().connections.setDefault(id);
+  }
+  testConnection(id: string): Promise<ConnectionTestResult> {
+    return this.bridge().connections.test(id);
   }
   listEnvVars(): Promise<string[]> {
-    return this.bridge().config.listEnvVars();
-  }
-  setSettings(partial: Partial<{ registry: string; scope: string; org: string; githubApi: string }>): Promise<void> {
-    return this.bridge().config.setSettings(partial);
+    return this.bridge().connections.listEnvVars();
   }
   pickDirectory(): Promise<string> {
     return this.bridge().dialog.pickDirectory();

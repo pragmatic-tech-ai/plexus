@@ -5,17 +5,21 @@ import { dirname, resolve } from "node:path";
 const here = dirname(fileURLToPath(import.meta.url));
 const mainEntry = resolve(here, "../../out/main/index.js");
 
-// The registry package names the fake bridge returns; mutated to prove Refresh
-// re-fetches. `window.todl` is frozen by contextBridge, so RegistryClient reads
-// the mutable `__todlBridge` override first (the production injection seam).
-// getPackageContents backs the per-package content tree (one fetch per expand).
+// The Package Manager tree roots are the registry CONNECTIONS; expanding a
+// connection lists its packages (connection-scoped), and expanding a package
+// lists its category nodes. The fake bridge therefore provides connections.list
+// (one connection) plus registry.list / getPackageContents (which now receive a
+// trailing connectionId the fakes ignore). `window.todl` is frozen by
+// contextBridge, so RegistryClient reads the mutable `__todlBridge` override.
 function installFakeRegistry(window: Page): Promise<void> {
   return window.evaluate(() => {
     (window as unknown as { __pkgNames: string[] }).__pkgNames = ["aws", "azure"];
     (window as unknown as { __todlBridge: unknown }).__todlBridge = {
+      connections: {
+        list: () => Promise.resolve([{ id: "gh", name: "GitHub Packages", isDefault: true, hasToken: true }]),
+      },
       registry: {
-        list: () =>
-          Promise.resolve((window as unknown as { __pkgNames: string[] }).__pkgNames),
+        list: () => Promise.resolve((window as unknown as { __pkgNames: string[] }).__pkgNames),
         getPackageContents: (name: string) =>
           Promise.resolve({
             files: [{ name: name + ".todl", text: "concept " + name + "Root;" }],
@@ -33,10 +37,8 @@ function installFakeRegistry(window: Page): Promise<void> {
   });
 }
 
-// The rail cells are 48×48 SVG groups stacked from the top; index 0 = Home,
-// index 1 = Packages. Click the second cell's centre to activate it.
-async function clickRailCapability(window: Page, index: number): Promise<void> {
-  const cells = await window.evaluate(() => {
+function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: number }[]> {
+  return window.evaluate(() => {
     const byY = new Map<number, { x: number; y: number; w: number; h: number }>();
     for (const el of Array.from(document.querySelectorAll("#app rect"))) {
       const r = (el as Element).getBoundingClientRect();
@@ -46,8 +48,21 @@ async function clickRailCapability(window: Page, index: number): Promise<void> {
     }
     return Array.from(byY.values()).sort((a, b) => a.y - b.y);
   });
-  const c = cells[index];
-  await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
+}
+
+// Activate a rail capability robustly: wait for the rail to lay out, click its
+// cell, and confirm the panel responded — a fresh-startup first click is
+// sometimes swallowed, so retry.
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
+  await expect.poll(async () => (await railCells(window)).length, { timeout: 15_000 }).toBeGreaterThan(index);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const c = (await railCells(window))[index]!;
+    await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
+    const landed = await hasText(window, expectText)
+      .then((v) => v || new Promise<boolean>((r) => setTimeout(() => r(hasText(window, expectText)), 1200)));
+    if (await landed) return;
+  }
+  throw new Error(`capability ${index} did not activate (no "${expectText}")`);
 }
 
 function hasText(window: Page, text: string): Promise<boolean> {
@@ -87,6 +102,14 @@ async function selectRow(window: Page, label: string): Promise<void> {
   await window.mouse.click(b.x + b.w / 2, b.y + b.h / 2);
 }
 
+// Click an SVG label by coordinate (mural's full-pane hit rect swallows
+// element-level clicks on the content).
+async function clickText(window: Page, text: string): Promise<void> {
+  const b = await labelBox(window, text);
+  if (b === null) throw new Error(`clickable text "${text}" not found`);
+  await window.mouse.click(b.x + b.w / 2, b.y + b.h / 2);
+}
+
 // The source/JSON renders in a Monaco editor (HTML in a <foreignObject>), not
 // SVG <text> — read its rendered lines for content assertions.
 function editorText(window: Page): Promise<string> {
@@ -96,7 +119,7 @@ function editorText(window: Page): Promise<string> {
   });
 }
 
-test("Packages capability lists registry packages as a tree; Refresh re-fetches", async () => {
+test("Packages: connection root lists its packages; Refresh re-fetches", async () => {
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry], env });
@@ -105,23 +128,27 @@ test("Packages capability lists registry packages as a tree; Refresh re-fetches"
 
   await installFakeRegistry(window);
 
-  // Activate the Packages capability — its service lazily fetches on OnActivated.
-  await clickRailCapability(window, 1);
-
+  // Activate Packages → its roots are the connections. Expand the connection to
+  // list its packages.
+  await activateCapability(window, 1, "GitHub Packages");
+  await expandRow(window, "GitHub Packages");
   await expect.poll(() => hasText(window, "aws"), { timeout: 10_000 }).toBe(true);
   await expect.poll(() => hasText(window, "azure"), { timeout: 10_000 }).toBe(true);
 
-  // Refresh re-fetches: add a package, click the header Refresh, expect it to appear.
+  // Refresh re-fetches: add a package, Refresh rebuilds the (collapsed) connection
+  // roots; re-expand the connection and the new package appears.
   await window.evaluate(() => {
     (window as unknown as { __pkgNames: string[] }).__pkgNames = ["aws", "azure", "gcp"];
   });
-  await window.getByText("Refresh", { exact: true }).click();
+  await clickText(window, "Refresh");
+  await expect.poll(() => hasText(window, "GitHub Packages"), { timeout: 10_000 }).toBe(true);
+  await expandRow(window, "GitHub Packages");
   await expect.poll(() => hasText(window, "gcp"), { timeout: 10_000 }).toBe(true);
 
   await app.close();
 });
 
-test("expanding a package reveals category nodes; selecting a leaf shows it in the editor", async () => {
+test("Packages: expanding a package reveals category nodes; selecting a leaf shows it in the editor", async () => {
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry], env });
@@ -129,7 +156,8 @@ test("expanding a package reveals category nodes; selecting a leaf shows it in t
   await window.waitForSelector("#app svg", { timeout: 30_000 });
 
   await installFakeRegistry(window);
-  await clickRailCapability(window, 1);
+  await activateCapability(window, 1, "GitHub Packages");
+  await expandRow(window, "GitHub Packages");
   await expect.poll(() => hasText(window, "aws"), { timeout: 10_000 }).toBe(true);
 
   // Expand the package node → lazy fetch builds the category nodes.

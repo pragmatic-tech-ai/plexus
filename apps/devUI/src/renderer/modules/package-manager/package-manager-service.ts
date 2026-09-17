@@ -93,25 +93,41 @@ export class PackageManagerService extends ServiceBase implements IActivatable {
     void this.load();
   }
 
+  // The tree roots are the registry connections; each expands to its packages
+  // (connection-scoped), and each package to its category nodes. Browsing spans
+  // all connections at once — no active-connection selection.
   private async load(): Promise<void> {
     this.setStatus("Loading…");
     try {
-      const names = await this.registry.list();
+      const connections = await this.registry.listConnections();
       const roots = this.Roots;
       roots.Clear();
-      for (const name of names) roots.Add(TreeNodeVM.lazy(name, () => this.loadCategories(name)));
+      for (const conn of connections) roots.Add(TreeNodeVM.lazy(conn.name, () => this.loadPackages(conn.id)));
       this.loaded = true;
-      this.setStatus(names.length === 0 ? "No packages in the registry." : "");
+      this.setStatus(connections.length === 0 ? "No connections. Add one in the Connections view." : "");
     } catch (e) {
-      this.setStatus("Could not reach the registry: " + (e as Error).message);
+      this.setStatus("Could not load connections: " + (e as Error).message);
     }
   }
 
-  // Fetch a package's tarball contents (one round-trip) and build its category
-  // nodes: Files (each .todl), Metadata, package.json, Compiled code, Raw
-  // model.json, Dependencies, Published versions.
-  private async loadCategories(name: string): Promise<TreeNodeVM[]> {
-    const c = await this.registry.getPackageContents(name);
+  // A connection's package names → lazy package nodes. A per-connection failure
+  // (e.g. a 401 from a missing/expired token) surfaces as a leaf under that
+  // connection, leaving the other connections browsable.
+  private async loadPackages(connectionId: string): Promise<TreeNodeVM[]> {
+    try {
+      const names = await this.registry.list(connectionId);
+      if (names.length === 0) return [TreeNodeVM.leaf("(no packages)", "", EditorLanguage.PlainText)];
+      return names.map((name) => TreeNodeVM.lazy(name, () => this.loadCategories(name, connectionId)));
+    } catch (e) {
+      return [TreeNodeVM.leaf("Error: " + (e as Error).message, "", EditorLanguage.PlainText)];
+    }
+  }
+
+  // Fetch a package's tarball contents (one round-trip, from the owning
+  // connection) and build its category nodes: Files (each .todl), Metadata,
+  // package.json, Compiled code, Raw model.json, Dependencies, Published versions.
+  private async loadCategories(name: string, connectionId: string): Promise<TreeNodeVM[]> {
+    const c = await this.registry.getPackageContents(name, connectionId);
     const nodes: TreeNodeVM[] = [];
     if (c.files.length > 0) {
       nodes.push(TreeNodeVM.branch("Files", c.files.map((f) => TreeNodeVM.leaf(f.name, f.text, EditorLanguage.Todl))));

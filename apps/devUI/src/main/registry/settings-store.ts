@@ -6,12 +6,9 @@
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { TokenSource } from "./registry-connection.js";
 
-/** Where the auth token comes from. */
-export enum TokenSource {
-  Stored = "stored",
-  Env = "env",
-}
+export { TokenSource };
 
 export interface RegistrySettings {
   registry: string;

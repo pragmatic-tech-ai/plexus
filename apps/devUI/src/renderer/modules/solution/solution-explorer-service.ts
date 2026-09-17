@@ -4,25 +4,27 @@ import {
   type IServiceProvider,
 } from "@pragmatic-tech-ai/mural/runtime";
 import { type IActivatable } from "@pragmatic-tech-ai/mural/framework";
-import type { GridProperty, IPropertyBag } from "@pragmatic-tech-ai/mural/framework";
 import {
   SolutionManagerService,
   SolutionSettingsRegistry,
   SolutionTreeVM,
   SolutionMemberNodeVM,
-  SettingBagGrid,
+  type SolutionSettingBag,
 } from "@pragmatic-tech-ai/todl";
 import type { PackageRef } from "@pragmatic-tech-ai/todl/domain";
 import { RegistryClient } from "../../services/registry/registry-client.js";
 import { AppStorageProviderRegistry } from "../../services/storage/storage-provider-registry.js";
-import { NpmRegistryBag } from "./npm-registry-bag.js";
+import { ConnectionBag } from "./connection-bag.js";
+import { ConnectionLabels } from "./connection-labels.js";
+import { IpcPackageSource } from "./ipc-package-source.js";
 import { SolutionCommandsVM } from "./solution-commands-vm.js";
 
 // The Solution Explorer capability's backing service (app-side presentation over
 // the package's UI-agnostic SolutionManagerService). It:
-//   • contributes the npm-registry cross-project setting bag;
+//   • contributes the cross-project CONNECTION setting bag (which registry
+//     connection the solution's members compile/compose against);
 //   • projects the active solution into bindable view state — a New/Open/Save
-//     toolbar, the member/folder tree, and the setting-bag PropertyGrid.
+//     toolbar, the member/folder tree, and the connection picker.
 // The manager's host services are registered separately (SolutionServicesRegistration,
 // installed from the bootstrap) and resolved by the manager from the container.
 export class SolutionExplorerService extends ServiceBase implements IActivatable {
@@ -30,16 +32,30 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
   private _hasSolution = false;
   private _commands: SolutionCommandsVM = undefined as unknown as SolutionCommandsVM;
   private readonly _treeRoots = new ObservableCollection<SolutionMemberNodeVM>();
-  private _settingsProperties: readonly GridProperty[] | undefined = undefined;
-  private _settingsTarget: IPropertyBag | undefined = undefined;
+  // The connection picker binds plain string labels (a mural ComboBox renders
+  // string items; object items realize empty). `labels` maps a display label
+  // back to its stable connection id for persistence + package-source routing.
+  private readonly _connections = new ObservableCollection<string>();
+  private labels = new ConnectionLabels([]);
+  private _selectedConnection: string | undefined = undefined;
   private _composeStatus = "";
 
   get Title(): string { return this._title; }
   get HasSolution(): boolean { return this._hasSolution; }
   get Commands(): SolutionCommandsVM { return this._commands; }
   get TreeRoots(): ObservableCollection<SolutionMemberNodeVM> { return this._treeRoots; }
-  get SettingsProperties(): readonly GridProperty[] | undefined { return this._settingsProperties; }
-  get SettingsTarget(): IPropertyBag | undefined { return this._settingsTarget; }
+  // The registry connections a solution can be assigned to (display labels from
+  // the Connections manager), and the one this solution uses for compose/resolve.
+  get Connections(): ObservableCollection<string> { return this._connections; }
+  get SelectedConnection(): string | undefined { return this._selectedConnection; }
+  set SelectedConnection(v: string | undefined) {
+    const old = this._selectedConnection;
+    if (old === v) return;
+    this._selectedConnection = v;
+    this.RaisePropertyChanged("SelectedConnection", old, v);
+    // persist to the solution + route the package source (map label → id)
+    this.assignConnection(this.labels.idForLabel(v));
+  }
   // A one-line result of the last Compose (member/dependency diagnostics summary).
   get ComposeStatus(): string { return this._composeStatus; }
 
@@ -47,6 +63,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
   private readonly settings: SolutionSettingsRegistry;
   private readonly storageRegistry: AppStorageProviderRegistry;
   private readonly registry: RegistryClient;
+  private readonly packageSource: IpcPackageSource;
   private tree: SolutionTreeVM | undefined; // hold a ref so its VMs aren't GC'd
 
   constructor(provider: IServiceProvider) {
@@ -55,6 +72,9 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     this.settings = provider.getRequired(SolutionSettingsRegistry.Key);
     this.storageRegistry = provider.getRequired(AppStorageProviderRegistry.Key);
     this.registry = provider.getRequired(RegistryClient);
+    // The same IpcPackageSource singleton the manager resolves for Compose — we
+    // point it at the solution's assigned connection.
+    this.packageSource = provider.getRequired(SolutionManagerService.PackageSourceKey) as IpcPackageSource;
 
     const old = this._commands;
     this._commands = new SolutionCommandsVM({
@@ -65,8 +85,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     });
     this.RaisePropertyChanged("Commands", old, this._commands);
 
-    // The cross-project setting bags this app offers (npm-registry today).
-    NpmRegistryBag.contribute(this.settings);
+    // The cross-project setting bag this app offers: the solution's connection.
+    ConnectionBag.contribute(this.settings);
 
     // Re-project whenever the active solution changes.
     this.manager.PropertyChanged("ActiveSolution").subscribe(() => this.refresh());
@@ -131,7 +151,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
   }
 
   // Materialize the registered bag definitions onto the active session, so the
-  // settings PropertyGrid has live bags to edit.
+  // connection bag has a live value to read/write.
   private bindBags(): void {
     this.manager.ActiveSolution?.BindBags(this.settings.Definitions);
   }
@@ -145,9 +165,11 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     const roots = this.TreeRoots;
     roots.Clear();
     this.tree = undefined;
-    this.setSettingsProperties(undefined);
-    this.setSettingsTarget(undefined);
-    if (session === undefined) return;
+    if (session === undefined) {
+      this._connections.Clear();
+      this.restoreConnection(undefined);
+      return;
+    }
 
     this.tree = new SolutionTreeVM(session, (member) =>
       this.storageRegistry.Create(
@@ -157,12 +179,40 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     );
     for (const node of this.tree.Roots) roots.Add(node);
 
-    // The settings pane edits the first contributed bag (npm-registry today).
-    const bag = session.SettingBags.ToArray()[0];
-    if (bag !== undefined) {
-      this.setSettingsProperties(SettingBagGrid.describe(bag));
-      this.setSettingsTarget(SettingBagGrid.bagOf(bag));
-    }
+    // Load the available connections and restore this solution's assigned one.
+    void this.loadConnections();
+  }
+
+  // Fill the connection picker from the Connections manager (unique display
+  // labels), then select the one this solution has persisted — WITHOUT re-persisting.
+  private async loadConnections(): Promise<void> {
+    const views = await this.registry.listConnections();
+    this.labels = new ConnectionLabels(views.map((v) => ({ id: v.id, name: v.name })));
+    this._connections.Clear();
+    for (const label of this.labels.labels) this._connections.Add(label);
+    const persistedId = this.connectionBag()?.Get(ConnectionBag.ConnectionIdKey);
+    this.restoreConnection(this.labels.labelForId(persistedId === undefined ? undefined : String(persistedId)));
+  }
+
+  // The active solution's connection bag (materialized by bindBags).
+  private connectionBag(): SolutionSettingBag | undefined {
+    return this.manager.ActiveSolution?.SettingBags.ToArray().find((b) => b.Definition.Id === ConnectionBag.Id);
+  }
+
+  // Adopt a selection without writing it back (restore path): update the field +
+  // route the package source, but do not touch the (already-persisted) bag.
+  private restoreConnection(label: string | undefined): void {
+    const old = this._selectedConnection;
+    this._selectedConnection = label;
+    if (old !== label) this.RaisePropertyChanged("SelectedConnection", old, label);
+    this.packageSource.SetConnection(this.labels.idForLabel(label));
+  }
+
+  // Persist the chosen connection id into the solution + point the package source
+  // at it, so Compose resolves this solution's members from that registry.
+  private assignConnection(id: string | undefined): void {
+    this.packageSource.SetConnection(id);
+    this.connectionBag()?.Set(ConnectionBag.ConnectionIdKey, id ?? "");
   }
 
   private setComposeStatus(v: string): void {
@@ -181,18 +231,6 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     const old = this._hasSolution;
     this._hasSolution = v;
     this.RaisePropertyChanged("HasSolution", old, v);
-  }
-
-  private setSettingsProperties(v: readonly GridProperty[] | undefined): void {
-    const old = this._settingsProperties;
-    this._settingsProperties = v;
-    this.RaisePropertyChanged("SettingsProperties", old, v);
-  }
-
-  private setSettingsTarget(v: IPropertyBag | undefined): void {
-    const old = this._settingsTarget;
-    this._settingsTarget = v;
-    this.RaisePropertyChanged("SettingsTarget", old, v);
   }
 
   // Join a (possibly Windows) root folder with a relative POSIX member path

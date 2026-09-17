@@ -5,6 +5,9 @@ import { electronApp, is } from "@electron-toolkit/utils";
 import { PackageManager, PackageCompiler, LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
 import { TokenStore } from "./registry/token-store.js";
 import { SettingsStore } from "./registry/settings-store.js";
+import { ConnectionStore } from "./registry/connection-store.js";
+import { ConnectionTokenStore } from "./registry/connection-token-store.js";
+import { PackageRegistryManager } from "./registry/package-registry-manager.js";
 import { RegistryBridge } from "./registry/registry-bridge.js";
 import { RegistryIpc } from "./registry/register-ipc.js";
 import { SafeStorageEncryptor } from "./registry/safe-storage-encryptor.js";
@@ -55,13 +58,23 @@ void app.whenReady().then(() => {
   // One shared local compiled-package store: compileDir registers into it and
   // every per-call PackageManager resolves against it (local-first).
   const localStore = new LocalPackageStore();
+  const encryptor = new SafeStorageEncryptor();
+  // The registry connections manager owns the connection list + per-connection
+  // tokens; on first run it migrates the legacy single registry-settings.json +
+  // registry-token.bin into one "GitHub Packages" connection so nothing breaks.
+  const registryManager = new PackageRegistryManager({
+    connectionStore: new ConnectionStore(userData),
+    tokenStore: new ConnectionTokenStore(userData, encryptor),
+    env: process.env,
+    legacySettings: new SettingsStore(userData),
+    legacyToken: new TokenStore(userData, encryptor),
+  });
+  registryManager.migrateIfNeeded();
   const bridge = new RegistryBridge({
-    tokenStore: new TokenStore(userData, new SafeStorageEncryptor()),
-    settingsStore: new SettingsStore(userData),
+    manager: registryManager,
     createManager: (config) => new PackageManager(config, localStore),
     createCompiler: () => new PackageCompiler(),
     localStore,
-    env: process.env,
   });
   RegistryIpc.register(
     ipcMain,

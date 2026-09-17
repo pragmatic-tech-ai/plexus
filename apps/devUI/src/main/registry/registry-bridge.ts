@@ -7,9 +7,8 @@
  * symbols are type-only imports, so the test runner needs no bundler alias;
  * only `main/index.ts` runtime-imports package-manager to supply createManager.
  */
-import type { TokenStore } from "./token-store.js";
-import type { SettingsStore, RegistrySettings } from "./settings-store.js";
-import { TokenSource } from "./settings-store.js";
+import type { PackageRegistryManager } from "./package-registry-manager.js";
+import type { ConnectionView, ConnectionInput, ConnectionTestResult } from "./registry-connection.js";
 import { join } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
 import type {
@@ -62,20 +61,10 @@ export interface CompileResultView {
   sourceCount?: number;
 }
 
-/** What `config:get` returns — never the token value (the env-var *name* is not
- *  a secret and is returned so the Setup page can show the current source). */
-export interface ConfigView {
-  registry: string;
-  scope: string;
-  org: string;
-  tokenSource: TokenSource;
-  tokenEnvVar: string;
-  hasToken: boolean;
-}
-
 export interface RegistryBridgeDeps {
-  tokenStore: TokenStore;
-  settingsStore: SettingsStore;
+  /** The registry connections source of truth: the connection list + default, the
+   *  per-connection tokens, and the effective config for any connection id. */
+  manager: PackageRegistryManager;
   /** Build a manager from a resolved config (prod: (c) => new PackageManager(c)). */
   createManager(config: NpmRegistryConfig): PackageManagerLike;
   /** Build the directory compiler (prod: () => new PackageCompiler()). */
@@ -83,44 +72,45 @@ export interface RegistryBridgeDeps {
   /** The shared local compiled-package store — compileDir registers into it and
    *  resolvePackage reads from it (local-first). Owned by main/index.ts. */
   localStore: LocalPackageStore;
-  /** The process environment, for env-var tokens (prod: `process.env`). */
-  env: Record<string, string | undefined>;
 }
 
 export class RegistryBridge {
   constructor(private readonly deps: RegistryBridgeDeps) {}
 
-  list(): Promise<string[]> {
-    return this.manager().list();
+  /** Package names in a connection's registry (defaults to the default connection
+   *  when `connectionId` is omitted — the Package Manager passes each connection's
+   *  id to build its tree root). */
+  list(connectionId?: string): Promise<string[]> {
+    return this.managerFor(connectionId).list();
   }
 
   versions(name: string): Promise<VersionList> {
-    return this.manager().versions(name);
+    return this.managerFor().versions(name);
   }
 
   getContent(ref: PackageRef): Promise<Uint8Array> {
-    return this.manager().getContent(ref);
+    return this.managerFor().getContent(ref);
   }
 
   getPackage(ref: PackageRef): Promise<InstalledPackage> {
-    return this.manager().getPackage(ref);
+    return this.managerFor().getPackage(ref);
   }
 
   resolveClosure(rootDeps: readonly string[]): Promise<ResolvedClosure> {
-    return this.manager().resolveClosure(rootDeps);
+    return this.managerFor().resolveClosure(rootDeps);
   }
 
   getMeta(name: string): Promise<string> {
-    return this.manager().manifestKind(name);
+    return this.managerFor().manifestKind(name);
   }
 
   publishDir(dir: string): Promise<void> {
-    return this.manager().publish(dir);
+    return this.managerFor().publish(dir);
   }
 
   /** Delete a published version from the registry (reaction to a 409 conflict). */
   deleteVersion(name: string, version: string): Promise<void> {
-    return this.manager().deleteVersion(name, version);
+    return this.managerFor().deleteVersion(name, version);
   }
 
   /** Bump the opened project's version to the next unused patch and persist it to
@@ -133,9 +123,9 @@ export class RegistryBridge {
       { type?: string; id?: string; modelVersion?: string; libVersion?: string };
     const field = manifest.type === "meta-model" ? "modelVersion" : "libVersion";
     const current = manifest[field] ?? "0.0.0";
-    const scope = this.deps.settingsStore.get().scope;
+    const scope = this.deps.manager.effectiveConfig().scope;
     const name = `${scope}/${manifest.id ?? ""}`;
-    const published = await this.manager().versions(name).then((v) => v.versions).catch(() => [] as string[]);
+    const published = await this.managerFor().versions(name).then((v) => v.versions).catch(() => [] as string[]);
     const next = RegistryBridge.nextUnusedPatch(current, published);
     manifest[field] = next;
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
@@ -188,74 +178,78 @@ export class RegistryBridge {
   /** Resolve a Domain ref to manifest bytes + deps + seed (local store first,
    *  network fallback). Backs the renderer's IpcPackageSource for solution
    *  composition. */
-  resolvePackage(ref: DomainPackageRef): Promise<ResolvedPackage> {
-    return this.manager().resolveResolved(ref);
+  /** Resolve a package against a connection (defaults to the default connection).
+   *  A solution passes its assigned connection so Compose resolves members + deps
+   *  from that registry. */
+  resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage> {
+    return this.managerFor(connectionId).resolveResolved(ref);
   }
 
-  /** Versions for a package id (local store unioned with the registry). */
-  packageVersions(model: string): Promise<string[]> {
-    return this.manager().resolvedVersions(model);
+  /** Versions for a package id (local store unioned with a connection's registry). */
+  packageVersions(model: string, connectionId?: string): Promise<string[]> {
+    return this.managerFor(connectionId).resolvedVersions(model);
   }
 
   getSources(ref: PackageRef): Promise<PackageSource[]> {
-    return this.manager().getSources(ref);
+    return this.managerFor().getSources(ref);
   }
 
   /** Everything a package's tarball carries (sources, manifest, meta, compiled +
-   *  raw model, deps, versions) from one fetch — backs the content tree. */
-  getPackageContents(name: string): Promise<PackageContents> {
-    return this.manager().getContents({ name });
+   *  raw model, deps, versions) from one fetch — backs the content tree. The
+   *  Package Manager passes the owning connection's id (defaults to the default
+   *  connection). */
+  getPackageContents(name: string, connectionId?: string): Promise<PackageContents> {
+    return this.managerFor(connectionId).getContents({ name });
   }
 
-  async getConfig(): Promise<ConfigView> {
-    const s = this.deps.settingsStore.get();
-    return {
-      registry: s.registry,
-      scope: s.scope,
-      org: s.org,
-      tokenSource: s.tokenSource,
-      tokenEnvVar: s.tokenEnvVar,
-      hasToken: this.effectiveToken(s).length > 0,
-    };
+  // --- Connections management (config:* superseded) ---------------------------
+
+  listConnections(): ConnectionView[] {
+    return this.deps.manager.listViews();
   }
 
-  async setStoredToken(token: string): Promise<void> {
-    this.deps.tokenStore.setToken(token);
-    this.deps.settingsStore.update({ tokenSource: TokenSource.Stored });
+  addConnection(input: ConnectionInput): ConnectionView {
+    return this.deps.manager.add(input);
   }
 
-  async useEnvToken(varName: string): Promise<void> {
-    this.deps.settingsStore.update({ tokenSource: TokenSource.Env, tokenEnvVar: varName });
+  updateConnection(id: string, partial: Partial<ConnectionInput>): ConnectionView | undefined {
+    return this.deps.manager.update(id, partial);
   }
 
-  async listEnvVars(): Promise<string[]> {
-    return Object.keys(this.deps.env)
-      .filter((k) => this.deps.env[k] !== undefined)
-      .sort((a, b) => a.localeCompare(b));
+  removeConnection(id: string): void {
+    this.deps.manager.remove(id);
   }
 
-  async setSettings(partial: Partial<{ registry: string; scope: string; org: string; githubApi: string }>): Promise<void> {
-    this.deps.settingsStore.update(partial);
+  setConnectionToken(id: string, token: string): void {
+    this.deps.manager.setToken(id, token);
   }
 
-  /** The effective token for the current source: the env var's value, or the
-   *  stored (encrypted) token. */
-  private effectiveToken(settings: RegistrySettings = this.deps.settingsStore.get()): string {
-    if (settings.tokenSource === TokenSource.Env) {
-      return this.deps.env[settings.tokenEnvVar] ?? "";
+  useConnectionEnvToken(id: string, varName: string): void {
+    this.deps.manager.useEnvToken(id, varName);
+  }
+
+  setDefaultConnection(id: string): void {
+    this.deps.manager.setDefault(id);
+  }
+
+  listEnvVars(): string[] {
+    return this.deps.manager.listEnvVars();
+  }
+
+  /** Test a connection by listing its registry — surfaces the auth outcome (a 401
+   *  "Bad credentials", a package count on success) to the Connections manager. */
+  async testConnection(id: string): Promise<ConnectionTestResult> {
+    try {
+      const names = await this.managerFor(id).list();
+      return { ok: true, count: names.length };
+    } catch (e) {
+      return { ok: false, message: (e as Error).message };
     }
-    return this.deps.tokenStore.getToken();
   }
 
-  /** Build a manager from the current settings + effective token. */
-  private manager(): PackageManagerLike {
-    const s = this.deps.settingsStore.get();
-    return this.deps.createManager({
-      registry: s.registry,
-      scope: s.scope,
-      org: s.org,
-      githubApi: s.githubApi,
-      token: this.effectiveToken(s),
-    });
+  /** Build a PackageManager bound to a connection's effective config (its
+   *  non-secret fields + resolved token). `connectionId` omitted ⇒ the default. */
+  private managerFor(connectionId?: string): PackageManagerLike {
+    return this.deps.createManager(this.deps.manager.effectiveConfig(connectionId));
   }
 }

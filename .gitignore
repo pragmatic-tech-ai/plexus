@@ -24,3 +24,6 @@ e2e/.artifacts/
 
 # SDD scratch workspace
 .superpowers/
+
+# Playwright e2e output (screenshots, traces on failure) — not source.
+test-results/

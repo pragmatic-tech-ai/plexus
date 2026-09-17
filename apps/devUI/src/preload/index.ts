@@ -4,12 +4,12 @@ import { createFileSystemBridge } from "@pragmatic-tech-ai/plexus-core/preload/f
 
 /**
  * The single `contextBridge` surface (design §5). Every method is a thin
- * `ipcRenderer.invoke` over a `registry:*` / `config:*` channel — no `ipcRenderer`
- * itself is exposed. The typed shape lives in `renderer/env.d.ts`.
+ * `ipcRenderer.invoke` over a `registry:*` / `connections:*` channel — no
+ * `ipcRenderer` itself is exposed. The typed shape lives in `renderer/env.d.ts`.
  */
 const bridge = {
   registry: {
-    list: () => ipcRenderer.invoke("registry:list"),
+    list: (connectionId?: string) => ipcRenderer.invoke("registry:list", connectionId),
     versions: (name: string) => ipcRenderer.invoke("registry:versions", name),
     getContent: (ref: unknown) => ipcRenderer.invoke("registry:getContent", ref),
     getPackage: (ref: unknown) => ipcRenderer.invoke("registry:getPackage", ref),
@@ -17,19 +17,23 @@ const bridge = {
     resolveClosure: (rootDeps: string[]) => ipcRenderer.invoke("registry:resolveClosure", rootDeps),
     publishDir: (dir: string) => ipcRenderer.invoke("registry:publishDir", dir),
     compileDir: (dir: string) => ipcRenderer.invoke("registry:compileDir", dir),
-    resolvePackage: (ref: unknown) => ipcRenderer.invoke("registry:resolvePackage", ref),
-    packageVersions: (model: string) => ipcRenderer.invoke("registry:packageVersions", model),
+    resolvePackage: (ref: unknown, connectionId?: string) => ipcRenderer.invoke("registry:resolvePackage", ref, connectionId),
+    packageVersions: (model: string, connectionId?: string) => ipcRenderer.invoke("registry:packageVersions", model, connectionId),
     getSources: (ref: unknown) => ipcRenderer.invoke("registry:getSources", ref),
-    getPackageContents: (name: string) => ipcRenderer.invoke("registry:getPackageContents", name),
+    getPackageContents: (name: string, connectionId?: string) => ipcRenderer.invoke("registry:getPackageContents", name, connectionId),
     deleteVersion: (name: string, version: string) => ipcRenderer.invoke("registry:deleteVersion", name, version),
     bumpVersion: (dir: string) => ipcRenderer.invoke("registry:bumpVersion", dir),
   },
-  config: {
-    get: () => ipcRenderer.invoke("config:get"),
-    setToken: (token: string) => ipcRenderer.invoke("config:setToken", token),
-    useEnvToken: (name: string) => ipcRenderer.invoke("config:useEnvToken", name),
-    listEnvVars: () => ipcRenderer.invoke("config:envVars"),
-    setSettings: (partial: unknown) => ipcRenderer.invoke("config:setSettings", partial),
+  connections: {
+    list: () => ipcRenderer.invoke("connections:list"),
+    add: (input: unknown) => ipcRenderer.invoke("connections:add", input),
+    update: (id: string, partial: unknown) => ipcRenderer.invoke("connections:update", id, partial),
+    remove: (id: string) => ipcRenderer.invoke("connections:remove", id),
+    setToken: (id: string, token: string) => ipcRenderer.invoke("connections:setToken", id, token),
+    useEnvToken: (id: string, name: string) => ipcRenderer.invoke("connections:useEnvToken", id, name),
+    setDefault: (id: string) => ipcRenderer.invoke("connections:setDefault", id),
+    test: (id: string) => ipcRenderer.invoke("connections:test", id),
+    listEnvVars: () => ipcRenderer.invoke("connections:envVars"),
   },
   dialog: {
     pickDirectory: () => ipcRenderer.invoke("dialog:pickDirectory"),

@@ -36,6 +36,7 @@ import HomeModule from "./modules/home/home.module.mu"
 import PackageManagerModule from "./modules/package-manager/package-manager.module.mu"
 import PackageCompilerModule from "./modules/package-compiler/package-compiler.module.mu"
 import SolutionModule from "./modules/solution/solution.module.mu"
+import ConnectionsManagerModule from "./modules/connections/connections.module.mu"
 
 // Shell chrome (custom ViewerShell template) + shared icon dictionary + per-
 // module view resources.
@@ -45,6 +46,7 @@ import HomeResources from "./modules/home/home.resources.mu"
 import PackageManagerResources from "./modules/package-manager/package-manager.resources.mu"
 import PackageCompilerResources from "./modules/package-compiler/package-compiler.resources.mu"
 import SolutionResources from "./modules/solution/solution.resources.mu"
+import ConnectionsResources from "./modules/connections/connections.resources.mu"
 
 Application [ Theme = Material, Scheme = MaterialDark ] {
     .services: {
@@ -67,6 +69,8 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         PackageManagerModule
         PackageCompilerModule
         SolutionModule
+        // The registry connections manager (create/edit/remove/test connections).
+        ConnectionsManagerModule
         // Shared window chrome: registers TitleService + merges the title-bar
         // strip templates (@PragmaticTitleBar, the File-menu look, …).
         PragmaticWindowChrome
@@ -79,6 +83,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         merge PackageManagerResources
         merge PackageCompilerResources
         merge SolutionResources
+        merge ConnectionsResources
         // devUI's brand mark + File-menu items, filled into the shared strip.
         merge DevUiWindowChrome
 

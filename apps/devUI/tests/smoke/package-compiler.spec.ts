@@ -53,6 +53,25 @@ async function clickRailCapability(window: Page, index: number): Promise<void> {
   await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
 }
 
+function hasText(window: Page, text: string): Promise<boolean> {
+  return window.evaluate(
+    (t) => Array.from(document.querySelectorAll("#app text, #app tspan")).some((n) => (n.textContent ?? "").trim() === t),
+    text,
+  );
+}
+
+// Robustly activate a capability — a fresh-startup first rail click is sometimes
+// swallowed, so retry until the panel responds.
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    await clickRailCapability(window, index);
+    const landed = await hasText(window, expectText)
+      .then((v) => v || new Promise<boolean>((r) => setTimeout(() => r(hasText(window, expectText)), 1200)));
+    if (await landed) return;
+  }
+  throw new Error(`capability ${index} did not activate (no "${expectText}")`);
+}
+
 // Open the compiler ToolBar's overflow (chevron) popup. The command buttons live
 // in a ToolBar in the side pane; in the 300px pane the rarer conflict-recovery
 // buttons overflow into the chevron popup, which mounts only when opened. The
@@ -116,7 +135,7 @@ test("Compiler capability: open → compile → view → publish (with confirm)"
   await window.waitForSelector("#app svg", { timeout: 30_000 });
 
   await installFakeBridge(window);
-  await clickRailCapability(window, 2); // Home=0, Packages=1, Compiler=2
+  await activateCapability(window, 2, "Open"); // Home=0, Packages=1, Compiler=2
 
   // Open a directory → its contents show as a tree in the side panel.
   await window.getByText("Open", { exact: true }).first().click();
@@ -164,7 +183,7 @@ test("Compiler capability: declining the publish confirm dialog does not publish
       },
     };
   });
-  await clickRailCapability(window, 2);
+  await activateCapability(window, 2, "Open");
 
   await window.getByText("Open", { exact: true }).first().click();
   await window.getByText("Compile", { exact: true }).first().click();
@@ -218,7 +237,7 @@ test("Compiler capability: 409 conflict offers a choice; Bump version & republis
   await window.waitForSelector("#app svg", { timeout: 30_000 });
 
   await installConflictBridge(window);
-  await clickRailCapability(window, 2);
+  await activateCapability(window, 2, "Open");
 
   await window.getByText("Open", { exact: true }).first().click();
   await window.getByText("Compile", { exact: true }).first().click();

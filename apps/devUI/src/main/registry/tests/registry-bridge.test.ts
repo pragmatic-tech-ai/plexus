@@ -6,6 +6,9 @@ import { join } from "node:path";
 import { RegistryBridge, type PackageManagerLike } from "../registry-bridge.js";
 import { TokenStore, type Encryptor } from "../token-store.js";
 import { SettingsStore } from "../settings-store.js";
+import { ConnectionStore } from "../connection-store.js";
+import { ConnectionTokenStore } from "../connection-token-store.js";
+import { PackageRegistryManager } from "../package-registry-manager.js";
 import { LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
 
 class PlainEncryptor implements Encryptor {
@@ -40,15 +43,23 @@ function makeBridge(
   store: LocalPackageStore = new LocalPackageStore(),
 ) {
   const dir = freshDir();
+  // The manager seeds one "GitHub Packages" connection (migrateIfNeeded) from the
+  // legacy defaults, so every bridge starts with a default connection.
+  const manager = new PackageRegistryManager({
+    connectionStore: new ConnectionStore(dir),
+    tokenStore: new ConnectionTokenStore(dir, new PlainEncryptor()),
+    env,
+    legacySettings: new SettingsStore(dir),
+    legacyToken: new TokenStore(dir, new PlainEncryptor()),
+  });
+  manager.migrateIfNeeded();
   return new RegistryBridge({
-    tokenStore: new TokenStore(dir, new PlainEncryptor()),
-    settingsStore: new SettingsStore(dir),
+    manager,
     createManager: (config) => { onConfig?.(config); return new FakeManager(over); },
     createCompiler: () => ({
       compile: compile ?? (() => Promise.resolve({ ok: true, diagnostics: [], errors: [] } as any)),
     }),
     localStore: store,
-    env,
   });
 }
 
@@ -149,38 +160,58 @@ test("getPackage / getSources / resolveClosure / publishDir delegate to the mana
   await bridge.publishDir("/dist"); // resolves without throwing
 });
 
-test("getConfig reports settings + hasToken, never the token itself", async () => {
+test("listConnections reports the seeded connection + hasToken; setConnectionToken flips it", async () => {
   const bridge = makeBridge();
-  let cfg = await bridge.getConfig();
-  assert.equal(cfg.hasToken, false);
-  assert.equal(cfg.scope, "@pragmatic-tech-ai");
-  assert.ok(!("token" in cfg));
-  await bridge.setStoredToken("ghp_x");
-  cfg = await bridge.getConfig();
-  assert.equal(cfg.hasToken, true);
+  let conns = bridge.listConnections();
+  assert.equal(conns.length, 1);
+  assert.equal(conns[0]!.name, "GitHub Packages");
+  assert.equal(conns[0]!.scope, "@pragmatic-tech-ai");
+  assert.equal(conns[0]!.isDefault, true);
+  assert.equal(conns[0]!.hasToken, false);
+  assert.ok(!("token" in conns[0]!)); // token value never crosses the bridge
+  bridge.setConnectionToken(conns[0]!.id, "ghp_x");
+  conns = bridge.listConnections();
+  assert.equal(conns[0]!.hasToken, true);
+  assert.equal(conns[0]!.tokenSource, "stored");
 });
 
-test("env-var token: hasToken reflects process.env and never the value", async () => {
+test("useConnectionEnvToken: hasToken reflects process.env, never the value", async () => {
   const bridge = makeBridge({}, { GH_PAT: "ghp_fromenv" });
-  await bridge.useEnvToken("GH_PAT");
-  const cfg = await bridge.getConfig();
-  assert.equal(cfg.tokenSource, "env");
-  assert.equal(cfg.tokenEnvVar, "GH_PAT");
-  assert.equal(cfg.hasToken, true);
-  assert.ok(!("token" in cfg));
-  await bridge.useEnvToken("NOPE");
-  assert.equal((await bridge.getConfig()).hasToken, false);
+  const id = bridge.listConnections()[0]!.id;
+  bridge.useConnectionEnvToken(id, "GH_PAT");
+  let view = bridge.listConnections()[0]!;
+  assert.equal(view.tokenSource, "env");
+  assert.equal(view.tokenEnvVar, "GH_PAT");
+  assert.equal(view.hasToken, true);
+  bridge.useConnectionEnvToken(id, "NOPE");
+  view = bridge.listConnections()[0]!;
+  assert.equal(view.hasToken, false);
 });
 
 test("listEnvVars returns sorted defined env keys", async () => {
   const bridge = makeBridge({}, { B: "1", A: "2", C: undefined });
-  assert.deepEqual(await bridge.listEnvVars(), ["A", "B"]);
+  assert.deepEqual(bridge.listEnvVars(), ["A", "B"]);
 });
 
-test("setSettings is reflected in the config handed to createManager", async () => {
+test("updateConnection is reflected in the config handed to createManager", async () => {
   let seenConfig: any;
   const bridge = makeBridge({}, {}, (config) => { seenConfig = config; });
-  await bridge.setSettings({ org: "acme" });
+  const id = bridge.listConnections()[0]!.id;
+  bridge.updateConnection(id, { org: "acme" });
   await bridge.list();
   assert.equal(seenConfig.org, "acme");
+});
+
+test("testConnection returns ok + package count on success", async () => {
+  const bridge = makeBridge({ list: () => Promise.resolve(["a", "b"]) });
+  const id = bridge.listConnections()[0]!.id;
+  assert.deepEqual(await bridge.testConnection(id), { ok: true, count: 2 });
+});
+
+test("testConnection surfaces the error message on failure (e.g. 401)", async () => {
+  const bridge = makeBridge({ list: () => Promise.reject(new Error("Bad credentials")) });
+  const id = bridge.listConnections()[0]!.id;
+  const result = await bridge.testConnection(id);
+  assert.equal(result.ok, false);
+  assert.equal(result.message, "Bad credentials");
 });

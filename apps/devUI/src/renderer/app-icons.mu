@@ -12,4 +12,5 @@ resources AppIcons {
     include "icons/packages.svg"  as Packages
     include "icons/compiler.svg"  as Compiler
     include "icons/solutions.svg" as Solutions
+    include "icons/connections.svg" as Connections
 }
