@@ -3,7 +3,7 @@ import { Key, ServiceProvider, type KeyEventArgs } from '@pragmatic-tech-ai/mura
 import { ContentHostService, DialogService, DocumentsContentHostService, DocumentTypeRegistry, ProjectFactoryRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
 import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'

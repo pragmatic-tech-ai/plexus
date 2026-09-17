@@ -35,7 +35,7 @@ import {
     type IDocument,
 } from '@pragmatic-tech-ai/mural/framework'
 
-import { FileSystemService } from '../../../file-system-storage/index.js'
+import { FileSystemService } from '../../file-system-storage/index.js'
 import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,

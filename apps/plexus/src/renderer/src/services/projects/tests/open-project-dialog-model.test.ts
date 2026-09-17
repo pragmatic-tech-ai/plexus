@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
 import { OpenProjectDialogModel, type OpenProjectResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project-dialog-model.js'
 import type { RecentProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js'
 

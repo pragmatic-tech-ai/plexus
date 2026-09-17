@@ -8,7 +8,7 @@ import type {
   OpenFileResult,
   OpenFolderOptions,
   SaveFileOptions,
-} from '../../shared/file-system-api.js'
+} from '../../../shared/file-system-api.js'
 
 // FileSystemService — the renderer-side, app-facing wrapper over the native
 // file-system capability the main process owns. The shared IO seam: VMs /

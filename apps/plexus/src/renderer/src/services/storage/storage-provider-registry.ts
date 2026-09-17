@@ -1,8 +1,8 @@
 import { type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { StorageProviderRegistryBase } from '@pragmatic-tech-ai/plexus-core/renderer/services/storage'
 
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
+import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
 
 // Plexus's storage registry. The registry mechanics (Register/Has/Create/
 // CreateStorage, the backend-factory map, DefaultBackendId) and the shared

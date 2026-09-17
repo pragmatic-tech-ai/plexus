@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { EnvironmentService } from '../environment/environment-service.js'
-import { FileSystemService } from '../file-system-storage/index.js'
+import { FileSystemService } from '../modules/file-system-storage/index.js'
 
 // One entry in the recent-projects list (an MRU of opened/created projects).
 export interface RecentProject

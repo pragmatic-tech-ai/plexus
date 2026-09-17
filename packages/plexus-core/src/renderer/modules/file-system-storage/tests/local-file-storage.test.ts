@@ -1,6 +1,6 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
-import type { FileEntry } from '../../../shared/file-system-api.js'
+import type { FileEntry } from '../../../../shared/file-system-api.js'
 import type { FileSystemService } from '../file-system-service.js'
 import { LocalFileStorage } from '../local-file-storage.js'
 

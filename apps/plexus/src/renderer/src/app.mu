@@ -60,7 +60,7 @@ import PlexusIcons from "./plexus-icons.mu.js"
 // Native file-system capability (open/save dialogs, read/write, directory
 // listing) — the shared FileSystemStorage module (plexus-core) registers
 // FileSystemService; resolved via FileSystemService.Key. Added in .modules: below.
-import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
+import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage"
 
 // Static host environment (dirs, platform, versions, flags). No view resources.
 import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js"
@@ -90,8 +90,8 @@ import OpenProjectsStore from "@pragmatic-tech-ai/plexus-core/renderer/projects/
 // + File-menu items (@WindowBrand / @WindowMenuItems) and a title source
 // (PlexusTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header's ControlTemplate resolves $service(TitleService)).
-import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/window"
-import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
+import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
 import PlexusTitleSource from "./window/plexus-title-source.js"
 
 // Background work: a pluggable-executor manager that runs background operations

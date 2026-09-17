@@ -24,7 +24,7 @@ import { HelpDocumentStore } from './modules/help-overlay/help-document-store.js
 import { attachSaveShortcuts } from './services/documents/save-shortcuts.js'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
-import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/window'
+import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
 import { BackgroundWorkService } from './modules/background-work/services/background-work-service.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-service.js'

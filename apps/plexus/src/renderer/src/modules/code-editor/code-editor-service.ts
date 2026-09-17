@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService } from '@pragmatic-tech-ai/mural/framework'
 import type { DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { samePath } from '@pragmatic-tech-ai/plexus-core/renderer/file-watch/path-utils.js'
 import { CodeDocument } from './code-document.js'

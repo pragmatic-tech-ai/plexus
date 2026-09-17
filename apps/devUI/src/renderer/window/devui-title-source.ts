@@ -1,6 +1,6 @@
 import { type IServiceProvider } from "@pragmatic-tech-ai/mural/runtime";
 import { NavigationService } from "@pragmatic-tech-ai/mural/framework";
-import { type ITitleSource } from "@pragmatic-tech-ai/plexus-core/renderer/window";
+import { type ITitleSource } from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome";
 
 // devUI's window-title feed for the shared PragmaticWindowChrome TitleService: the
 // active capability's label, else "TODL". devUI is a viewer (no open documents or

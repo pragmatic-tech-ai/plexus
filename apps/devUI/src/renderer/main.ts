@@ -6,7 +6,7 @@ import { app } from "./app.mu";
 import { HtmlTarget } from "@pragmatic-tech-ai/mural/visual-engine";
 import { NavigationService, ContentHostService, DialogService } from "@pragmatic-tech-ai/mural/framework";
 import { SolutionServicesRegistration } from "./modules/solution/solution-services.js";
-import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/window";
+import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome";
 
 // ViewerShell (unlike EditorShell) does not register a NavigationService, so
 // the app supplies one at the root. Registered under NavigationService.Key so

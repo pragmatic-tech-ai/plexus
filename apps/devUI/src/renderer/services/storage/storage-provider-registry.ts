@@ -1,6 +1,6 @@
 import { ServiceKey, type IServiceProvider } from "@pragmatic-tech-ai/mural/runtime";
 import { StorageProviderRegistryBase } from "@pragmatic-tech-ai/plexus-core/renderer/services/storage";
-import { FileSystemService, LocalFileStorage } from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage";
+import { FileSystemService, LocalFileStorage } from "@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage";
 
 // devUI's storage registry. The registry mechanics live in plexus-core's
 // StorageProviderRegistryBase; here we declare the app's ServiceKey and register

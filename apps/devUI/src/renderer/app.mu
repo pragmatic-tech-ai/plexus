@@ -20,13 +20,13 @@ import RegistryClient from "./services/registry/registry-client.ts"
 // File-menu items (@WindowBrand / @WindowMenuItems) and a title source
 // (DevUiTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header ControlTemplate resolves $service(TitleService)).
-import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/window"
-import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
+import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
 
 // Shared IO seam — the FileSystemStorage module (plexus-core) registers
 // FileSystemService (native file system via window.api.fs); the app's storage
 // registry resolves it and wraps it in a LocalFileStorage per root.
-import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
+import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage"
 import DevUiTitleSource from "./window/devui-title-source.ts"
 import DevUiWindowCommands from "./window/devui-window-commands.ts"
 import DevUiWindowChrome from "./window/devui-window.resources.mu"
