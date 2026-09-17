@@ -26,31 +26,39 @@ module PragmaticWindowChrome {
     }
 
     resources: {
-        Border x:key="PragmaticTitleBar" [ Height = 32, Fill = @Surface ] {
-            DockPanel [ LastChildFill = true ] {
-                // Brand box — the app supplies @WindowBrand (its mark), drawn in
-                // the 48×32 chrome-toned box.
-                Border [ DockPanel.Dock = Left, Width = 48, Fill = @Surface ] {
-                    ContentControl [ Template = @WindowBrand ]
+        // The strip is a ControlTemplate (not a raw Border) so its themed visuals
+        // — the MenuButton especially — instantiate LAZILY when the app applies it,
+        // after the theme is active. A module's resources are built at module-load
+        // (before app.mu sets the theme), so an eager MenuButton here would throw
+        // for want of its default style. The app mounts it via
+        // `HeaderContent = ContentControl [ Template = @PragmaticTitleBar ]`.
+        Template x:key="PragmaticTitleBar" [ TargetType = ContentControl ] {
+            Border [ Height = 32, Fill = @Surface ] {
+                DockPanel [ LastChildFill = true ] {
+                    // Brand box — the app supplies @WindowBrand (its mark), drawn in
+                    // the 48×32 chrome-toned box.
+                    Border [ DockPanel.Dock = Left, Width = 48, Fill = @Surface ] {
+                        ContentControl [ Template = @WindowBrand ]
+                    }
+                    // 1dp divider continuing the rail's right edge up through the strip.
+                    Line [ DockPanel.Dock = Left, Orientation = Vertical, Stroke = (@OutlineVariant, 1) ]
+                    // File menu — click-to-open dropdown; items come from the app's
+                    // @WindowMenuItems slot. MenuButton self-manages open/close.
+                    MenuButton
+                        [ DockPanel.Dock    = Left,
+                          Header            = "File",
+                          Template          = @FileMenuPopup,
+                          TriggerTemplate   = @FileMenuTrigger,
+                          VerticalAlignment = Center ]
+                    // Title — active document / open project / app name. Right margin
+                    // keeps it clear of the ~138dp caption buttons.
+                    TextBlock
+                        [ Text              = $service(TitleService).Title,
+                          Foreground        = @OnSurfaceVariant,
+                          FontSize          = 12,
+                          VerticalAlignment = Center,
+                          Margin            = (12,0,140,0) ]
                 }
-                // 1dp divider continuing the rail's right edge up through the strip.
-                Line [ DockPanel.Dock = Left, Orientation = Vertical, Stroke = (@OutlineVariant, 1) ]
-                // File menu — click-to-open dropdown; items come from the app's
-                // @WindowMenuItems slot. MenuButton self-manages open/close.
-                MenuButton
-                    [ DockPanel.Dock    = Left,
-                      Header            = "File",
-                      Template          = @FileMenuPopup,
-                      TriggerTemplate   = @FileMenuTrigger,
-                      VerticalAlignment = Center ]
-                // Title — active document / open project / app name. Right margin
-                // keeps it clear of the ~138dp caption buttons.
-                TextBlock
-                    [ Text              = $service(TitleService).Title,
-                      Foreground        = @OnSurfaceVariant,
-                      FontSize          = 12,
-                      VerticalAlignment = Center,
-                      Margin            = (12,0,140,0) ]
             }
         }
 

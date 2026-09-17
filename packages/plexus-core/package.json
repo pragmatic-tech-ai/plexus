@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./renderer/probe": "./dist/renderer/probe/index.js",
     "./vite/mural-renderer": "./dist/vite/mural-renderer.js",
     "./main": "./dist/main/index.js",
     "./main/updater": "./dist/main/updater.js",
     "./renderer/services/storage": "./dist/renderer/services/storage/index.js",
+    "./renderer/file-system-storage": "./dist/renderer/file-system-storage/index.js",
+    "./preload/file-system": "./dist/preload/create-file-system-bridge.js",
+    "./renderer/theme": "./dist/renderer/theme/index.js",
     "./renderer/window": "./dist/renderer/window/index.js",
     "./renderer/window/*": "./dist/renderer/window/*",
     "./shared/*.js": "./dist/shared/*.js"
