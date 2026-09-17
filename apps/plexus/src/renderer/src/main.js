@@ -42,6 +42,8 @@ import { DocumentCloseGuard } from './services/documents/document-close-guard.js
 import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
 import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
 import { TodlLanguageClient } from './services/todl/todl-language-client.js'
+import { ProblemsService } from './modules/problems/problems-service.js'
+import { LiveValidationKey, BaseResolverKey, ProblemsDockKey, ProjectTreeHostKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { createTodlLspConnection } from './services/todl/todl-lsp-connection.js'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
@@ -84,6 +86,16 @@ try {
     if (!app.Services.has(SettingSourceKey)) {
         app.Services.register(SettingSourceKey, (p) => p.getRequired(ApplicationSettings.Key))
     }
+    // Project Explorer capability seams (interfaces in plexus-core) backed by an
+    // already-registered singleton: bind each capability key to the SAME instance.
+    // The `.mu` `Impl -> Key` alias can't express instance-sharing (it lowers to
+    // `new Impl(p)` — a duplicate), so these four are wired code-side. The three
+    // adapter-backed capabilities (PublishedBases/DiagramTreeExport/ProjectMenuSource)
+    // ARE registered via the `.mu` alias, since each has only the one instance.
+    app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
+    app.Services.register(BaseResolverKey,    (p) => p.getRequired(WorkspaceBaseResolver.Key))
+    app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
+    app.Services.register(ProjectTreeHostKey, (p) => p.getRequired(ProjectExplorerService.Key))
     // The shell chrome (title strip + @Surface) has mounted; drop the boot
     // splash once the browser has flushed a real frame. Double-rAF: the first
     // callback runs before paint, the second after — so we never reveal a blank

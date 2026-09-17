@@ -205,6 +205,14 @@ import DiagramCommandExtensionKey from "./modules/diagram/services/diagram-comma
 import ArchNodeCommandContributor from "./modules/architecture-projects/services/arch-node-command-contributor.js"
 import NodeCommandContributorKey from "./services/documents/node-command-contributor.js"
 
+// Project Explorer capability impls + their DI keys (interfaces in plexus-core).
+import PublishedBases from "./modules/meta-model/services/published-bases.js"
+import PublishedBasesKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
+import DiagramTreeExport from "./modules/diagram-export/services/diagram-tree-export.js"
+import DiagramTreeExportKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
+import SkillProjectMenuSource from "./modules/skills/services/project-menu-source.js"
+import ProjectMenuSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
+
 // Wiki: an "Open Wiki" action on concept surfaces that opens the concept's
 // declared markdown page (resolved from its open project) in a Monaco tab.
 import WikiLocator from "./services/wiki/wiki-locator.js"
@@ -393,6 +401,15 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         ArchNewDiagramParticipant -> NewFileParticipantKey
         ArchEditViewpointsCommand -> DiagramCommandExtensionKey
         ArchNodeCommandContributor -> NodeCommandContributorKey
+        // Project Explorer capability impls (DI seams defined in plexus-core). Each
+        // is registered ONLY under its interface key ⇒ a single instance (the alias
+        // `Impl -> Key` lowers to `register(Key, p => new Impl(p))`). The four
+        // capabilities backed by an already-registered singleton (live validation,
+        // base resolver, problems dock, tree host) are instance-shared code-side in
+        // main.js instead, so they don't spawn a duplicate.
+        PublishedBases         -> PublishedBasesKey
+        DiagramTreeExport      -> DiagramTreeExportKey
+        SkillProjectMenuSource -> ProjectMenuSourceKey
     }
 
     .modules: {
