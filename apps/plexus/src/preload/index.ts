@@ -1,15 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
-import {
-  FileSystemChannel,
-  type FileEntry,
-  type IFileSystemApi,
-  type ImportedFile,
-  type OpenFileOptions,
-  type OpenFileResult,
-  type OpenFolderOptions,
-  type SaveFileOptions,
-} from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
+import { createFileSystemBridge } from '@pragmatic-tech-ai/plexus-core/preload/file-system'
 import { EnvironmentChannel, type EnvironmentInfo } from '@pragmatic-tech-ai/plexus-core/shared/environment-api.js'
 import { SettingsChannel, type ISettingsBridge } from '@pragmatic-tech-ai/plexus-core/shared/settings-api.js'
 import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, type TaggedAgentEvent } from '../shared/agent-api.js'
@@ -24,38 +15,10 @@ import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServ
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
 // `api.fs` in an injected mural service (FileSystemService) so app/view/VM
-// code stays host-agnostic. Each method is a thin ipcRenderer.invoke to the
-// matching main-process handler (registered in main/filesystem.ts).
-const fs: IFileSystemApi = {
-  openFile: (options?: OpenFileOptions): Promise<OpenFileResult | null> =>
-    ipcRenderer.invoke(FileSystemChannel.OpenFile, options),
-  openFiles: (options?: OpenFileOptions): Promise<ImportedFile[] | null> =>
-    ipcRenderer.invoke(FileSystemChannel.OpenFiles, options),
-  openFolder: (options?: OpenFolderOptions): Promise<string | null> =>
-    ipcRenderer.invoke(FileSystemChannel.OpenFolder, options),
-  saveFileAs: (content: string, options?: SaveFileOptions): Promise<string | null> =>
-    ipcRenderer.invoke(FileSystemChannel.SaveFileAs, content, options),
-  readText: (path: string): Promise<string> =>
-    ipcRenderer.invoke(FileSystemChannel.ReadText, path),
-  readBytes: (path: string): Promise<Uint8Array> =>
-    ipcRenderer.invoke(FileSystemChannel.ReadBytes, path),
-  writeText: (path: string, content: string): Promise<void> =>
-    ipcRenderer.invoke(FileSystemChannel.WriteText, path, content),
-  writeBytes: (path: string, bytes: Uint8Array): Promise<void> =>
-    ipcRenderer.invoke(FileSystemChannel.WriteBytes, path, bytes),
-  exists: (path: string): Promise<boolean> =>
-    ipcRenderer.invoke(FileSystemChannel.Exists, path),
-  delete: (path: string): Promise<void> =>
-    ipcRenderer.invoke(FileSystemChannel.Delete, path),
-  createDirectory: (path: string): Promise<void> =>
-    ipcRenderer.invoke(FileSystemChannel.CreateDirectory, path),
-  rename: (from: string, to: string): Promise<void> =>
-    ipcRenderer.invoke(FileSystemChannel.Rename, from, to),
-  listDirectory: (path: string): Promise<readonly FileEntry[]> =>
-    ipcRenderer.invoke(FileSystemChannel.ListDirectory, path),
-  openExternal: (path: string): Promise<void> =>
-    ipcRenderer.invoke(FileSystemChannel.OpenExternal, path),
-}
+// code stays host-agnostic. The bridge itself is built by the shared
+// createFileSystemBridge (plexus-core) so main + preload never drift; each method
+// is a thin ipcRenderer.invoke to the matching handler (main/filesystem.ts).
+const fs = createFileSystemBridge(ipcRenderer)
 
 // Environment snapshot — read ONCE, synchronously, at preload load time. The
 // facts are static, so a single blocking round-trip here is simpler than async

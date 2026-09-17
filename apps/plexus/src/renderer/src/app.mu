@@ -58,8 +58,9 @@ import PlexusIcons from "./plexus-icons.mu.js"
 // service's resource dictionary — the templates themselves live with the service.
 
 // Native file-system capability (open/save dialogs, read/write, directory
-// listing). Resolved via FileSystemService.Key; no view resources.
-import FileSystemService from "./services/file-system/file-system-service.js"
+// listing) — the shared FileSystemStorage module (plexus-core) registers
+// FileSystemService; resolved via FileSystemService.Key. Added in .modules: below.
+import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
 
 // Static host environment (dirs, platform, versions, flags). No view resources.
 import EnvironmentService from "./services/environment/environment-service.js"
@@ -84,10 +85,14 @@ import RecentProjectsService from "./services/projects/recent-projects-service.j
 // userData, so the workspace restores on launch (ProjectExplorer.RestoreSession).
 import OpenProjectsStore from "./services/projects/open-projects-store.js"
 
-// Window title service: computes the app title (active document → open project →
-// "Plexus") as a bindable Title DP, which the mural-painted header binds. Also
-// mirrors document.title. Replaces title-bar.ts's old imperative HTML-band sync.
-import TitleService from "./window/title-service.js"
+// The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
+// bar strip, the menu-bar look, and TitleService. Plexus supplies its brand mark
+// + File-menu items (@WindowBrand / @WindowMenuItems) and a title source
+// (PlexusTitleSource, registered under TitleSourceKey in .services: below so it is
+// available before the header's ControlTemplate resolves $service(TitleService)).
+import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import PlexusTitleSource from "./window/plexus-title-source.js"
 
 // Background work: a pluggable-executor manager that runs background operations
 // and surfaces each as a live entry in the status bar (progress, cancel, output
@@ -100,10 +105,9 @@ import BackgroundWorkModule from "./modules/background-work/background-work.modu
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
 
-// The mural-painted app title bar (EditorShell.HeaderContent = @PlexusTitleBar):
-// a 32dp strip with the rail-coloured logo box + brand mark on the left and the
-// bound title text. Merged below; set on the shell root at the bottom.
-import PlexusTitleBar from "./window/title-bar.resources.mu.js"
+// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenuItems
+// (Export…), filled into the shared PragmaticWindowChrome strip. Merged below.
+import PlexusWindowChrome from "./window/plexus-window.resources.mu.js"
 
 // Capability content services + their side-pane templates.
 import PanelsResources from "./services/panels/panels.resources.mu.js"
@@ -229,17 +233,17 @@ import SettingsContributionKey from "@pragmatic-tech-ai/mural/framework"
 // NavigationService.Key to override it).
 Application [ Theme = Material, Scheme = MaterialDark ] {
     .services: {
-        FileSystemService
         EnvironmentService
         // Live viewport (window) height, bindable + resize-reactive. The Problems
         // popup derives its 30% list cap from this.
         ViewportService
         // System clipboard seam for the Problems popup's copy-all + per-row copy.
         ClipboardService
-        // Window title feed (active document → open project → "Plexus") as a
-        // bindable Title DP; the mural header binds $service(TitleService).Title.
-        // Eagerly resolved in main.js so document.title tracks from boot.
-        TitleService
+        // TitleService is registered by the PragmaticWindowChrome module (below);
+        // Plexus supplies its title source here (bound to the shared TitleSourceKey)
+        // so it is registered during app compose — before the header ControlTemplate
+        // resolves $service(TitleService), whose ctor getRequired()s the source.
+        PlexusTitleSource -> TitleSourceKey
         // Background-work manager — root-registered so any service can submit work;
         // its status-bar dock binds $service(BackgroundWorkService). Eagerly
         // resolved in main.js.
@@ -392,6 +396,9 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
     }
 
     .modules: {
+        // Shared IO seam: registers FileSystemService (native file system via
+        // window.api.fs). Backends resolve it; LocalFileStorage wraps it per root.
+        FileSystemStorage
         DiagramModule
         DiagramExportModule
         ArchitectureProjectsModule
@@ -408,6 +415,8 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         MarkdownViewerModule
         BackgroundWorkModule
         SaveModule
+        // Shared window chrome: the title bar strip + menu look + TitleService.
+        PragmaticWindowChrome
     }
 
     resources: {
@@ -469,9 +478,9 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
             IsAutoHideScrollBars = true;
         }
 
-        // The mural-painted app title bar (@PlexusTitleBar), set as the shell's
-        // HeaderContent below.
-        merge PlexusTitleBar
+        // Plexus's brand + File-menu slots for the shared @PragmaticTitleBar, set
+        // as the shell's HeaderContent below.
+        merge PlexusWindowChrome
 
         // Background-work status-bar dock (@BackgroundWorkDock) + task row + output
         // document templates.
@@ -552,8 +561,11 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
 
         // The app root — the framework's default EditorShell. Regions are
         // data-driven (services + the active document); the one piece of app
-        // chrome is the title bar, painted by mural into the Header region via
-        // HeaderContent (the OS frame is hidden; see window/title-bar.resources.mu).
-        EditorShell x:root [ HeaderContent = @PlexusTitleBar ] { }
+        // chrome is the title bar (@PragmaticTitleBar from the shared
+        // PragmaticWindowChrome module), painted into the Header region via
+        // HeaderContent (the OS frame is hidden). @PragmaticTitleBar is a
+        // ControlTemplate (its themed visuals build lazily, after the theme is
+        // active), so a ContentControl hosts it.
+        EditorShell x:root [ HeaderContent = ContentControl [ Template = @PragmaticTitleBar ] ] { }
     }
 }

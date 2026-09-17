@@ -5,7 +5,7 @@
 // never written.
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
-import { FileSystemService } from '../../../services/file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import type { SerializedMessage } from './transcript-serializer.js'
 
 export interface StoredConversation

@@ -1,5 +1,5 @@
 import { Application, Behavior, type PointerEventArgs, Visual } from '@pragmatic-tech-ai/mural/runtime'
-import { FileSystemService } from '../../../services/file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { MediaNodeVM } from './media-node-vm.js'
 
 // Double-click a media node → open its target: http(s) URLs in the OS browser,

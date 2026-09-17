@@ -8,7 +8,7 @@ import {
   ContentHostService, DiagramDocument, DialogService,
   type DocumentsContentHostService,
 } from '@pragmatic-tech-ai/mural/framework'
-import { FileSystemService } from '../../../services/file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { DiagramSvgRenderer } from './diagram-svg-renderer.js'
 import { rasterizeSvgToPng, pngToDataUrl } from './svg-raster.js'
 import { buildPptx } from './pptx-builder.js'

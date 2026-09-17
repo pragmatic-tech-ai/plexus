@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService } from '@pragmatic-tech-ai/mural/framework'
-import { FileSystemService } from '../../file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { WikiLocator } from '../wiki-locator.js'
 import { WikiService } from '../wiki-service.js'
 import { WikiDocument } from '../wiki-document.js'

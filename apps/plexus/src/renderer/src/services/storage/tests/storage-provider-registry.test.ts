@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { FileSystemService } from '../../file-system/file-system-service.js'
-import { LocalFileStorage } from '../local-file-storage.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { StorageProviderRegistry } from '../storage-provider-registry.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 

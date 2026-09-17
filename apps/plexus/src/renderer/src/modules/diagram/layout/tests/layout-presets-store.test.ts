@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 
 import { EnvironmentService } from '../../../../services/environment/environment-service.js'
-import { FileSystemService } from '../../../../services/file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { LayoutPresetsStore } from '../layout-presets-store.js'
 
 // An in-memory FileSystemService covering only the methods the store uses.

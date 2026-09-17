@@ -35,7 +35,7 @@ import {
     type IDocument,
 } from '@pragmatic-tech-ai/mural/framework'
 
-import { FileSystemService } from '../../../services/file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,

@@ -11,9 +11,6 @@
 // round-trips (was a multi-second white window). See fonts.css.
 import './fonts.css'
 import { app } from './app.mu.js'
-// PHASE A probe: prove a plexus-core .mu resolves + merges across the package
-// boundary. Removed in Phase B once real shared resources land.
-import { ProbeResources } from '@pragmatic-tech-ai/plexus-core/renderer/probe'
 import { HtmlTarget } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ThemeManager, Density, RelayCommand, SettingSourceKey } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, PanelDockService, DialogService, ApplicationSettings } from '@pragmatic-tech-ai/mural/framework'
@@ -26,10 +23,8 @@ import { attachHelpOverlay } from './modules/help-overlay/help-overlay-behavior.
 import { HelpDocumentStore } from './modules/help-overlay/help-document-store.js'
 import { attachSaveShortcuts } from './services/documents/save-shortcuts.js'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
-import { registerThemeSchemePicker } from './theme/register-scheme-picker.js'
-import { attachTitleBar } from './window/title-bar.js'
-import { removeSplash } from './window/splash.js'
-import { TitleService } from './window/title-service.js'
+import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
+import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/window'
 import { BackgroundWorkService } from './modules/background-work/services/background-work-service.js'
 import { ProjectExplorerService } from './modules/project-explorer/services/project-explorer-service.js'
 import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-service.js'
@@ -73,12 +68,12 @@ ThemeManager.Density = Density.Compact
 // returns fallback widths until the @font-face resolves.
 await document.fonts.load('24px "Material Symbols Outlined"')
 try {
+    // Plexus's title feed (active doc → open project → "Plexus") is registered under
+    // the shared TitleSourceKey in app.mu's .services: block (before compose), so the
+    // PragmaticWindowChrome TitleService resolves it the moment the header binds
+    // $service(TitleService).Title.
     const renderTarget = new HtmlTarget(document.getElementById('app'))
     app.initialize(renderTarget)
-    // PHASE A probe: merge a plexus-core resource dictionary (compiled .mu class
-    // with a static Clone()) to prove cross-package .mu import resolves + applies.
-    app.Resources.AddMergedDictionary(ProbeResources.Clone())
-    globalThis.__coreProbe = () => { try { return ProbeResources.Clone() !== undefined } catch { return false } }
     // app.mu registers ApplicationSettings.Key itself (to wire the Electron settings
     // store), which makes EditorShell SKIP wiring the SettingSourceKey→ApplicationSettings
     // bridge — its guard is `!Services.has(ApplicationSettings.Key)`. Without that bridge
@@ -97,7 +92,7 @@ try {
     // Contribute the right-aligned status-bar colour-scheme picker (a service-
     // bound shell control) before opening the first document, so the toolbar
     // service surfaces it on the document-open rebuild.
-    registerThemeSchemePicker(app)
+    ThemeSchemePicker.register(app)
     // Custom frame: re-tint the native caption buttons (Window Controls Overlay)
     // to the mural header's surface on every scheme change (+ tag <body> on mac).
     // The title strip itself is painted by mural (Header region → @PlexusTitleBar).

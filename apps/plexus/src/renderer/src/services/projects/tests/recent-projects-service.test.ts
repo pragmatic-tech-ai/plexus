@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { EnvironmentService } from '../../environment/environment-service.js'
-import { FileSystemService } from '../../file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { RecentProjectsService, type RecentProject } from '../recent-projects-service.js'
 
 // In-memory FileSystemService covering just the calls RecentProjectsService uses.

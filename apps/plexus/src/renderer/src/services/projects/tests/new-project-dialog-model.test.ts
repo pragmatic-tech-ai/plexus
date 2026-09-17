@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 
-import type { FileSystemService } from '../../file-system/file-system-service.js'
+import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import type { BaseRef } from '../base-binding.js'
 import {
     NewProjectDialogModel,

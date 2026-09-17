@@ -6,7 +6,7 @@ import {
     type ICommand,
 } from '@pragmatic-tech-ai/mural/runtime'
 
-import type { FileSystemService } from '../file-system/file-system-service.js'
+import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import type { BaseRef } from './base-binding.js'
 
 // The New Project dialog's view-model + its per-type choice model. Rendered by

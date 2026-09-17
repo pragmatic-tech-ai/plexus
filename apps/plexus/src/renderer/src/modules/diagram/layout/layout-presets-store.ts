@@ -2,7 +2,7 @@ import { type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 
 import { EnvironmentService } from '../../../services/environment/environment-service.js'
-import { FileSystemService } from '../../../services/file-system/file-system-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 
 // Named layout-pipeline presets, one `<name>.json` file per preset under
 // <UserDataDirectory>/layout-presets/. Each file is a Fresco

@@ -1,4 +1,4 @@
-import type { FileSystemService } from '../../services/file-system/file-system-service.js'
+import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // A minimal read/write handle a CodeDocument persists through, decoupling the
