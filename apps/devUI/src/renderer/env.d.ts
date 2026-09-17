@@ -24,7 +24,8 @@ export interface TodlBridge {
     packageVersions(model: string, connectionId?: string): Promise<string[]>;
     getSources(ref: PackageRef): Promise<PackageSource[]>;
     getPackageContents(name: string, connectionId?: string): Promise<PackageContents>;
-    deleteVersion(name: string, version: string): Promise<void>;
+    deleteVersion(name: string, version: string, connectionId?: string): Promise<void>;
+    deleteAllVersions(name: string, connectionId?: string): Promise<void>;
     bumpVersion(dir: string): Promise<string>;
   };
   connections: {

@@ -142,6 +142,16 @@ test("deleteVersion delegates to the manager", async () => {
   assert.deepEqual(seen, ["@pragmatic-tech-ai/aws", "0.1.0"]);
 });
 
+test("deleteAllVersions lists the versions then deletes each", async () => {
+  const deleted: string[] = [];
+  const bridge = makeBridge({
+    versions: () => Promise.resolve({ versions: ["0.1.0", "0.1.1", "0.2.0"], distTags: { latest: "0.2.0" } }),
+    deleteVersion: (_name, version) => { deleted.push(version); return Promise.resolve(); },
+  });
+  await bridge.deleteAllVersions("@pragmatic-tech-ai/aws");
+  assert.deepEqual(deleted, ["0.1.0", "0.1.1", "0.2.0"]);
+});
+
 test("getMeta returns the package kind via manifestKind", async () => {
   const bridge = makeBridge({ manifestKind: () => Promise.resolve("library") });
   assert.equal(await bridge.getMeta("aws"), "library");

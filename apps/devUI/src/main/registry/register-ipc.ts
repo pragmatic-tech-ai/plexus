@@ -35,7 +35,8 @@ export class RegistryIpc {
     ipcMain.handle("registry:packageVersions", (_e, model: string, connectionId?: string) => bridge.packageVersions(model, connectionId));
     ipcMain.handle("registry:getSources", (_e, ref) => bridge.getSources(ref));
     ipcMain.handle("registry:getPackageContents", (_e, name: string, connectionId?: string) => bridge.getPackageContents(name, connectionId));
-    ipcMain.handle("registry:deleteVersion", (_e, name: string, version: string) => bridge.deleteVersion(name, version));
+    ipcMain.handle("registry:deleteVersion", (_e, name: string, version: string, connectionId?: string) => bridge.deleteVersion(name, version, connectionId));
+    ipcMain.handle("registry:deleteAllVersions", (_e, name: string, connectionId?: string) => bridge.deleteAllVersions(name, connectionId));
     ipcMain.handle("registry:bumpVersion", (_e, dir: string) => bridge.bumpVersion(dir));
     ipcMain.handle("connections:list", () => bridge.listConnections());
     ipcMain.handle("connections:add", (_e, input: ConnectionInput) => bridge.addConnection(input));

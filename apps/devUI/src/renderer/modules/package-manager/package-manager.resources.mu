@@ -3,6 +3,7 @@ import PackageManagerHeaderVM from "./package-manager-header-vm.ts"
 import EditorPaneVM from "./editor-pane-vm.ts"
 import TreeNodeVM from "./tree-node-vm.ts"
 import GraphPaneVM from "./graph/graph-pane-vm.ts"
+import DeletePackageDialogVM from "./delete-package-dialog.ts"
 
 resources PackageManagerResources {
     // The Packages capability — rendered in the shell side panel by the
@@ -26,10 +27,27 @@ resources PackageManagerResources {
         TextBlock [ Text = $Header, Margin = (4,0,4,0) ]
     }
 
-    // The command ToolBar pinned atop the side-pane body — the Refresh button.
+    // The command ToolBar pinned atop the side-pane body — Refresh + Delete. The
+    // Delete button binds its command's CanExecute, so it's disabled until a
+    // package row is selected.
     DataTemplate [DataType = PackageManagerHeaderVM] {
         ToolBar {
             ToolBarButton [ Command = $Refresh, Text = "Refresh", ShowText = true ]
+            ToolBarButton [ Command = $Delete, Text = "Delete", ShowText = true ]
+        }
+    }
+
+    // The Delete-package dialog body (hosted by the DialogService): pick the scope
+    // (all versions vs. one) and, for the specific case, the version to remove.
+    DataTemplate [DataType = DeletePackageDialogVM] {
+        StackPanel [ Orientation = Vertical, Margin = (4) ] {
+            RadioButtonGroup [ ItemsSource = $Scopes, SelectedItem = $SelectedScope, Margin = (0,0,0,10) ]
+            StackPanel [ Orientation = Vertical, Visibility = $IsSpecific << ToVisibility, Margin = (0,0,0,8) ] {
+                TextBlock [ Text = "Version", Margin = (0,0,0,2) ]
+                ComboBox  [ ItemsSource = $Versions, SelectedItem = $SelectedVersion, HorizontalAlignment = Stretch ]
+            }
+            TextBlock [ Text = "This permanently removes the package from the registry and cannot be undone.",
+                        TextWrapping = Wrap, Foreground = @Error ]
         }
     }
 

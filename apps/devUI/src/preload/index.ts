@@ -21,7 +21,8 @@ const bridge = {
     packageVersions: (model: string, connectionId?: string) => ipcRenderer.invoke("registry:packageVersions", model, connectionId),
     getSources: (ref: unknown) => ipcRenderer.invoke("registry:getSources", ref),
     getPackageContents: (name: string, connectionId?: string) => ipcRenderer.invoke("registry:getPackageContents", name, connectionId),
-    deleteVersion: (name: string, version: string) => ipcRenderer.invoke("registry:deleteVersion", name, version),
+    deleteVersion: (name: string, version: string, connectionId?: string) => ipcRenderer.invoke("registry:deleteVersion", name, version, connectionId),
+    deleteAllVersions: (name: string, connectionId?: string) => ipcRenderer.invoke("registry:deleteAllVersions", name, connectionId),
     bumpVersion: (dir: string) => ipcRenderer.invoke("registry:bumpVersion", dir),
   },
   connections: {

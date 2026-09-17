@@ -60,8 +60,11 @@ export class RegistryClient {
   getPackageContents(name: string, connectionId?: string): Promise<PackageContents> {
     return this.bridge().registry.getPackageContents(name, connectionId);
   }
-  deleteVersion(name: string, version: string): Promise<void> {
-    return this.bridge().registry.deleteVersion(name, version);
+  deleteVersion(name: string, version: string, connectionId?: string): Promise<void> {
+    return this.bridge().registry.deleteVersion(name, version, connectionId);
+  }
+  deleteAllVersions(name: string, connectionId?: string): Promise<void> {
+    return this.bridge().registry.deleteAllVersions(name, connectionId);
   }
   bumpVersion(dir: string): Promise<string> {
     return this.bridge().registry.bumpVersion(dir);

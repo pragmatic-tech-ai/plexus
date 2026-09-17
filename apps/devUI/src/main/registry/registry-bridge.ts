@@ -108,9 +108,21 @@ export class RegistryBridge {
     return this.managerFor().publish(dir);
   }
 
-  /** Delete a published version from the registry (reaction to a 409 conflict). */
-  deleteVersion(name: string, version: string): Promise<void> {
-    return this.managerFor().deleteVersion(name, version);
+  /** Delete a published version from a connection's registry (the republish-after-
+   *  409 flow, and the Package Manager's Delete command). `connectionId` omitted ⇒
+   *  the default connection (back-compat with the compiler's republish path). */
+  deleteVersion(name: string, version: string, connectionId?: string): Promise<void> {
+    return this.managerFor(connectionId).deleteVersion(name, version);
+  }
+
+  /** Delete every published version of a package from a connection's registry —
+   *  the Package Manager's "delete all versions" choice. Lists the versions, then
+   *  deletes each. (GitHub Packages may refuse to delete the *last* version of a
+   *  public package; private org packages delete cleanly.) */
+  async deleteAllVersions(name: string, connectionId?: string): Promise<void> {
+    const mgr = this.managerFor(connectionId);
+    const { versions } = await mgr.versions(name);
+    for (const version of versions) await mgr.deleteVersion(name, version);
   }
 
   /** Bump the opened project's version to the next unused patch and persist it to

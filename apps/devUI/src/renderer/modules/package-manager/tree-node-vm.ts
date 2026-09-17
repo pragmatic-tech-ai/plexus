@@ -7,6 +7,14 @@ export interface LeafContent {
   language: EditorLanguage;
 }
 
+/** Identifies a tree node as a published-package row: the package name and the
+ *  connection it lives under. Set only on package nodes (undefined elsewhere), so
+ *  the Delete command can act on the selection and target the right registry. */
+export interface PackageIdentity {
+  name: string;
+  connectionId: string;
+}
+
 // One node in the Packages content tree, rendered data-driven by a
 // HierarchicalDataTemplate[TreeNodeVM] (itemsselector = Children). This is the
 // framework-native path: the TreeView generates containers from the bound
@@ -26,6 +34,7 @@ export class TreeNodeVM extends Observable {
     private readonly _children: ObservableCollection<TreeNodeVM> | undefined,
     private readonly _content: LeafContent | undefined,
     private readonly loader: (() => Promise<TreeNodeVM[]>) | undefined,
+    private readonly _package: PackageIdentity | undefined = undefined,
   ) {
     super();
   }
@@ -33,6 +42,8 @@ export class TreeNodeVM extends Observable {
   get Header(): string { return this._header; }
   get Children(): ObservableCollection<TreeNodeVM> | undefined { return this._children; }
   get Content(): LeafContent | undefined { return this._content; }
+  /** The package this node represents, or undefined if it is not a package row. */
+  get Package(): PackageIdentity | undefined { return this._package; }
 
   /** Lazy-load hook — the TreeView calls this on each transition to expanded.
    *  Runs the loader once, swapping the placeholder for the real children. */
@@ -59,5 +70,12 @@ export class TreeNodeVM extends Observable {
   static lazy(header: string, loader: () => Promise<TreeNodeVM[]>): TreeNodeVM {
     const children = new ObservableCollection<TreeNodeVM>([TreeNodeVM.leaf("Loading…", "", EditorLanguage.PlainText)]);
     return new TreeNodeVM(header, children, undefined, loader);
+  }
+
+  /** A lazy package row — like `lazy`, but tagged with its package identity so the
+   *  Delete command can act on it and target the owning connection's registry. */
+  static package(name: string, connectionId: string, loader: () => Promise<TreeNodeVM[]>): TreeNodeVM {
+    const children = new ObservableCollection<TreeNodeVM>([TreeNodeVM.leaf("Loading…", "", EditorLanguage.PlainText)]);
+    return new TreeNodeVM(name, children, undefined, loader, { name, connectionId });
   }
 }

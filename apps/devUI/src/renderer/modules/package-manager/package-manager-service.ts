@@ -3,12 +3,14 @@ import {
   ObservableCollection,
   type IServiceProvider,
 } from "@pragmatic-tech-ai/mural/runtime";
-import { ContentHostService, type IActivatable } from "@pragmatic-tech-ai/mural/framework";
+import { ContentHostService, DialogService, type IActivatable } from "@pragmatic-tech-ai/mural/framework";
 import { RegistryClient } from "../../services/registry/registry-client.js";
 import { PackageManagerHeaderVM } from "./package-manager-header-vm.js";
 import { EditorPaneVM } from "./editor-pane-vm.js";
 import { GraphPaneVM } from "./graph/graph-pane-vm.js";
 import { TreeNodeVM } from "./tree-node-vm.js";
+import { DeletePackageDialog, DeleteScope } from "./delete-package-dialog.js";
+import { ConfirmDialog } from "../../services/dialogs/confirm-dialog.js";
 import { EditorLanguage } from "../../editor/monaco-editor-host.js";
 
 // The Package Manager capability's backing service. Connects to the registry
@@ -46,6 +48,7 @@ export class PackageManagerService extends ServiceBase implements IActivatable {
 
   private readonly registry: RegistryClient;
   private readonly contentHost: ContentHostService;
+  private readonly dialogs: DialogService;
   private readonly editorPane = new EditorPaneVM();
   // A compiled model.json leaf (e.g. "Raw model.json" / "Compiled code") routes
   // to this tabbed Visual+Text pane instead of the plain editor.
@@ -58,16 +61,24 @@ export class PackageManagerService extends ServiceBase implements IActivatable {
     super(provider);
     this.registry = provider.getRequired(RegistryClient);
     this.contentHost = provider.getRequired(ContentHostService.Key);
-    // The side-pane command ToolBar's Refresh affordance (rendered via
+    this.dialogs = provider.getRequired(DialogService.Key);
+    // The side-pane command ToolBar's Refresh + Delete affordances (rendered via
     // DataTemplate[PackageManagerHeaderVM] as a ToolBar pinned atop the body).
+    // Delete is gated to package rows (a node carrying a Package identity).
     const oldCommands = this._commands;
-    this._commands = new PackageManagerHeaderVM(() => this.refresh());
+    this._commands = new PackageManagerHeaderVM(
+      () => this.refresh(),
+      () => void this.deleteSelected(),
+      () => this.SelectedNode?.Package !== undefined,
+    );
     this.RaisePropertyChanged("Commands", oldCommands, this._commands);
     // Selecting a tree node (SelectedDataItem binds two-way) shows a leaf's
     // content; branch/package rows carry none, so they no-op. A JSON leaf that
     // parses as a compiled TodlDocument graph (Raw model.json / Compiled code)
     // routes to the tabbed Visual+Text pane; everything else to the plain editor.
+    // Every selection change also re-evaluates the Delete command's enabled state.
     this.PropertyChanged("SelectedNode").subscribe(() => {
+      this._commands.notifyDeletableChanged();
       const content = this.SelectedNode?.Content;
       if (content === undefined) return;
       if (content.language === EditorLanguage.Json && GraphPaneVM.looksLikeGraph(content.text)) {
@@ -91,6 +102,52 @@ export class PackageManagerService extends ServiceBase implements IActivatable {
   // Reload on demand (the header Refresh command).
   refresh(): void {
     void this.load();
+  }
+
+  // Delete the selected published package (the header Delete command). Asks the
+  // user whether to drop every version or a single one, then confirms the
+  // (irreversible) delete before hitting the owning connection's registry.
+  private async deleteSelected(): Promise<void> {
+    const pkg = this.SelectedNode?.Package;
+    if (pkg === undefined) return;
+    // Fetch the version list from the owning connection to populate the picker.
+    let versions: readonly string[];
+    let latest: string;
+    try {
+      const contents = await this.registry.getPackageContents(pkg.name, pkg.connectionId);
+      versions = contents.versions;
+      latest = contents.latest;
+    } catch (e) {
+      this.setStatus(`Could not read ${pkg.name}: ${(e as Error).message}`);
+      return;
+    }
+    if (versions.length === 0) { this.setStatus(`${pkg.name} has no published versions.`); return; }
+
+    const choice = await DeletePackageDialog.show(this.dialogs, { name: pkg.name, versions, latest });
+    if (choice === undefined) return; // cancelled
+
+    const summary = choice.scope === DeleteScope.AllVersions
+      ? `all ${versions.length} version(s) of ${pkg.name}`
+      : `${pkg.name}@${choice.version}`;
+    const confirmed = await ConfirmDialog.show(this.dialogs, {
+      title: "Delete published package",
+      message: `Permanently delete ${summary} from the registry? This cannot be undone.`,
+      confirmLabel: "Delete",
+    });
+    if (!confirmed) return;
+
+    this.setStatus(`Deleting ${summary}…`);
+    try {
+      if (choice.scope === DeleteScope.AllVersions) {
+        await this.registry.deleteAllVersions(pkg.name, pkg.connectionId);
+      } else {
+        await this.registry.deleteVersion(pkg.name, choice.version!, pkg.connectionId);
+      }
+      this.setStatus(`Deleted ${summary}.`);
+      void this.load(); // refresh the tree so the removed package/version disappears
+    } catch (e) {
+      this.setStatus(`Delete failed: ${(e as Error).message}`);
+    }
   }
 
   // The tree roots are the registry connections; each expands to its packages
@@ -117,7 +174,7 @@ export class PackageManagerService extends ServiceBase implements IActivatable {
     try {
       const names = await this.registry.list(connectionId);
       if (names.length === 0) return [TreeNodeVM.leaf("(no packages)", "", EditorLanguage.PlainText)];
-      return names.map((name) => TreeNodeVM.lazy(name, () => this.loadCategories(name, connectionId)));
+      return names.map((name) => TreeNodeVM.package(name, connectionId, () => this.loadCategories(name, connectionId)));
     } catch (e) {
       return [TreeNodeVM.leaf("Error: " + (e as Error).message, "", EditorLanguage.PlainText)];
     }
