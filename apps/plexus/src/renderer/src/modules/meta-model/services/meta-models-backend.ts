@@ -1,13 +1,13 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
-import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The storage backend where published meta-models live. It is a normal rooted
-// IStorage registered on the shared StorageProviderRegistry, so publishing flows
+// IStorage registered on the shared StorageService, so publishing flows
 // through the same seam as project storage and a cloud/REST backend can replace
 // it later. Rooted at <userData>/meta-models via the local-FS backend today.
 export const META_MODELS_BACKEND_ID = 'meta-models'
@@ -17,7 +17,7 @@ export const META_MODELS_BACKEND_ID = 'meta-models'
 // nothing pays for it until a publish actually happens.
 export function ensureMetaModelsBackend(provider: IServiceProvider): IStorage
 {
-    const registry = provider.getRequired(StorageProviderRegistry.Key)
+    const registry = provider.getRequired(StorageService.Key)
     if (!registry.Has(META_MODELS_BACKEND_ID))
     {
         const env = provider.getRequired(EnvironmentService.Key)

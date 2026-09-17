@@ -35,7 +35,7 @@ import {
     type IDocument,
 } from '@pragmatic-tech-ai/mural/framework'
 
-import { FileSystemService } from '../../file-system-storage/index.js'
+import { FileSystemService } from '../../storage/index.js'
 import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,
@@ -89,7 +89,7 @@ import { ManageReferencesDialogModel } from '../../../projects/manage-references
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import { samePath } from '../../../file-watch/path-utils.js'
-import { StorageProviderRegistryBase } from '../../../services/storage/index.js'
+import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 
@@ -295,7 +295,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
 
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
-    private get storageRegistry(): StorageProviderRegistryBase { return this.Provider.getRequired(StorageProviderRegistryBase.Key) }
+    private get storageRegistry(): StorageService { return this.Provider.getRequired(StorageService.Key) }
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get recents(): RecentProjectsService { return this.Provider.getRequired(RecentProjectsService.Key) }
     private get openStore(): OpenProjectsStore { return this.Provider.getRequired(OpenProjectsStore.Key) }
@@ -361,7 +361,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const name = data.name.trim()
         const folder = joinPath(data.location, name)
         try {
-            await this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, data.location).CreateDirectory(name)
+            await this.storageRegistry.Create(StorageService.DefaultBackendId, data.location).CreateDirectory(name)
         } catch (e) {
             return { created: false, error: `Could not create the project folder: ${(e as Error).message}` }
         }
@@ -378,7 +378,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const already = this.findByFolder(folder)
         if (already !== undefined) { this.Status = `${already.Name} is already open.`; return }
 
-        const bootstrap = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
+        const bootstrap = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
 
         let envelope: ProjectManifestEnvelope
         try {
@@ -393,8 +393,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
 
         let storage: IStorage
         try {
-            const backendId = envelope.storage ?? StorageProviderRegistryBase.DefaultBackendId
-            storage = backendId === StorageProviderRegistryBase.DefaultBackendId
+            const backendId = envelope.storage ?? StorageService.DefaultBackendId
+            storage = backendId === StorageService.DefaultBackendId
                 ? bootstrap
                 : this.storageRegistry.Create(backendId, folder)
         } catch (e) {
@@ -422,7 +422,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const factory = this.resolveFactory(type)
         if (factory === undefined) { this.Status = `No factory for project type "${type}".`; return undefined }
 
-        const storage = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
+        const storage = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
         try {
             const bindings = (metaModel !== undefined || (libraries !== undefined && libraries.length > 0))
                 ? { metaModel, libraries }
@@ -445,7 +445,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         for (const folder of await this.openStore.List()) {
             let hasManifest = false
             try {
-                const storage = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
+                const storage = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
                 hasManifest = await storage.Exists(PROJECT_MANIFEST_FILENAME)
             } catch { hasManifest = false }
             if (hasManifest) await this.openProjectAt(folder)
@@ -1287,7 +1287,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         // Validate the SUBFOLDER we'll create in (location/name), not the chosen
         // parent location — a project lives in its own named subfolder.
         const folder = joinPath(result.location, result.name.trim())
-        const storage = this.storageRegistry.Create(StorageProviderRegistryBase.DefaultBackendId, folder)
+        const storage = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
         if (await storage.Exists(PROJECT_MANIFEST_FILENAME)) return 'That folder already contains a project.'
         return null
     }

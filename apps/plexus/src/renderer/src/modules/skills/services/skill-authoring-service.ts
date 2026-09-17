@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, RelayCommand, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { SkillScope } from '../../../../../shared/skill-api.js'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
 import { CodeEditorService } from '../../code-editor/code-editor-service.js'

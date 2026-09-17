@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
@@ -13,9 +13,9 @@ import { LibraryRegistry } from '../library-registry.js'
 // would race the first List). Matches the meta-models-service test pattern.
 function envWith(backend: FakeStorage): { provider: ServiceProvider; diagnostics: DiagnosticsService } {
     const provider = new ServiceProvider()
-    const registry = new StorageProviderRegistry(provider)
+    const registry = new StorageService(provider)
     registry.Register(LIBRARIES_BACKEND_ID, () => backend)
-    provider.registerInstance(StorageProviderRegistry.Key, registry)
+    provider.registerInstance(StorageService.Key, registry)
     const diagnostics = new DiagnosticsService(provider)
     provider.registerInstance(DiagnosticsService.Key, diagnostics)
     return { provider, diagnostics }

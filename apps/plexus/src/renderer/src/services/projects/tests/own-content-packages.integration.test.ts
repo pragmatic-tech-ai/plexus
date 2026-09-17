@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { compilePackage, checkAgainst, PackageKind, Severity, type PackageRef } from '@pragmatic-tech-ai/todl'
 
-import { StorageProviderRegistry } from '../../storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../modules/meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/libraries-backend.js'
@@ -34,12 +34,12 @@ const ARCH = `namespace sys {
 
 function env(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage } {
   const provider = new ServiceProvider()
-  const registry = new StorageProviderRegistry(provider)
+  const registry = new StorageService(provider)
   const meta = new FakeStorage('fake://meta-models')
   const libs = new FakeStorage('fake://libraries')
   registry.Register(META_MODELS_BACKEND_ID, () => meta)
   registry.Register(LIBRARIES_BACKEND_ID, () => libs)
-  provider.registerInstance(StorageProviderRegistry.Key, registry)
+  provider.registerInstance(StorageService.Key, registry)
   return { provider, meta, libs }
 }
 

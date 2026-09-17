@@ -32,7 +32,7 @@ import {
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { PlexusPanelService } from '../../../services/panels/panel-services.js'
-import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { ArchDiagramBindingService } from '../../architecture-projects/services/arch-diagram-binding-service.js'
 import { ArchitectureModelService } from '../../architecture-projects/services/architecture-model-service.js'
 import type { ArchModel } from '../../architecture-projects/services/arch-model.js'
@@ -179,7 +179,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         // Gather everything async FIRST, then mutate synchronously under a seq guard
         // — so two overlapping syncPageSet calls (e.g. ctor + a trigger) can't
         // interleave their reconciles on the shared repo.Pages.
-        if (services.get(StorageProviderRegistry.Key) !== undefined) {
+        if (services.get(StorageService.Key) !== undefined) {
             await services.get(TodlPresentationRegistry.Key)?.discover()
         }
         const taxonomies = await this.collectTaxonomies()
@@ -347,7 +347,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     // Meta-models → `mm:`-keyed terms; libraries → class-id-keyed terms.
     private sourceBackends(): Array<{ backend: IStorage; isLibrary: boolean }>
     {
-        if (this.Provider.get(StorageProviderRegistry.Key) === undefined) return []
+        if (this.Provider.get(StorageService.Key) === undefined) return []
         const out: Array<{ backend: IStorage; isLibrary: boolean }> = []
         try { out.push({ backend: ensureMetaModelsBackend(this.Provider), isLibrary: false }) } catch { /* no meta-models backend */ }
         try { out.push({ backend: ensureLibrariesBackend(this.Provider), isLibrary: true }) } catch { /* no libraries backend */ }

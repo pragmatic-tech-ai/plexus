@@ -5,7 +5,7 @@ import type { FileSystemService } from './file-system-service.js'
 // joins root + project-relative path → absolute and delegates every call to
 // FileSystemService (the shared Electron seam). Also implements ILocalFileAccess,
 // since a disk-backed store can resolve real OS paths and open attachments in the
-// OS default app. Shared by both apps (each app's StorageProviderRegistry news one
+// OS default app. Shared by both apps (StorageService's built-in 'local' provider news one
 // per location); the single IStorage implementation over the file system.
 //
 // Path handling: the interface speaks project-relative paths with `/`; on disk we

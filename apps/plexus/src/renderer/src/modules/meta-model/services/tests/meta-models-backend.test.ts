@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { ensureMetaModelsBackend, META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
 
@@ -14,13 +14,13 @@ function providerWith(): ServiceProvider
         EnvironmentService.Key,
         { UserDataDirectory: '/data', PathSeparator: '/' } as unknown as EnvironmentService,
     )
-    provider.registerInstance(StorageProviderRegistry.Key, new StorageProviderRegistry(provider))
+    provider.registerInstance(StorageService.Key, new StorageService(provider))
     return provider
 }
 
 test('registers the meta-models backend once and roots it under userData', () => {
     const provider = providerWith()
-    const registry = provider.getRequired(StorageProviderRegistry.Key)
+    const registry = provider.getRequired(StorageService.Key)
 
     let registrations = 0
     const realRegister = registry.Register.bind(registry)

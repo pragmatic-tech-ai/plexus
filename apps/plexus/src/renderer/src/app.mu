@@ -57,10 +57,11 @@ import PlexusIcons from "./plexus-icons.mu.js"
 // app.mu only COMPOSES: it registers services in `.services:` and merges each
 // service's resource dictionary — the templates themselves live with the service.
 
-// Native file-system capability (open/save dialogs, read/write, directory
-// listing) — the shared FileSystemStorage module (plexus-core) registers
-// FileSystemService; resolved via FileSystemService.Key. Added in .modules: below.
-import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage"
+// Shared storage — the Storage module (plexus-core) registers FileSystemService
+// (native open/save dialogs, read/write, directory listing) and StorageService
+// (the universal storage front door, seeded with the local-FS provider). Resolved
+// via FileSystemService.Key / StorageService.Key. Added in .modules: below.
+import Storage from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage"
 
 // Static host environment (dirs, platform, versions, flags). No view resources.
 import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js"
@@ -71,11 +72,6 @@ import ViewportService from "./services/viewport/viewport-service.js"
 
 // System-clipboard seam — the Problems popup's copy actions write through it.
 import ClipboardService from "./services/clipboard/clipboard-service.js"
-
-// Storage-provider seam: maps a backend id → a rooted IStorage factory (seeded
-// with the local-FS backend over FileSystemService). The Project Explorer builds
-// a project's storage through this; remote backends (cloud/REST) register here.
-import StorageProviderRegistry from "./services/storage/storage-provider-registry.js"
 
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
@@ -263,10 +259,6 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // Typed/model-aware skill runner (#3): collects inputs + resolves bindings,
         // then hands off to ChatSessionsService. The Run Agent/Skill menu calls it.
         SkillRunner
-        // Storage backends, keyed by id; the Project Explorer resolves this to
-        // build a project's rooted IStorage. Root singleton so every consumer
-        // shares the same registration set.
-        StorageProviderRegistry
         // Recent-projects MRU (persisted under userData) — the Open Project
         // dialog lists it; open/create push to it.
         RecentProjectsService
@@ -413,9 +405,11 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
     }
 
     .modules: {
-        // Shared IO seam: registers FileSystemService (native file system via
-        // window.api.fs). Backends resolve it; LocalFileStorage wraps it per root.
-        FileSystemStorage
+        // Shared storage: registers FileSystemService (native file system via
+        // window.api.fs) + StorageService (universal front door, local-FS provider
+        // seeded). The Project Explorer resolves StorageService to build a project's
+        // rooted IStorage; remote backends (cloud/REST) register more providers.
+        Storage
         DiagramModule
         DiagramExportModule
         ArchitectureProjectsModule

@@ -3,9 +3,9 @@ import { Key, ServiceProvider, type KeyEventArgs } from '@pragmatic-tech-ai/mura
 import { ContentHostService, DialogService, DocumentsContentHostService, DocumentTypeRegistry, ProjectFactoryRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
@@ -202,12 +202,12 @@ function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | obje
     // folders marked `occupied` — enough to exercise New-Project validation.
     const occupied = new Set<string>()
     const created = new Set<string>()
-    provider.registerInstance(StorageProviderRegistry.Key, {
+    provider.registerInstance(StorageService.Key, {
         Create: (_backend: string, folder: string) => ({
             Exists: (name: string) => Promise.resolve(occupied.has(folder) && name === PROJECT_MANIFEST_FILENAME),
             CreateDirectory: (rel: string) => { created.add(joinAbs(folder, rel)); return Promise.resolve() },
         }),
-    } as unknown as StorageProviderRegistry)
+    } as unknown as StorageService)
     const store = new OpenProjectsStore(provider)
     provider.registerInstance(OpenProjectsStore.Key, store)
     // Editor routing: a recording `.todl` document factory + a registry that
@@ -483,9 +483,9 @@ test('RestoreSession reopens folders that exist and prunes missing ones', async 
         if (s === undefined) { s = new FakeStorage(folder); storages.set(folder, s) }
         return s
     }
-    const registry = new StorageProviderRegistry(provider)
-    registry.Register(StorageProviderRegistry.DefaultBackendId, (folder) => storageFor(folder))
-    provider.registerInstance(StorageProviderRegistry.Key, registry)
+    const registry = new StorageService(provider)
+    registry.Register(StorageService.DefaultBackendId, (folder) => storageFor(folder))
+    provider.registerInstance(StorageService.Key, registry)
     // A fake factory registry (the real one's ctor needs the ApplicationService).
     // GetByType returns undefined → C:/a is opened-attempted but its type has no
     // factory, so it's kept (not pruned); only manifest-less C:/b is pruned.

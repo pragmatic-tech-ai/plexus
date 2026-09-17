@@ -7,7 +7,7 @@ import {
   type IDiscardConfirmer,
   type IProjectFactory,
 } from "@pragmatic-tech-ai/todl";
-import { AppStorageProviderRegistry } from "../../services/storage/storage-provider-registry.js";
+import { StorageService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage";
 import { ConfirmDialog } from "../../services/dialogs/confirm-dialog.js";
 import { RegistryClient } from "../../services/registry/registry-client.js";
 import { IpcPackageSource } from "./ipc-package-source.js";
@@ -48,7 +48,7 @@ export class SolutionServicesRegistration {
   public static Register(services: IServiceContainer): void {
     services.register(
       SolutionManagerService.StorageRegistryKey,
-      (p): IStorageProviderRegistry => p.getRequired(AppStorageProviderRegistry.Key),
+      (p): IStorageProviderRegistry => p.getRequired(StorageService.Key),
     );
     services.register(
       SolutionManagerService.ProjectFactoryRegistryKey,

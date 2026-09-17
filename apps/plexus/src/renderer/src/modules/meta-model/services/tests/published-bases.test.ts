@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider, type IStorage } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../../../library/services/libraries-backend.js'
 import { PublishedBases } from '../published-bases.js'
@@ -20,10 +20,10 @@ class FakeBackend
 function providerWith(mm: FakeBackend, lib: FakeBackend): ServiceProvider
 {
     const provider = new ServiceProvider()
-    const registry = new StorageProviderRegistry(provider)
+    const registry = new StorageService(provider)
     registry.Register(META_MODELS_BACKEND_ID, () => mm as unknown as IStorage)
     registry.Register(LIBRARIES_BACKEND_ID, () => lib as unknown as IStorage)
-    provider.registerInstance(StorageProviderRegistry.Key, registry)
+    provider.registerInstance(StorageService.Key, registry)
     return provider
 }
 

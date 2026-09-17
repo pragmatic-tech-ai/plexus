@@ -2,7 +2,7 @@ import { test, expect, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService } from '@pragmatic-tech-ai/mural/framework'
 import { DiagramExportService, ExportFormat } from '../diagram-export-service.js'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 
 // The raster pipeline uses DOM Image + canvas (unavailable in the 'node' test env),
 // so stub it — these tests exercise the SAVE routing, not the rasterization (the

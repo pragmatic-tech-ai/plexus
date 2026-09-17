@@ -17,7 +17,7 @@ import type {
 // app code stays host-agnostic and portable to a non-Electron host (a different
 // bootstrap swaps the bridge; this surface is unchanged).
 //
-// Composed via the FileSystemStorage module (its `.services:` registers this as a
+// Composed via the Storage module (its `.services:` registers this as a
 // root singleton). It reads the preload bridge (`window.api.fs`) once at
 // construction and delegates each call; every method is async (an IPC round-trip
 // to the main process), and the dialog calls resolve to null when the user

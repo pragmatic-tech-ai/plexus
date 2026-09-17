@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { check, toJSON } from '@pragmatic-tech-ai/todl'
 
 import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
@@ -16,12 +16,12 @@ function factory(): LibraryProjectFactory { return new LibraryProjectFactory(new
 const META = 'namespace ea { concept Location { label : string; } concept Technology { label : string; } }'
 function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage } {
   const provider = new ServiceProvider()
-  const registry = new StorageProviderRegistry(provider)
+  const registry = new StorageService(provider)
   const meta = new FakeStorage('fake://meta-models')
   const libs = new FakeStorage('fake://libraries')
   registry.Register(META_MODELS_BACKEND_ID, () => meta)
   registry.Register(LIBRARIES_BACKEND_ID, () => libs)
-  provider.registerInstance(StorageProviderRegistry.Key, registry)
+  provider.registerInstance(StorageService.Key, registry)
   return { provider, meta, libs }
 }
 async function seedMeta(meta: FakeStorage): Promise<void> {

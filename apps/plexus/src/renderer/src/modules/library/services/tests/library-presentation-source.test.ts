@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
 import { discoverLibraries } from '../library-loader.js'
@@ -11,9 +11,9 @@ import { ensureLibrariesBackend } from '../libraries-backend.js'
 // Wire a provider around a pre-populated backend.
 function envWith(backend: FakeStorage): ServiceProvider {
     const provider = new ServiceProvider()
-    const storageRegistry = new StorageProviderRegistry(provider)
+    const storageRegistry = new StorageService(provider)
     storageRegistry.Register(LIBRARIES_BACKEND_ID, () => backend)
-    provider.registerInstance(StorageProviderRegistry.Key, storageRegistry)
+    provider.registerInstance(StorageService.Key, storageRegistry)
     return provider
 }
 

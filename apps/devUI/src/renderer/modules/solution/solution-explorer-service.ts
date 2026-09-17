@@ -13,7 +13,7 @@ import {
 } from "@pragmatic-tech-ai/todl";
 import type { PackageRef } from "@pragmatic-tech-ai/todl/domain";
 import { RegistryClient } from "../../services/registry/registry-client.js";
-import { AppStorageProviderRegistry } from "../../services/storage/storage-provider-registry.js";
+import { StorageService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage";
 import { ConnectionBag } from "./connection-bag.js";
 import { ConnectionLabels } from "./connection-labels.js";
 import { IpcPackageSource } from "./ipc-package-source.js";
@@ -61,7 +61,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
   private readonly manager: SolutionManagerService;
   private readonly settings: SolutionSettingsRegistry;
-  private readonly storageRegistry: AppStorageProviderRegistry;
+  private readonly storageRegistry: StorageService;
   private readonly registry: RegistryClient;
   private readonly packageSource: IpcPackageSource;
   private tree: SolutionTreeVM | undefined; // hold a ref so its VMs aren't GC'd
@@ -70,7 +70,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     super(provider);
     this.manager = provider.getRequired(SolutionManagerService.Key);
     this.settings = provider.getRequired(SolutionSettingsRegistry.Key);
-    this.storageRegistry = provider.getRequired(AppStorageProviderRegistry.Key);
+    this.storageRegistry = provider.getRequired(StorageService.Key);
     this.registry = provider.getRequired(RegistryClient);
     // The same IpcPackageSource singleton the manager resolves for Compose — we
     // point it at the solution's assigned connection.
@@ -173,7 +173,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
     this.tree = new SolutionTreeVM(session, (member) =>
       this.storageRegistry.Create(
-        AppStorageProviderRegistry.DefaultBackendId,
+        StorageService.DefaultBackendId,
         SolutionExplorerService.joinOs(session.Storage.Root, member.Ref.path),
       ),
     );

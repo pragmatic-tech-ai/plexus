@@ -23,10 +23,10 @@ import RegistryClient from "./services/registry/registry-client.ts"
 import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
 import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
 
-// Shared IO seam — the FileSystemStorage module (plexus-core) registers
-// FileSystemService (native file system via window.api.fs); the app's storage
-// registry resolves it and wraps it in a LocalFileStorage per root.
-import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/modules/file-system-storage"
+// Shared storage — the Storage module (plexus-core) registers FileSystemService
+// (native file system via window.api.fs) + StorageService (the universal storage
+// front door, seeded with the local-FS provider). Resolved via StorageService.Key.
+import Storage from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage"
 import DevUiTitleSource from "./window/devui-title-source.ts"
 import DevUiWindowCommands from "./window/devui-window-commands.ts"
 import DevUiWindowChrome from "./window/devui-window.resources.mu"
@@ -61,10 +61,10 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
     }
 
     .modules: {
-        // Shared IO seam: registers FileSystemService (native file system via
-        // window.api.fs). The storage registry resolves it; LocalFileStorage wraps
-        // it per root.
-        FileSystemStorage
+        // Shared storage: registers FileSystemService (native file system via
+        // window.api.fs) + StorageService (universal front door, local-FS provider
+        // seeded). Consumers resolve StorageService for rooted IStorage.
+        Storage
         HomeModule
         PackageManagerModule
         PackageCompilerModule

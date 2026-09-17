@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { EnvironmentService } from '../environment/environment-service.js'
-import { FileSystemService } from '../modules/file-system-storage/index.js'
+import { FileSystemService } from '../modules/storage/index.js'
 
 // OpenProjectsStore — persists the set of currently-open project folders to a
 // plain JSON array at <UserDataDirectory>/open-projects.json (through the
