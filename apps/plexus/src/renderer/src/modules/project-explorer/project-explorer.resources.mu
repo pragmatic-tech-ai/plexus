@@ -25,7 +25,7 @@ import TreeSelectionBehavior from "../../services/projects/tree-selection-behavi
 import TreeDragDropBehavior from "../../services/projects/tree-drag-drop-behavior.js"
 import ProjectTreeTemplateBehavior from "../../services/projects/project-tree-template-behavior.js"
 import NewItemChoice from "../../services/projects/new-item-choice.js"
-import AgentSkillChoice from "../../modules/agent-chat/services/agent-skill-choice.js"
+import ProjectMenuChoice from "@pragmatic-tech-ai/plexus-core/renderer/projects"
 
 resources ProjectExplorerResources {
 
@@ -36,9 +36,9 @@ resources ProjectExplorerResources {
         MenuItem [ Header = $Label, Command = $Command ]
     }
 
-    // One row in the "Run Agent / Skill" submenu — same shape as the Add New row,
-    // one per the project's declared .claude/ agents + skills.
-    DataTemplate x:key="AgentSkillChoiceTemplate" [ DataType = AgentSkillChoice ] {
+    // One host-contributed project-header menu row (e.g. the app's "Run Agent /
+    // Skill" entries) — same shape as the Add New row.
+    DataTemplate x:key="ProjectMenuChoiceTemplate" [ DataType = ProjectMenuChoice ] {
         MenuItem [ Header = $Label, Command = $Command ]
     }
 
@@ -81,13 +81,13 @@ resources ProjectExplorerResources {
         MenuItem [ Header = "Refresh Bases", Command = $RefreshBasesCommand ]
         MenuItem [ Header = "Update Agent Meta-data", Command = $UpdateAgentMetadataCommand ]
         // Run one of the project's declared .claude/ agents or skills in the
-        // background (opens as a conversation). Shown only when the catalog is
-        // non-empty; its rows are generated from AgentSkillChoices.
+        // background (opens as a conversation). Shown only when the host
+        // contributes rows; its rows are generated from ProjectMenuChoices.
         MenuItem
             [ Header = "Run Agent / Skill",
-              Visibility = $HasAgentSkills << ToVisibility,
-              ItemsControl.ItemsSource  = $AgentSkillChoices,
-              ItemsControl.ItemTemplate = @AgentSkillChoiceTemplate ]
+              Visibility = $HasProjectMenu << ToVisibility,
+              ItemsControl.ItemsSource  = $ProjectMenuChoices,
+              ItemsControl.ItemTemplate = @ProjectMenuChoiceTemplate ]
         MenuSeparator
         MenuItem [ Header = "Close Project", Command = $CloseCommand ]
     }

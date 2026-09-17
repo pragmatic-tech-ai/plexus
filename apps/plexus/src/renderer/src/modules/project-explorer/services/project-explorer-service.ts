@@ -52,7 +52,8 @@ import { NodeCommandContributorKey } from '../../../services/documents/node-comm
 import { DiagramExportService, ExportFormat } from '../../diagram-export/services/diagram-export-service.js'
 import { DiagramHeadlessRenderer } from '../../diagram-export/services/diagram-headless-renderer.js'
 import { SkillRunner } from '../../skills/services/skill-runner.js'
-import { AgentSkillChoice, SkillChoiceBuilder } from '../../agent-chat/services/agent-skill-choice.js'
+import { SkillChoiceBuilder } from '../../agent-chat/services/agent-skill-choice.js'
+import { ProjectMenuChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { SkillCatalog } from '../../skills/services/skill-catalog.js'
 import { ProjectType } from '../../../../../shared/skill-api.js'
 import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
@@ -533,10 +534,10 @@ export class ProjectExplorerService extends ServiceBase
         // The runner collects typed inputs + resolves bindings before handing off to
         // ChatSessionsService.RunAgentSkill (#3).
         const choices = SkillChoiceBuilder.fromSkills(skills, (s) => { void runner.run(s, op.Folder, op.Name) })
-        const collection = new ObservableCollection<AgentSkillChoice>()
-        for (const c of choices) collection.Add(c)
-        op.AgentSkillChoices = collection
-        op.HasAgentSkills = choices.length > 0
+        const collection = new ObservableCollection<ProjectMenuChoice>()
+        for (const c of choices) collection.Add(new ProjectMenuChoice(c.Label, c.Command))
+        op.ProjectMenuChoices = collection
+        op.HasProjectMenu = choices.length > 0
     }
 
     // Best-effort project-type classification for the requiresProjectType gate.
