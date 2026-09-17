@@ -345,25 +345,40 @@ Provide each core interface from `apps/plexus` via the existing `Impl -> Key` al
 - [ ] **Step 2:** Verify — `cd apps/plexus && npx vitest run` PASS.
 - [ ] **Step 3: Commit** — `git commit -m "feat(plexus): app-side impls of PublishedBases/DiagramTreeExport/ProjectMenuSource"`
 
-### Task D2: Register all impls in app.mu
+### Task D2: Register all impls in the composition root
 
-**File:** Modify `apps/plexus/src/renderer/src/app.mu` `.services:` block (import each + alias).
+CONFIRMED: mural's `.mu` `Impl -> Key` lowers to `register(Key, p => new Impl(p))` — a **fresh instance** under the alias token ([compiler.ts:3785]). So the alias form is correct only for services registered *solely* under the interface key (the 3 new adapters). Services already registered under their own token (the 4 shared ones) need an **instance-sharing** alias, which `.mu` can't express — register those **code-side** in `main.js`.
 
-- [ ] **Step 1: Add alias registrations**
+**Files:** Modify `apps/plexus/src/renderer/src/app.mu` (`.services:`) and `apps/plexus/src/main/index.ts` (or the renderer bootstrap `main.js` that holds `app`).
+
+- [ ] **Step 1: New adapters via `.mu` alias** — in `app.mu` `.services:`, import each adapter + key and add:
 
 ```
-PublishedBases        -> PublishedBasesKey
-DiagramTreeExport     -> DiagramTreeExportKey
+PublishedBases         -> PublishedBasesKey
+DiagramTreeExport      -> DiagramTreeExportKey
 SkillProjectMenuSource -> ProjectMenuSourceKey
-TodlLanguageClient    -> LiveValidationKey
-WorkspaceBaseResolver -> BaseResolverKey
-ProblemsService       -> ProblemsDockKey
-ProjectExplorerService -> ProjectTreeHostKey
 ```
-Import each key from `@pragmatic-tech-ai/plexus-core/renderer/projects`. (`TodlLanguageClient`/`WorkspaceBaseResolver`/`ProblemsService` are already registered under their own class tokens; the alias adds a second token pointing at the same instance — mural's `Impl -> Key` lowers to `register(Key, p => p.getRequired(Impl))` or an equivalent shared-instance alias; confirm the alias resolves the SAME singleton, not a second instance. If `-> Key` creates a fresh instance, register `LiveValidationKey` with a factory `p => p.getRequired(TodlLanguageClient)` instead.)
+Each is registered only under its key ⇒ one instance. Correct.
 
-- [ ] **Step 2: Verify** — `cd apps/plexus && npx electron-vite build` PASS; launch smoke (`npx electron-vite dev`) — open a project, confirm tree, New Project pickers (PublishedBases), Export (DiagramTreeExport), Run Agent/Skill (ProjectMenuSource), Publish→Problems (ProblemsDock) all work.
-- [ ] **Step 3: Commit** — `git commit -am "feat(plexus): register core capability impls in the composition root"`
+- [ ] **Step 2: Shared services via code-side instance-sharing alias** — in the bootstrap that owns `app`, after modules compose, register a factory that resolves the EXISTING singleton:
+
+```ts
+import { LiveValidationKey, BaseResolverKey, ProblemsDockKey, ProjectTreeHostKey }
+  from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+import { TodlLanguageClient } from '../renderer/src/services/todl/todl-language-client.js'
+import { WorkspaceBaseResolver } from '../renderer/src/services/projects/... ' // core path after E
+import { ProblemsService } from '../renderer/src/modules/problems/problems-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer' // after E
+
+app.Services.register(LiveValidationKey,  p => p.getRequired(TodlLanguageClient.Key))
+app.Services.register(BaseResolverKey,    p => p.getRequired(WorkspaceBaseResolver.Key))
+app.Services.register(ProblemsDockKey,    p => p.getRequired(ProblemsService.Key))
+app.Services.register(ProjectTreeHostKey, p => p.getRequired(ProjectExplorerService.Key))
+```
+The factory returns the same instance the class-token resolves — no duplicate LSP client / resolver / tree host. (`TodlLanguageClient`, `WorkspaceBaseResolver`, `ProblemsService` conform structurally to `ILiveValidation`/`IBaseResolver`/`IProblemsDock`; if a method name differs from the interface, add a thin adapter method or a tiny adapter class rather than renaming the service's public API.)
+
+- [ ] **Step 3: Verify** — `cd apps/plexus && npx electron-vite build` PASS; launch smoke (`npx electron-vite dev`): open a project → tree; New Project pickers (PublishedBases); Export a diagram (DiagramTreeExport); Run Agent/Skill (ProjectMenuSource); Publish→Problems (ProblemsDock); tree drag/select (ProjectTreeHost). All work, no duplicate-instance symptoms.
+- [ ] **Step 4: Commit** — `git commit -am "feat(plexus): register core capability impls (adapters + instance-sharing aliases)"`
 
 ---
 
