@@ -196,7 +196,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
   }
 
   // Join a (possibly Windows) root folder with a relative POSIX member path
-  // using the root's separator — mirrors AppLocalStorage's abs().
+  // using the root's separator — mirrors LocalFileStorage's abs().
   private static joinOs(root: string, rel: string): string {
     const sep = root.includes("\\") && !root.includes("/") ? "\\" : "/";
     const segments: string[] = [];

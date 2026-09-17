@@ -7,9 +7,15 @@ import { TokenStore } from "./registry/token-store.js";
 import { SettingsStore } from "./registry/settings-store.js";
 import { RegistryBridge } from "./registry/registry-bridge.js";
 import { RegistryIpc } from "./registry/register-ipc.js";
-import { FsIpc } from "./fs/fs-ipc.js";
 import { SafeStorageEncryptor } from "./registry/safe-storage-encryptor.js";
 import { Updater } from "@pragmatic-tech-ai/plexus-core/main/updater";
+import { registerWindowHandlers, registerFileSystemHandlers } from "@pragmatic-tech-ai/plexus-core/main";
+import { TITLE_BAR_HEIGHT } from "@pragmatic-tech-ai/plexus-core/shared/window-api.js";
+
+// Initial WCO colours (Windows/Linux). devUI boots on MaterialDark, so seed the
+// native caption strip to that scheme's title-bar surface + glyph ink; the
+// renderer's theme hook (attachTitleBar) re-tints on first paint + every swap.
+const INITIAL_OVERLAY = { color: "#1C1B1F", symbolColor: "#CAC4D0" };
 
 function createWindow(): void {
   const window = new BrowserWindow({
@@ -17,6 +23,14 @@ function createWindow(): void {
     height: 860,
     show: false,
     backgroundColor: "#1C1B1F", // Mural dark @Surface — no white flash on load
+    // Custom title bar (shared PragmaticWindowChrome): hide the OS title bar but
+    // keep the native min/max/close buttons as a Window Controls Overlay on
+    // Windows/Linux (macOS floats traffic lights). The renderer paints its own
+    // draggable strip of TITLE_BAR_HEIGHT under it.
+    titleBarStyle: "hidden",
+    ...(process.platform === "darwin"
+      ? {}
+      : { titleBarOverlay: { ...INITIAL_OVERLAY, height: TITLE_BAR_HEIGHT } }),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -63,7 +77,11 @@ void app.whenReady().then(() => {
         .sort((a, b) => (a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1));
     },
   );
-  FsIpc.register(ipcMain);
+  // Shared IO seam: the FileSystemStorage renderer service (window.api.fs) talks
+  // to these node:fs handlers. (The registry's own fs:readDir browse stays in
+  // RegistryIpc.) WCO re-tint bridge for the shared title bar too.
+  registerFileSystemHandlers();
+  registerWindowHandlers();
 
   createWindow();
   app.on("activate", () => {

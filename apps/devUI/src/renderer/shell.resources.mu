@@ -22,9 +22,23 @@ resources AppShell {
     Template x:key="TodlAppShell" [TargetType = ViewerShell] {
         Border [ Fill = @Surface ] {
             DockPanel [ LastChildFill = true ] {
-                // Header band — presents the shell's HeaderContent (unset ⇒
-                // measures to zero, so no empty band shows).
-                Border x:name="PART_HeaderHost" [ DockPanel.Dock = Top ]
+                // Header band — the shared PragmaticWindowChrome title bar
+                // (@PragmaticTitleBar is a ControlTemplate, so a ContentControl
+                // hosts it). devUI's @WindowBrand + @WindowMenuItems fill its slots;
+                // the title text binds $service(TitleService).Title.
+                Border x:name="PART_HeaderHost" [ DockPanel.Dock = Top ] {
+                    ContentControl [ Template = @PragmaticTitleBar ]
+                }
+
+                // Status band (footer) — hosts the shared colour-scheme picker
+                // (ThemeSelector talks to ThemeManager directly, no DataContext),
+                // right-aligned, with a hairline divider above.
+                Border x:name="PART_StatusHost" [ DockPanel.Dock = Bottom, Fill = @Surface ] {
+                    DockPanel [ LastChildFill = false ] {
+                        Line [ DockPanel.Dock = Top, Orientation = Horizontal, Stroke = (@OutlineVariant, 1) ]
+                        ThemeSelector [ DockPanel.Dock = Right, VerticalAlignment = Center, Margin = (0,4,8,4) ]
+                    }
+                }
 
                 // Navigation rail — the activity bar. Rendered by the
                 // framework DataTemplate[NavigationService] as a NavigationRail

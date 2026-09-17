@@ -3,22 +3,79 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TODL demos</title>
+  <title>TODL</title>
   <link rel="stylesheet"
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
   <style>
     html, body { height: 100%; margin: 0; overflow: hidden;
                  font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
-    body { display: flex; flex-direction: column; }
-    main { flex: 1 1 auto; min-height: 0; }
+    /* The mural host fills the whole window and PAINTS the title strip itself
+       (ViewerShell header → @PragmaticTitleBar). The OS frame is hidden
+       (titleBarStyle: 'hidden'); the only chrome left in HTML is invisible OS
+       plumbing: the #drag-* strips below. */
+    body { position: relative; }
     /* Match the Mural dark @Surface (#1C1B1F) so the load flash + any edges are
-       dark, not white. The app boots the MaterialDark scheme. */
-    #app { width: 100%; height: 100%; background: #1C1B1F; overflow: hidden; cursor: default; }
+       dark, not white. The app boots the MaterialDark scheme; mural paints
+       @Surface over this once it mounts. */
+    #app { position: absolute; inset: 0; width: 100%; height: 100%;
+           background: #1C1B1F; overflow: hidden; cursor: default; }
     #app svg { display: block; }
+
+    /* Boot splash: a static, JS-free loading screen painted the instant the
+       document parses, so the window is never empty/white. removeSplash() (called
+       from the bootstrap once mural paints its first frame) fades it out. */
+    #splash {
+      position: absolute; inset: 0; z-index: 20;
+      display: flex; align-items: center; justify-content: center;
+      background: #1C1B1F;
+    }
+    #splash .splash-inner {
+      display: flex; flex-direction: column; align-items: center; gap: 22px;
+    }
+    #splash .splash-mark { width: min(48vh, 48vw); height: min(48vh, 48vw); overflow: visible; }
+    #splash .splash-word {
+      color: #E6E5E1; font-weight: 600; letter-spacing: 0.22em;
+      font-size: clamp(18px, 2.4vh, 26px);
+      -webkit-user-select: none; user-select: none;
+    }
+    @keyframes todl-pulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+    #splash .todl-dot { animation: todl-pulse 2.2s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) { #splash .todl-dot { animation: none; } }
+
+    /* Window-drag affordance: `-webkit-app-region: drag` only works on HTML
+       elements. Two transparent strips FLANK the header's File-menu region (the
+       48px logo box on the left drags; the title area on the right drags) so the
+       menu hole (48..112px) keeps its clicks. The native min/max/close buttons
+       (WCO) draw above everything. */
+    #drag-logo {
+      position: absolute; top: 0; left: 0; width: 48px; height: 32px;
+      -webkit-app-region: drag; background: transparent; z-index: 10;
+    }
+    #drag-strip {
+      position: absolute; top: 0; left: 112px; right: 0; height: 32px;
+      -webkit-app-region: drag; background: transparent; z-index: 10;
+    }
+    /* macOS floats traffic lights top-LEFT (no WCO): drop the left drag zone. */
+    body.is-mac #drag-logo { display: none; }
   </style>
 </head>
 <body>
-  <main><div id="app"></div></main>
+  <div id="app"></div>
+  <!-- Boot splash (removed by removeSplash() once the shell paints). A minimal
+       package mark in the MaterialDark accent — the self node breathes. -->
+  <div id="splash" role="status" aria-label="Loading TODL">
+    <div class="splash-inner">
+      <svg class="splash-mark" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <rect x="26" y="26" width="68" height="68" rx="12" fill="none" stroke="#3D3B36" stroke-width="1.5" opacity="0.6"/>
+        <line x1="26" y1="52" x2="94" y2="52" stroke="#3D3B36" stroke-width="1.5" opacity="0.5"/>
+        <circle cx="60" cy="73" r="10" fill="none" stroke="#2EA862" stroke-width="1.5" opacity="0.55"/>
+        <circle class="todl-dot" cx="60" cy="73" r="5" fill="#2EA862" style="filter:drop-shadow(0 0 8px #2EA862);"/>
+      </svg>
+      <div class="splash-word">TODL</div>
+    </div>
+  </div>
+  <div id="drag-logo"></div>
+  <div id="drag-strip"></div>
   <script type="module" src="/main.ts"></script>
 </body>
 </html>

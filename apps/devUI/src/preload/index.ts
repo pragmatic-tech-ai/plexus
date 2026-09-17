@@ -1,4 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { WindowChannel, type OverlayColors } from "@pragmatic-tech-ai/plexus-core/shared/window-api.js";
+import { createFileSystemBridge } from "@pragmatic-tech-ai/plexus-core/preload/file-system";
 
 /**
  * The single `contextBridge` surface (design §5). Every method is a thin
@@ -32,19 +34,30 @@ const bridge = {
   dialog: {
     pickDirectory: () => ipcRenderer.invoke("dialog:pickDirectory"),
   },
+  // Registry directory-browse only (returns DirEntry with absolute paths for the
+  // publish/compile picker). General file IO now lives in the shared
+  // window.api.fs (createFileSystemBridge) — see below.
   fs: {
     readDir: (path: string) => ipcRenderer.invoke("fs:readDir", path),
-    readText: (path: string) => ipcRenderer.invoke("fs:readText", path),
-    readBytes: (path: string) => ipcRenderer.invoke("fs:readBytes", path),
-    writeText: (path: string, content: string) => ipcRenderer.invoke("fs:writeText", path, content),
-    writeBytes: (path: string, bytes: Uint8Array) => ipcRenderer.invoke("fs:writeBytes", path, bytes),
-    exists: (path: string) => ipcRenderer.invoke("fs:exists", path),
-    delete: (path: string) => ipcRenderer.invoke("fs:delete", path),
-    mkdir: (path: string) => ipcRenderer.invoke("fs:mkdir", path),
-    rename: (from: string, to: string) => ipcRenderer.invoke("fs:rename", from, to),
-    list: (path: string) => ipcRenderer.invoke("fs:list", path),
-    openExternal: (path: string) => ipcRenderer.invoke("fs:openExternal", path),
   },
 };
 
 contextBridge.exposeInMainWorld("todl", bridge);
+
+// The shared `window.api` surface: the file-system IO seam (window.api.fs, read by
+// plexus-core's FileSystemService) built by the shared createFileSystemBridge, plus
+// the window-chrome bits the shared PragmaticWindowChrome title bar reads
+// (attachTitleBar → window.api.titlebar + window.api.environment). `titlebar.setOverlay`
+// re-tints the native caption buttons on every scheme change; `environment.Platform`
+// lets the title bar tag <body> on macOS.
+const api = {
+  fs: createFileSystemBridge(ipcRenderer),
+  titlebar: {
+    setOverlay: (colors: OverlayColors): void => ipcRenderer.send(WindowChannel.SetOverlay, colors),
+  },
+  environment: {
+    Platform: process.platform,
+  },
+};
+
+contextBridge.exposeInMainWorld("api", api);

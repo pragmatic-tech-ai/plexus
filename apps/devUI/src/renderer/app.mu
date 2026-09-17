@@ -15,6 +15,22 @@ import MaterialDark from "@pragmatic-tech-ai/mural/resources/material"
 // Shared registry client (window.todl bridge wrapper) — a root service.
 import RegistryClient from "./services/registry/registry-client.ts"
 
+// The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
+// bar strip, the menu-bar look, and TitleService. devUI supplies its brand mark +
+// File-menu items (@WindowBrand / @WindowMenuItems) and a title source
+// (DevUiTitleSource, registered under TitleSourceKey in .services: below so it is
+// available before the header ControlTemplate resolves $service(TitleService)).
+import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/window"
+
+// Shared IO seam — the FileSystemStorage module (plexus-core) registers
+// FileSystemService (native file system via window.api.fs); the app's storage
+// registry resolves it and wraps it in a LocalFileStorage per root.
+import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
+import DevUiTitleSource from "./window/devui-title-source.ts"
+import DevUiWindowCommands from "./window/devui-window-commands.ts"
+import DevUiWindowChrome from "./window/devui-window.resources.mu"
+
 // Modules — each a `module NAME { … }` const contributing a rail capability.
 import HomeModule from "./modules/home/home.module.mu"
 import PackageManagerModule from "./modules/package-manager/package-manager.module.mu"
@@ -33,13 +49,27 @@ import SolutionResources from "./modules/solution/solution.resources.mu"
 Application [ Theme = Material, Scheme = MaterialDark ] {
     .services: {
         RegistryClient
+        // devUI's title feed (active capability → "TODL"), bound to the shared
+        // TitleSourceKey so it is registered during app compose — before the header
+        // ControlTemplate resolves $service(TitleService), whose ctor getRequired()s
+        // the source. TitleService itself is registered by PragmaticWindowChrome.
+        DevUiTitleSource -> TitleSourceKey
+        // Commands for the title-bar File menu (@WindowMenuItems).
+        DevUiWindowCommands
     }
 
     .modules: {
+        // Shared IO seam: registers FileSystemService (native file system via
+        // window.api.fs). The storage registry resolves it; LocalFileStorage wraps
+        // it per root.
+        FileSystemStorage
         HomeModule
         PackageManagerModule
         PackageCompilerModule
         SolutionModule
+        // Shared window chrome: registers TitleService + merges the title-bar
+        // strip templates (@PragmaticTitleBar, the File-menu look, …).
+        PragmaticWindowChrome
     }
 
     resources: {
@@ -49,9 +79,14 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         merge PackageManagerResources
         merge PackageCompilerResources
         merge SolutionResources
+        // devUI's brand mark + File-menu items, filled into the shared strip.
+        merge DevUiWindowChrome
 
-        // Local Template value wins over the framework's default ViewerShell
-        // style, so the shell renders the rail + side-panel layout above.
+        // Local Template value wins over the framework's default ViewerShell style,
+        // so the shell renders the rail + side-panel layout above. The shared title
+        // bar is mounted inside @TodlAppShell's header host (ViewerShell has no
+        // HeaderContent DP — unlike EditorShell — so the template owns the header
+        // content directly); the OS frame is hidden.
         ViewerShell x:root [ Template = @TodlAppShell ] { }
     }
 }

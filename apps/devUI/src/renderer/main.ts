@@ -6,6 +6,7 @@ import { app } from "./app.mu";
 import { HtmlTarget } from "@pragmatic-tech-ai/mural/visual-engine";
 import { NavigationService, ContentHostService, DialogService } from "@pragmatic-tech-ai/mural/framework";
 import { SolutionServicesRegistration } from "./modules/solution/solution-services.js";
+import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/window";
 
 // ViewerShell (unlike EditorShell) does not register a NavigationService, so
 // the app supplies one at the root. Registered under NavigationService.Key so
@@ -43,3 +44,19 @@ app.initialize(new HtmlTarget(document.getElementById("app")!));
 // exists. DialogService owns no Visual; it reaches the overlay layer through this.
 const shellRoot = app.Resources.Root;
 if (shellRoot !== undefined) app.Services.get(DialogService.Key)?.SetHost(shellRoot);
+
+// Custom frame (shared PragmaticWindowChrome): re-tint the native caption buttons
+// (WCO) to the mural header's @Surface on every scheme change (+ tag <body> on mac).
+// The title strip itself is painted by mural (ViewerShell header → @PragmaticTitleBar).
+attachTitleBar(app);
+
+// Title feed: construct TitleService now so its NavigationService subscription is
+// live and document.title tracks from boot — even before the header view first
+// binds $service(TitleService).Title.
+app.Services.get(TitleService.Key);
+
+// The shell chrome (title strip + @Surface) has mounted; drop the boot splash once
+// the browser has flushed a real frame. Double-rAF: the first callback runs before
+// paint, the second after — so we never reveal a blank frame between the splash
+// fading and mural's first render.
+requestAnimationFrame(() => requestAnimationFrame(() => removeSplash()));
