@@ -5,3 +5,4 @@
 export { ProjectMenuChoice } from './project-menu-choice.js'
 export { ProjectTreeHostKey, isProjectTreeHost } from './project-tree-host.js'
 export type { IProjectTreeHost, MoveArg } from './project-tree-host.js'
+export * from './capabilities/index.js'
