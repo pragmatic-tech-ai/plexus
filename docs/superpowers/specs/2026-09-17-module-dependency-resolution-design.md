@@ -42,18 +42,30 @@ forgot to register `ProblemsDock`" becomes a production `undefined`.
 
 ## Current state (what we build on)
 
-- The container (`IServiceContainer` / the provider) already registers services
-  as **token + lazy `ServiceFactory` + `ServiceLifetime`**, and `get(token)`
-  builds the service on **first request**. Instantiation is already lazy and
-  **synchronous**.
-- Modules are declared with a `.modules:` block on the `Application`; the compiler
-  lowers each module's `.services:` into `AddRegistration` calls.
+- **The composition kernel already lives in todl-runtime**, app-agnostic:
+  - `ServiceProvider` (`services/service-provider.ts`) — the DI container:
+    `register(token, factory, lifetime)`, `get`/`getRequired`/`has`, parent-chain
+    `findOwner`, singleton/scoped/transient. `get` builds on first request —
+    instantiation is already lazy and **synchronous**.
+  - `IModule` (`composition/module.ts`) — `{ Targets, RegisterServices(container) }`.
+  - `CompositionRoot` (`composition/composition-root.ts`) — owns the root
+    `ServiceProvider`, catalogs modules, and on `AddModule` composes each admitted
+    module **eagerly** (`ComposeModule` → `module.RegisterServices(Provider)`),
+    with `HostKind` `Admits` filtering.
+- mural's `Application` **extends `CompositionRoot`**, overriding `ComposeModule` /
+  `CreateProvider` to also aggregate the shell's Capabilities + Resources.
+  `IShellModule` extends `IModule` with those shell fields.
+- The compiler lowers a `.modules:` block to `app.AddModule(name)` and `.services:`
+  to `app.Services.register(...)` — but only inside an `Application { }` element,
+  so the emission is welded to `Application` even though `AddModule` is a
+  `CompositionRoot` method.
 - `Provider.get(token)` / `getRequired(token)` are used **synchronously** at
   hundreds of call-sites across all repos.
 
-The gap is only that *all* module registrations run eagerly at composition, and
-there is no provides-index — so resolution can't cross into a module that hasn't
-been registered, and there's no contract to validate.
+The gaps are only: (a) `CompositionRoot` composes **all** modules eagerly with no
+provides-index — resolution can't cross into an un-composed module; and (b) the
+compiler's composition emission is bound to the `Application` class rather than
+the `CompositionRoot` that already backs it.
 
 ## Design: the demand-driven provider
 
@@ -172,6 +184,60 @@ by token). A code-side header (a static on the module type) is an acceptable
 alternative if the `.mu` route proves awkward; the only requirement is that the
 metadata is available pre-registration.
 
+## Composition-root-agnostic compilation
+
+The composition root already exists and is app-agnostic — it is todl-runtime's
+`CompositionRoot`, not mural's `Application` (which merely extends it). So the
+whole of "the composition infrastructure" already lives in todl-runtime; the only
+thing bound to `Application` is the **compiler's emission**: `.modules:` →
+`app.AddModule(name)` ([compiler.ts:3697]) and `.services:` →
+`app.Services.register(…)` ([compiler.ts:1143]), emitted only inside an
+`Application { }` element. `AddModule` / `Services` are `CompositionRoot`
+members, so the coupling is purely the emission target, not the machinery.
+
+The fix keeps everything in todl-runtime and retargets emission to
+`CompositionRoot`:
+
+- **Demand-driven primitive on the container** — `ServiceProvider.registerDeferred
+  (tokens, registrar)` (todl-runtime): "these tokens are supplied by running this
+  thunk." Feeds the provides-index; the `get` miss-path runs the registrar.
+- **`IModule` gains `Provides`** (todl-runtime `composition/module.ts`): the
+  tokens the module supplies. `IShellModule` / `ShellModule` inherit it; the
+  compiler populates it from the `.provides:` block.
+- **`CompositionRoot.ComposeModule` becomes provides-aware** — for a module that
+  declares `Provides`, register a deferred registrar
+  (`Provider.registerDeferred(module.Provides, () => module.RegisterServices(Provider))`)
+  instead of composing eagerly; a module with no `Provides` composes eagerly as
+  today. **Shell UI aggregation stays eager** — `Application` still collects
+  Capabilities/Resources on `AddModule`; only the *service registration* defers.
+- **Compiler** retargets `.modules:` / `.services:` from the `Application` class
+  to a `CompositionRoot` expression. The `Application { }` form supplies itself
+  (back-compat); any `CompositionRoot` subclass — a CLI, a plexus-core/devUI root
+  — hosts the same modules.
+
+This resolves the earlier layering question outright: the kernel (container,
+`IModule`, `CompositionRoot`, provides-index) is entirely todl-runtime; shell
+concepts (Capabilities/Resources) stay in mural as `IShellModule`/`Application`
+overrides, above the kernel.
+
+**Scope: SMALL (decided).** Only services/`provides` move into / extend the
+todl-runtime kernel. The *generic contribution model* — lifting the other five
+contribution kinds (`.settings:`, `.documents:`, `.commands:`, `.ShellControls:`,
+`.projectFactories:`) into a type-keyed aggregation on the kernel — is explicitly
+**out of scope** (potential future spec). The kernel `IModule` stays minimal
+(`Targets` + `RegisterServices` + `Provides`); each host layers its own module
+type with its own contributions: `ShellModule` for UX, and — by the same
+pattern — a console app or a service app can define its own module flavor on the
+same kernel. `ShellModule`'s five UX contributions remain mural-specific and
+eagerly aggregated, unchanged.
+
+**Compiler target: retarget-only (decided).** Emit `.modules:` / `.services:`
+against a `CompositionRoot` expression instead of the `Application` class; keep
+composition inside the `Application { }` element for now (back-compat). A
+non-mural root (console/service app) composes its modules by calling `AddModule`
+in code — the `CompositionRoot` API is already that seam. No new standalone-`.mu`
+composition grammar in v1.
+
 ## Optional vs required
 
 - **Optional dependency:** consumer uses `get(token)` and tolerates `undefined`
@@ -241,11 +307,18 @@ decision in the companion spec.)
 
 ## Phasing (implementation plan to follow via writing-plans)
 
-1. Provider: add the provides-index + demand-driven miss-handling (sync), keeping
-   the eager path intact. Unit-tested in isolation.
-2. Module header: `provides` metadata + deferred `register` thunk; compiler
-   support for the `.mu` `.provides:` block (or the code-side header).
-3. Token arity: single-provider vs contribution-point modelling + ambiguity and
+1. `ServiceProvider` (todl-runtime): add `registerDeferred(tokens, registrar)` +
+   the provides-index + demand-driven miss-handling in `get`/`getRequired` (sync),
+   keeping the eager `register` path intact. Unit-tested in isolation.
+2. `IModule.Provides` (todl-runtime `composition/module.ts`) + `CompositionRoot`
+   made provides-aware: `ComposeModule` registers a deferred registrar for a
+   module that declares `Provides`, else composes eagerly as today. `ShellModule`
+   inherits `Provides`; shell UI aggregation stays eager.
+3. Compiler: retarget `.modules:` / `.services:` emission from the `Application`
+   class to a `CompositionRoot` expression (back-compat for `Application { }`).
+4. Compiler: `.provides:` block → populates the module's `Provides`.
+5. Token arity: single-provider vs contribution-point modelling + ambiguity and
    cycle diagnostics.
-4. Migrate the Project Explorer's providers (meta-model, library, problems,
-   diagram-export, skills) to headers; the explorer resolves them via `get`.
+6. Migrate the Project Explorer's providers (meta-model, library, problems,
+   diagram-export, skills) to declare `Provides`; the explorer resolves them via
+   `get`.
