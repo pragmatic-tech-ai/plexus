@@ -166,49 +166,36 @@ implementations.
 infra" files may prove app-coupled on closer inspection and stay app-side behind
 an interface instead.)*
 
-## Companion design: module dependency resolution
+## Cross-package DI — plain shared-token DI (no new mechanism)
 
-**This refactor is the forcing function for a module dependency-resolution
-approach — and depends on it.** Today a module's `.modules:` block registers
-`.services:` into one global container, and any consumer resolves anything by
-`Provider.get(Key)`. There is no declared contract for what a module *provides*
-versus what it *requires*, no load-ordering guarantee, and no validation that a
-required implementation was actually registered. That was tolerable while every
-module lived in one app. Once `project-explorer` lives in `plexus-core` and its
-feature collaborators live up in `apps/plexus`, the wiring becomes cross-package
-and implicit — precisely where "someone forgot to register `ProblemsDock`" turns
-into a silent runtime `undefined`.
+Each feature module is a **provider** of one or more of the injected capabilities;
+the explorer is a consumer that resolves them by token. This is **plain DI on the
+existing container** — no demand-driven resolution, no `provides` header, no new
+compiler support (an earlier "module dependency resolution" companion was
+evaluated and dropped: the container is already eager-register + lazy-instantiate,
+so shared tokens + eager composition are all this needs; see
+[Composition-Root-Agnostic Compilation](2026-09-17-composition-root-agnostic-compilation-design.md),
+"Cut: demand-driven resolution"). Concretely:
 
-So each feature module is a **provider** of one or more of the injected
-capabilities, and the explorer is a consumer that resolves them by token. This is
-specced in full in the companion doc
-([Module Dependency Resolution](2026-09-17-module-dependency-resolution-design.md)).
-The settled shape:
+- The **token / interface** for each capability (`PublishedBases`,
+  `LiveValidation`, `BaseResolver`, `DiagramTreeExport`, `ProjectMenuSource`,
+  `ProblemsDock`, plus the `NodeCommandContributor` / `NewFileParticipant`
+  contribution points) lives in `plexus-core`.
+- Each `apps/plexus` feature module registers its implementation under that token
+  (its `.services:` block), and the explorer resolves it with `Provider.get(token)`
+  / `getRequired(token)` — exactly the idiom in use today.
+- The app's bootstrap already composes both `plexus-core`'s explorer module and
+  its own feature modules eagerly (they are listed in its `.modules:` block), so
+  every token is registered before use. `plexus-core` never imports `apps/plexus`.
+- Optional capabilities (export, project-menu, node-contributor) use
+  `get(token) → undefined` and degrade gracefully (`HasExport`, `HasProjectMenu`,
+  contributor gating). Required ones use `getRequired`, which already throws a
+  clear "no service registered for <token>" error.
+- The compiler is **not** on this move's critical path. Making `.modules:` /
+  `.services:` composable under a non-`Application` root is a separate, independent
+  improvement (the console/service-root direction) — see the companion spec.
 
-- A module declares the capability tokens it **provides** in its module
-  definition — a small `.mu` compiler extension, since those tokens are already
-  its `.services:` registration keys. There is **no `requires`** declaration: a
-  service resolves each dependency via `get(token)` at the point of need, so the
-  dependency graph builds itself naturally from real `get` calls.
-- The provider is **demand-driven and synchronous**: a `get(token)` miss finds
-  the providing module via the `provides` index, runs its `register` thunk, and
-  resolves — transitively, with no change to existing `get` call-sites.
-- Optional capabilities (export, project-menu, node-contributor) resolve via
-  `get(token) → undefined` when absent; required ones via `getRequired`, which
-  throws a diagnostic naming the missing token and the requirer.
-- Contribution points (`NodeCommandContributor`, `NewFileParticipant`) are
-  multi-provider (collect all); the single-provider services are exactly-one
-  (duplicate = error at index-build).
-- Cross-package: `apps/plexus` composes `plexus-core`'s explorer module with its
-  own feature modules; the index spans both, and core never imports app.
-
-**Sequencing:** the interface inventory (the contract) can be settled now; the
-resolution *mechanism* is a companion spec. This move can proceed on the current
-`Provider.get(Key)` idiom as an interim, then adopt the resolver once it lands —
-or we design the resolver first if we want the move to land on it directly.
-To decide as part of review.
-
-## Registration & build (interim, until the resolver lands)
+## Registration & build
 
 - `plexus-core` gains a `renderer/modules` area and exports the module +
   `ProjectExplorerService` (+ the model, factory interface, and the injected
