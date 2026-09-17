@@ -1,12 +1,12 @@
 import { test, expect } from 'vitest'
 
 import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import type { BaseRef } from '../base-binding.js'
+import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 import {
     NewProjectDialogModel,
     ProjectTypeChoice,
     type NewProjectResult,
-} from '../new-project-dialog-model.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 

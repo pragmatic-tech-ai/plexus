@@ -1,7 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { ModelDraft } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProducerKind } from '../../../../services/projects/project-factory.js'
+import { ProducerKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { WikiOriginKind, packageOrigin, type WikiOrigin } from '../../../../services/projects/wiki-origin.js'
 import { ArchModel } from '../arch-model.js'
 

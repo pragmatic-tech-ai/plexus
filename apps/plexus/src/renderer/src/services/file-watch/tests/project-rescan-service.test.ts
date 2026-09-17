@@ -3,7 +3,7 @@ import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-
 import { ProjectRescanService } from '../project-rescan-service.js'
 import { FileWatchService } from '../file-watch-service.js'
 import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
-import { EnvironmentService } from '../../environment/environment-service.js'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
 function harness(folders: string[]) {
   let changedCb: ((e: FileChangeEvent) => void) | undefined

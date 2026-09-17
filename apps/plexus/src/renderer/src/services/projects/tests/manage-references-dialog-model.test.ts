@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 
-import type { BaseBindings, BaseRef } from '../base-binding.js'
-import { ManageReferencesDialogModel } from '../manage-references-dialog-model.js'
+import type { BaseBindings, BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
+import { ManageReferencesDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/projects/manage-references-dialog-model.js'
 
 const ea5: BaseRef = { id: 'ea', version: '5' }
 const ea6: BaseRef = { id: 'ea', version: '6' }

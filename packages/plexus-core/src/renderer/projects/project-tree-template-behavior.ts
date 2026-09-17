@@ -4,7 +4,7 @@ import type { DataTemplate } from '@pragmatic-tech-ai/mural/basic'
 
 import { OpenProject } from './open-project.js'
 import { ProjectNode } from './project.js'
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { isProjectTreeHost, type IProjectTreeHost } from './project-tree-host.js'
 
 // View glue for the single unified project TreeView: picks the row template by
 // item type, expands each project root by default, and reveals (expands) a folder
@@ -98,11 +98,11 @@ export class ProjectTreeTemplateBehavior extends Behavior
         this.revealUnsub = service.AddRevealListener((folder) => this.reveal(folder))
     }
 
-    private serviceOf(from: Visual): ProjectExplorerService | undefined
+    private serviceOf(from: Visual): IProjectTreeHost | undefined
     {
         let cur: Visual | undefined = from
         while (cur !== undefined) {
-            if (cur.DataContext instanceof ProjectExplorerService) return cur.DataContext
+            if (isProjectTreeHost(cur.DataContext)) return cur.DataContext
             cur = cur.GetVisualParent()
         }
         return undefined

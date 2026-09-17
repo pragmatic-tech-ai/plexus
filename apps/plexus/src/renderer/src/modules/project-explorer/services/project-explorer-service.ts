@@ -45,7 +45,7 @@ import {
     type IProjectFactory,
     type ProjectFileFormat,
     type ProjectManifestEnvelope,
-} from '../../../services/projects/project-factory.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { isRelocatable, isRelocatableAcrossStorage, type IDocumentFactory } from '../../../services/documents/document-factory.js'
 import { NewFileParticipantKey } from '../../../services/documents/new-file-participant.js'
 import { NodeCommandContributorKey } from '../../../services/documents/node-command-contributor.js'
@@ -53,29 +53,29 @@ import { DiagramExportService, ExportFormat } from '../../diagram-export/service
 import { DiagramHeadlessRenderer } from '../../diagram-export/services/diagram-headless-renderer.js'
 import { SkillRunner } from '../../skills/services/skill-runner.js'
 import { SkillChoiceBuilder } from '../../agent-chat/services/agent-skill-choice.js'
-import { ProjectMenuChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+import { ProjectMenuChoice, type MoveArg } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { SkillCatalog } from '../../skills/services/skill-catalog.js'
 import { ProjectType } from '../../../../../shared/skill-api.js'
 import { copyTree } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileFilter } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
-import { ProjectNode } from '../../../services/projects/project.js'
-import type { Project } from '../../../services/projects/project.js'
-import { OpenProject } from '../../../services/projects/open-project.js'
+import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { isTodlProject } from '../../../services/projects/todl-project-factory.js'
-import { VersionPart, bumpVersion } from '../../../services/projects/semver-bump.js'
-import { SetVersionDialogModel, type SetVersionResult } from '../../../services/projects/set-version-dialog-model.js'
-import { NewItemChoice } from '../../../services/projects/new-item-choice.js'
-import { OpenProjectsStore } from '../../../services/projects/open-projects-store.js'
+import { VersionPart, bumpVersion } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
+import { SetVersionDialogModel, type SetVersionResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/set-version-dialog-model.js'
+import { NewItemChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-item-choice.js'
+import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
 import {
     NewProjectDialogModel,
     ProjectTypeChoice,
     type NewProjectResult,
-} from '../../../services/projects/new-project-dialog-model.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
 import {
     OpenProjectDialogModel,
     type OpenProjectResult,
-} from '../../../services/projects/open-project-dialog-model.js'
-import type { BaseBindings, BaseRef } from '../../../services/projects/base-binding.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project-dialog-model.js'
+import type { BaseBindings, BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 import { ensureMetaModelsBackend } from '../../meta-model/services/meta-models-backend.js'
 import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
 import { TodlLanguageClient } from '../../../services/todl/todl-language-client.js'
@@ -83,13 +83,13 @@ import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base
 import { ProblemsService } from '../../problems/problems-service.js'
 import { DiagnosticsService } from '../../../services/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '../../../services/diagnostics/diagnostic.js'
-import { planNodeMoves } from '../../../services/projects/node-move.js'
+import { planNodeMoves } from '@pragmatic-tech-ai/plexus-core/renderer/projects/node-move.js'
 import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
 import { DocumentCloseGuard } from '../../../services/documents/document-close-guard.js'
-import { ManageReferencesDialogModel } from '../../../services/projects/manage-references-dialog-model.js'
-import { RecentProjectsService } from '../../../services/projects/recent-projects-service.js'
+import { ManageReferencesDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/projects/manage-references-dialog-model.js'
+import { RecentProjectsService } from '@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js'
 import { CodeDocument } from '../../code-editor/code-document.js'
-import { EnvironmentService } from '../../../services/environment/environment-service.js'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { samePath } from '../../../services/file-watch/path-utils.js'
 import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
@@ -1506,12 +1506,6 @@ export async function uniqueStorageName(storage: IStorage, fileName: string): Pr
         if (!(await storage.Exists(candidate))) return candidate
     }
 }
-
-// The command argument for OpenProject.MoveNodesCommand — the dragged nodes, the
-// destination folder path (project-relative; '' = root), and the SOURCE project
-// the nodes came from (equal to the target for a same-project move). Exported so
-// the drag behavior can construct it.
-export interface MoveArg { nodes: readonly ProjectNode[]; destPath: string; source: OpenProject }
 
 // The open-dialog filters for importing into a project: one entry per factory
 // format (so its files surface first) plus an All-files catch-all — a guide,

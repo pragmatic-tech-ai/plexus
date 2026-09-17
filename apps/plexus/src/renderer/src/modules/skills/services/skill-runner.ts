@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
-import { EnvironmentService } from '../../../services/environment/environment-service.js'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import type { Skill } from './skill.js'
 import type { CatalogItem } from '../../../../../shared/agent-api.js'
 import { type ResolvedInput, type SkillContext } from '../../../../../shared/skill-context-api.js'

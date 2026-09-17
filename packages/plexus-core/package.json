@@ -14,6 +14,8 @@
     "./renderer/window": "./dist/renderer/window/index.js",
     "./renderer/window/*": "./dist/renderer/window/*",
     "./renderer/projects": "./dist/renderer/projects/index.js",
+    "./renderer/projects/*": "./dist/renderer/projects/*",
+    "./renderer/environment/*": "./dist/renderer/environment/*",
     "./shared/*.js": "./dist/shared/*.js"
   },
   "scripts": {

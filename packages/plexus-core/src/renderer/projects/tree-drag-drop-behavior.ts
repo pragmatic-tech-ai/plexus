@@ -4,7 +4,7 @@ import { DataObject, DragDropEffects, type DragEventArgs, type DragStartSpec } f
 import { OpenProject } from './open-project.js'
 import { ProjectNode } from './project.js'
 import { resolveDropTargetPath } from './node-move.js'
-import { ProjectExplorerService, type MoveArg } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { isProjectTreeHost, type IProjectTreeHost, type MoveArg } from './project-tree-host.js'
 
 // Drag-and-drop MOVE for the project tree, on top of mural's drag-drop framework.
 // Attached (via `.Behaviors:`) to each tree row (DataContext = ProjectNode) and to
@@ -99,13 +99,13 @@ export class TreeDragDropBehavior extends Behavior
         a.Handled = true
     }
 
-    // The explorer service hosting this tree — found by walking up to the
-    // TreeView, whose DataContext is the ProjectExplorerService.
-    private serviceOf(from: Visual): ProjectExplorerService | undefined
+    // The host owning this tree — found by walking up to the TreeView, whose
+    // DataContext is the project host (structurally IProjectTreeHost).
+    private serviceOf(from: Visual): IProjectTreeHost | undefined
     {
         let cur: Visual | undefined = from
         while (cur !== undefined) {
-            if (cur.DataContext instanceof ProjectExplorerService) return cur.DataContext
+            if (isProjectTreeHost(cur.DataContext)) return cur.DataContext
             cur = cur.GetVisualParent()
         }
         return undefined

@@ -6,7 +6,7 @@ import { ProjectExplorerService } from '../../project-explorer/services/project-
 import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import type { ArchModel } from './arch-model.js'
-import type { OpenProject } from '../../../services/projects/open-project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import type { ArchModelHandle, IArchModelGateway } from './model-patch-applier.js'
 
 // Production IArchModelGateway: resolves the open architecture project containing a

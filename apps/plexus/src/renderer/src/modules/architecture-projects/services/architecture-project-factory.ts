@@ -3,9 +3,9 @@ import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runt
 import {
     type ProjectFileFormat,
     type ProjectManifestEnvelope,
-} from '../../../services/projects/project-factory.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { TodlProjectFactory, type ScaffoldFile } from '../../../services/projects/todl-project-factory.js'
-import type { BaseBindings, BaseRef } from '../../../services/projects/base-binding.js'
+import type { BaseBindings, BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 import { ARCHITECTURE_SCAFFOLD } from './architecture-scaffold.js'
 
 // The 'architecture' project type — the architecture-projects module's

@@ -4,8 +4,8 @@ import { load, toJSON } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
 import { ProjectExplorerService } from '../../../project-explorer/services/project-explorer-service.js'
-import { Project, ProjectNode } from '../../../../services/projects/project.js'
-import type { OpenProject } from '../../../../services/projects/open-project.js'
+import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchitectureModelService } from '../architecture-model-service.js'
 
 const MM = `namespace archmm {

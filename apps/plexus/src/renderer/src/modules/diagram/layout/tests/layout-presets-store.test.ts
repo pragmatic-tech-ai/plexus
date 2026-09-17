@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 
-import { EnvironmentService } from '../../../../services/environment/environment-service.js'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
 import { LayoutPresetsStore } from '../layout-presets-store.js'
 

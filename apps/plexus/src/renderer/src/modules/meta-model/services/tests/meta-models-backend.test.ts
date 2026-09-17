@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import { EnvironmentService } from '../../../../services/environment/environment-service.js'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { ensureMetaModelsBackend, META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
 
 function providerWith(): ServiceProvider

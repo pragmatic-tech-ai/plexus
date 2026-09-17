@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { check, toJSON } from '@pragmatic-tech-ai/todl'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { PROJECT_MANIFEST_FILENAME } from '../../../../services/projects/project-factory.js'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { LibraryProjectFactory } from '../library-project-factory.js'
 
 // The base meta-model defines `category`; the library extends it.

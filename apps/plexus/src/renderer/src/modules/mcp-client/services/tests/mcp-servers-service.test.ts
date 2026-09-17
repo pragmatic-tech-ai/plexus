@@ -1,6 +1,6 @@
 import { test, expect, beforeEach, afterEach } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { OpenProjectsStore } from '../../../../services/projects/open-projects-store.js'
+import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
 import { McpGatingMode, McpScope, McpTransportKind, type IMcpClientApi, type McpServerEntry } from '../../../../../../shared/mcp-client-api.js'
 import { McpServersService } from '../mcp-servers-service.js'
 

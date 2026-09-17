@@ -11,9 +11,9 @@ import {
     type ProjectFileFormat,
     type ProjectManifestEnvelope,
     type PublishResult,
-} from '../../../services/projects/project-factory.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { TodlProjectFactory, type ScaffoldFile } from '../../../services/projects/todl-project-factory.js'
-import type { Project } from '../../../services/projects/project.js'
+import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StoragePackageSink } from '../../../services/storage/storage-package-sink.js'
 import { ensureMetaModelsBackend } from './meta-models-backend.js'

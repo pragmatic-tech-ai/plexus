@@ -1,6 +1,6 @@
 import { RelayCommand, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import type { OpenProject } from '../../../services/projects/open-project.js'
-import type { ProjectNode } from '../../../services/projects/project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import type { INodeCommandContributor, NodeAction } from '../../../services/documents/node-command-contributor.js'
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'

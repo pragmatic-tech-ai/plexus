@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProducerKind } from '../project-factory.js'
+import { ProducerKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import {
     WikiOriginKind, openProjectOrigin, packageOrigin, locateWikiFile, packageWikiPath,
 } from '../wiki-origin.js'

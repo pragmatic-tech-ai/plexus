@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { SetVersionDialogModel, type SetVersionResult } from '../set-version-dialog-model.js'
+import { SetVersionDialogModel, type SetVersionResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/set-version-dialog-model.js'
 
 test('prefills NewVersion with the current version and can confirm', () => {
     const vm = new SetVersionDialogModel('0.1.0', () => {})

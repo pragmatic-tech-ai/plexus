@@ -4,7 +4,7 @@ import type { IProjectFactory } from './project-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectNode, type Project } from './project.js'
 import { NewItemChoice } from './new-item-choice.js'
-import type { ProjectMenuChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+import type { ProjectMenuChoice } from './project-menu-choice.js'
 
 // One open project in the explorer — the VM the tree renders as a collapsible
 // root. It bundles the project's model (Name + file tree) with the factory and

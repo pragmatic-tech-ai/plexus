@@ -4,8 +4,8 @@ import { ProjectExplorerService } from '../../../project-explorer/services/proje
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { DiagramViewpointsEditor } from '../diagram-viewpoints-editor.js'
 import { ArchNodeCommandContributor } from '../arch-node-command-contributor.js'
-import { Project, ProjectNode } from '../../../../services/projects/project.js'
-import type { OpenProject } from '../../../../services/projects/open-project.js'
+import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 
 function op(type = 'architecture'): OpenProject {
     return { Project: new Project(type, 'Acme', 'fake://Acme', new ProjectNode('Acme', '', 'folder')) } as unknown as OpenProject

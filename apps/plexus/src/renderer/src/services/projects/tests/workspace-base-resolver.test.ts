@@ -10,9 +10,9 @@ import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/librarie
 import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
 import { TodlLanguageClient } from '../../todl/todl-language-client.js'
 import { WikiOriginKind } from '../wiki-origin.js'
-import { PROJECT_MANIFEST_FILENAME, ProducerKind, type IProjectFactory, type IProducerProjectFactory } from '../project-factory.js'
-import { Project, ProjectNode } from '../project.js'
-import { OpenProject } from '../open-project.js'
+import { PROJECT_MANIFEST_FILENAME, ProducerKind, type IProjectFactory, type IProducerProjectFactory } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { WorkspaceBaseResolver } from '../workspace-base-resolver.js'
 
 // A producer factory whose compileToDocument returns a canned document built

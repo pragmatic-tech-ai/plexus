@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { ShortenPathConverter } from '../shorten-path.js'
+import { ShortenPathConverter } from '@pragmatic-tech-ai/plexus-core/renderer/projects/shorten-path.js'
 
 // A converter with an injected separator, so the formatting is tested without an
 // Electron host (no EnvironmentService).

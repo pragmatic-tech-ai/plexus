@@ -1,6 +1,6 @@
 import { ServiceKey, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
-import type { OpenProject } from '../projects/open-project.js'
-import type { ProjectNode } from '../projects/project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 
 // A single project-type-specific context-menu action for a tree node: a label
 // and the command it runs.

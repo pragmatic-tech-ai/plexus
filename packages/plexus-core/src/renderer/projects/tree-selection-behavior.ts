@@ -1,7 +1,7 @@
 import { Behavior, type Visual } from '@pragmatic-tech-ai/mural/runtime'
 import { Selector } from '@pragmatic-tech-ai/mural/framework'
 
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { isProjectTreeHost } from './project-tree-host.js'
 
 // Surfaces the single project TreeView's MULTI-selection to the explorer service,
 // which distributes it back into each project's per-project selection state.
@@ -41,8 +41,8 @@ export class TreeSelectionBehavior extends Behavior
     // DataContext is ignored so this stays inert off the explorer tree.
     private sync(): void
     {
-        const service = this.selector?.DataContext
-        if (!(service instanceof ProjectExplorerService)) return
-        service.ApplyTreeSelection(this.selector!.SelectedItems, this.selector!.SelectedItem)
+        const host = this.selector?.DataContext
+        if (!isProjectTreeHost(host)) return
+        host.ApplyTreeSelection(this.selector!.SelectedItems, this.selector!.SelectedItem)
     }
 }

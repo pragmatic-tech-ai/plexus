@@ -1,9 +1,9 @@
 import { test, expect } from 'vitest'
 import { RelayCommand } from '@pragmatic-tech-ai/mural/runtime'
 
-import { Project, ProjectNode } from '../project.js'
-import { OpenProject } from '../open-project.js'
-import type { IProjectFactory } from '../project-factory.js'
+import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { IProjectFactory } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 const fakeFactory = { formats: [] } as unknown as IProjectFactory

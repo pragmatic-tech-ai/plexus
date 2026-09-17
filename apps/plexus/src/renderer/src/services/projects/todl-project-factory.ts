@@ -7,9 +7,9 @@ import {
     type IProjectFactory,
     type ProjectFileFormat,
     type ProjectManifestEnvelope,
-} from './project-factory.js'
-import type { BaseBindings } from './base-binding.js'
-import { Project, ProjectNode, type ProjectNodeKind } from './project.js'
+} from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import type { BaseBindings } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
+import { Project, ProjectNode, type ProjectNodeKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { compareStorageEntries, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The base for every TODL-authoring project type. It owns the whole project

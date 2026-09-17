@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { PROJECT_MANIFEST_FILENAME } from '../../../../services/projects/project-factory.js'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { readDiagramViewpoints, writeDiagramViewpoints } from '../diagram-viewpoints.js'
 
 async function seeded(): Promise<FakeStorage> {

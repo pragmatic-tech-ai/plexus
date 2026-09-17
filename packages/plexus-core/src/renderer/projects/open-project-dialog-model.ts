@@ -6,7 +6,7 @@ import {
     type ICommand,
 } from '@pragmatic-tech-ai/mural/runtime'
 
-import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import type { FileSystemService } from '../file-system-storage/index.js'
 import type { RecentProject } from './recent-projects-service.js'
 
 // The Open Project dialog's view-model + its recent-item model. Rendered by

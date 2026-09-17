@@ -4,7 +4,7 @@ import { ContentHostService, DiagramDocument, DialogService, StatusService, type
 import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
 import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
-import type { OpenProject } from '../../../services/projects/open-project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import { ArchDiagramBinding } from './arch-diagram-binding.js'
 import { ArchNavigationService } from './arch-navigation-service.js'

@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import type { EnvironmentInfo } from '@pragmatic-tech-ai/plexus-core/shared/environment-api.js'
-import { OperatingSystem } from '@pragmatic-tech-ai/plexus-core/shared/environment-api.js'
+import type { EnvironmentInfo } from '../../shared/environment-api.js'
+import { OperatingSystem } from '../../shared/environment-api.js'
 
 // EnvironmentService — the renderer-side, app-facing view of the static host
 // environment (working/app directories, platform, versions, runtime flags).

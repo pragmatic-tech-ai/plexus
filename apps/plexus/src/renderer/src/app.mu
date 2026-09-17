@@ -63,7 +63,7 @@ import PlexusIcons from "./plexus-icons.mu.js"
 import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
 
 // Static host environment (dirs, platform, versions, flags). No view resources.
-import EnvironmentService from "./services/environment/environment-service.js"
+import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js"
 
 // Live window-height feed (ViewportService.Height) — the Problems popup caps its
 // list at 30% of it. No view resources.
@@ -79,11 +79,11 @@ import StorageProviderRegistry from "./services/storage/storage-provider-registr
 
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
-import RecentProjectsService from "./services/projects/recent-projects-service.js"
+import RecentProjectsService from "@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js"
 
 // Open-projects set — persists which projects are open to a JSON file under
 // userData, so the workspace restores on launch (ProjectExplorer.RestoreSession).
-import OpenProjectsStore from "./services/projects/open-projects-store.js"
+import OpenProjectsStore from "@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js"
 
 // The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
 // bar strip, the menu-bar look, and TitleService. Plexus supplies its brand mark
