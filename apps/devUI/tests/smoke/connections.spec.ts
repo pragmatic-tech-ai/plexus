@@ -87,6 +87,21 @@ async function clickText(window: Page, text: string): Promise<void> {
   await window.mouse.click(box.x + box.w / 2, box.y + box.h / 2);
 }
 
+// True only if a text node with EXACTLY this content is actually laid out
+// (non-zero size). A Visibility=Collapsed subtree keeps its stale SVG text in the
+// DOM but arranges it at 0×0, so text presence alone can't tell shown from hidden
+// — geometry can.
+function textVisible(window: Page, text: string): Promise<boolean> {
+  return window.evaluate((t) => {
+    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan"))) {
+      if ((el.textContent ?? "").trim() !== t) continue;
+      const r = (el as Element).getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) return true;
+    }
+    return false;
+  }, text);
+}
+
 function hasTextContaining(window: Page, text: string): Promise<boolean> {
   return window.evaluate(
     (t) =>
@@ -137,6 +152,37 @@ test("New connection adds a row; Test connection reports the outcome in the stat
   // can split across SVG tspans.
   await clickText(window, "Test connection");
   await expect.poll(() => hasTextContaining(window, "Connected"), { timeout: 10_000 }).toBe(true);
+
+  await app.close();
+});
+
+test("Authentication mode: radio group toggles between the token and env-var blocks", async () => {
+  const env = { ...process.env };
+  delete env["ELECTRON_RUN_AS_NODE"];
+  const app = await electron.launch({ args: [mainEntry], env });
+  const window = await app.firstWindow();
+  await window.waitForSelector("#app svg", { timeout: 30_000 });
+  await installFakeConnections(window);
+  await activateCapability(window, 4, "GitHub Packages");
+
+  // Both radio options render (rows are inline, unlike a ComboBox popup).
+  await expect.poll(() => hasTextContaining(window, "Token value"), { timeout: 10_000 }).toBe(true);
+  await expect.poll(() => hasTextContaining(window, "Environment variable"), { timeout: 10_000 }).toBe(true);
+
+  // The seeded connection is token-sourced ("stored"), so the token block shows
+  // (Save token) and the env block is collapsed (Use env var laid out at 0×0).
+  await expect.poll(() => textVisible(window, "Save token"), { timeout: 10_000 }).toBe(true);
+  expect(await textVisible(window, "Use env var")).toBe(false);
+
+  // Pick "Environment variable" → the env block shows and the token block hides.
+  await clickText(window, "Environment variable");
+  await expect.poll(() => textVisible(window, "Use env var"), { timeout: 10_000 }).toBe(true);
+  expect(await textVisible(window, "Save token")).toBe(false);
+
+  // Pick "Token value" again → back to the token block.
+  await clickText(window, "Token value");
+  await expect.poll(() => textVisible(window, "Save token"), { timeout: 10_000 }).toBe(true);
+  expect(await textVisible(window, "Use env var")).toBe(false);
 
   await app.close();
 });

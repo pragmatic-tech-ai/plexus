@@ -45,15 +45,22 @@ resources ConnectionsResources {
                 }
 
                 TextBlock [ Text = "Authentication", FontWeight = Bold, Margin = (0,0,0,6) ]
-                TextBlock [ Text = $TokenSource, Margin = (0,0,0,8) ]
+                // Pick how this connection authenticates; only the chosen block shows.
+                RadioButtonGroup [ ItemsSource = $AuthModes, SelectedItem = $AuthMode, Margin = (0,0,0,10) ]
 
-                TextBlock [ Text = "Token (paste to store, encrypted)", Margin = (0,0,0,2) ]
-                TextBox   [ Text = $Token, Margin = (0,0,0,4) ]
-                Button    [ Command = $SaveToken, Content = "Save token", Margin = (0,0,0,12) ]
+                // Token value: paste a token, stored encrypted.
+                StackPanel [ Orientation = Vertical, Visibility = $IsTokenMode << ToVisibility, Margin = (0,0,0,4) ] {
+                    TextBlock [ Text = "Token (paste to store, encrypted)", Margin = (0,0,0,2) ]
+                    TextBox   [ Text = $Token, Margin = (0,0,0,4) ]
+                    Button    [ Command = $SaveToken, Content = "Save token" ]
+                }
 
-                TextBlock [ Text = "…or environment variable name", Margin = (0,0,0,2) ]
-                ComboBox  [ ItemsSource = $EnvVars, SelectedItem = $TokenEnvVar, HorizontalAlignment = Stretch, Margin = (0,0,0,4) ]
-                Button    [ Command = $UseEnv, Content = "Use env var", Margin = (0,0,0,12) ]
+                // Environment variable holding the token.
+                StackPanel [ Orientation = Vertical, Visibility = $IsEnvMode << ToVisibility, Margin = (0,0,0,4) ] {
+                    TextBlock [ Text = "Environment variable name", Margin = (0,0,0,2) ]
+                    ComboBox  [ ItemsSource = $EnvVars, SelectedItem = $TokenEnvVar, HorizontalAlignment = Stretch, Margin = (0,0,0,4) ]
+                    Button    [ Command = $UseEnv, Content = "Use env var" ]
+                }
 
                 Button    [ Command = $Test, Content = "Test connection", Margin = (0,0,0,6) ]
                 TextBlock [ Text = $Status, TextWrapping = Wrap ]

@@ -10,6 +10,16 @@ export interface ConnectionHost {
   removeConnection(id: string): Promise<void>;
 }
 
+// The two ways a connection can authenticate, presented as the labels of a
+// RadioButtonGroup (its string values are the row labels the user reads). The
+// selection is pure view state: it just decides which auth control block shows —
+// the actual persistence happens through Save token / Use env var, which flip the
+// stored TokenSource. Kept in sync with TokenSource on load.
+export enum AuthMode {
+  Token = "Token value",
+  Env = "Environment variable",
+}
+
 // One registry connection, presented as an editable master/detail row. The
 // non-secret fields (name, registry, scope, org, github api, env-var name) are
 // two-way bound to TextBoxes; the token is write-only (`Token`) — it travels to
@@ -31,6 +41,8 @@ export class ConnectionVM extends Observable {
   readonly EnvVars = new ObservableCollection<string>();
   private _token = "";
   private _tokenSource: TokenSource;
+  // Which auth block is shown (radio selection). Seeded from the stored source.
+  private _authMode: AuthMode;
   private _hasToken: boolean;
   private _isDefault: boolean;
   private _status = "";
@@ -57,6 +69,7 @@ export class ConnectionVM extends Observable {
     this._githubApi = view.githubApi;
     this._tokenEnvVar = view.tokenEnvVar;
     this._tokenSource = view.tokenSource;
+    this._authMode = view.tokenSource === TokenSource.Env ? AuthMode.Env : AuthMode.Token;
     this._hasToken = view.hasToken;
     this._isDefault = view.isDefault;
 
@@ -106,6 +119,22 @@ export class ConnectionVM extends Observable {
   get HasToken(): boolean { return this._hasToken; }
   get IsDefault(): boolean { return this._isDefault; }
   get Status(): string { return this._status; }
+
+  // The auth-mode radio group: the two options and the current pick. Switching
+  // the pick only toggles which control block is visible (IsTokenMode /
+  // IsEnvMode); the value is committed by Save token / Use env var.
+  get AuthModes(): AuthMode[] { return [AuthMode.Token, AuthMode.Env]; }
+  get AuthMode(): AuthMode { return this._authMode; }
+  set AuthMode(v: AuthMode) {
+    const old = this._authMode;
+    if (old === v) return;
+    this._authMode = v;
+    this.RaisePropertyChanged("AuthMode", old, v);
+    this.RaisePropertyChanged("IsTokenMode", old === AuthMode.Token, v === AuthMode.Token);
+    this.RaisePropertyChanged("IsEnvMode", old === AuthMode.Env, v === AuthMode.Env);
+  }
+  get IsTokenMode(): boolean { return this._authMode === AuthMode.Token; }
+  get IsEnvMode(): boolean { return this._authMode === AuthMode.Env; }
 
   /** A one-line summary for the master list row. */
   get Summary(): string {
