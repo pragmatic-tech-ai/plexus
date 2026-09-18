@@ -1,14 +1,15 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ProjectExplorerService } from '../../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { DiagramViewpointsEditor } from '../diagram-viewpoints-editor.js'
 import { ArchNodeCommandContributor } from '../arch-node-command-contributor.js'
-import { Project, ProjectNode } from '../../../../services/projects/project.js'
-import type { OpenProject } from '../../../../services/projects/open-project.js'
+import { Project, ProjectNode as DataProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
+import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 
 function op(type = 'architecture'): OpenProject {
-    return { Project: new Project(type, 'Acme', 'fake://Acme', new ProjectNode('Acme', '', 'folder')) } as unknown as OpenProject
+    return { Project: new Project(type, 'Acme', 'fake://Acme', new DataProjectNode('Acme', '', ProjectNodeKind.Folder)) } as unknown as OpenProject
 }
 // The arch factory tags .diagram files with Kind 'diagram' and .todl with 'todl'
 // (not 'file'), so tests must mirror that or they validate a fiction.

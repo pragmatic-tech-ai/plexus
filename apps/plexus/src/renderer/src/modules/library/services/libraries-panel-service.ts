@@ -3,8 +3,8 @@ import { DialogService, type IActivatable } from '@pragmatic-tech-ai/mural/frame
 
 import { LibraryRegistry } from './library-registry.js'
 import { LibraryTreeNode, LibraryNodeKind } from './library-tree-node.js'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
-import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { registerArchToolboxAdapters } from '../../diagram/services/register-arch-toolbox-adapters.js'
 import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 import { WikiService } from '../../../services/wiki/wiki-service.js'
@@ -205,7 +205,7 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         // canvas) reflects installs/uninstalls even when the toolbox/canvas hasn't
         // been the trigger. (Adapters were registered up front, above, so the leaf
         // icon VMs could resolve the registry.)
-        if (services.get(StorageProviderRegistry.Key) !== undefined) {
+        if (services.get(StorageService.Key) !== undefined) {
             await presentation.discover()
         }
 

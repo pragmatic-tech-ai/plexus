@@ -1,13 +1,13 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../services/storage/storage-provider-registry.js'
-import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import { EnvironmentService } from '../../../services/environment/environment-service.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { LocalFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The storage backend where published libraries live. A normal rooted IStorage on
-// the shared StorageProviderRegistry — the same seam as project + meta-models
+// the shared StorageService — the same seam as project + meta-models
 // storage, so a cloud/REST backend can replace it later. Rooted at
 // <userData>/libraries via the local-FS backend today. A published library lives
 // at <id>/<libVersion>/model.json (+ src/<uri>), mirroring the meta-models layout.
@@ -18,7 +18,7 @@ export const LIBRARIES_BACKEND_ID = 'libraries'
 // pays for it until a publish (or a base resolution) actually happens.
 export function ensureLibrariesBackend(provider: IServiceProvider): IStorage
 {
-    const registry = provider.getRequired(StorageProviderRegistry.Key)
+    const registry = provider.getRequired(StorageService.Key)
     if (!registry.Has(LIBRARIES_BACKEND_ID))
     {
         const env = provider.getRequired(EnvironmentService.Key)

@@ -9,7 +9,7 @@
 
 import MarkdownDocumentFactory from "./markdown-document-factory.js"
 
-module MarkdownViewerModule [ Name = "Markdown Viewer" ] {
+shell module MarkdownViewerModule [ Name = "Markdown Viewer" ] {
     .services: {
         MarkdownDocumentFactory
     }

@@ -7,7 +7,7 @@
 // tab-close ("Save" / "Don't Save") and quit ("Save All" / "Discard All") cases.
 // Mirrors the ConfirmDialogModel template in project-explorer.resources.mu.
 
-import SavePromptModel from "./save-prompt-model.js"
+import SavePromptModel from "@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js"
 
 resources SavePromptResources {
 

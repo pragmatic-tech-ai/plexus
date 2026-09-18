@@ -1,5 +1,5 @@
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 
 // The "illegal containment" rejection modal, shared by the drop-into-container
 // (ArchInstanceDropFactory) and drag-into-container (ArchDiagramBinding.handleReparent)

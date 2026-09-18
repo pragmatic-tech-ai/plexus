@@ -2,11 +2,11 @@ import {
     MuralBase, MetaData, ObservableCollection, ServiceBase, ServiceKey, RelayCommand,
     type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagnosticsService } from '../../services/diagnostics/diagnostics-service.js'
-import { DiagnosticSeverity, type Diagnostic } from '../../services/diagnostics/diagnostic.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { ViewportService } from '../../services/viewport/viewport-service.js'
 import { ClipboardService } from '../../services/clipboard/clipboard-service.js'
-import { ProjectExplorerService } from '../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 
 // The Problems popup caps its scrollable list at this fraction of the live
 // window height. When no ViewportService is available (headless edge cases), fall

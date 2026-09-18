@@ -7,7 +7,7 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 import { ApplicationSettings, Setting, SettingKind } from '@pragmatic-tech-ai/mural/framework'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
-import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
+import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 
 // View-models for the settings editor shown in the center content region (the
 // VSCode-style Settings page). ApplicationSettings holds a flat list of live

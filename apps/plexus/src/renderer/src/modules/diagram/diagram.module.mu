@@ -19,7 +19,7 @@ import ToolboxService from "./services/diagram-panel-services.js"
 import DiagramDocumentFactory from "./services/diagram-document-factory.js"
 import TodlPresentationRegistry from "./services/todl-presentation-registry.js"
 
-module DiagramModule [ Name = "Diagram" ] {
+shell module DiagramModule [ Name = "Diagram" ] {
     .services: {
         ToolboxService
         DiagramDocumentFactory

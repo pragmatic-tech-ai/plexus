@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { PROJECT_MANIFEST_FILENAME } from '../../../../services/projects/project-factory.js'
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MetaModelProjectFactory } from '../meta-model-project-factory.js'
 import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
@@ -18,10 +18,10 @@ function factory(): MetaModelProjectFactory
 function publishEnv(): { provider: ServiceProvider; dest: FakeStorage }
 {
     const provider = new ServiceProvider()
-    const registry = new StorageProviderRegistry(provider)
+    const registry = new StorageService(provider)
     const dest = new FakeStorage('fake://meta-models')
     registry.Register(META_MODELS_BACKEND_ID, () => dest)
-    provider.registerInstance(StorageProviderRegistry.Key, registry)
+    provider.registerInstance(StorageService.Key, registry)
     return { provider, dest }
 }
 

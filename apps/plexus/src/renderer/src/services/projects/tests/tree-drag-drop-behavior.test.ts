@@ -2,8 +2,8 @@ import { test, expect } from 'vitest'
 import { Border } from '@pragmatic-tech-ai/mural/basic'
 import { DragDropEffects, type DragStartSpec } from '@pragmatic-tech-ai/mural/visual-engine'
 
-import { TreeDragDropBehavior } from '../tree-drag-drop-behavior.js'
-import { ProjectNode } from '../project.js'
+import { TreeDragDropBehavior } from '@pragmatic-tech-ai/plexus-core/renderer/projects/tree-drag-drop-behavior.js'
+import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 
 // The DataObject format key the behavior packs the dragged nodes under
 // (mirrors NODES_FORMAT in tree-drag-drop-behavior.ts).

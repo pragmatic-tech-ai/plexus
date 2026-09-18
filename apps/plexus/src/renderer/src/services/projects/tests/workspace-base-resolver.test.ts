@@ -2,17 +2,19 @@ import { test, expect } from 'vitest'
 import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
 import { check, toJSON, type TodlDocument } from '@pragmatic-tech-ai/todl'
 
-import { StorageProviderRegistry } from '../../storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../modules/meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/libraries-backend.js'
-import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { TodlLanguageClient } from '../../todl/todl-language-client.js'
 import { WikiOriginKind } from '../wiki-origin.js'
-import { PROJECT_MANIFEST_FILENAME, ProducerKind, type IProjectFactory, type IProducerProjectFactory } from '../project-factory.js'
-import { Project, ProjectNode } from '../project.js'
-import { OpenProject } from '../open-project.js'
+import { PROJECT_MANIFEST_FILENAME, ProducerKind, type IProjectFactory } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import type { IProducerProjectFactory } from '../producer-project-factory.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
+import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { WorkspaceBaseResolver } from '../workspace-base-resolver.js'
 
 // A producer factory whose compileToDocument returns a canned document built
@@ -38,19 +40,19 @@ async function openProject(
     const verKey = kind === 'meta-model' ? 'modelVersion' : 'libVersion'
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(
         { type: kind, id, [verKey]: version, ...bindings }))
-    return new OpenProject(new Project(kind, id, `C:/${id}`, new ProjectNode(id, '', 'folder')), factory, storage)
+    return new OpenProject(new Project(kind, id, `C:/${id}`, new ProjectNode(id, '', ProjectNodeKind.Folder)), factory, storage)
 }
 
 // A provider with published backends + a fake explorer holding the given projects.
 function env(open: OpenProject[]): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage }
 {
     const provider = new ServiceProvider()
-    const registry = new StorageProviderRegistry(provider)
+    const registry = new StorageService(provider)
     const meta = new FakeStorage('fake://meta-models')
     const libs = new FakeStorage('fake://libraries')
     registry.Register(META_MODELS_BACKEND_ID, () => meta)
     registry.Register(LIBRARIES_BACKEND_ID, () => libs)
-    provider.registerInstance(StorageProviderRegistry.Key, registry)
+    provider.registerInstance(StorageService.Key, registry)
     const collection = new ObservableCollection<OpenProject>()
     for (const op of open) collection.Add(op)
     provider.registerInstance(ProjectExplorerService.Key, { OpenProjects: collection } as unknown as ProjectExplorerService)
@@ -213,17 +215,17 @@ test('RefreshDependentsOfIds refreshes a changed producer\'s transitive dependen
     expect(refreshed).not.toContain(mm.Storage)
 })
 
-test('producedIdOf reports a producer\'s id and undefined for a consumer', async () => {
+test('ProducedIdOf reports a producer\'s id and undefined for a consumer', async () => {
     const mm = await openProject('meta-model', 'ea', '0.1.0',
         producer(ProducerKind.MetaModel, 'namespace ea { concept c { label : string; } }'))
     const arch = await openProject('architecture', 'sys', '0.1.0', { formats: [] } as unknown as IProjectFactory,
         { metaModel: { id: 'ea', version: '0.1.0' } })
     const { provider } = env([mm, arch])
     const resolver = new WorkspaceBaseResolver(provider)
-    // Force snapshot construction (producedIdOf reads the current snapshot).
+    // Force snapshot construction (ProducedIdOf reads the current snapshot).
     await resolver.ResolveForStorage(arch.Storage)
-    expect(resolver.producedIdOf(mm.Storage)).toBe('ea')
-    expect(resolver.producedIdOf(arch.Storage)).toBeUndefined()
+    expect(resolver.ProducedIdOf(mm.Storage)).toBe('ea')
+    expect(resolver.ProducedIdOf(arch.Storage)).toBeUndefined()
 })
 
 // An own-only model.json with recorded base deps.

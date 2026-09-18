@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
-import { ProjectNode } from '../project.js'
-import { resolveDropTargetPath, planNodeMoves } from '../node-move.js'
+import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { resolveDropTargetPath, planNodeMoves } from '@pragmatic-tech-ai/plexus-core/renderer/projects/node-move.js'
 
 const folder = (path: string) => new ProjectNode(path.split('/').pop() ?? path, path, 'folder')
 const file = (path: string) => new ProjectNode(path.split('/').pop() ?? path, path, 'todl')

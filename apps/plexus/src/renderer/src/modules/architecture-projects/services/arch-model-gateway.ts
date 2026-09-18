@@ -2,11 +2,11 @@ import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { checkAgainst, Severity, type SourceFile } from '@pragmatic-tech-ai/todl'
 import { PatchOpKind, type PatchOp } from '../../../../../shared/model-patch-api.js'
 import { SkillProblemSeverity, type SkillProblem } from '../../../../../shared/skill-api.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import type { ArchModel } from './arch-model.js'
-import type { OpenProject } from '../../../services/projects/open-project.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import type { ArchModelHandle, IArchModelGateway } from './model-patch-applier.js'
 
 // Production IArchModelGateway: resolves the open architecture project containing a

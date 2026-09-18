@@ -12,7 +12,7 @@ import ChatSessionsService from "./services/chat-sessions-service.js"
 import ChatSession from "./services/chat-session.js"
 import StoredConversationRow from "./services/stored-conversation-row.js"
 import ApprovalRulesVM from "./services/approval-rules.js"
-import EditingToLabelVisibility from "../../services/projects/project-node-icon.js"
+import EditingToLabelVisibility from "@pragmatic-tech-ai/plexus-core/renderer/projects/project-node-icon.js"
 
 resources ConversationsResources {
     // Full-width, left-aligned clickable row with a subtle hover/press state layer

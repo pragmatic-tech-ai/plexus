@@ -20,13 +20,18 @@ import RegistryClient from "./services/registry/registry-client.ts"
 // File-menu items (@WindowBrand / @WindowMenuItems) and a title source
 // (DevUiTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header ControlTemplate resolves $service(TitleService)).
-import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/window"
-import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
+import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
 
-// Shared IO seam — the FileSystemStorage module (plexus-core) registers
-// FileSystemService (native file system via window.api.fs); the app's storage
-// registry resolves it and wraps it in a LocalFileStorage per root.
-import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
+// Shared storage — the Storage module (plexus-core) registers FileSystemService
+// (native file system via window.api.fs) + StorageService (the universal storage
+// front door, seeded with the local-FS provider). Resolved via StorageService.Key.
+import Storage from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage"
+// Solution Studio (plexus-core) — the presentation-band host seams for the
+// solution engine: the DialogService-backed prompt service + the StorageService
+// storage-registry alias, bound to the SolutionManagerService keys. The engine
+// services themselves are added imperatively in main.ts (SolutionServicesEngine).
+import SolutionStudioModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio"
 import DevUiTitleSource from "./window/devui-title-source.ts"
 import DevUiWindowCommands from "./window/devui-window-commands.ts"
 import DevUiWindowChrome from "./window/devui-window.resources.mu"
@@ -35,7 +40,6 @@ import DevUiWindowChrome from "./window/devui-window.resources.mu"
 import HomeModule from "./modules/home/home.module.mu"
 import PackageManagerModule from "./modules/package-manager/package-manager.module.mu"
 import PackageCompilerModule from "./modules/package-compiler/package-compiler.module.mu"
-import SolutionModule from "./modules/solution/solution.module.mu"
 import ConnectionsManagerModule from "./modules/connections/connections.module.mu"
 
 // Shell chrome (custom ViewerShell template) + shared icon dictionary + per-
@@ -45,7 +49,6 @@ import AppIcons from "./app-icons.mu"
 import HomeResources from "./modules/home/home.resources.mu"
 import PackageManagerResources from "./modules/package-manager/package-manager.resources.mu"
 import PackageCompilerResources from "./modules/package-compiler/package-compiler.resources.mu"
-import SolutionResources from "./modules/solution/solution.resources.mu"
 import ConnectionsResources from "./modules/connections/connections.resources.mu"
 
 Application [ Theme = Material, Scheme = MaterialDark ] {
@@ -61,14 +64,18 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
     }
 
     .modules: {
-        // Shared IO seam: registers FileSystemService (native file system via
-        // window.api.fs). The storage registry resolves it; LocalFileStorage wraps
-        // it per root.
-        FileSystemStorage
+        // Shared storage: registers FileSystemService (native file system via
+        // window.api.fs) + StorageService (universal front door, local-FS provider
+        // seeded). Consumers resolve StorageService for rooted IStorage.
+        Storage
         HomeModule
         PackageManagerModule
         PackageCompilerModule
-        SolutionModule
+        // Solution Studio (plexus-core): the Solution Explorer panel + rail
+        // capability. Its engine seams come from SolutionStudioSeams.Register (main.ts)
+        // + SolutionServicesRegistration; the engine itself from SolutionServicesEngine.
+        // The module carries its own view resources (auto-merged on compose).
+        SolutionStudioModule
         // The registry connections manager (create/edit/remove/test connections).
         ConnectionsManagerModule
         // Shared window chrome: registers TitleService + merges the title-bar
@@ -82,7 +89,6 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         merge HomeResources
         merge PackageManagerResources
         merge PackageCompilerResources
-        merge SolutionResources
         merge ConnectionsResources
         // devUI's brand mark + File-menu items, filled into the shared strip.
         merge DevUiWindowChrome

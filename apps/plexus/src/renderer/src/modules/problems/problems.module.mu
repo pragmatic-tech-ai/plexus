@@ -11,7 +11,7 @@
 import ProblemsService from "./problems-service.js"
 import ProblemsServiceKey from "./problems-service.js"
 
-module ProblemsModule [ Name = "Problems" ] {
+shell module ProblemsModule [ Name = "Problems" ] {
     .services: {
         ProblemsService
     }

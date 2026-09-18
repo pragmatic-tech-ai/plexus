@@ -1,7 +1,7 @@
 import { test, expect, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagnosticsService } from '../diagnostics-service.js'
-import { DiagnosticSeverity, type Diagnostic } from '../diagnostic.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 
 function diag(over: Partial<Diagnostic>): Diagnostic
 {

@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { bumpVersion, isValidVersion, VersionPart } from '../semver-bump.js'
+import { bumpVersion, isValidVersion, VersionPart } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
 
 test('bumpVersion increments the chosen part and zeros the lower parts', () => {
     expect(bumpVersion('0.1.0', VersionPart.Minor)).toBe('0.2.0')

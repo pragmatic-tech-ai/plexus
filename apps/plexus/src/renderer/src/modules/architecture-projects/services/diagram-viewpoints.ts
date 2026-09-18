@@ -1,4 +1,4 @@
-import { PROJECT_MANIFEST_FILENAME } from '../../../services/projects/project-factory.js'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 // The per-diagram viewpoint selection lives in the architecture manifest under

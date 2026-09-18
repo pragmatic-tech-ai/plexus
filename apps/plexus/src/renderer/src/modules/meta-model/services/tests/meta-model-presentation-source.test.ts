@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
 import { MetaModelPresentationSource } from '../meta-model-presentation-source.js'
@@ -20,9 +20,9 @@ const DOC: TodlDocument = {
 // Wire a provider whose meta-models backend is the given FakeStorage.
 function envWith(backend: FakeStorage): ServiceProvider {
     const provider = new ServiceProvider()
-    const storageRegistry = new StorageProviderRegistry(provider)
+    const storageRegistry = new StorageService(provider)
     storageRegistry.Register(META_MODELS_BACKEND_ID, () => backend)
-    provider.registerInstance(StorageProviderRegistry.Key, storageRegistry)
+    provider.registerInstance(StorageService.Key, storageRegistry)
     return provider
 }
 

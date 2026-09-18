@@ -1,6 +1,6 @@
 import { RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
-import { DocumentCloseGuard } from './document-close-guard.js'
+import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js'
 
 // The Plexus content host: the framework document host with its USER-INITIATED
 // close commands re-pointed through DocumentCloseGuard, so a dirty document

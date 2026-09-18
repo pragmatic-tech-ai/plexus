@@ -7,7 +7,7 @@ import ChatStore from "./services/chat-store.js"
 import ProjectAgentCatalog from "./services/project-agent-catalog.js"
 import TemplateGalleryService from "./services/template-gallery-service.js"
 
-module AgentChatModule [ Name = "Agent" ] {
+shell module AgentChatModule [ Name = "Agent" ] {
     .services: {
         // Manager of the parallel agent conversations (dock tabs + nav panel).
         ChatSessionsService

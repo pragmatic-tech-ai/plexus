@@ -5,8 +5,10 @@
 import { app } from "./app.mu";
 import { HtmlTarget } from "@pragmatic-tech-ai/mural/visual-engine";
 import { NavigationService, ContentHostService, DialogService } from "@pragmatic-tech-ai/mural/framework";
+import { SolutionServicesEngine } from "@pragmatic-tech-ai/todl";
+import { SolutionStudioSeams } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio";
 import { SolutionServicesRegistration } from "./modules/solution/solution-services.js";
-import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/window";
+import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome";
 
 // ViewerShell (unlike EditorShell) does not register a NavigationService, so
 // the app supplies one at the root. Registered under NavigationService.Key so
@@ -31,10 +33,24 @@ app.Services.register(ContentHostService.Key, (p) => new ContentHostService(p));
 // and hand it the shell root as its overlay anchor after the tree mounts.
 app.Services.register(DialogService.Key, (p) => new DialogService(p));
 
-// The host services the package's SolutionManagerService resolves from the
-// container (by key) — registered here, before initialize, so the manager finds
-// them whenever it is first constructed. The solution module owns the concrete
-// wiring; this only installs it at the composition root.
+// The solution ENGINE — a plain Module (SolutionManagerService + settings
+// registry), authored in .mu and exported as a composed module instance.
+// ShellCompositionRoot routes a plain Module straight through to RegisterServices
+// (it never enters app.Modules), so this registers the engine services into the
+// root container. The generic host seams come from the SolutionServicesStudio
+// module (in app.mu's .modules block); the app-specific ones from
+// SolutionServicesRegistration below. Added before initialize so the manager
+// resolves whenever it is first constructed.
+app.AddModule(SolutionServicesEngine);
+
+// The GENERIC engine host seams a Plexus shell supplies — the prompt service
+// (over DialogService) + the storage-provider registry (aliasing StorageService).
+// The Solution Studio module (in app.mu's .modules) owns the panel + capability.
+SolutionStudioSeams.Register(app.Services);
+
+// The APP-SPECIFIC seams the SolutionManagerService + the panel resolve by key —
+// the project factory, the Domain package source, and the workspace host (folder
+// pick / connections / member compile) — the host knowledge only this app has.
 SolutionServicesRegistration.Register(app.Services);
 
 await document.fonts.ready;

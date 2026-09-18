@@ -36,7 +36,8 @@ import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 import DiagramModule from "./modules/diagram/diagram.module.mu.js"
 import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
-import ProjectExplorerModule from "./modules/project-explorer/project-explorer.module.mu.js"
+import ProjectFactoriesModule from "./modules/project-factories/project-factories.module.mu.js"
+import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
@@ -57,13 +58,14 @@ import PlexusIcons from "./plexus-icons.mu.js"
 // app.mu only COMPOSES: it registers services in `.services:` and merges each
 // service's resource dictionary — the templates themselves live with the service.
 
-// Native file-system capability (open/save dialogs, read/write, directory
-// listing) — the shared FileSystemStorage module (plexus-core) registers
-// FileSystemService; resolved via FileSystemService.Key. Added in .modules: below.
-import FileSystemStorage from "@pragmatic-tech-ai/plexus-core/renderer/file-system-storage"
+// Shared storage — the Storage module (plexus-core) registers FileSystemService
+// (native open/save dialogs, read/write, directory listing) and StorageService
+// (the universal storage front door, seeded with the local-FS provider). Resolved
+// via FileSystemService.Key / StorageService.Key. Added in .modules: below.
+import Storage from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage"
 
 // Static host environment (dirs, platform, versions, flags). No view resources.
-import EnvironmentService from "./services/environment/environment-service.js"
+import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js"
 
 // Live window-height feed (ViewportService.Height) — the Problems popup caps its
 // list at 30% of it. No view resources.
@@ -72,26 +74,21 @@ import ViewportService from "./services/viewport/viewport-service.js"
 // System-clipboard seam — the Problems popup's copy actions write through it.
 import ClipboardService from "./services/clipboard/clipboard-service.js"
 
-// Storage-provider seam: maps a backend id → a rooted IStorage factory (seeded
-// with the local-FS backend over FileSystemService). The Project Explorer builds
-// a project's storage through this; remote backends (cloud/REST) register here.
-import StorageProviderRegistry from "./services/storage/storage-provider-registry.js"
-
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
-import RecentProjectsService from "./services/projects/recent-projects-service.js"
+import RecentProjectsService from "@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js"
 
 // Open-projects set — persists which projects are open to a JSON file under
 // userData, so the workspace restores on launch (ProjectExplorer.RestoreSession).
-import OpenProjectsStore from "./services/projects/open-projects-store.js"
+import OpenProjectsStore from "@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js"
 
 // The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
 // bar strip, the menu-bar look, and TitleService. Plexus supplies its brand mark
 // + File-menu items (@WindowBrand / @WindowMenuItems) and a title source
 // (PlexusTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header's ControlTemplate resolves $service(TitleService)).
-import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/window"
-import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/window"
+import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
+import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
 import PlexusTitleSource from "./window/plexus-title-source.js"
 
 // Background work: a pluggable-executor manager that runs background operations
@@ -127,7 +124,7 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 
 // Project Explorer view — the generic project tree + command bar
 // (DataTemplate[ProjectExplorerService] + recursive DataTemplate[ProjectNode]).
-import ProjectExplorerResources from "./modules/project-explorer/project-explorer.resources.mu.js"
+import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
 
 // Meta-models capability panel: the published-meta-models virtualized tree
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
@@ -178,7 +175,7 @@ import SkillsResources from "./modules/skills/skills.resources.mu.js"
 import SkillsAuthoringResources from "./modules/skills/skills-authoring.resources.mu.js"
 import HelpOverlayResources from "./modules/help-overlay/help-overlay.resources.mu.js"
 import DiagramViewpointsEditor from "./modules/architecture-projects/services/diagram-viewpoints-editor.js"
-import DiagnosticsService from "./services/diagnostics/diagnostics-service.js"
+import DiagnosticsService from "@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js"
 import WorkspaceRefreshService from "./services/workspace/workspace-refresh-service.js"
 import FileWatchService from "./services/file-watch/file-watch-service.js"
 import EditorReloadService from "./services/file-watch/editor-reload-service.js"
@@ -196,14 +193,22 @@ import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.r
 import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
 import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
 import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
-import DocumentCloseGuard from "./services/documents/document-close-guard.js"
+import DocumentCloseGuard from "@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js"
 import AutosaveService from "./services/autosave/autosave-service.js"
 import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
-import NewFileParticipantKey from "./services/documents/new-file-participant.js"
+import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
 import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"
 import DiagramCommandExtensionKey from "./modules/diagram/services/diagram-command-extension.js"
 import ArchNodeCommandContributor from "./modules/architecture-projects/services/arch-node-command-contributor.js"
-import NodeCommandContributorKey from "./services/documents/node-command-contributor.js"
+import NodeCommandContributorKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/node-command-contributor.js"
+
+// Project Explorer capability impls + their DI keys (interfaces in plexus-core).
+import PublishedBases from "./modules/meta-model/services/published-bases.js"
+import PublishedBasesKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
+import DiagramTreeExport from "./modules/diagram-export/services/diagram-tree-export.js"
+import DiagramTreeExportKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
+import SkillProjectMenuSource from "./modules/skills/services/project-menu-source.js"
+import ProjectMenuSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
 
 // Wiki: an "Open Wiki" action on concept surfaces that opens the concept's
 // declared markdown page (resolved from its open project) in a Monaco tab.
@@ -255,10 +260,6 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // Typed/model-aware skill runner (#3): collects inputs + resolves bindings,
         // then hands off to ChatSessionsService. The Run Agent/Skill menu calls it.
         SkillRunner
-        // Storage backends, keyed by id; the Project Explorer resolves this to
-        // build a project's rooted IStorage. Root singleton so every consumer
-        // shares the same registration set.
-        StorageProviderRegistry
         // Recent-projects MRU (persisted under userData) — the Open Project
         // dialog lists it; open/create push to it.
         RecentProjectsService
@@ -302,18 +303,16 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // collapsed. Root-registering makes EditorShell's has() guard share this
         // instance the shell region binds via $service(PanelDockService).
         PanelDockService
-        // Project-type registry (module .projectFactories → factories). Same
-        // root-scope reason as the content host: the generic ProjectExplorerService
-        // is a module (root-scoped) service, so it must reach the registry from
-        // root. EditorShell otherwise registers it shell-scoped — unreachable from
-        // root — which silently breaks New/Open Project (getRequired throws before
-        // any dialog shows). Registering here makes EditorShell's `has()` guard
-        // skip its shell registration and share this one.
-        ProjectFactoryRegistry
-        // Document-type registry (module .documents → editors). Root-registered
-        // for the same reason as ProjectFactoryRegistry: the root-scoped
-        // ProjectExplorerService resolves a file's editor (by extension) through
-        // it. Its constructor populates from module .documents: blocks.
+        // (The project-type registry is no longer registered here: it is the
+        // engine's IProjectFactoryRegistry, registered under ProjectFactoryRegistryKey
+        // by the basic ProjectFactoriesModule in `.modules:` below. Module services
+        // compose into the ROOT provider, so the root-scoped ProjectExplorerService
+        // reaches it — the same root-reachability the old app-level registration
+        // guaranteed.)
+        // Document-type registry (module .documents → editors). Root-registered so
+        // the root-scoped ProjectExplorerService resolves a file's editor (by
+        // extension) through it. Its constructor populates from module .documents:
+        // blocks.
         DocumentTypeRegistry
         ApplicationSettings
         // Code editor: opens files as Monaco-backed document tabs. Resolves the
@@ -393,15 +392,30 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         ArchNewDiagramParticipant -> NewFileParticipantKey
         ArchEditViewpointsCommand -> DiagramCommandExtensionKey
         ArchNodeCommandContributor -> NodeCommandContributorKey
+        // Project Explorer capability impls (DI seams defined in plexus-core). Each
+        // is registered ONLY under its interface key ⇒ a single instance (the alias
+        // `Impl -> Key` lowers to `register(Key, p => new Impl(p))`). The four
+        // capabilities backed by an already-registered singleton (live validation,
+        // base resolver, problems dock, tree host) are instance-shared code-side in
+        // main.js instead, so they don't spawn a duplicate.
+        PublishedBases         -> PublishedBasesKey
+        DiagramTreeExport      -> DiagramTreeExportKey
+        SkillProjectMenuSource -> ProjectMenuSourceKey
     }
 
     .modules: {
-        // Shared IO seam: registers FileSystemService (native file system via
-        // window.api.fs). Backends resolve it; LocalFileStorage wraps it per root.
-        FileSystemStorage
+        // Shared storage: registers FileSystemService (native file system via
+        // window.api.fs) + StorageService (universal front door, local-FS provider
+        // seeded). The Project Explorer resolves StorageService to build a project's
+        // rooted IStorage; remote backends (cloud/REST) register more providers.
+        Storage
         DiagramModule
         DiagramExportModule
         ArchitectureProjectsModule
+        // Basic engine module: the three project TYPES (factories) + the engine
+        // ProjectFactoryRegistry, under ProjectFactoryRegistryKey. Composed before
+        // ProjectExplorerModule so the registry is registered when the explorer resolves it.
+        ProjectFactoriesModule
         ProjectExplorerModule
         MetaModelModule
         LibraryModule

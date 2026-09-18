@@ -3,12 +3,12 @@ import { ModelDraft, checkAgainst, parse, type SourceFile } from '@pragmatic-tec
 
 import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import { collectTodlSources } from '../../../services/todl/todl-sources.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
-import type { OpenProject } from '../../../services/projects/open-project.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchModel } from './arch-model.js'
 import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
-import { EnvironmentService } from '../../../services/environment/environment-service.js'
-import { normalizePath } from '../../../services/file-watch/path-utils.js'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
+import { normalizePath } from '@pragmatic-tech-ai/plexus-core/renderer/file-watch/path-utils.js'
 import { type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 
 // Debounce for the .todl-change → model-reload path (collapses a save burst).

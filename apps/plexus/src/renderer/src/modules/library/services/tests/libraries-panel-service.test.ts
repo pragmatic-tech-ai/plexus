@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
 import { LibraryRegistry } from '../library-registry.js'
@@ -12,10 +12,10 @@ import { TodlPresentationRegistry } from '../../../diagram/services/todl-present
 // Synchronous seed (see the registry test) so all files exist before Reload lists.
 function providerWith(seed: (b: FakeStorage) => void): ServiceProvider {
     const provider = new ServiceProvider()
-    const registry = new StorageProviderRegistry(provider)
+    const registry = new StorageService(provider)
     const backend = new FakeStorage('fake://libraries')
     registry.Register(LIBRARIES_BACKEND_ID, () => backend)
-    provider.registerInstance(StorageProviderRegistry.Key, registry)
+    provider.registerInstance(StorageService.Key, registry)
     provider.registerInstance(LibraryRegistry.Key, new LibraryRegistry(provider))
     seed(backend)
     return provider
@@ -125,10 +125,10 @@ test('IsEmpty is true when nothing is published', async () => {
 
 test('Reload() calls TodlPresentationRegistry.discover() when storage is wired', async () => {
     const provider = new ServiceProvider()
-    const storageRegistry = new StorageProviderRegistry(provider)
+    const storageRegistry = new StorageService(provider)
     const backend = new FakeStorage('fake://libraries')
     storageRegistry.Register(LIBRARIES_BACKEND_ID, () => backend)
-    provider.registerInstance(StorageProviderRegistry.Key, storageRegistry)
+    provider.registerInstance(StorageService.Key, storageRegistry)
     provider.registerInstance(LibraryRegistry.Key, new LibraryRegistry(provider))
 
     let discoverCalled = false

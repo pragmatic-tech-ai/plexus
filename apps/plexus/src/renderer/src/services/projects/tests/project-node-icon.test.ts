@@ -1,7 +1,7 @@
 import { test, expect, describe, beforeEach, afterEach, vi } from 'vitest'
 import { Application } from '@pragmatic-tech-ai/mural/runtime'
 
-import { iconKeyForKind, KindToGeometry, __resetKindGeometryCache } from '../project-node-icon.js'
+import { iconKeyForKind, KindToGeometry, __resetKindGeometryCache } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-node-icon.js'
 
 // The leading glyph key each ProjectNodeKind maps to (resource keys registered
 // in plexus-icons.mu). 'folder' reuses the command-bar @Folder; the file kinds

@@ -1,4 +1,4 @@
-import { DiagnosticSeverity, type Diagnostic } from '../diagnostics/diagnostic.js'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { ProblemSeverity, type GetProblemsResult, type ProblemItem, type RefreshedProjectSummary } from '../../../../shared/agent-api.js'
 
 // The minimum an open project contributes to refresh targeting + summaries.

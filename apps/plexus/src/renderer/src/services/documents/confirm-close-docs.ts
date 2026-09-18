@@ -1,5 +1,5 @@
 import type { DialogService, DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
-import { promptSave, SavePromptResult } from '../dialogs/save-prompt-model.js'
+import { promptSave, SavePromptResult } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
 
 // Consolidated unsaved-changes gate for app quit. Returns true when it is safe to
 // proceed (no dirty docs, or the user chose Save All / Discard All) and false to

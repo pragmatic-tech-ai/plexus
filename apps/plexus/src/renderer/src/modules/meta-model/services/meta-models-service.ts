@@ -18,7 +18,7 @@ import {
 import { DialogService, type IActivatable } from '@pragmatic-tech-ai/mural/framework'
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ConfirmDialogModel } from '../../../services/dialogs/confirm-dialog-model.js'
+import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
 import { discoverLibraries, type LoadedLibrary } from '../../library/services/library-loader.js'
 import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'

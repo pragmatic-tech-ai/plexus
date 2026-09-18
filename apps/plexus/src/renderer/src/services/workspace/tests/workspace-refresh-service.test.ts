@@ -1,9 +1,9 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { WorkspaceRefreshService } from '../workspace-refresh-service.js'
-import { ProjectExplorerService } from '../../../modules/project-explorer/services/project-explorer-service.js'
-import { DiagnosticsService } from '../../diagnostics/diagnostics-service.js'
-import { DiagnosticSeverity } from '../../diagnostics/diagnostic.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { AgentEventKind, type AgentEvent, type GetProblemsResult, type RefreshProjectResult, type TaggedAgentEvent } from '../../../../../shared/agent-api.js'
 
 // Minimal fakes. onEvent captures the handler so the test can push events; the

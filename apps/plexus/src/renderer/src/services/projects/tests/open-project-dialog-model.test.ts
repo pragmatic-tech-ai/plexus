@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 
-import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import { OpenProjectDialogModel, type OpenProjectResult } from '../open-project-dialog-model.js'
-import type { RecentProject } from '../recent-projects-service.js'
+import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { OpenProjectDialogModel, type OpenProjectResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project-dialog-model.js'
+import type { RecentProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 

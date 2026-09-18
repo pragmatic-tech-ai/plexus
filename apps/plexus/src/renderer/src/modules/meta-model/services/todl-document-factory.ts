@@ -1,13 +1,13 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, type IDocument, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
 
-import type { IDocumentFactory, IRelocatableDocumentFactory } from '../../../services/documents/document-factory.js'
+import type { IDocumentFactory, IRelocatableDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../code-editor/code-document.js'
 import { StorageCodeFile } from '../../code-editor/code-file.js'
 import { TodlLanguageClient } from '../../../services/todl/todl-language-client.js'
-import { DiagnosticsService } from '../../../services/diagnostics/diagnostics-service.js'
-import { toEditorDiagnostic } from '../../../services/diagnostics/diagnostic.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { toEditorDiagnostic } from '../../code-editor/editor-diagnostic.js'
 
 // The `.todl` editor: a definition file is plain-text TODL edited in the Monaco
 // CodeEditor (a CodeDocument over the project's IStorage). Contributed as the

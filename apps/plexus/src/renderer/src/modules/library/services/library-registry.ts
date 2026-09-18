@@ -2,8 +2,8 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 
 import { ensureLibrariesBackend } from './libraries-backend.js'
 import { discoverLibraries, type LoadedLibrary, type LoadProblem } from './library-loader.js'
-import { DiagnosticsService } from '../../../services/diagnostics/diagnostics-service.js'
-import { DiagnosticSeverity, type Diagnostic } from '../../../services/diagnostics/diagnostic.js'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 
 const OWNER = 'libraries'
 

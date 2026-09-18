@@ -1,7 +1,7 @@
 import { ObservableCollection, RelayCommand, ServiceBase, ServiceKey, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { type IActivatable } from '@pragmatic-tech-ai/mural/framework'
 import { McpScope, type IMcpClientApi, type McpServerEntry } from '../../../../../shared/mcp-client-api.js'
-import { OpenProjectsStore } from '../../../services/projects/open-projects-store.js'
+import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
 import { McpServerRow } from './mcp-server-row.js'
 import { McpServerEditor } from './mcp-server-editor.js'
 import { McpImport } from './mcp-import.js'

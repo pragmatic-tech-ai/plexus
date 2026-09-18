@@ -4,7 +4,7 @@
 // central content host shows the resulting CompiledPackage.
 import PackageCompilerService from "./package-compiler-service.ts"
 
-module PackageCompilerModule [ Name = "Package Compiler" ] {
+shell module PackageCompilerModule [ Name = "Package Compiler" ] {
     .services: { PackageCompilerService }
 
     Capability [

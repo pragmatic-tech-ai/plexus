@@ -7,7 +7,7 @@
 // the connection list on the left, the selected connection's editor on the right.
 import ConnectionsManagerVM from "./connections-manager-vm.ts"
 
-module ConnectionsManagerModule [ Name = "Connections" ] {
+shell module ConnectionsManagerModule [ Name = "Connections" ] {
     .services: { ConnectionsManagerVM }
 
     Capability [

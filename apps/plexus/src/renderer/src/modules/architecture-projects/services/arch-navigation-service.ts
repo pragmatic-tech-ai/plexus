@@ -2,7 +2,7 @@ import { toElement, type Element, type Entity, type Repository } from '@pragmati
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { NavigationService, type NavigationDestination } from '@pragmatic-tech-ai/mural/framework'
 import { WikiOriginKind } from '../../../services/projects/wiki-origin.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
 import { collectScenarioFlow, type FlowEntity } from './scenario-flow.js'
 import type { ArchModel } from './arch-model.js'

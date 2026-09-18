@@ -9,8 +9,8 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { GetProblemsRequest, IAgentApi, RefreshProjectRequest } from '../../../../shared/agent-api.js'
 import { AgentEventKind } from '../../../../shared/agent-api.js'
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
-import { DiagnosticsService } from '../diagnostics/diagnostics-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { collectProblems, resolveOwningProject, summarizeProject, type OpenProjectRef } from './refresh-targets.js'
 
 export class WorkspaceRefreshService extends ServiceBase

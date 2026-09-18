@@ -5,11 +5,12 @@ import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
 import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
-import { ProjectExplorerService } from '../../../project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ArchitectureModelService } from '../architecture-model-service.js'
-import { Project, ProjectNode } from '../../../../services/projects/project.js'
-import { PROJECT_MANIFEST_FILENAME } from '../../../../services/projects/project-factory.js'
-import type { OpenProject } from '../../../../services/projects/open-project.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { readViewpoints } from '../arch-diagram-viewpoints-store.js'
@@ -34,7 +35,7 @@ async function scenario(seedScope?: string[]) {
     const model = buildModel(storage)
     const open = new ObservableCollection<IDocument>()
     const host = { OpenDocuments: open } as unknown as DocumentsContentHostService
-    const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', 'folder'))
+    const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     const op = { Project: project, Storage: storage } as unknown as OpenProject
     const explorer = { OpenProjects: new ObservableCollection<OpenProject>([op]) } as unknown as ProjectExplorerService
 

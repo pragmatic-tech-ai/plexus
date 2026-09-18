@@ -4,7 +4,7 @@ import { ToolboxRepository, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/m
 import { ToolboxService } from '../diagram-panel-services.js'
 import { ArchToolboxVisualKey } from '../arch-toolbox-item.js'
 import { ArchInstanceDropFactoryKey } from '../../../architecture-projects/services/arch-instance-drop-factory.js'
-import { StorageProviderRegistry } from '../../../../services/storage/storage-provider-registry.js'
+import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { META_MODELS_BACKEND_ID } from '../../../meta-model/services/meta-models-backend.js'
 import { LIBRARIES_BACKEND_ID } from '../../../library/services/libraries-backend.js'
@@ -44,11 +44,11 @@ class TestToolbox extends ToolboxService {
 
 function provider(seed: (mm: FakeStorage, lib: FakeStorage) => void): ServiceProvider {
   const p = new ServiceProvider()
-  const reg = new StorageProviderRegistry(p)
+  const reg = new StorageService(p)
   const mm = new FakeStorage('fake://meta-models'); const lib = new FakeStorage('fake://libraries')
   reg.Register(META_MODELS_BACKEND_ID, () => mm)
   reg.Register(LIBRARIES_BACKEND_ID, () => lib)
-  p.registerInstance(StorageProviderRegistry.Key, reg)
+  p.registerInstance(StorageService.Key, reg)
   seed(mm, lib)
   return p
 }

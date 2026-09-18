@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ChatStore, type StoredConversation } from '../chat-store.js'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/file-system-storage'
-import { EnvironmentService } from '../../../../services/environment/environment-service.js'
+import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { TranscriptRole } from '../transcript.js'
 
 function fakeFs() {

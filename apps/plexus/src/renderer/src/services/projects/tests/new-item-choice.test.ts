@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { RelayCommand } from '@pragmatic-tech-ai/mural/runtime'
-import { NewItemChoice } from '../new-item-choice.js'
+import { NewItemChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-item-choice.js'
 
 test('NewItemChoice exposes its label and runs its command', () => {
     let ran = false

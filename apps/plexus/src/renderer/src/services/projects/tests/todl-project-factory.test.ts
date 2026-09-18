@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { PROJECT_MANIFEST_FILENAME, type ProjectFileFormat, type ProjectManifestEnvelope } from '../project-factory.js'
-import type { BaseBindings } from '../base-binding.js'
+import { PROJECT_MANIFEST_FILENAME, type ProjectFileFormat, type ProjectManifestEnvelope } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import type { BaseBindings } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { TodlProjectFactory, isTodlProject, type ScaffoldFile } from '../todl-project-factory.js'
 
@@ -11,6 +11,9 @@ import { TodlProjectFactory, isTodlProject, type ScaffoldFile } from '../todl-pr
 // kind-mapping is exercised (.todl → 'todl', .diagram → 'diagram').
 class FakeFactory extends TodlProjectFactory
 {
+    public readonly typeId = 'fake'
+    public readonly title = 'Fake Project'
+    public readonly description = ''
     public readonly formats: readonly ProjectFileFormat[] = [
         { extension: '.diagram', kind: 'diagram', displayName: 'Diagram' },
         { extension: '.todl', kind: 'todl', displayName: 'TODL Definition' },
@@ -96,5 +99,5 @@ test('updateScaffold refreshes .claude docs, preserves CLAUDE.md, self-heals mis
 
 test('isTodlProject is true for a TodlProjectFactory subclass, false for a plain factory', () => {
     expect(isTodlProject(factory())).toBe(true)
-    expect(isTodlProject({ formats: [] } as unknown as import('../project-factory.js').IProjectFactory)).toBe(false)
+    expect(isTodlProject({ formats: [] } as unknown as import('@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js').IProjectFactory)).toBe(false)
 })

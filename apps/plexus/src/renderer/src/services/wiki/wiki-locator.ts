@@ -1,7 +1,7 @@
 import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ModelDraft, parse, type Repository, type SourceFile } from '@pragmatic-tech-ai/todl'
 
-import { ProjectExplorerService } from '../../modules/project-explorer/services/project-explorer-service.js'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { collectTodlSources } from '../todl/todl-sources.js'
 
 // The wiki page `path` a concept declares via `annotate wiki { path }`, read
