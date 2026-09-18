@@ -7,7 +7,7 @@
 // boot-observer pattern as DiagramCameraService/DiagramGuidesService), so it runs
 // from launch without anyone resolving it.
 
-module SaveModule [ Name = "Save" ] {
+shell module SaveModule [ Name = "Save" ] {
     .settings: {
         SettingDefinition
             [ Key         = "documents.autosave.enabled",

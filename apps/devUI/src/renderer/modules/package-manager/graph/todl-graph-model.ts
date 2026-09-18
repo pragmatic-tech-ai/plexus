@@ -34,7 +34,7 @@ export interface GraphViewSlice {
 
 type Scalar = string | number | boolean;
 
-interface RawNode { id: string; tier: string; typeOf: string; attrs: Record<string, Scalar>; }
+interface RawNode { id: string; tier: string; typeOf?: string; attrs: Record<string, Scalar>; }
 interface RawEdge { kind: string; via: string | null; from: string; to: string; }
 interface RawDocument { nodes: RawNode[]; edges: RawEdge[]; }
 
@@ -108,7 +108,7 @@ export class TodlGraphModel {
     return {
       id: node.id,
       label,
-      subtitle: nameById.get(node.typeOf) ?? node.typeOf,
+      subtitle: (node.typeOf !== undefined ? nameById.get(node.typeOf) : undefined) ?? node.typeOf ?? "",
       tier: TodlGraphModel.tierOf(node.tier),
     };
   }

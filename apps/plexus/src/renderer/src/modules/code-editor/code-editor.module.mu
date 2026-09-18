@@ -9,7 +9,7 @@
 
 import CodeDocumentFactory from "./code-document-factory.js"
 
-module CodeEditorModule [ Name = "Code Editor" ] {
+shell module CodeEditorModule [ Name = "Code Editor" ] {
     .services: {
         CodeDocumentFactory
     }

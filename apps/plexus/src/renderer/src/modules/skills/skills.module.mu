@@ -9,7 +9,7 @@
 
 import SkillAuthoringService from "./services/skill-authoring-service.js"
 
-module SkillsModule [ Name = "Skills" ] {
+shell module SkillsModule [ Name = "Skills" ] {
     .services: {
         SkillAuthoringService
     }

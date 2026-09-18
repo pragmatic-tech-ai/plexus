@@ -7,7 +7,8 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ArchitectureModelService } from '../architecture-model-service.js'
-import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
@@ -45,7 +46,7 @@ function diagramFor(projStorage: FakeStorage): DiagramDocument {
 function wire(projStorage: FakeStorage, model: ArchModel, type = 'architecture') {
     const open = new ObservableCollection<IDocument>()
     const host = { OpenDocuments: open } as unknown as DocumentsContentHostService
-    const project = new Project(type, 'Acme', projStorage.Root, new ProjectNode('Acme', '', 'folder'))
+    const project = new Project(type, 'Acme', projStorage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     const op = { Project: project, Storage: projStorage } as unknown as OpenProject
     const explorer = { OpenProjects: new ObservableCollection<OpenProject>([op]) } as unknown as ProjectExplorerService
     const modelSvc = { modelFor: async () => model } as unknown as ArchitectureModelService

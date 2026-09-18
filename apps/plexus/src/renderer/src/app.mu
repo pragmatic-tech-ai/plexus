@@ -36,6 +36,7 @@ import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 import DiagramModule from "./modules/diagram/diagram.module.mu.js"
 import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
+import ProjectFactoriesModule from "./modules/project-factories/project-factories.module.mu.js"
 import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
@@ -302,18 +303,16 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // collapsed. Root-registering makes EditorShell's has() guard share this
         // instance the shell region binds via $service(PanelDockService).
         PanelDockService
-        // Project-type registry (module .projectFactories → factories). Same
-        // root-scope reason as the content host: the generic ProjectExplorerService
-        // is a module (root-scoped) service, so it must reach the registry from
-        // root. EditorShell otherwise registers it shell-scoped — unreachable from
-        // root — which silently breaks New/Open Project (getRequired throws before
-        // any dialog shows). Registering here makes EditorShell's `has()` guard
-        // skip its shell registration and share this one.
-        ProjectFactoryRegistry
-        // Document-type registry (module .documents → editors). Root-registered
-        // for the same reason as ProjectFactoryRegistry: the root-scoped
-        // ProjectExplorerService resolves a file's editor (by extension) through
-        // it. Its constructor populates from module .documents: blocks.
+        // (The project-type registry is no longer registered here: it is the
+        // engine's IProjectFactoryRegistry, registered under ProjectFactoryRegistryKey
+        // by the basic ProjectFactoriesModule in `.modules:` below. Module services
+        // compose into the ROOT provider, so the root-scoped ProjectExplorerService
+        // reaches it — the same root-reachability the old app-level registration
+        // guaranteed.)
+        // Document-type registry (module .documents → editors). Root-registered so
+        // the root-scoped ProjectExplorerService resolves a file's editor (by
+        // extension) through it. Its constructor populates from module .documents:
+        // blocks.
         DocumentTypeRegistry
         ApplicationSettings
         // Code editor: opens files as Monaco-backed document tabs. Resolves the
@@ -413,6 +412,10 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         DiagramModule
         DiagramExportModule
         ArchitectureProjectsModule
+        // Basic engine module: the three project TYPES (factories) + the engine
+        // ProjectFactoryRegistry, under ProjectFactoryRegistryKey. Composed before
+        // ProjectExplorerModule so the registry is registered when the explorer resolves it.
+        ProjectFactoriesModule
         ProjectExplorerModule
         MetaModelModule
         LibraryModule

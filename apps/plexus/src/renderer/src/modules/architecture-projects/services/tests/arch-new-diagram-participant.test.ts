@@ -7,7 +7,8 @@ import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/render
 import { ArchitectureModelService } from '../architecture-model-service.js'
 import { ArchNewDiagramParticipant } from '../arch-new-diagram-participant.js'
 import { ARCH_VIEWPOINTS_KEY } from '../arch-diagram-viewpoints-store.js'
-import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import { ArchModel } from '../arch-model.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 
@@ -21,7 +22,7 @@ function buildModel(storage: FakeStorage): ArchModel {
     return new ArchModel(draft, storage, 'archmm')
 }
 function op(storage: FakeStorage, type = 'architecture'): OpenProject {
-    const project = new Project(type, 'Acme', storage.Root, new ProjectNode('Acme', '', 'folder'))
+    const project = new Project(type, 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     return { Project: project, Storage: storage } as unknown as OpenProject
 }
 // A fake DialogService whose Show immediately resolves `result` — standing in

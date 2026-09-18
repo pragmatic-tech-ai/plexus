@@ -12,7 +12,8 @@ import { TodlLanguageClient } from '../../todl/todl-language-client.js'
 import { WikiOriginKind } from '../wiki-origin.js'
 import { PROJECT_MANIFEST_FILENAME, ProducerKind, type IProjectFactory } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import type { IProducerProjectFactory } from '../producer-project-factory.js'
-import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { WorkspaceBaseResolver } from '../workspace-base-resolver.js'
 
@@ -39,7 +40,7 @@ async function openProject(
     const verKey = kind === 'meta-model' ? 'modelVersion' : 'libVersion'
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(
         { type: kind, id, [verKey]: version, ...bindings }))
-    return new OpenProject(new Project(kind, id, `C:/${id}`, new ProjectNode(id, '', 'folder')), factory, storage)
+    return new OpenProject(new Project(kind, id, `C:/${id}`, new ProjectNode(id, '', ProjectNodeKind.Folder)), factory, storage)
 }
 
 // A provider with published backends + a fake explorer holding the given projects.

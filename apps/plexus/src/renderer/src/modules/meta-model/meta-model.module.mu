@@ -8,32 +8,29 @@
 // it (validated live), and publish the compiled model + sources into the
 // meta-models storage backend.
 //
-// Mirrors the diagram module's contribution shape (see diagram.module.mu):
-// `.services:` registers the panel service + factory + doc factory, the
-// Capability names the panel service via `ServiceKey`, and `.projectFactories:`
-// routes a folder whose manifest type is "meta-model" to the factory via the
-// ProjectFactoryRegistry.
+// `.services:` registers the panel service + the `.todl` doc factory + the producer
+// seams; the Capability names the panel service via `ServiceKey`. The "meta-model"
+// project TYPE (MetaModelProjectFactory) now lives in the basic
+// ProjectFactoriesModule — this module keeps only its shell contributions.
 
 import MetaModelsService from "./services/meta-models-service.js"
-import MetaModelProjectFactory from "./services/meta-model-project-factory.js"
 import TodlDocumentFactory from "./services/todl-document-factory.js"
+import MuralPresentationBaker from "../../services/projects/mural-presentation-baker.js"
+import StorageServiceBackends from "../../services/projects/storage-service-backends.js"
 
-module MetaModelModule [ Name = "Meta-model" ] {
+shell module MetaModelModule [ Name = "Meta-model" ] {
     .services: {
         MetaModelsService
-        MetaModelProjectFactory
         TodlDocumentFactory
+        // The producer seams the relocated (todl) meta-model + library factories
+        // resolve at publish time — the mural-compiler presentation baker and the
+        // StorageService-backed producer backends. Registered here (app-global DI)
+        // so both producer factories find them under todl's ServiceKeys.
+        MuralPresentationBaker
+        StorageServiceBackends
     }
 
     Capability [ Name = "Meta-models", Icon = @MetaModels, ServiceKey = MetaModelsService ]
-
-    .projectFactories: {
-        ProjectFactoryDefinition
-            [ Type        = "meta-model",
-              Title       = "Meta-model Project",
-              Description = "Author and validate TODL meta-model definitions.",
-              Factory     = MetaModelProjectFactory ]
-    }
 
     // The `.todl` editor — resolved by the ProjectExplorerService for open/save/
     // new of any `.todl` file (in any project). Factory is TodlDocumentFactory.

@@ -6,7 +6,7 @@
 
 import SvgDocumentFactory from "./svg-document-factory.js"
 
-module SvgEditorModule [ Name = "SVG Editor" ] {
+shell module SvgEditorModule [ Name = "SVG Editor" ] {
     .services: {
         SvgDocumentFactory
     }

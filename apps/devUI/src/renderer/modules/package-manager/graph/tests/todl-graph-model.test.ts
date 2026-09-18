@@ -68,6 +68,12 @@ test("slices to admitted tiers and drops edges whose endpoints were filtered out
   assert.equal(slice.edges[0]?.kind, "Relationship");
 });
 
+test("gives a node with no typeOf an empty subtitle rather than undefined", () => {
+  const doc = { nodes: [{ id: "#r0", tier: "Meta", attrs: { name: "root" } }], edges: [] };
+  const node = new TodlGraphModel(JSON.stringify(doc)).Nodes[0];
+  assert.equal(node?.subtitle, "");
+});
+
 test("degrades a non-graph document to empty", () => {
   const m = new TodlGraphModel(JSON.stringify({ foo: "bar" }));
   assert.equal(m.Nodes.length, 0);

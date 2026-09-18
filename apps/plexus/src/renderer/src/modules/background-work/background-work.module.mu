@@ -5,7 +5,7 @@
 import BackgroundWorkService from "./services/background-work-service.js"
 import BackgroundWorkServiceKey from "./services/background-work-service.js"
 
-module BackgroundWorkModule [ Name = "Background Work" ] {
+shell module BackgroundWorkModule [ Name = "Background Work" ] {
     .ShellControls: {
         ShellControlDefinition
             [ Template    = @BackgroundWorkDock,

@@ -3,9 +3,9 @@
 // It owns the set of OPEN projects + orchestrates open/create/close/save, but
 // knows nothing about diagrams or file formats: it reads a folder's manifest
 // envelope (project.plexus → `type`), routes to the matching factory via the
-// framework's ProjectFactoryRegistry, and delegates. A module contributes a
-// project type by declaring a `.projectFactories:` entry whose Factory resolves
-// to an IProjectFactory (see the diagram module's DiagramProjectFactory).
+// engine's IProjectFactoryRegistry (ProjectFactoryRegistryKey), and delegates. A
+// module contributes a project type by registering a self-describing
+// IProjectFactory (typeId/title/description) that the registry enumerates.
 //
 // Several projects can be open at once: each is an OpenProject (its own factory
 // + storage + tree + per-project commands), rendered as a tree root. Uniform
@@ -30,7 +30,6 @@ import {
     ContentHostService,
     DialogService,
     DocumentTypeRegistry,
-    ProjectFactoryRegistry,
     type DocumentsContentHostService,
     type IDocument,
 } from '@pragmatic-tech-ai/mural/framework'
@@ -42,6 +41,7 @@ import {
     isPublishable,
     canGeneratePresentation,
     isVersioned,
+    ProjectFactoryRegistryKey,
     type IProjectFactory,
     type ProjectFileFormat,
     type ProjectManifestEnvelope,
@@ -1251,20 +1251,17 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         return undefined
     }
 
-    // One selectable choice per registered project-type factory (Title +
-    // Description straight from the ProjectFactoryDefinition). RequiresMetaModel
-    // is read from the resolved factory so the dialog knows to show the picker.
+    // One selectable choice per installed factory — the factory is self-describing
+    // (typeId / title / description), and requiresMetaModel / offersLibraries drive
+    // whether the dialog shows the meta-model picker / libraries multi-select.
     private typeChoices(): ProjectTypeChoice[]
     {
-        return this.Provider.getRequired(ProjectFactoryRegistry.Key)
-            .Definitions.ToArray()
-            .map((d) => {
-                const factory = this.resolveFactory(d.Type)
-                return new ProjectTypeChoice(
-                    d.Type, d.Title, d.Description,
-                    factory?.requiresMetaModel ?? false,
-                    factory?.offersLibraries ?? false)
-            })
+        return this.Provider.getRequired(ProjectFactoryRegistryKey)
+            .All()
+            .map((f) => new ProjectTypeChoice(
+                f.typeId, f.title, f.description,
+                f.requiresMetaModel ?? false,
+                f.offersLibraries ?? false))
     }
 
     // The published meta-models offered by the New-Project meta-model picker —
@@ -1294,13 +1291,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
 
     private resolveFactory(type: string): IProjectFactory | undefined
     {
-        const def = this.Provider.getRequired(ProjectFactoryRegistry.Key).GetByType(type)
-        if (def?.Factory === undefined) return undefined
-        // `Factory` holds the service class (from `Factory = DiagramProjectFactory`
-        // in the .projectFactories block), but the module registers it under its
-        // static `.Key` (tokenFor). Normalize class → .Key so the lookup matches.
-        const token = ServiceProvider.tokenFor(def.Factory as unknown as new (...args: never[]) => IProjectFactory)
-        return this.Provider.get(token) as IProjectFactory | undefined
+        return this.Provider.getRequired(ProjectFactoryRegistryKey).factoryFor(type)
     }
 
     // Resolve the editor for a file extension via the framework DocumentTypeRegistry.

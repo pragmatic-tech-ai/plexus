@@ -40,7 +40,6 @@ import DevUiWindowChrome from "./window/devui-window.resources.mu"
 import HomeModule from "./modules/home/home.module.mu"
 import PackageManagerModule from "./modules/package-manager/package-manager.module.mu"
 import PackageCompilerModule from "./modules/package-compiler/package-compiler.module.mu"
-import SolutionModule from "./modules/solution/solution.module.mu"
 import ConnectionsManagerModule from "./modules/connections/connections.module.mu"
 
 // Shell chrome (custom ViewerShell template) + shared icon dictionary + per-
@@ -50,7 +49,6 @@ import AppIcons from "./app-icons.mu"
 import HomeResources from "./modules/home/home.resources.mu"
 import PackageManagerResources from "./modules/package-manager/package-manager.resources.mu"
 import PackageCompilerResources from "./modules/package-compiler/package-compiler.resources.mu"
-import SolutionResources from "./modules/solution/solution.resources.mu"
 import ConnectionsResources from "./modules/connections/connections.resources.mu"
 
 Application [ Theme = Material, Scheme = MaterialDark ] {
@@ -73,11 +71,11 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         HomeModule
         PackageManagerModule
         PackageCompilerModule
-        // Solution Studio: binds the prompt-service + storage-registry seams the
-        // solution engine resolves. Composed before SolutionModule so the
-        // presentation panel's manager finds them on first activation.
+        // Solution Studio (plexus-core): the Solution Explorer panel + rail
+        // capability. Its engine seams come from SolutionStudioSeams.Register (main.ts)
+        // + SolutionServicesRegistration; the engine itself from SolutionServicesEngine.
+        // The module carries its own view resources (auto-merged on compose).
         SolutionStudioModule
-        SolutionModule
         // The registry connections manager (create/edit/remove/test connections).
         ConnectionsManagerModule
         // Shared window chrome: registers TitleService + merges the title-bar
@@ -91,7 +89,6 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         merge HomeResources
         merge PackageManagerResources
         merge PackageCompilerResources
-        merge SolutionResources
         merge ConnectionsResources
         // devUI's brand mark + File-menu items, filled into the shared strip.
         merge DevUiWindowChrome

@@ -4,7 +4,8 @@ import { load, toJSON } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchitectureModelService } from '../architecture-model-service.js'
 
@@ -14,7 +15,7 @@ const MM = `namespace archmm {
 }`
 
 function fakeOpenProject(storage: FakeStorage): OpenProject {
-    const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', 'folder'))
+    const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     return { Project: project, Storage: storage } as unknown as OpenProject
 }
 

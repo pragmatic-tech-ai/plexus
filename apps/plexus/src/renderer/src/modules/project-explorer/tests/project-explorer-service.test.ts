@@ -1,13 +1,19 @@
 import { test, expect } from 'vitest'
 import { Key, ServiceProvider, type KeyEventArgs } from '@pragmatic-tech-ai/mural/runtime'
-import { ContentHostService, DialogService, DocumentsContentHostService, DocumentTypeRegistry, ProjectFactoryRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
+import { ContentHostService, DialogService, DocumentsContentHostService, DocumentTypeRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
-import { Project, ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { Project, ProjectNode as DataProjectNode, ProjectNodeKind, ProjectFactoryRegistryKey } from '@pragmatic-tech-ai/todl'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+
+// Build a todl DATA node (what a factory returns); the explorer projects it into a
+// VM ProjectNode tree (op.Root). Tests fetch VM nodes back from op.Root by name.
+const dnode = (name: string, path: string, kind: 'folder' | 'todl' | 'file' | 'diagram'): DataProjectNode =>
+    new DataProjectNode(name, path, kind as unknown as ProjectNodeKind)
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
 import { PROJECT_MANIFEST_FILENAME, type IProjectFactory, type IPublishableProjectFactory, type IPresentationProjectFactory, type IVersionedProjectFactory, type ProjectFileFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { VersionPart } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
@@ -49,6 +55,7 @@ function fakeDocFactory(rec: Rec): IDocumentFactory & IRelocatableDocumentFactor
 function fakeProjectFactory(publishable = true): IProjectFactory
 {
     const base: IProjectFactory = {
+        typeId: 'todl', title: 'Test Project', description: '',
         formats: [{ extension: '.todl', kind: 'todl', displayName: 'TODL Definition' }],
         createProject: async (_s, name) => projectWith(name, 'C:/x'),
         openProject: async () => projectWith('P', 'C:/x'),
@@ -61,8 +68,8 @@ function fakeProjectFactory(publishable = true): IProjectFactory
 
 function projectWith(name: string, folder: string): Project
 {
-    const root = new ProjectNode(name, '', 'folder')
-    root.Children.Add(new ProjectNode('core.todl', 'core.todl', 'todl'))
+    const root = dnode(name, '', 'folder')
+    root.Children.Add(dnode('core.todl', 'core.todl', 'todl'))
     return new Project('meta-model', name, folder, root)
 }
 
@@ -73,12 +80,12 @@ function projectWith(name: string, folder: string): Project
 function scanningFactory(): IProjectFactory
 {
     const scan = async (storage: FakeStorage): Promise<Project> => {
-        const root = new ProjectNode('proj', '', 'folder')
-        const populate = async (node: ProjectNode): Promise<void> => {
+        const root = dnode('proj', '', 'folder')
+        const populate = async (node: DataProjectNode): Promise<void> => {
             for (const e of await storage.List(node.Path)) {
                 if (node.Path === '' && e.Name === PROJECT_MANIFEST_FILENAME) continue
                 const childPath = node.Path === '' ? e.Name : `${node.Path}/${e.Name}`
-                const child = new ProjectNode(e.Name, childPath, e.IsDirectory ? 'folder' : (e.Name.endsWith('.todl') ? 'todl' : 'file'))
+                const child = dnode(e.Name, childPath, e.IsDirectory ? 'folder' : (e.Name.endsWith('.todl') ? 'todl' : 'file'))
                 node.Children.Add(child)
                 if (e.IsDirectory) await populate(child)
             }
@@ -87,6 +94,7 @@ function scanningFactory(): IProjectFactory
         return new Project('meta-model', 'A', storage.Root, root)
     }
     return {
+        typeId: 'meta-model', title: 'Meta-model', description: '',
         formats: [{ extension: '.todl', kind: 'todl', displayName: 'TODL Definition' }],
         createProject: async (s) => scan(s as FakeStorage),
         openProject: async (s) => scan(s as FakeStorage),
@@ -363,7 +371,7 @@ test('CreateProject targets a subfolder named after the project inside the chose
     const { service, occupied, created, provider } = makeExplorer()
     // No factory for the type → createProjectAt bails cleanly after the subfolder
     // is created; we only assert the subfolder (location/name) was the target.
-    provider.registerInstance(ProjectFactoryRegistry.Key, { GetByType: () => undefined } as unknown as ProjectFactoryRegistry)
+    provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => undefined, All: () => [] })
     // Parent occupied, subfolder free → not refused for the manifest reason.
     occupied.add('C:/loc')
     const outcome = await service.CreateProject({ type: 'diagram', name: 'My App', location: 'C:/loc' })
@@ -489,7 +497,7 @@ test('RestoreSession reopens folders that exist and prunes missing ones', async 
     // A fake factory registry (the real one's ctor needs the ApplicationService).
     // GetByType returns undefined → C:/a is opened-attempted but its type has no
     // factory, so it's kept (not pruned); only manifest-less C:/b is pruned.
-    provider.registerInstance(ProjectFactoryRegistry.Key, { GetByType: () => undefined } as unknown as ProjectFactoryRegistry)
+    provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => undefined, All: () => [] })
     await storageFor('C:/a').WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'unregistered' }))
 
     await store.Add('C:/a')
@@ -689,6 +697,7 @@ test('New File in a subfolder is created and opened under that folder', async ()
 function twoFormatFactory(): IProjectFactory
 {
     return {
+        typeId: 'diagram', title: 'Two Format', description: '',
         formats: [
             { extension: '.diagram', kind: 'diagram', displayName: 'Diagram' },
             { extension: '.todl',    kind: 'todl',    displayName: 'TODL Definition' },
@@ -725,8 +734,8 @@ test('a folder node is wired to create inside itself (container-aware)', async (
     const { priv } = makeExplorer()
     const storage = new FakeStorage('C:/a')
     await storage.CreateDirectory('src')
-    const root = new ProjectNode('A', '', 'folder')
-    root.Children.Add(new ProjectNode('src', 'src', 'folder'))
+    const root = dnode('A', '', 'folder')
+    root.Children.Add(dnode('src', 'src', 'folder'))
     const op = await priv.addOpenProject(new Project('meta-model', 'A', 'C:/a', root), fakeProjectFactory(), storage)
 
     const folder = op.Root.Children.ToArray().find((n) => n.Kind === 'folder')!
@@ -901,11 +910,11 @@ test('importFilters lists each format plus an All-files catch-all', () => {
 // that need multiple siblings and a nested file.
 function projectWithTree(folder: string): Project
 {
-    const root = new ProjectNode('A', '', 'folder')
-    root.Children.Add(new ProjectNode('a.todl', 'a.todl', 'todl'))
-    root.Children.Add(new ProjectNode('b.todl', 'b.todl', 'todl'))
-    const src = new ProjectNode('src', 'src', 'folder')
-    src.Children.Add(new ProjectNode('c.todl', 'src/c.todl', 'todl'))
+    const root = dnode('A', '', 'folder')
+    root.Children.Add(dnode('a.todl', 'a.todl', 'todl'))
+    root.Children.Add(dnode('b.todl', 'b.todl', 'todl'))
+    const src = dnode('src', 'src', 'folder')
+    src.Children.Add(dnode('c.todl', 'src/c.todl', 'todl'))
     root.Children.Add(src)
     return new Project('meta-model', 'A', folder, root)
 }
@@ -1103,24 +1112,39 @@ test('moveNodesAcross skips a target collision, leaving source intact', async ()
     expect(service.Status).toMatch(/exist/i)
 })
 
-// Build a small tree: root / [ src(folder)/[a.todl], m.todl ] on FakeStorage.
-async function projectTree(folder: string): Promise<{ project: Project; storage: FakeStorage; src: ProjectNode; a: ProjectNode; m: ProjectNode }> {
+// Build a small tree: root / [ src(folder)/[a.todl], m.todl ] on FakeStorage. Returns
+// the DATA project + storage; a test opens it and fetches the VM nodes it needs from
+// op.Root by name (the explorer projects the data tree into the VM tree — see `vm`).
+async function projectTree(folder: string): Promise<{ project: Project; storage: FakeStorage }> {
     const storage = new FakeStorage(folder)
     await storage.WriteText('src/a.todl', 'a')
     await storage.WriteText('m.todl', 'm')
-    const root = new ProjectNode('P', '', 'folder')
-    const src = new ProjectNode('src', 'src', 'folder')
-    const a = new ProjectNode('a.todl', 'src/a.todl', 'todl')
-    src.Children.Add(a)
-    const m = new ProjectNode('m.todl', 'm.todl', 'todl')
-    root.Children.Add(src); root.Children.Add(m)
-    return { project: new Project('meta-model', 'P', folder, root), storage, src, a, m }
+    const root = dnode('P', '', 'folder')
+    const src = dnode('src', 'src', 'folder')
+    src.Children.Add(dnode('a.todl', 'src/a.todl', 'todl'))
+    root.Children.Add(src); root.Children.Add(dnode('m.todl', 'm.todl', 'todl'))
+    return { project: new Project('meta-model', 'P', folder, root), storage }
+}
+
+// Fetch a VM node from an open project's tree by project-relative path (the VM tree
+// the explorer projected from the data scan). Depth-first; throws if absent.
+function vm(op: OpenProject, path: string): ProjectNode {
+    const find = (n: ProjectNode): ProjectNode | undefined => {
+        if (n.Path === path) return n
+        for (const c of n.Children.ToArray()) { const hit = find(c); if (hit !== undefined) return hit }
+        return undefined
+    }
+    const found = find(op.Root)
+    if (found === undefined) throw new Error(`no VM node at "${path}"`)
+    return found
 }
 
 test('rename updates the node in place — the tree is NOT rebuilt', async () => {
     const { priv } = makeExplorer()
-    const { project, storage, src, a } = await projectTree('C:/p')
+    const { project, storage } = await projectTree('C:/p')
     const op = await priv.addOpenProject(project, fakeProjectFactory(), storage)
+    const src = vm(op, 'src')
+    const a = vm(op, 'src/a.todl')
 
     const rootBefore = op.Root
     const childrenBefore = op.Root.Children
@@ -1146,8 +1170,9 @@ test('rename updates the node in place — the tree is NOT rebuilt', async () =>
 
 test('rename re-sorts the node within its parent when the position changes', async () => {
     const { priv } = makeExplorer()
-    const { project, storage, m } = await projectTree('C:/p')
+    const { project, storage } = await projectTree('C:/p')
     const op = await priv.addOpenProject(project, fakeProjectFactory(), storage)
+    const m = vm(op, 'm.todl')
 
     // 'm.todl' → 'a2.todl' should sort before 'src'? No — folders sort first, so
     // among the two files/folder it lands after the 'src' folder but the file
@@ -1165,8 +1190,10 @@ test('rename re-sorts the node within its parent when the position changes', asy
 
 test('delete detaches the node in place — the tree is NOT rebuilt', async () => {
     const { priv } = makeExplorer()   // confirm defaults to true
-    const { project, storage, src, m } = await projectTree('C:/p')
+    const { project, storage } = await projectTree('C:/p')
     const op = await priv.addOpenProject(project, fakeProjectFactory(), storage)
+    const src = vm(op, 'src')
+    const m = vm(op, 'm.todl')
 
     const rootBefore = op.Root
     const childrenBefore = op.Root.Children
@@ -1250,9 +1277,9 @@ test('Import commands are wired on the project and on each node', async () => {
 // explorer-export wiring (only diagram nodes get the Export submenu).
 function projectWithDiagram(folder: string): Project
 {
-    const root = new ProjectNode('A', '', 'folder')
-    root.Children.Add(new ProjectNode('flow.diagram', 'flow.diagram', 'diagram'))
-    root.Children.Add(new ProjectNode('core.todl', 'core.todl', 'todl'))
+    const root = dnode('A', '', 'folder')
+    root.Children.Add(dnode('flow.diagram', 'flow.diagram', 'diagram'))
+    root.Children.Add(dnode('core.todl', 'core.todl', 'todl'))
     return new Project('diagram', 'A', folder, root)
 }
 

@@ -1,7 +1,7 @@
 import { Observable, RelayCommand, ObservableCollection, type ICommand, type IServiceProvider } from "@pragmatic-tech-ai/mural/runtime";
 import { NavigationService, ContentHostService, type IActivatable } from "@pragmatic-tech-ai/mural/framework";
 import { SolutionManagerService } from "@pragmatic-tech-ai/todl";
-import { SolutionExplorerService } from "../solution/solution-explorer-service.js";
+import { SolutionExplorerService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio";
 import { RecentSolutionVM } from "./recent-solution-vm.js";
 
 // The Home capability's backing service — the app's welcome/landing page. It is

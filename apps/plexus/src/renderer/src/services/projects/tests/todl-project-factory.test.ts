@@ -11,6 +11,9 @@ import { TodlProjectFactory, isTodlProject, type ScaffoldFile } from '../todl-pr
 // kind-mapping is exercised (.todl → 'todl', .diagram → 'diagram').
 class FakeFactory extends TodlProjectFactory
 {
+    public readonly typeId = 'fake'
+    public readonly title = 'Fake Project'
+    public readonly description = ''
     public readonly formats: readonly ProjectFileFormat[] = [
         { extension: '.diagram', kind: 'diagram', displayName: 'Diagram' },
         { extension: '.todl', kind: 'todl', displayName: 'TODL Definition' },

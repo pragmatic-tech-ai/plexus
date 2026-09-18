@@ -1,15 +1,22 @@
 import { MetaData, MuralBase, ObservableCollection, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
+import { type ProjectNode as TodlProjectNode } from '@pragmatic-tech-ai/todl'
 
 import { NewItemChoice } from './new-item-choice.js'
 
-// A project and its file tree — the generic, host-owned model a project
-// factory populates. `Project` and `ProjectNode` are Models so the explorer's
-// TreeView binds them directly (Name/Kind per item, Children for expansion).
+// The DATA model — a project and its file tree — now lives in todl (the headless
+// engine); `Project` is re-exported from there. `ProjectNode` below is the UI
+// VIEW-MODEL the explorer's TreeView binds (Name/Kind per item, Children for
+// expansion) PLUS the per-node commands / rename-editor state the host wires. The
+// explorer projects the todl data tree into this VM tree via ProjectNode.FromData
+// and keeps it reconciled on rescans (see OpenProject.Adopt).
+export { Project } from '@pragmatic-tech-ai/todl'
 
 // What a tree node represents. 'diagram' and 'todl' are files the active factory
 // opens in-app (each is a factory format kind — the explorer routes any node
 // whose kind matches a declared format to openFile); 'file' is any other
-// attachment (opened via the OS); 'folder' groups.
+// attachment (opened via the OS); 'folder' groups. Mirrors todl's ProjectNodeKind
+// enum values; kept as a string union here so the explorer's `Kind === 'folder'`
+// comparisons and the row templates stay unchanged.
 export type ProjectNodeKind = 'folder' | 'diagram' | 'todl' | 'file'
 
 export class ProjectNode extends MuralBase
@@ -89,6 +96,17 @@ export class ProjectNode extends MuralBase
         this.set_property_value(ProjectNode.DataKey, this)
     }
 
+    // Project a todl DATA node (and its subtree) into a UI view-model node. The
+    // Kind values match todl's ProjectNodeKind enum; the cast keeps this VM's
+    // string-union Kind (which the templates + explorer compare against literals)
+    // without threading the enum type through every consumer.
+    public static FromData(node: TodlProjectNode): ProjectNode
+    {
+        const vm = new ProjectNode(node.Name, node.Path, node.Kind as unknown as ProjectNodeKind)
+        for (const child of node.Children.ToArray()) vm.Children.Add(ProjectNode.FromData(child))
+        return vm
+    }
+
     public get Data(): ProjectNode { return this.get_property_value(ProjectNode.DataKey) }
 
     public get Name(): string { return this.get_property_value(ProjectNode.NameKey) }
@@ -140,27 +158,4 @@ export class ProjectNode extends MuralBase
     public set ExportPptxCommand(v: ICommand | undefined) { this.set_property_value(ProjectNode.ExportPptxCommandKey, v) }
     public get HasExport(): boolean { return this.get_property_value(ProjectNode.HasExportKey) }
     public set HasExport(v: boolean) { this.set_property_value(ProjectNode.HasExportKey, v) }
-}
-
-export class Project extends MuralBase
-{
-    static readonly NameKey = MuralBase.RegisterProperty<string>(Project, 'Name', '', MetaData.None)
-    static readonly TypeKey = MuralBase.RegisterProperty<string>(Project, 'Type', '', MetaData.None)
-    static readonly RootPathKey = MuralBase.RegisterProperty<string>(Project, 'RootPath', '', MetaData.None)
-    static readonly RootKey = MuralBase.RegisterProperty<ProjectNode>(
-        Project, 'Root', undefined as unknown as ProjectNode, MetaData.None)
-
-    constructor(type: string, name: string, rootPath: string, root: ProjectNode)
-    {
-        super()
-        this.set_property_value(Project.TypeKey, type)
-        this.set_property_value(Project.NameKey, name)
-        this.set_property_value(Project.RootPathKey, rootPath)
-        this.set_property_value(Project.RootKey, root)
-    }
-
-    public get Name(): string { return this.get_property_value(Project.NameKey) }
-    public get Type(): string { return this.get_property_value(Project.TypeKey) }
-    public get RootPath(): string { return this.get_property_value(Project.RootPathKey) }
-    public get Root(): ProjectNode { return this.get_property_value(Project.RootKey) }
 }

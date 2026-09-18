@@ -4,8 +4,10 @@ import {
   type IProjectFactoryRegistry,
   type IProjectFactory,
 } from "@pragmatic-tech-ai/todl";
+import { SolutionWorkspaceHostKey } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio";
 import { RegistryClient } from "../../services/registry/registry-client.js";
 import { IpcPackageSource } from "./ipc-package-source.js";
+import { RegistrySolutionWorkspaceHost } from "./registry-solution-workspace-host.js";
 import { TodlPackageProjectFactory, TODL_PACKAGE_TYPE } from "./todl-package-project-factory.js";
 
 // Resolves a project type id to the factory that opens it. This app ships one
@@ -16,17 +18,20 @@ export class TodlProjectFactoryRegistry implements IProjectFactoryRegistry {
   public factoryFor(typeId: string): IProjectFactory | undefined {
     return typeId === TODL_PACKAGE_TYPE ? this.todlPackage : undefined;
   }
+
+  public All(): readonly IProjectFactory[] {
+    return [this.todlPackage];
+  }
 }
 
-// Registers the APP-SPECIFIC host seams the SolutionManagerService resolves by
-// key — the ones only this app knows: which project types it opens
-// (TodlProjectFactoryRegistry) and how it resolves Domain packages
-// (IpcPackageSource, over the main-side registry bridge). The GENERIC seams — the
-// user-decision prompt service and the storage-provider registry — are supplied
-// by the SolutionServicesStudio module (plexus-core); the engine services
-// themselves (SolutionManagerService + settings) come from SolutionServicesEngine
-// (a plain IModule in @pragmatic-tech-ai/todl, added imperatively from main.ts).
-// This installs only the app's own host knowledge at the composition root.
+// Registers the APP-SPECIFIC solution seams — the ones only this app knows:
+//   • the project-factory registry (which project types it opens),
+//   • the Domain package source (IpcPackageSource, over the main-side registry), and
+//   • the Solution Explorer's workspace host (folder pick / connection list / member
+//     compile / connection routing — the plexus-core panel's ISolutionWorkspaceHost).
+// The generic seams (prompt service, storage-provider registry) come from
+// SolutionStudioSeams (plexus-core); the engine services themselves from
+// SolutionServicesEngine (@pragmatic-tech-ai/todl, added imperatively from main.ts).
 export class SolutionServicesRegistration {
   public static Register(services: IServiceContainer): void {
     services.register(
@@ -36,6 +41,13 @@ export class SolutionServicesRegistration {
     services.register(
       SolutionManagerService.PackageSourceKey,
       (p) => new IpcPackageSource(p.getRequired(RegistryClient)),
+    );
+    services.register(
+      SolutionWorkspaceHostKey,
+      (p) => new RegistrySolutionWorkspaceHost(
+        p.getRequired(RegistryClient),
+        p.getRequired(SolutionManagerService.PackageSourceKey) as IpcPackageSource,
+      ),
     );
   }
 }

@@ -1,4 +1,4 @@
-import { type IProjectFactory } from "@pragmatic-tech-ai/todl";
+import { type IProjectFactory, type Project } from "@pragmatic-tech-ai/todl";
 import { type IStorage } from "@pragmatic-tech-ai/todl-runtime";
 
 // The project TYPE id a solution member carries to route back to this factory
@@ -22,18 +22,30 @@ export class TodlPackageProject {
 // manifest + .todl sources as a proper project the SolutionManager can open,
 // create, and save via IStorage.
 export class TodlPackageProjectFactory implements IProjectFactory {
-    async createProject(storage: IStorage, name: string): Promise<unknown> {
+    // Self-describing type metadata (§ IProjectFactory). typeId is the manifest
+    // routing id; title/description feed a New-Project gallery.
+    readonly typeId = TODL_PACKAGE_TYPE
+    readonly title = "TODL Package"
+    readonly description = "A publishable TODL package (compiled model + sources)."
+    readonly formats = []
+
+    // The IProjectFactory contract types these as todl `Project`. A todl-package
+    // member is a lightweight TodlPackageProject (name + storage) — the solution flow
+    // only ever reads Name/Storage — so we return it through the Project contract via
+    // a cast; the runtime value is unchanged (the devUI tests still see a
+    // TodlPackageProject).
+    async createProject(storage: IStorage, name: string): Promise<Project> {
         await storage.WriteText(MANIFEST_FILE, TodlPackageProjectFactory.manifestJson(name))
-        return new TodlPackageProject(name, storage)
+        return new TodlPackageProject(name, storage) as unknown as Project
     }
 
-    async openProject(storage: IStorage): Promise<unknown> {
+    async openProject(storage: IStorage): Promise<Project> {
         const raw = JSON.parse(await storage.ReadText(MANIFEST_FILE)) as { name?: unknown }
         const name = typeof raw.name === "string" ? raw.name : "Package"
-        return new TodlPackageProject(name, storage)
+        return new TodlPackageProject(name, storage) as unknown as Project
     }
 
-    async saveProject(project: unknown, storage: IStorage): Promise<void> {
+    async saveProject(project: Project, storage: IStorage): Promise<void> {
         const name = project instanceof TodlPackageProject ? project.Name : "Package"
         await storage.WriteText(MANIFEST_FILE, TodlPackageProjectFactory.manifestJson(name))
     }

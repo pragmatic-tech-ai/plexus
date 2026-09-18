@@ -12,21 +12,22 @@ import {
   type SolutionSettingBag,
 } from "@pragmatic-tech-ai/todl";
 import type { PackageRef } from "@pragmatic-tech-ai/todl/domain";
-import { RegistryClient } from "../../services/registry/registry-client.js";
-import { StorageService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage";
+import { StorageService } from "../storage/index.js";
 import { ConnectionBag } from "./connection-bag.js";
 import { ConnectionLabels } from "./connection-labels.js";
-import { IpcPackageSource } from "./ipc-package-source.js";
 import { SolutionCommandsVM } from "./solution-commands-vm.js";
+import { type ISolutionWorkspaceHost, SolutionWorkspaceHostKey } from "./solution-workspace-host.js";
 
-// The Solution Explorer capability's backing service (app-side presentation over
-// the package's UI-agnostic SolutionManagerService). It:
+// The Solution Explorer capability's backing service — the presentation over the
+// package's UI-agnostic SolutionManagerService. It:
 //   • contributes the cross-project CONNECTION setting bag (which registry
 //     connection the solution's members compile/compose against);
 //   • projects the active solution into bindable view state — a New/Open/Save
 //     toolbar, the member/folder tree, and the connection picker.
-// The manager's host services are registered separately (SolutionServicesRegistration,
-// installed from the bootstrap) and resolved by the manager from the container.
+// Every app-specific operation (folder picking, the connection list, member
+// compilation, connection routing) is resolved through ISolutionWorkspaceHost, so
+// this service — and the whole Solution presentation — carries no registry or IPC
+// knowledge and lives in plexus-core. The host (devUI) supplies the seam impl.
 export class SolutionExplorerService extends ServiceBase implements IActivatable {
   private _title = "No solution open";
   private _hasSolution = false;
@@ -44,8 +45,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
   get HasSolution(): boolean { return this._hasSolution; }
   get Commands(): SolutionCommandsVM { return this._commands; }
   get TreeRoots(): ObservableCollection<SolutionMemberNodeVM> { return this._treeRoots; }
-  // The registry connections a solution can be assigned to (display labels from
-  // the Connections manager), and the one this solution uses for compose/resolve.
+  // The registry connections a solution can be assigned to (display labels), and
+  // the one this solution uses for compose/resolve.
   get Connections(): ObservableCollection<string> { return this._connections; }
   get SelectedConnection(): string | undefined { return this._selectedConnection; }
   set SelectedConnection(v: string | undefined) {
@@ -62,8 +63,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
   private readonly manager: SolutionManagerService;
   private readonly settings: SolutionSettingsRegistry;
   private readonly storageRegistry: StorageService;
-  private readonly registry: RegistryClient;
-  private readonly packageSource: IpcPackageSource;
+  private readonly workspace: ISolutionWorkspaceHost;
   private tree: SolutionTreeVM | undefined; // hold a ref so its VMs aren't GC'd
 
   constructor(provider: IServiceProvider) {
@@ -71,10 +71,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     this.manager = provider.getRequired(SolutionManagerService.Key);
     this.settings = provider.getRequired(SolutionSettingsRegistry.Key);
     this.storageRegistry = provider.getRequired(StorageService.Key);
-    this.registry = provider.getRequired(RegistryClient);
-    // The same IpcPackageSource singleton the manager resolves for Compose — we
-    // point it at the solution's assigned connection.
-    this.packageSource = provider.getRequired(SolutionManagerService.PackageSourceKey) as IpcPackageSource;
+    this.workspace = provider.getRequired(SolutionWorkspaceHostKey);
 
     const old = this._commands;
     this._commands = new SolutionCommandsVM({
@@ -85,7 +82,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     });
     this.RaisePropertyChanged("Commands", old, this._commands);
 
-    // The cross-project setting bag this app offers: the solution's connection.
+    // The cross-project setting bag this presentation offers: the solution's connection.
     ConnectionBag.contribute(this.settings);
 
     // Re-project whenever the active solution changes.
@@ -94,23 +91,23 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
   OnActivated(): void { this.refresh(); }
 
-  // Public so the Home welcome page can drive the same flows (New/Open) and then
+  // Public so a Home / welcome page can drive the same flows (New/Open) and then
   // navigate the user to this capability.
   public async NewSolution(): Promise<void> {
-    const dir = await this.registry.pickDirectory();
-    if (dir.length === 0) return; // canceled
+    const dir = await this.workspace.PickSolutionFolder();
+    if (dir === undefined) return; // canceled
     await this.manager.NewSolution(dir);
     this.bindBags();
     this.refresh();
   }
 
   public async OpenSolution(): Promise<void> {
-    const dir = await this.registry.pickDirectory();
-    if (dir.length === 0) return;
+    const dir = await this.workspace.PickSolutionFolder();
+    if (dir === undefined) return;
     await this.OpenSolutionAt(dir);
   }
 
-  // Open a solution at a known folder (no picker) — used by the recent list.
+  // Open a solution at a known folder (no picker) — used by a recent list.
   public async OpenSolutionAt(dir: string): Promise<void> {
     await this.manager.OpenSolution(dir);
     this.bindBags();
@@ -121,10 +118,10 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     await this.manager.Save();
   }
 
-  // Compile every member (registering each into the main-side local package
-  // store) to obtain its package id + version, then compose those refs into one
-  // Domain and surface the cross-project diagnostics. Public so the Home page or
-  // a command can drive it. A member that fails to COMPILE is reported here; a
+  // Compile every member (registering each into the local package store via the
+  // host) to obtain its package id + version, then compose those refs into one
+  // Domain and surface the cross-project diagnostics. Public so a Home page or a
+  // command can drive it. A member that fails to COMPILE is reported here; a
   // member that compiles but fails to LOAD/bind is reported by Compose.
   public async ComposeSolution(): Promise<void> {
     const session = this.manager.ActiveSolution;
@@ -134,12 +131,12 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     const compileErrors: string[] = [];
     for (const member of session.Members.ToArray()) {
       const dir = SolutionExplorerService.joinOs(session.Storage.Root, member.Ref.path);
-      const view = await this.registry.compileDir(dir);
-      if (!view.ok || view.id === undefined || view.version === undefined) {
-        compileErrors.push(`${member.Ref.path} failed to compile (${view.diagnostics.length} diagnostic(s))`);
+      const result = await this.workspace.CompileMember(dir);
+      if (!result.Ok || result.Id === undefined || result.Version === undefined) {
+        compileErrors.push(`${member.Ref.path} failed to compile (${result.DiagnosticCount} diagnostic(s))`);
         continue;
       }
-      members.push({ model: view.id, version: view.version });
+      members.push({ model: result.Id, version: result.Version });
     }
     const composed = await this.manager.Compose(members);
     const total = compileErrors.length + composed.length;
@@ -183,11 +180,11 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     void this.loadConnections();
   }
 
-  // Fill the connection picker from the Connections manager (unique display
-  // labels), then select the one this solution has persisted — WITHOUT re-persisting.
+  // Fill the connection picker from the host (unique display labels), then select
+  // the one this solution has persisted — WITHOUT re-persisting.
   private async loadConnections(): Promise<void> {
-    const views = await this.registry.listConnections();
-    this.labels = new ConnectionLabels(views.map((v) => ({ id: v.id, name: v.name })));
+    const views = await this.workspace.ListConnections();
+    this.labels = new ConnectionLabels(views.map((v) => ({ id: v.Id, name: v.Name })));
     this._connections.Clear();
     for (const label of this.labels.labels) this._connections.Add(label);
     const persistedId = this.connectionBag()?.Get(ConnectionBag.ConnectionIdKey);
@@ -205,13 +202,13 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     const old = this._selectedConnection;
     this._selectedConnection = label;
     if (old !== label) this.RaisePropertyChanged("SelectedConnection", old, label);
-    this.packageSource.SetConnection(this.labels.idForLabel(label));
+    this.workspace.SetActiveConnection(this.labels.idForLabel(label));
   }
 
   // Persist the chosen connection id into the solution + point the package source
   // at it, so Compose resolves this solution's members from that registry.
   private assignConnection(id: string | undefined): void {
-    this.packageSource.SetConnection(id);
+    this.workspace.SetActiveConnection(id);
     this.connectionBag()?.Set(ConnectionBag.ConnectionIdKey, id ?? "");
   }
 

@@ -2,6 +2,7 @@ import { MetaData, MuralBase, ObservableCollection, type ICommand, type Property
 
 import type { IProjectFactory } from './project-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import type { ProjectNode as TodlProjectNode } from '@pragmatic-tech-ai/todl'
 import { ProjectNode, type Project } from './project.js'
 import { NewItemChoice } from './new-item-choice.js'
 import type { ProjectMenuChoice } from './project-menu-choice.js'
@@ -101,7 +102,8 @@ export class OpenProject extends MuralBase
         this.factory = factory
         this.storage = storage
         this.set_property_value(OpenProject.NameKey, project.Name)
-        this.set_property_value(OpenProject.RootKey, project.Root)
+        // `project` is the todl DATA project; the tree binds a VM projection of it.
+        this.set_property_value(OpenProject.RootKey, ProjectNode.FromData(project.Root))
     }
 
     // Activate the node the tree just selected — run its OpenCommand (wired by
@@ -205,15 +207,16 @@ export class OpenProject extends MuralBase
     public get Folder(): string { return this.project.RootPath }
 }
 
-// Update `existing`'s Children subtree to match `fresh`'s IN PLACE, keyed by each
-// node's project-relative Path (its stable identity). Mutating the same
-// ObservableCollection the TreeView observes is what makes the change appear (see
-// OpenProject.Adopt). Done INCREMENTALLY — only added/removed rows change — so a
-// rescan does not churn the whole tree: a matched child keeps its instance and is
-// recursed into, preserving unchanged folders' expansion. Both child lists come
-// from the same sorted scan, so survivors stay in fresh's relative order and a new
-// node just lands at its index.
-function reconcileChildren(existing: ProjectNode, fresh: ProjectNode): void
+// Update `existing`'s (VM) Children subtree to match `fresh`'s (the todl DATA node
+// from a rescan) IN PLACE, keyed by each node's project-relative Path (its stable
+// identity). Mutating the same ObservableCollection the TreeView observes is what
+// makes the change appear (see OpenProject.Adopt). Done INCREMENTALLY — only
+// added/removed rows change — so a rescan does not churn the whole tree: a matched
+// child keeps its VM instance and is recursed into, preserving unchanged folders'
+// expansion; a new data child is projected to a VM (ProjectNode.FromData) and
+// inserted at its index. Both lists come from the same sorted scan, so survivors
+// stay in fresh's relative order.
+function reconcileChildren(existing: ProjectNode, fresh: TodlProjectNode): void
 {
     const freshList = fresh.Children.ToArray()
     const freshPaths = new Set(freshList.map((c) => c.Path))
@@ -224,7 +227,7 @@ function reconcileChildren(existing: ProjectNode, fresh: ProjectNode): void
     freshList.forEach((child, i) =>
     {
         const kept = byPath.get(child.Path)
-        if (kept === undefined) existing.Children.Insert(i, child)
+        if (kept === undefined) existing.Children.Insert(i, ProjectNode.FromData(child))
         else reconcileChildren(kept, child)
     })
 }

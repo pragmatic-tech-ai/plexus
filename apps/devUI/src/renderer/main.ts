@@ -6,6 +6,7 @@ import { app } from "./app.mu";
 import { HtmlTarget } from "@pragmatic-tech-ai/mural/visual-engine";
 import { NavigationService, ContentHostService, DialogService } from "@pragmatic-tech-ai/mural/framework";
 import { SolutionServicesEngine } from "@pragmatic-tech-ai/todl";
+import { SolutionStudioSeams } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio";
 import { SolutionServicesRegistration } from "./modules/solution/solution-services.js";
 import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome";
 
@@ -42,8 +43,14 @@ app.Services.register(DialogService.Key, (p) => new DialogService(p));
 // resolves whenever it is first constructed.
 app.AddModule(SolutionServicesEngine);
 
-// The APP-SPECIFIC host seams the SolutionManagerService resolves by key (project
-// factory + package source) — the host knowledge only this app has.
+// The GENERIC engine host seams a Plexus shell supplies — the prompt service
+// (over DialogService) + the storage-provider registry (aliasing StorageService).
+// The Solution Studio module (in app.mu's .modules) owns the panel + capability.
+SolutionStudioSeams.Register(app.Services);
+
+// The APP-SPECIFIC seams the SolutionManagerService + the panel resolve by key —
+// the project factory, the Domain package source, and the workspace host (folder
+// pick / connections / member compile) — the host knowledge only this app has.
 SolutionServicesRegistration.Register(app.Services);
 
 await document.fonts.ready;

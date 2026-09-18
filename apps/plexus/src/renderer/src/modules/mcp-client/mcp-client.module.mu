@@ -8,7 +8,7 @@
 
 import McpServersService from "./services/mcp-servers-service.js"
 
-module McpClientModule [ Name = "McpClient" ] {
+shell module McpClientModule [ Name = "McpClient" ] {
     .services: {
         McpServersService
     }

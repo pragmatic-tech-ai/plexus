@@ -1,8 +1,17 @@
-// SolutionServicesStudio — the presentation-band host services for the solution
-// engine (`@pragmatic-tech-ai/todl`'s SolutionServicesEngine), packaged as a shell
-// module. A Mural/Plexus app lists `SolutionStudioModule` in its `.modules:` block
-// to bind the prompt-service + storage-registry seams the engine resolves; the
-// app loads the engine module (services) imperatively alongside. `DialogPromptService`
-// is exported for hosts that compose the prompt seam themselves.
-export { SolutionStudioModule } from './solution-studio-module.js';
+// SolutionServicesStudio — the presentation-band solution capability for the
+// solution engine (`@pragmatic-tech-ai/todl`'s SolutionServicesEngine), packaged as
+// a shell module. A Mural/Plexus app lists `SolutionStudioModule` in its `.modules:`
+// block (the Solution Explorer panel + rail capability), merges SolutionStudioResources,
+// calls `SolutionStudioSeams.Register` to bind the generic engine host seams (prompt +
+// storage), and supplies an `ISolutionWorkspaceHost` impl (folder pick, connections,
+// member compile) under SolutionWorkspaceHostKey.
+export { SolutionStudioModule } from './solution-studio.module.mu.js';
+export { SolutionStudioSeams } from './solution-studio-seams.js';
+export { SolutionExplorerService } from './solution-explorer-service.js';
 export { DialogPromptService } from './dialog-prompt-service.js';
+export {
+  type ISolutionWorkspaceHost,
+  type SolutionConnection,
+  type MemberCompileResult,
+  SolutionWorkspaceHostKey,
+} from './solution-workspace-host.js';

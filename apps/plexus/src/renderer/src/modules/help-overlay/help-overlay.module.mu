@@ -5,7 +5,7 @@
 
 import HelpDocumentStore from "./help-document-store.js"
 
-module HelpOverlayModule [ Name = "Help" ] {
+shell module HelpOverlayModule [ Name = "Help" ] {
     .services: {
         HelpDocumentStore
     }
