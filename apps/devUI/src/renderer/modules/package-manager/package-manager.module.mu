@@ -6,7 +6,7 @@
 // app root) from the provider.
 import PackageManagerService from "./package-manager-service.ts"
 
-module PackageManagerModule [ Name = "Package Manager" ] {
+shell module PackageManagerModule [ Name = "Package Manager" ] {
     .services: { PackageManagerService }
 
     Capability [

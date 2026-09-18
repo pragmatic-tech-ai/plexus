@@ -1,14 +1,9 @@
 import { type IServiceContainer } from "@pragmatic-tech-ai/mural/runtime";
-import { DialogService } from "@pragmatic-tech-ai/mural/framework";
 import {
   SolutionManagerService,
-  type IStorageProviderRegistry,
   type IProjectFactoryRegistry,
-  type IDiscardConfirmer,
   type IProjectFactory,
 } from "@pragmatic-tech-ai/todl";
-import { StorageService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage";
-import { ConfirmDialog } from "../../services/dialogs/confirm-dialog.js";
 import { RegistryClient } from "../../services/registry/registry-client.js";
 import { IpcPackageSource } from "./ipc-package-source.js";
 import { TodlPackageProjectFactory, TODL_PACKAGE_TYPE } from "./todl-package-project-factory.js";
@@ -23,40 +18,20 @@ export class TodlProjectFactoryRegistry implements IProjectFactoryRegistry {
   }
 }
 
-// Prompts to discard unsaved solution changes via the app's Mural dialog. Keeps
-// the SolutionManagerService UI-agnostic — the dialog copy + DialogService stay
-// on the app side of the IDiscardConfirmer interface.
-export class DialogDiscardConfirmer implements IDiscardConfirmer {
-  constructor(private readonly dialogs: DialogService) {}
-
-  public confirmDiscard(): Promise<boolean> {
-    return ConfirmDialog.show(this.dialogs, {
-      title: "Discard changes?",
-      message: "The current solution has unsaved changes. Discard them?",
-      confirmLabel: "Discard",
-    });
-  }
-}
-
-// Registers the real host services the SolutionManagerService resolves by key:
-// the local storage backend registry, the project-factory registry, and the
-// discard-confirm dialog. Replaces the former SolutionSeams lambda bag with
-// DI-resolved services (no seam object). Owned by the solution module — this
-// app's host knowledge (which storage backend, which project type, the dialog
-// copy) stays here, not in the generic bootstrap.
+// Registers the APP-SPECIFIC host seams the SolutionManagerService resolves by
+// key — the ones only this app knows: which project types it opens
+// (TodlProjectFactoryRegistry) and how it resolves Domain packages
+// (IpcPackageSource, over the main-side registry bridge). The GENERIC seams — the
+// user-decision prompt service and the storage-provider registry — are supplied
+// by the SolutionServicesStudio module (plexus-core); the engine services
+// themselves (SolutionManagerService + settings) come from SolutionServicesEngine
+// (a plain IModule in @pragmatic-tech-ai/todl, added imperatively from main.ts).
+// This installs only the app's own host knowledge at the composition root.
 export class SolutionServicesRegistration {
   public static Register(services: IServiceContainer): void {
     services.register(
-      SolutionManagerService.StorageRegistryKey,
-      (p): IStorageProviderRegistry => p.getRequired(StorageService.Key),
-    );
-    services.register(
       SolutionManagerService.ProjectFactoryRegistryKey,
       (): IProjectFactoryRegistry => new TodlProjectFactoryRegistry(),
-    );
-    services.register(
-      SolutionManagerService.DiscardConfirmerKey,
-      (p): IDiscardConfirmer => new DialogDiscardConfirmer(p.getRequired(DialogService.Key)),
     );
     services.register(
       SolutionManagerService.PackageSourceKey,

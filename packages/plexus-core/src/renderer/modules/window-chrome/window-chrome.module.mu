@@ -20,7 +20,7 @@
 // the drag affordance, the Window Controls Overlay draws the buttons).
 import TitleService from "./title-service.js"
 
-module PragmaticWindowChrome {
+shell module PragmaticWindowChrome {
     .services: {
         TitleService
     }

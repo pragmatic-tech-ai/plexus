@@ -9,7 +9,7 @@
 
 import ProjectExplorerService from "./services/project-explorer-service.js"
 
-module ProjectExplorerModule [ Name = "Project Explorer" ] {
+shell module ProjectExplorerModule [ Name = "Project Explorer" ] {
     .services: {
         ProjectExplorerService
     }

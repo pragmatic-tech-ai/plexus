@@ -27,6 +27,11 @@ import TitleSourceKey from "@pragmatic-tech-ai/plexus-core/renderer/modules/wind
 // (native file system via window.api.fs) + StorageService (the universal storage
 // front door, seeded with the local-FS provider). Resolved via StorageService.Key.
 import Storage from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage"
+// Solution Studio (plexus-core) — the presentation-band host seams for the
+// solution engine: the DialogService-backed prompt service + the StorageService
+// storage-registry alias, bound to the SolutionManagerService keys. The engine
+// services themselves are added imperatively in main.ts (SolutionServicesEngine).
+import SolutionStudioModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio"
 import DevUiTitleSource from "./window/devui-title-source.ts"
 import DevUiWindowCommands from "./window/devui-window-commands.ts"
 import DevUiWindowChrome from "./window/devui-window.resources.mu"
@@ -68,6 +73,10 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         HomeModule
         PackageManagerModule
         PackageCompilerModule
+        // Solution Studio: binds the prompt-service + storage-registry seams the
+        // solution engine resolves. Composed before SolutionModule so the
+        // presentation panel's manager finds them on first activation.
+        SolutionStudioModule
         SolutionModule
         // The registry connections manager (create/edit/remove/test connections).
         ConnectionsManagerModule
