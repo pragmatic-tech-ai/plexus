@@ -208,7 +208,7 @@ export class PackageManagerService extends ServiceBase implements IActivatable
             const roots = this.Roots;
             roots.Clear();
             for (const conn of connections)
-                roots.Add(TreeNodeVM.lazy(conn.name, () => this.loadPackages(conn.id)));
+                roots.Add(TreeNodeVM.lazy(conn.DisplayName, () => this.loadPackages(conn.Id)));
             this.loaded = true;
             this.setStatus(
                 connections.length === 0 ? 'No connections. Add one in the Connections view.' : '',

@@ -43,6 +43,7 @@ const ALIASES = [
   // package-manager moved under dist/engine/ (the src/engine restructure); this
   // specific rule must precede the generic todl/* map, which would otherwise point
   // at the removed dist/package-manager.
+  { find: /^@pragmatic-tech-ai\/todl\/package-manager\/connections$/, replacement: `${TODL}/dist/engine/package-manager/engine/registry-connection.js` },
   { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/engine/package-manager/index.js` },
   { find: /^@pragmatic-tech-ai\/todl\/(.*)$/, replacement: `${TODL}/dist/$1` },
   { find: /^@pragmatic-tech-ai\/todl$/, replacement: `${TODL}/dist/index.js` },

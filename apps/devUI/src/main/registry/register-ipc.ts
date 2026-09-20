@@ -4,8 +4,8 @@
  * MUST match the preload surface (`preload/index.ts`).
  */
 import type { IpcMain } from "electron";
+import type { ConnectionSpec } from "@pragmatic-tech-ai/todl/package-manager";
 import type { RegistryBridge } from "./registry-bridge.js";
-import type { ConnectionInput } from "./registry-connection.js";
 
 // One entry in a directory listing (design: the compiler side-pane folder tree).
 // `path` is the absolute child path (joined main-side) so the renderer never
@@ -42,8 +42,8 @@ export class RegistryIpc
     ipcMain.handle("registry:deleteAllVersions", (_e, name: string, connectionId?: string) => bridge.deleteAllVersions(name, connectionId));
     ipcMain.handle("registry:bumpVersion", (_e, dir: string) => bridge.bumpVersion(dir));
     ipcMain.handle("connections:list", () => bridge.listConnections());
-    ipcMain.handle("connections:add", (_e, input: ConnectionInput) => bridge.addConnection(input));
-    ipcMain.handle("connections:update", (_e, id: string, partial: Partial<ConnectionInput>) => bridge.updateConnection(id, partial));
+    ipcMain.handle("connections:add", (_e, spec: ConnectionSpec) => bridge.addConnection(spec));
+    ipcMain.handle("connections:update", (_e, id: string, partial: Partial<ConnectionSpec>) => bridge.updateConnection(id, partial));
     ipcMain.handle("connections:remove", (_e, id: string) => bridge.removeConnection(id));
     ipcMain.handle("connections:setToken", (_e, id: string, token: string) => bridge.setConnectionToken(id, token));
     ipcMain.handle("connections:useEnvToken", (_e, id: string, name: string) => bridge.useConnectionEnvToken(id, name));

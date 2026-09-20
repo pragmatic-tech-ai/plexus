@@ -4,9 +4,11 @@ import type {
   InstalledPackage,
   ResolvedClosure,
   PackageContents,
+  ConnectionView,
+  ConnectionSpec,
 } from "@pragmatic-tech-ai/todl/package-manager";
 import type { PackageSource, CompileResultView } from "../main/registry/registry-bridge.js";
-import type { ConnectionView, ConnectionInput, ConnectionTestResult } from "../main/registry/registry-connection.js";
+import type { ConnectionTestResult } from "../main/registry/registry-connection.js";
 import type { DirEntry } from "../main/registry/register-ipc.js";
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
 
@@ -30,8 +32,8 @@ export interface TodlBridge {
   };
   connections: {
     list(): Promise<ConnectionView[]>;
-    add(input: ConnectionInput): Promise<ConnectionView>;
-    update(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined>;
+    add(spec: ConnectionSpec): Promise<ConnectionView>;
+    update(id: string, partial: Partial<ConnectionSpec>): Promise<ConnectionView | undefined>;
     remove(id: string): Promise<void>;
     setToken(id: string, token: string): Promise<void>;
     useEnvToken(id: string, name: string): Promise<void>;

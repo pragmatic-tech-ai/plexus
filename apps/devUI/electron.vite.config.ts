@@ -32,6 +32,7 @@ function depFile(rel: string): string
 // to its concrete built entry.
 const TODL_DIST = resolve(dirname(depFile("@pragmatic-tech-ai/todl/package.json")), "dist");
 const todlAliases = [
+  { find: /^@pragmatic-tech-ai\/todl\/package-manager\/connections$/, replacement: resolve(TODL_DIST, "engine/package-manager/engine/registry-connection.js") },
   { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: resolve(TODL_DIST, "engine/package-manager/index.js") },
   { find: /^@pragmatic-tech-ai\/todl\/domain$/, replacement: resolve(TODL_DIST, "domain/index.js") },
   { find: /^@pragmatic-tech-ai\/todl\/language-server$/, replacement: resolve(TODL_DIST, "language-server/index.js") },

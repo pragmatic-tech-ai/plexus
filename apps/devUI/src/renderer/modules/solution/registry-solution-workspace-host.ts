@@ -28,7 +28,7 @@ export class RegistrySolutionWorkspaceHost implements ISolutionWorkspaceHost
   async ListConnections(): Promise<readonly SolutionConnection[]>
   {
     const views = await this.registry.listConnections();
-    return views.map((v) => ({ Id: v.id, Name: v.name }));
+    return views.map((v) => ({ Id: v.Id, Name: v.DisplayName }));
   }
 
   async CompileMember(absDir: string): Promise<MemberCompileResult>

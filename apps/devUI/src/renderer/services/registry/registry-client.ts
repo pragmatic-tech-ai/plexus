@@ -17,10 +17,12 @@ import type {
   ResolvedClosure,
   PackageSource,
   PackageContents,
+  ConnectionView,
+  ConnectionSpec,
 } from "@pragmatic-tech-ai/todl/package-manager";
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
 import type { CompileResultView } from "../../../main/registry/registry-bridge.js";
-import type { ConnectionView, ConnectionInput, ConnectionTestResult } from "../../../main/registry/registry-connection.js";
+import type { ConnectionTestResult } from "../../../main/registry/registry-connection.js";
 import type { DirEntry } from "../../../main/registry/register-ipc.js";
 import type { TodlBridge } from "../../env.js";
 
@@ -103,11 +105,11 @@ export class RegistryClient
   {
     return this.bridge().connections.list();
   }
-  addConnection(input: ConnectionInput): Promise<ConnectionView>
+  addConnection(spec: ConnectionSpec): Promise<ConnectionView>
   {
-    return this.bridge().connections.add(input);
+    return this.bridge().connections.add(spec);
   }
-  updateConnection(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined>
+  updateConnection(id: string, partial: Partial<ConnectionSpec>): Promise<ConnectionView | undefined>
   {
     return this.bridge().connections.update(id, partial);
   }

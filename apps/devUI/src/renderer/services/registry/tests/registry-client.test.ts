@@ -43,13 +43,13 @@ test("versions/getPackage/resolveClosure forward their arguments", async () => {
 });
 
 test("connection CRUD + token ops forward to the connections namespace", async () => {
-  stubWindow({ "connections.list": () => Promise.resolve([{ id: "gh", name: "GitHub" }]) });
+  stubWindow({ "connections.list": () => Promise.resolve([{ Id: "gh", DisplayName: "GitHub" }]) });
   const client = new RegistryClient();
-  assert.deepEqual(await client.listConnections(), [{ id: "gh", name: "GitHub" }]);
+  assert.deepEqual(await client.listConnections(), [{ Id: "gh", DisplayName: "GitHub" }]);
   await client.setConnectionToken("gh", "ghp_x");
-  await client.updateConnection("gh", { org: "acme" });
+  await client.updateConnection("gh", { Settings: { org: "acme" } });
   await client.testConnection("gh");
   assert.deepEqual(calls.map((c) => c[0]), ["connections.list", "setToken", "update", "test"]);
   assert.deepEqual(calls[1]![1], ["gh", "ghp_x"]);
-  assert.deepEqual(calls[2]![1], ["gh", { org: "acme" }]);
+  assert.deepEqual(calls[2]![1], ["gh", { Settings: { org: "acme" } }]);
 });

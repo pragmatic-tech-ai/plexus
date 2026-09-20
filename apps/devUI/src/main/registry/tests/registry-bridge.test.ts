@@ -155,28 +155,28 @@ test("listConnections reports the seeded connection + hasToken; setConnectionTok
   const bridge = await ready(makeBridge());
   let conns = await bridge.listConnections();
   assert.equal(conns.length, 1);
-  assert.equal(conns[0]!.name, "GitHub Packages");
-  assert.equal(conns[0]!.scope, "@pragmatic-tech-ai");
-  assert.equal(conns[0]!.isDefault, true);
-  assert.equal(conns[0]!.hasToken, false);
+  assert.equal(conns[0]!.DisplayName, "GitHub Packages");
+  assert.equal(conns[0]!.Settings["scope"], "@pragmatic-tech-ai");
+  assert.equal(conns[0]!.IsDefault, true);
+  assert.equal(conns[0]!.HasToken, false);
   assert.ok(!("token" in conns[0]!)); // token value never crosses the bridge
-  await bridge.setConnectionToken(conns[0]!.id, "ghp_x");
+  await bridge.setConnectionToken(conns[0]!.Id, "ghp_x");
   conns = await bridge.listConnections();
-  assert.equal(conns[0]!.hasToken, true);
-  assert.equal(conns[0]!.tokenSource, "stored");
+  assert.equal(conns[0]!.HasToken, true);
+  assert.equal(conns[0]!.TokenSource, "stored");
 });
 
 test("useConnectionEnvToken: hasToken reflects process.env, never the value", async () => {
   const bridge = await ready(makeBridge({ env: { GH_PAT: "ghp_fromenv" } }));
-  const id = (await bridge.listConnections())[0]!.id;
+  const id = (await bridge.listConnections())[0]!.Id;
   await bridge.useConnectionEnvToken(id, "GH_PAT");
   let view = (await bridge.listConnections())[0]!;
-  assert.equal(view.tokenSource, "env");
-  assert.equal(view.tokenEnvVar, "GH_PAT");
-  assert.equal(view.hasToken, true);
+  assert.equal(view.TokenSource, "env");
+  assert.equal(view.TokenEnvVar, "GH_PAT");
+  assert.equal(view.HasToken, true);
   await bridge.useConnectionEnvToken(id, "NOPE");
   view = (await bridge.listConnections())[0]!;
-  assert.equal(view.hasToken, false);
+  assert.equal(view.HasToken, false);
 });
 
 test("listEnvVars returns sorted defined env keys", async () => {
@@ -186,20 +186,20 @@ test("listEnvVars returns sorted defined env keys", async () => {
 
 test("updateConnection is reflected in the connection view", async () => {
   const bridge = await ready(makeBridge());
-  const id = (await bridge.listConnections())[0]!.id;
-  await bridge.updateConnection(id, { org: "acme" });
-  assert.equal((await bridge.listConnections())[0]!.org, "acme");
+  const id = (await bridge.listConnections())[0]!.Id;
+  await bridge.updateConnection(id, { Settings: { org: "acme" } });
+  assert.equal((await bridge.listConnections())[0]!.Settings["org"], "acme");
 });
 
 test("testConnection returns ok + package count on success", async () => {
   const bridge = await ready(makeBridge({ transport: new InMemoryNpm(200, ["a", "b"]) }));
-  const id = (await bridge.listConnections())[0]!.id;
+  const id = (await bridge.listConnections())[0]!.Id;
   assert.deepEqual(await bridge.testConnection(id), { ok: true, count: 2 });
 });
 
 test("testConnection surfaces the error message on failure (e.g. 401)", async () => {
   const bridge = await ready(makeBridge({ transport: new InMemoryNpm(401) }));
-  const id = (await bridge.listConnections())[0]!.id;
+  const id = (await bridge.listConnections())[0]!.Id;
   const result = await bridge.testConnection(id);
   assert.equal(result.ok, false);
   assert.match(result.message ?? "", /401/);

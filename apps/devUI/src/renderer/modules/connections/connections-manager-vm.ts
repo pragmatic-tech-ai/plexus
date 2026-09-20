@@ -7,7 +7,7 @@ import {
 } from "@pragmatic-tech-ai/mural/runtime";
 import { ContentHostService, type IActivatable } from "@pragmatic-tech-ai/mural/framework";
 import { RegistryClient } from "../../services/registry/registry-client.js";
-import { TokenSource } from "../../../main/registry/registry-connection.js";
+import { TokenSource } from "@pragmatic-tech-ai/todl/package-manager/connections";
 import { ConnectionVM, type ConnectionHost } from "./connection-vm.js";
 
 // The Connections capability's backing service — the manager for the registry
@@ -91,16 +91,20 @@ export class ConnectionsManagerVM extends Observable implements IActivatable, Co
   private async newConnection(): Promise<void>
   {
     const created = await this.client.addConnection({
-      name: "New connection",
-      registry: "https://npm.pkg.github.com",
-      scope: "@scope",
-      org: "org",
-      githubApi: "https://api.github.com",
-      tokenSource: TokenSource.Stored,
-      tokenEnvVar: "",
+      Id: "",
+      DisplayName: "New connection",
+      RegistryType: "npm",
+      Settings: {
+        registry: "https://npm.pkg.github.com",
+        scope: "@scope",
+        org: "org",
+        githubApi: "https://api.github.com",
+      },
+      TokenSource: TokenSource.Stored,
+      TokenEnvVar: "",
     });
     await this.refresh();
-    this.Selected = this.Connections.ToArray().find((c) => c.Id === created.id) ?? this._selected;
+    this.Selected = this.Connections.ToArray().find((c) => c.Id === created.Id) ?? this._selected;
   }
 
   private setStatus(v: string): void

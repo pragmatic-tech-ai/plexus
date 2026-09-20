@@ -1,7 +1,13 @@
 import { Observable, RelayCommand, ObservableCollection, type ICommand } from "@pragmatic-tech-ai/mural/runtime";
 import type { RegistryClient } from "../../services/registry/registry-client.js";
-import type { ConnectionView } from "../../../main/registry/registry-connection.js";
-import { TokenSource } from "../../../main/registry/registry-connection.js";
+import { TokenSource, type ConnectionView } from "@pragmatic-tech-ai/todl/package-manager/connections";
+
+// The npm connection Settings keys (mirrors NpmConnectionFactory) — the flat
+// bindable fields read/write the connection spec's Settings dict under these.
+const REGISTRY_KEY = "registry";
+const SCOPE_KEY = "scope";
+const ORG_KEY = "org";
+const GITHUB_API_KEY = "githubApi";
 
 /** What a ConnectionVM needs back from its owning manager: refresh the list after
  *  a mutation, and remove a connection by id. */
@@ -65,17 +71,17 @@ export class ConnectionVM extends Observable
   )
   {
     super();
-    this.Id = view.id;
-    this._name = view.name;
-    this._registry = view.registry;
-    this._scope = view.scope;
-    this._org = view.org;
-    this._githubApi = view.githubApi;
-    this._tokenEnvVar = view.tokenEnvVar;
-    this._tokenSource = view.tokenSource;
-    this._authMode = view.tokenSource === TokenSource.Env ? AuthMode.Env : AuthMode.Token;
-    this._hasToken = view.hasToken;
-    this._isDefault = view.isDefault;
+    this.Id = view.Id;
+    this._name = view.DisplayName;
+    this._registry = view.Settings[REGISTRY_KEY] ?? "";
+    this._scope = view.Settings[SCOPE_KEY] ?? "";
+    this._org = view.Settings[ORG_KEY] ?? "";
+    this._githubApi = view.Settings[GITHUB_API_KEY] ?? "";
+    this._tokenEnvVar = view.TokenEnvVar;
+    this._tokenSource = view.TokenSource;
+    this._authMode = view.TokenSource === TokenSource.Env ? AuthMode.Env : AuthMode.Token;
+    this._hasToken = view.HasToken;
+    this._isDefault = view.IsDefault;
 
     // Seed the env-var picker: the live process vars, plus the saved value if it
     // isn't among them (so a ComboBox SelectedItem = TokenEnvVar still resolves).
@@ -154,11 +160,13 @@ export class ConnectionVM extends Observable
   private async save(): Promise<void>
   {
     await this.client.updateConnection(this.Id, {
-      name: this._name,
-      registry: this._registry,
-      scope: this._scope,
-      org: this._org,
-      githubApi: this._githubApi,
+      DisplayName: this._name,
+      Settings: {
+        [REGISTRY_KEY]: this._registry,
+        [SCOPE_KEY]: this._scope,
+        [ORG_KEY]: this._org,
+        [GITHUB_API_KEY]: this._githubApi,
+      },
     });
     this.setStatus("Saved.");
     await this.host.refresh();

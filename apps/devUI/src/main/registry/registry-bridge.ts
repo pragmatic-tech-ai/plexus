@@ -12,9 +12,8 @@ import { join } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   PackageRegistryClient,
-  TokenSource as EngineTokenSource,
   type PackageManagerService,
-  type ConnectionView as EngineConnectionView,
+  type ConnectionView,
   type ConnectionSpec,
   type PackageRef,
   type VersionList,
@@ -26,7 +25,7 @@ import {
   type LocalPackageStore,
 } from "@pragmatic-tech-ai/todl/package-manager";
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
-import { TokenSource, type ConnectionView, type ConnectionInput, type ConnectionTestResult } from "./registry-connection.js";
+import type { ConnectionTestResult } from "./registry-connection.js";
 
 /** The subset of the per-connection client the bridge uses (satisfied by
  *  PackageRegistryClient). */
@@ -77,12 +76,8 @@ export interface RegistryBridgeDeps
   localStore: LocalPackageStore;
 }
 
-// The npm Settings keys the flat renderer fields map onto (mirrors NpmConnectionFactory).
-const REGISTRY_KEY = "registry";
+// The npm scope Settings key (used to name the publish target in bumpVersion).
 const SCOPE_KEY = "scope";
-const ORG_KEY = "org";
-const GITHUB_API_KEY = "githubApi";
-const NPM_TYPE = "npm";
 
 export class RegistryBridge
 {
@@ -216,33 +211,25 @@ export class RegistryBridge
 
   // --- Connections management --------------------------------------------------
 
-  async listConnections(): Promise<ConnectionView[]>
+  listConnections(): Promise<ConnectionView[]>
   {
-    return (await this.deps.service.ListViews()).map((v) => RegistryBridge.toDevView(v));
+    return this.deps.service.ListViews();
   }
 
-  async addConnection(input: ConnectionInput): Promise<ConnectionView>
+  // Add a connection; the engine requires an id, so mint one from the display name
+  // (the renderer sends a spec without a meaningful id).
+  async addConnection(spec: ConnectionSpec): Promise<ConnectionView>
   {
     const taken = new Set((await this.deps.service.ListViews()).map((v) => v.Id));
-    const id = RegistryBridge.mintId(input.name, taken);
-    await this.deps.service.AddConnection(RegistryBridge.toSpec(id, input));
+    const id = RegistryBridge.mintId(spec.DisplayName, taken);
+    await this.deps.service.AddConnection({ ...spec, Id: id });
     return this.viewOf(id);
   }
 
-  async updateConnection(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined>
+  async updateConnection(id: string, partial: Partial<ConnectionSpec>): Promise<ConnectionView | undefined>
   {
-    const current = (await this.deps.service.ListViews()).find((v) => v.Id === id);
-    if (current === undefined) return undefined;
-    const settings = { ...current.Settings };
-    if (partial.registry !== undefined) settings[REGISTRY_KEY] = partial.registry;
-    if (partial.scope !== undefined) settings[SCOPE_KEY] = partial.scope;
-    if (partial.org !== undefined) settings[ORG_KEY] = partial.org;
-    if (partial.githubApi !== undefined) settings[GITHUB_API_KEY] = partial.githubApi;
-    const specPartial: Partial<ConnectionSpec> = { Settings: settings };
-    if (partial.name !== undefined) specPartial.DisplayName = partial.name;
-    if (partial.tokenSource !== undefined) specPartial.TokenSource = RegistryBridge.toEngineSource(partial.tokenSource);
-    if (partial.tokenEnvVar !== undefined) specPartial.TokenEnvVar = partial.tokenEnvVar;
-    await this.deps.service.UpdateConnection(id, specPartial);
+    if ((await this.deps.service.ListViews()).find((v) => v.Id === id) === undefined) return undefined;
+    await this.deps.service.UpdateConnection(id, partial);
     return this.viewOf(id);
   }
 
@@ -297,7 +284,7 @@ export class RegistryBridge
   {
     const view = (await this.deps.service.ListViews()).find((v) => v.Id === id);
     if (view === undefined) throw new Error(`connection "${id}" not found after write`);
-    return RegistryBridge.toDevView(view);
+    return view;
   }
 
   private async defaultScope(): Promise<string>
@@ -305,46 +292,6 @@ export class RegistryBridge
     const views = await this.deps.service.ListViews();
     const target = views.find((v) => v.IsDefault) ?? views[0];
     return target?.Settings[SCOPE_KEY] ?? "";
-  }
-
-  /** Engine connection view → devUI flat view. */
-  private static toDevView(v: EngineConnectionView): ConnectionView
-  {
-    return {
-      id: v.Id,
-      name: v.DisplayName,
-      registry: v.Settings[REGISTRY_KEY] ?? "",
-      scope: v.Settings[SCOPE_KEY] ?? "",
-      org: v.Settings[ORG_KEY] ?? "",
-      githubApi: v.Settings[GITHUB_API_KEY] ?? "",
-      tokenSource: v.TokenSource === EngineTokenSource.Env ? TokenSource.Env : TokenSource.Stored,
-      tokenEnvVar: v.TokenEnvVar,
-      hasToken: v.HasToken,
-      isDefault: v.IsDefault,
-    };
-  }
-
-  /** devUI flat input → engine connection spec. */
-  private static toSpec(id: string, input: ConnectionInput): ConnectionSpec
-  {
-    return {
-      Id: id,
-      DisplayName: input.name,
-      RegistryType: NPM_TYPE,
-      Settings: {
-        [REGISTRY_KEY]: input.registry,
-        [SCOPE_KEY]: input.scope,
-        [ORG_KEY]: input.org,
-        [GITHUB_API_KEY]: input.githubApi,
-      },
-      TokenSource: RegistryBridge.toEngineSource(input.tokenSource),
-      TokenEnvVar: input.tokenEnvVar,
-    };
-  }
-
-  private static toEngineSource(source: TokenSource): EngineTokenSource
-  {
-    return source === TokenSource.Env ? EngineTokenSource.Env : EngineTokenSource.Stored;
   }
 
   /** A URL-safe slug of `name`, de-duplicated against existing ids. */
