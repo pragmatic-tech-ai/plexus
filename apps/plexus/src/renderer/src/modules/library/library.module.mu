@@ -6,8 +6,8 @@
 // (validated live by the shared base-aware TodlValidationService against the
 // bound meta-model), and publishes the compiled model + sources into the
 // libraries storage backend. The "library" project TYPE (LibraryProjectFactory)
-// now lives in the basic ProjectFactoriesModule; this module keeps the Libraries
-// panel service + its rail Capability + the library registry.
+// now lives in the solution engine module (SolutionServicesEngine); this module
+// keeps the Libraries panel service + its rail Capability + the library registry.
 //
 // The `.todl` FILE editor is contributed by the meta-model module's `.documents:`
 // entry (resolved by extension for any project).

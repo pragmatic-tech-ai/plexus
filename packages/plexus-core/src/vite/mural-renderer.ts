@@ -12,7 +12,7 @@ export class MuralRendererConfig {
     public static resolve(): { conditions: string[] } {
         return {
             conditions: ['import', 'module', 'browser', 'default'],
-        }
+        };
     }
 
     // Specifiers to keep out of Vite's dep pre-bundler. mural must be served as
@@ -23,6 +23,15 @@ export class MuralRendererConfig {
     // import must be listed explicitly — the bare specifier alone doesn't cover
     // them. fresco shares mural, so exclude it too. This is the canonical list
     // for BOTH apps; excluding a specifier an app never imports is harmless.
+    //
+    // The todl engine packages (todl + todl-runtime) are ALSO linked workspace
+    // deps whose dist changes underneath the app. Vite's pre-bundler caches an
+    // optimized copy in .vite/deps and does NOT invalidate it when a *linked*
+    // package's dist is rebuilt, so a newly-added export (e.g. EnvironmentKey)
+    // reads as "not provided" until the cache is manually cleared. Excluding them
+    // serves their built dist as live ESM — a rebuilt engine dist is picked up on
+    // the next dev start with no stale-cache SyntaxError. Each subpath the renderer
+    // imports is listed explicitly (Vite optimizes per subpath).
     public static optimizeDepsExclude(): string[] {
         return [
             '@pragmatic-tech-ai/mural',
@@ -33,6 +42,9 @@ export class MuralRendererConfig {
             '@pragmatic-tech-ai/mural/tooling',
             '@pragmatic-tech-ai/mural/resources/material',
             '@pragmatic-tech-ai/fresco',
-        ]
+            '@pragmatic-tech-ai/todl',
+            '@pragmatic-tech-ai/todl/domain',
+            '@pragmatic-tech-ai/todl-runtime',
+        ];
     }
 }

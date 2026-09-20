@@ -2,8 +2,9 @@
 //
 // A ShellModule with NO nav Capability (like code-editor/problems/agent-chat): it
 // carries the model-patch applier + a diagram-toolbar command. The `architecture`
-// project TYPE itself (ArchitectureProjectFactory) now lives in the basic
-// ProjectFactoriesModule; this module keeps only its shell contributions. Its
+// project TYPE itself (ArchitectureProjectFactory) now lives in the solution
+// engine module (SolutionServicesEngine); this module keeps only its shell
+// contributions. Its
 // `.todl` files are the architecture model; `.diagram` files inside are edited by
 // the diagram module's generic DiagramDocumentFactory (resolved by extension).
 

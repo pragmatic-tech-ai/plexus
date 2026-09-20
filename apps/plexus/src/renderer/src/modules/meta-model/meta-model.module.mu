@@ -10,8 +10,8 @@
 //
 // `.services:` registers the panel service + the `.todl` doc factory + the producer
 // seams; the Capability names the panel service via `ServiceKey`. The "meta-model"
-// project TYPE (MetaModelProjectFactory) now lives in the basic
-// ProjectFactoriesModule — this module keeps only its shell contributions.
+// project TYPE (MetaModelProjectFactory) now lives in the solution engine module
+// (SolutionServicesEngine) — this module keeps only its shell contributions.
 
 import MetaModelsService from "./services/meta-models-service.js"
 import TodlDocumentFactory from "./services/todl-document-factory.js"

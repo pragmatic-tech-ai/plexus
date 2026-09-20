@@ -9,47 +9,39 @@
 // (ipcRenderer.sendSync ↔ ipcMain.on + event.returnValue). The data is static,
 // so a one-shot blocking read at preload time is simpler and cheaper than the
 // async invoke plumbing the file-system api needs.
-export enum EnvironmentChannel
-{
+export enum EnvironmentChannel {
     GetSnapshot = 'environment:get-snapshot',
 }
 
-// The operating system, normalised from Node's process.platform to a named
-// set — an enum, not the raw string union, so app code branches on a member
-// (`env.Platform === OperatingSystem.MacOS`) per the enums-over-literals rule.
-// Anything outside the desktop trio maps to Other.
-export enum OperatingSystem
-{
-    Windows = 'win32',
-    MacOS   = 'darwin',
-    Linux   = 'linux',
-    Other   = 'other',
-}
+// OperatingSystem now lives in todl-runtime alongside the IEnvironment service
+// contract (both are host-agnostic). Re-exported here so existing Plexus imports
+// (main / preload / renderer) keep this path.
+export { OperatingSystem } from '@pragmatic-tech-ai/todl-runtime';
+import { OperatingSystem } from '@pragmatic-tech-ai/todl-runtime';
 
 // A snapshot of host environment facts, captured once at startup. Every field
 // is constant for the process lifetime.
-export interface EnvironmentInfo
-{
+export interface EnvironmentInfo {
     // ── Directories ──
-    CurrentDirectory:   string;   // process.cwd()
-    HomeDirectory:      string;   // the user's home
-    TempDirectory:      string;   // OS temp
-    UserDataDirectory:  string;   // per-app config/data (app.getPath('userData'))
-    DocumentsDirectory: string;   // the user's Documents
-    DownloadsDirectory: string;   // the user's Downloads
+    CurrentDirectory: string; // process.cwd()
+    HomeDirectory: string; // the user's home
+    TempDirectory: string; // OS temp
+    UserDataDirectory: string; // per-app config/data (app.getPath('userData'))
+    DocumentsDirectory: string; // the user's Documents
+    DownloadsDirectory: string; // the user's Downloads
 
     // ── Platform ──
-    Platform:      OperatingSystem;
-    Architecture:  string;   // process.arch (x64, arm64, …) — reported passthrough
-    PathSeparator: string;   // path.sep ('\\' on Windows, '/' elsewhere)
+    Platform: OperatingSystem;
+    Architecture: string; // process.arch (x64, arm64, …) — reported passthrough
+    PathSeparator: string; // path.sep ('\\' on Windows, '/' elsewhere)
 
     // ── Versions ──
-    AppVersion:      string;
+    AppVersion: string;
     ElectronVersion: string;
-    ChromeVersion:   string;
-    NodeVersion:     string;
+    ChromeVersion: string;
+    NodeVersion: string;
 
     // ── Runtime flags ──
-    IsDevelopment: boolean;   // dev server (HMR) vs packaged
-    IsPackaged:    boolean;   // running from a packaged (asar) build
+    IsDevelopment: boolean; // dev server (HMR) vs packaged
+    IsPackaged: boolean; // running from a packaged (asar) build
 }

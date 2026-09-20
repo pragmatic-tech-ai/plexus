@@ -2,13 +2,21 @@
 // `app` is the initialized Application compiled from app.mu; handing it an
 // HtmlTarget mounts the ViewerShell (rail + side panel) into #app.
 // @ts-expect-error compiled by vitePluginMural
-import { app } from "./app.mu";
-import { HtmlTarget } from "@pragmatic-tech-ai/mural/visual-engine";
-import { NavigationService, ContentHostService, DialogService } from "@pragmatic-tech-ai/mural/framework";
-import { SolutionServicesEngine } from "@pragmatic-tech-ai/todl";
-import { SolutionStudioSeams } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio";
-import { SolutionServicesRegistration } from "./modules/solution/solution-services.js";
-import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome";
+import { app } from './app.mu';
+import { HtmlTarget } from '@pragmatic-tech-ai/mural/visual-engine';
+import {
+    NavigationService,
+    ContentHostService,
+    DialogService,
+} from '@pragmatic-tech-ai/mural/framework';
+import { SolutionServicesEngine, SolutionManagerService } from '@pragmatic-tech-ai/todl';
+import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio';
+import { SolutionServicesRegistration } from './modules/solution/solution-services.js';
+import {
+    attachTitleBar,
+    removeSplash,
+    TitleService,
+} from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome';
 
 // ViewerShell (unlike EditorShell) does not register a NavigationService, so
 // the app supplies one at the root. Registered under NavigationService.Key so
@@ -18,9 +26,9 @@ import { attachTitleBar, removeSplash, TitleService } from "@pragmatic-tech-ai/p
 // content. Registered BEFORE initialize; the lazy factory runs when the rail
 // first binds, by which point the modules are composed.
 app.Services.register(NavigationService.Key, (p) => {
-  const nav = new NavigationService(p);
-  nav.PopulateFromModules();
-  return nav;
+    const nav = new NavigationService(p);
+    nav.PopulateFromModules();
+    return nav;
 });
 
 // The shell's central content host — the region a capability drives via
@@ -54,7 +62,13 @@ SolutionStudioSeams.Register(app.Services);
 SolutionServicesRegistration.Register(app.Services);
 
 await document.fonts.ready;
-app.initialize(new HtmlTarget(document.getElementById("app")!));
+app.initialize(new HtmlTarget(document.getElementById('app')!));
+
+// Startup solution state: the SolutionManagerService (constructed here) registered
+// its session bag with any SessionStore the host provides, so RestoreSession reopens
+// the previously-active solution — or, when none is remembered (or the host persists
+// no session), creates an empty untitled solution the user can save or discard.
+await app.Services.get(SolutionManagerService.Key)?.RestoreSession();
 
 // SetHost after initialize so the shell root Visual (the dialog's overlay anchor)
 // exists. DialogService owns no Visual; it reaches the overlay layer through this.
