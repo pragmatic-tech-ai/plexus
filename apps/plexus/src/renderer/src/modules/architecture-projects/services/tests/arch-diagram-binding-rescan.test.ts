@@ -15,7 +15,8 @@ const MM = `namespace archmm {
   concept component {}
   viewpoint ComponentView : frames component
 }`
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }

@@ -28,7 +28,8 @@ export class LibraryToolboxPage extends ToolboxPage
         // tile (and reconcile-by-key requires unique keys in the desired list).
         const seen = new Set<string>()
         const items: ArchToolboxItem[] = []
-        for (const t of terms) {
+        for (const t of terms)
+        {
             if (seen.has(t.id)) continue
             seen.add(t.id)
             const key = this.keyPrefix + t.id

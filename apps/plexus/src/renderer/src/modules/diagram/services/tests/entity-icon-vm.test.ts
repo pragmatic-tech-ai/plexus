@@ -5,7 +5,8 @@ import { EntityIconVM } from '../entity-icon-vm.js'
 
 // A registry stub exposing iconKeyFor (EntityIconVM's surface). No onChanged —
 // the VM never subscribes; reactivity is owner-driven via refresh().
-function fakeRegistry(index: Map<string, string>) {
+function fakeRegistry(index: Map<string, string>)
+{
     return {
         iconKeyFor: (k: string) => index.get(k),
     }

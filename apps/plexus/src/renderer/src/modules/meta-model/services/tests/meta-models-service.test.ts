@@ -51,7 +51,8 @@ test('onMetaModelsChanged notifies subscribers after reload completes, and unsub
 
 // ── delete ───────────────────────────────────────────────────────────────
 
-function lib(id: string, mmId: string, mmVersion: string): LoadedLibrary {
+function lib(id: string, mmId: string, mmVersion: string): LoadedLibrary
+{
     return { id, version: '0.1.0', name: id, metaModel: { id: mmId, version: mmVersion }, classes: [], problems: [] }
 }
 
@@ -62,7 +63,8 @@ test('dependentLibraryNames filters by meta-model id and optional version', () =
     expect(dependentLibraryNames(libs, 'none')).toEqual([])
 })
 
-function deleteEnv(seed: (mm: FakeStorage) => void): { provider: ServiceProvider; mm: FakeStorage } {
+function deleteEnv(seed: (mm: FakeStorage) => void): { provider: ServiceProvider; mm: FakeStorage }
+{
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
     const mm = new FakeStorage('fake://meta-models')

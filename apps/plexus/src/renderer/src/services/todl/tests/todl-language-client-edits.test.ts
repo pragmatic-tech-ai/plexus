@@ -3,7 +3,8 @@ import { TodlLanguageClient } from '../todl-language-client.js'
 import { providerWithFakeResolver } from './fake-resolver.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
-function fakeConn() {
+function fakeConn()
+{
   return {
     sendNotification: () => Promise.resolve(),
     sendRequest: () => Promise.resolve(null),
@@ -12,7 +13,8 @@ function fakeConn() {
   }
 }
 
-async function attached() {
+async function attached()
+{
   const storage = new FakeStorage('proj')
   await storage.WriteText('open.todl', 'aaa')
   await storage.WriteText('closed.todl', 'zzz')

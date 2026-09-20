@@ -7,7 +7,8 @@ import { TaskKind, type ITaskContext, type ITaskExecutor } from '../task-executo
 function svc(): BackgroundWorkService { return new BackgroundWorkService(new ServiceProvider()) }
 
 // An executor whose run() is resolved manually so tests control timing.
-function gatedExecutor(kind: string, capacity: number) {
+function gatedExecutor(kind: string, capacity: number)
+{
     const gates: Array<{ resolve: (v: unknown) => void; reject: (e: unknown) => void; ctx: ITaskContext }> = []
     const executor: ITaskExecutor = {
         kind, capacity,

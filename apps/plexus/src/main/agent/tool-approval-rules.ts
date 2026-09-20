@@ -51,7 +51,8 @@ export class RuleStore
     {
         const raw = io.read(path)
         let parsed: Record<string, ApprovalRule[]> = {}
-        if (raw !== undefined) { try { parsed = JSON.parse(raw) as Record<string, ApprovalRule[]> } catch { parsed = {} } }
+        if (raw !== undefined) { try { parsed = JSON.parse(raw) as Record<string, ApprovalRule[]> }
+        catch { parsed = {} } }
         this.map = parsed
     }
 

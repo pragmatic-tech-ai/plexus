@@ -546,7 +546,8 @@ function readJsonBody(req: http.IncomingMessage): Promise<unknown>
     {
         let raw = ''
         req.on('data', (chunk) => { raw += chunk })
-        req.on('end', () => { try { resolve(raw.length > 0 ? JSON.parse(raw) : undefined) } catch { resolve(undefined) } })
+        req.on('end', () => { try { resolve(raw.length > 0 ? JSON.parse(raw) : undefined) }
+        catch { resolve(undefined) } })
         req.on('error', () => resolve(undefined))
     })
 }

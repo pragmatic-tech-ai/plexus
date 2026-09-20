@@ -4,11 +4,15 @@ import { HelpDocumentStore } from '../help-document-store.js'
 
 // Collect the plain text of every Run in a FlowDocument (Parent back-refs make
 // the tree circular, so structural JSON isn't an option).
-function plainText(doc: FlowDocument): string {
+function plainText(doc: FlowDocument): string
+{
     const out: string[] = []
-    for (const block of doc.Blocks.ToArray()) {
-        if (block instanceof Paragraph) {
-            for (const inline of block.Inlines.ToArray()) {
+    for (const block of doc.Blocks.ToArray())
+    {
+        if (block instanceof Paragraph)
+        {
+            for (const inline of block.Inlines.ToArray())
+            {
                 if (inline instanceof Run) out.push(inline.Text)
             }
         }
@@ -27,7 +31,8 @@ const MD = [
     'Press Run.',
 ].join('\n')
 
-function store(): HelpDocumentStore {
+function store(): HelpDocumentStore
+{
     // ServiceBase only stores the provider; a minimal stub is enough.
     const s = new HelpDocumentStore({ get: () => undefined, getRequired: () => { throw new Error('x') }, has: () => false } as never)
     s.registerDoc('t', MD)

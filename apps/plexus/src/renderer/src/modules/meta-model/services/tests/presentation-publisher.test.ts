@@ -16,7 +16,8 @@ const DOC: TodlDocument = {
 
 const SVG = '<svg viewBox="0 0 16 16"><path d="M2 2 L14 2 L14 14 Z"/></svg>'
 
-function project(withIcon = true): FakeStorage {
+function project(withIcon = true): FakeStorage
+{
     const s = new FakeStorage('fake://proj')
     if (withIcon) void s.WriteText('resources/actor.svg', SVG)
     return s

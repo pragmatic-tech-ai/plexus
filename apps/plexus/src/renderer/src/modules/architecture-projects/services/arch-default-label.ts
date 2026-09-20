@@ -15,7 +15,8 @@ export function humanize(id: string): string
 // the instantiated concept (Instance drop).
 export function defaultLabel(repo: Repository, action: DropAction): string
 {
-    if (action.kind === DropActionKind.Reference && action.term !== undefined) {
+    if (action.kind === DropActionKind.Reference && action.term !== undefined)
+    {
         const lbl = repo.resolve(action.term)?.attrs.get('label')
         if (typeof lbl === 'string' && lbl.length > 0) return lbl
         return humanize(action.term)

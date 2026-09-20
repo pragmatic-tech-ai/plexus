@@ -20,11 +20,13 @@ const MM = `namespace archmm {
   viewpoint DeploymentView : frames node
   taxonomy Stack : represents technology { term azure {} }
 }`
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
-function wire(doc: DiagramDocument, model: ArchModel, scope: Set<string>) {
+function wire(doc: DiagramDocument, model: ArchModel, scope: Set<string>)
+{
     const provider = new ServiceProvider()
     provider.registerInstance(ArchDiagramBindingService.Key, {
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
@@ -33,7 +35,8 @@ function wire(doc: DiagramDocument, model: ArchModel, scope: Set<string>) {
     provider.registerInstance(DropCandidateChooserService.Key, new DropCandidateChooserService(provider))
     return provider
 }
-function ctx(doc: DiagramDocument, key: string): ToolboxDropContext {
+function ctx(doc: DiagramDocument, key: string): ToolboxDropContext
+{
     return { Descriptor: { Key: key }, Position: { X: 1, Y: 2 }, Diagram: {}, Mutator: doc } as unknown as ToolboxDropContext
 }
 

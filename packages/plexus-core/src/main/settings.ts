@@ -10,23 +10,29 @@ import { SettingsChannel } from '../shared/settings-api.js'
 // itself the ISettingsStore the framework's ApplicationSettings resolves.
 // Register once from app.whenReady() (after which userData resolves).
 
-function settingsPath(): string {
+function settingsPath(): string
+{
   return join(app.getPath('userData'), 'settings.json')
 }
 
 // Read the persisted values. Missing or corrupt file → empty (first run, or a
 // hand-edit gone wrong) rather than a crash; ApplicationSettings then falls back
 // to each definition's default.
-function loadSnapshot(): Record<string, unknown> {
-  try {
+function loadSnapshot(): Record<string, unknown>
+{
+  try
+  {
     const parsed = JSON.parse(readFileSync(settingsPath(), 'utf8'))
     return parsed !== null && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
-  } catch {
+  }
+  catch
+  {
     return {}
   }
 }
 
-export function registerSettingsHandlers(): void {
+export function registerSettingsHandlers(): void
+{
   // Synchronous one-shot: the preload reads this at load time via
   // ipcRenderer.sendSync and hands it to ElectronSettingsStore.Load().
   ipcMain.on(SettingsChannel.GetSnapshot, (event) => {

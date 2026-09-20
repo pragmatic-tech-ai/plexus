@@ -12,7 +12,8 @@ import { publishLibraryPresentation } from '../../modules/library/services/libra
 // only thing that differs between the meta-model and library bakes (dict name +
 // icon-key prefix). Both publishers already return the {ok,icons}|{ok,missing} shape
 // BakeResult expects, so the results pass straight through.
-export class MuralPresentationBaker implements IPresentationBaker {
+export class MuralPresentationBaker implements IPresentationBaker
+{
     // Registered under todl's PresentationBakerKey (the `.services:` addInstance
     // convention keys by static Key), so the producer factories resolve it.
     public static readonly Key = PresentationBakerKey
@@ -22,7 +23,8 @@ export class MuralPresentationBaker implements IPresentationBaker {
     // stateless), so it fits the eager-singleton registration shape.
     constructor(_provider: IServiceProvider) {}
 
-    public Bake(project: IStorage, dest: IStorage, base: string, doc: TodlDocument, options: BakeOptions): Promise<BakeResult> {
+    public Bake(project: IStorage, dest: IStorage, base: string, doc: TodlDocument, options: BakeOptions): Promise<BakeResult>
+    {
         return options.dictName === MuralPresentationBaker.LIBRARY_DICT
             ? publishLibraryPresentation(project, dest, base, doc)
             : publishPresentation(project, dest, base, doc)

@@ -18,7 +18,8 @@ const MM = `namespace archmm {
   viewpoint S : frames scenario, sequence, step
 }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
@@ -26,7 +27,8 @@ function buildModel(): ArchModel {
 }
 
 // Model: scenario sc -> sequence sq -> steps a->b, b->c; participants a,b,c.
-function buildScenario(model: ArchModel): { sc: string; a: string; b: string; c: string } {
+function buildScenario(model: ArchModel): { sc: string; a: string; b: string; c: string }
+{
     const a = model.createInViewpoint('component', 'C')
     const b = model.createInViewpoint('component', 'C')
     const c = model.createInViewpoint('component', 'C')

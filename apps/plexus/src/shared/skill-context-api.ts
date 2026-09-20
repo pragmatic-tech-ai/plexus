@@ -9,12 +9,14 @@ export interface SkillContext { skillName: string; inputs: ResolvedInput[]; bind
 
 // The renderer→main bridge for pushing a run's structured context to the
 // per-session store the get_skill_context MCP tool reads.
-export interface ISkillContextApi {
+export interface ISkillContextApi
+{
     set(sessionId: string, context: SkillContext): Promise<void>
     clear(sessionId: string): Promise<void>
 }
 
 // Factory home (OOP: no free functions).
-export class SkillContexts {
+export class SkillContexts
+{
     static empty(skillName: string): SkillContext { return { skillName, inputs: [], bindings: [] } }
 }

@@ -19,9 +19,11 @@ const PROJECT_RELS = [
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
-function walkTodl(dir: string): string[] {
+function walkTodl(dir: string): string[]
+{
     const out: string[] = []
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }))
+    {
         const p = path.join(dir, e.name)
         if (e.isDirectory()) out.push(...walkTodl(p))
         else if (e.name.endsWith('.todl')) out.push(p)
@@ -32,7 +34,8 @@ function walkTodl(dir: string): string[] {
 // Whether any .todl under the arch project records a connector between the two ids
 // — either the explicit `connector <id> { from; to }` block or the `a --> b`
 // operator shorthand the emitter prefers (operator --> : connector (from, to)).
-function connectorRecorded(copyRoot: string, a: string, b: string): boolean {
+function connectorRecorded(copyRoot: string, a: string, b: string): boolean
+{
     const archDir = path.join(copyRoot, 'architecures/test_architecture')
     const block = new RegExp(`connector\\s+\\w+\\s*\\{[\\s\\S]*?\\b${a}\\b[\\s\\S]*?\\b${b}\\b[\\s\\S]*?\\}`)
     const op = new RegExp(`\\b${a}\\b\\s*-->\\s*\\b${b}\\b|\\b${b}\\b\\s*-->\\s*\\b${a}\\b`)
@@ -40,11 +43,13 @@ function connectorRecorded(copyRoot: string, a: string, b: string): boolean {
 }
 
 // Draw a connector A→B via the real event, using a borrowed ConnectorEndpoint class.
-async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: boolean; reason?: string }> {
+async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: boolean; reason?: string }>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         const arr: any[] = diagram.ItemsSource.ToArray()
@@ -59,15 +64,18 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: bo
 }
 
 // The label of the connector between the two node ids, or undefined.
-async function labelBetween(l: Launched, fromId: string, toId: string): Promise<string | undefined> {
+async function labelBetween(l: Launched, fromId: string, toId: string): Promise<string | undefined>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        for (const c of diagram.Connectors?.ToArray?.() ?? []) {
+        for (const c of diagram.Connectors?.ToArray?.() ?? [])
+        {
             const s = idOf(c.Source), t = idOf(c.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) return c.LabelText
         }
@@ -76,11 +84,13 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
 }
 
 // Shift+Delete the connector between the two nodes (fires the real delete event).
-async function shiftDelete(l: Launched, fromId: string, toId: string): Promise<boolean> {
+async function shiftDelete(l: Launched, fromId: string, toId: string): Promise<boolean>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
@@ -94,10 +104,12 @@ async function shiftDelete(l: Launched, fromId: string, toId: string): Promise<b
     }, { fromId, toId })
 }
 
-async function hasNodes(l: Launched): Promise<boolean> {
+async function hasNodes(l: Launched): Promise<boolean>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0
         }
@@ -114,7 +126,8 @@ test.describe.serial('arch draw-to-connect', () => {
         test.skip(!corpusAvailable(), 'built app (out/) or test corpus not available')
         copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-draw-connect-'))
         const projects: string[] = []
-        for (const rel of PROJECT_RELS) {
+        for (const rel of PROJECT_RELS)
+        {
             const dst = path.join(copyRoot, rel)
             fs.cpSync(path.join(CORPUS, rel), dst, { recursive: true })
             projects.push(dst)
@@ -128,11 +141,13 @@ test.describe.serial('arch draw-to-connect', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 25; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(150)
         }
-        for (let attempt = 0; attempt < 3 && !(await hasNodes(l)); attempt++) {
+        for (let attempt = 0; attempt < 3 && !(await hasNodes(l)); attempt++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)

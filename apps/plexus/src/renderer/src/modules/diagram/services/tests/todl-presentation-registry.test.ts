@@ -8,7 +8,8 @@ import { setIconResourceResolver } from '../icon-key-converter.js'
 afterEach(() => setIconResourceResolver(undefined))   // discover() bridges the converter; reset between tests
 
 // Build a contribution: icon assets (resource key → value) + an entityKey → resource-key index.
-function contribution(assets: [string, unknown][], keys: [string, string][]): PresentationContribution {
+function contribution(assets: [string, unknown][], keys: [string, string][]): PresentationContribution
+{
     const dict = new ResourceDictionary()
     for (const [k, v] of assets) dict.Set(k, v)
     return { assets: dict, iconKeys: new Map(keys) }
@@ -134,7 +135,8 @@ test('a re-discover notifies a removed key so its presenter falls back to the de
 
 test('populating N assets fires O(1) app-resource notifications, not one per key', async () => {
     const prior = Application.current
-    try {
+    try
+    {
         const app = new Application()
         Application.current = app
 
@@ -156,7 +158,9 @@ test('populating N assets fires O(1) app-resource notifications, not one per key
         await registry.discover()
         expect(general - afterFirst).toBe(1)
         expect(style - afterFirstStyle).toBe(1)
-    } finally {
+    }
+    finally
+    {
         Application.current = prior
     }
 })

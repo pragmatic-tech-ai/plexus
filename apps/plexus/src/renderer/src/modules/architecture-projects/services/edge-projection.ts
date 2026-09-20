@@ -4,7 +4,8 @@ import { isConnectorEntity, connectorTypeOf, CONNECTOR_FROM_MEMBER, CONNECTOR_TO
 
 // A stable, unique key for a projected connector: one per (from, member, to).
 // Multi-member relationships between the same pair yield distinct keys.
-export function edgeKey(from: string, member: string, to: string): string {
+export function edgeKey(from: string, member: string, to: string): string
+{
     return `${from}|${member}|${to}`
 }
 
@@ -15,7 +16,8 @@ export const CONNECTOR_ENTITY_MEMBER_PREFIX = '__connector_entity__'
 
 // The connector entity id behind a projected edge key, or undefined when the key
 // is not a connector-entity edge (a relationship / scenario-step edge).
-export function connectorEntityIdOf(key: string): string | undefined {
+export function connectorEntityIdOf(key: string): string | undefined
+{
     const member = key.split('|')[1]
     const tag = `${CONNECTOR_ENTITY_MEMBER_PREFIX}:`
     return member?.startsWith(tag) ? member.slice(tag.length) : undefined
@@ -27,7 +29,8 @@ export function connectorEntityIdOf(key: string): string | undefined {
 // every load (edge-record `a --> b` mints a fresh id), so a visual keyed by it can
 // never be matched back after a reopen — the whole reroute is lost. Re-key those by
 // the (from, type, to) identity, which the source determines and a reload preserves.
-export function connectorVisualKey(key: string, type: string): string {
+export function connectorVisualKey(key: string, type: string): string
+{
     if (connectorEntityIdOf(key) === undefined) return key
     const [from, , to] = key.split('|')
     return edgeKey(from, `${CONNECTOR_ENTITY_MEMBER_PREFIX}:${type}`, to)
@@ -41,10 +44,12 @@ export function desiredConnectorEntityEdges(
     ownEntities: readonly Entity[],
     placed: ReadonlySet<string>,
     scope: ReadonlySet<string>,
-): Map<string, string> {
+): Map<string, string>
+{
     const out = new Map<string, string>()
     const inScope = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
-    for (const e of ownEntities) {
+    for (const e of ownEntities)
+    {
         if (!isConnectorEntity(repo, e)) continue
         const from = e.ref(CONNECTOR_FROM_MEMBER)
         const to = e.ref(CONNECTOR_TO_MEMBER)
@@ -63,14 +68,18 @@ export function desiredEdges(
     repo: Repository,
     placed: ReadonlyMap<string, Entity>,
     scope: ReadonlySet<string>,
-): Set<string> {
+): Set<string>
+{
     const out = new Set<string>()
     const inScope = (concept: string): boolean =>
         repo.viewpointsFraming(concept).some((v) => scope.has(v))
-    for (const [fromId, e] of placed) {
-        for (const rel of repo.effectiveSchema(e.concept).relationships) {
+    for (const [fromId, e] of placed)
+    {
+        for (const rel of repo.effectiveSchema(e.concept).relationships)
+        {
             if (isContainmentRelationship(repo, e.concept, rel.name)) continue   // nests, not a connector
-            for (const target of e.refs(rel.name)) {
+            for (const target of e.refs(rel.name))
+            {
                 if (!placed.has(target.id)) continue
                 if (!inScope(target.concept)) continue
                 out.add(edgeKey(fromId, rel.name, target.id))

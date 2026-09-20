@@ -6,11 +6,13 @@ import { CodeEditorService } from '../../../modules/code-editor/code-editor-serv
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 
-function fakeDoc(dirty: boolean) {
+function fakeDoc(dirty: boolean)
+{
   return { Id: 'x.todl', IsDirty: dirty, Reload: vi.fn(async () => {}) }
 }
 
-function harness(opts: { doc?: ReturnType<typeof fakeDoc>; confirm?: boolean }) {
+function harness(opts: { doc?: ReturnType<typeof fakeDoc>; confirm?: boolean })
+{
   let changedCb: ((e: FileChangeEvent) => void) | undefined
   const fileWatch = { Subscribe: (cb: (e: FileChangeEvent) => void) => { changedCb = cb; return () => {} } }
   const codeEditor = { FindOpenByOsPath: vi.fn(() => opts.doc) }

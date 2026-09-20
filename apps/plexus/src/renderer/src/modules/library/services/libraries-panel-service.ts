@@ -72,12 +72,15 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         const old = this._selectedNode
         this._selectedNode = v
         this.RaisePropertyChanged('SelectedNode', old, v)
-        if (v !== undefined && v.Kind === LibraryNodeKind.Class) {
+        if (v !== undefined && v.Kind === LibraryNodeKind.Class)
+        {
             // The node's $Icon VM drives the preview through the ContentControl +
             // TodlVisualSelector, which renders + upgrades the class visual itself.
             this.setPreviewData(v)
             this.setHasPreview(true)
-        } else {
+        }
+        else
+        {
             this.clearPreview()
         }
     }
@@ -102,7 +105,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     public RevealTerm(termId: string): boolean
     {
         const path = this.findLeafPath(termId)
-        if (path === undefined) {
+        if (path === undefined)
+        {
             this.Status = `"${termId}" is not in any loaded library.`
             return false
         }
@@ -120,13 +124,15 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         const walk = (node: LibraryTreeNode, trail: LibraryTreeNode[]): LibraryTreeNode[] | undefined => {
             const here = [...trail, node]
             if (node.TermId === termId) return here
-            for (const child of node.Children) {
+            for (const child of node.Children)
+            {
                 const hit = walk(child, here)
                 if (hit !== undefined) return hit
             }
             return undefined
         }
-        for (const root of this.Roots) {
+        for (const root of this.Roots)
+        {
             const hit = walk(root, [])
             if (hit !== undefined) return hit
         }
@@ -140,7 +146,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         const registry = this.Provider.get(LibraryRegistry.Key)
         if (registry === undefined) return
         const dialogs = this.Provider.get(DialogService.Key)
-        if (dialogs !== undefined) {
+        if (dialogs !== undefined)
+        {
             const vm = new ConfirmDialogModel(
                 `Delete library "${node.Name}"? This removes it from your installed libraries.`,
                 'Delete', (r) => dialogs.Close(r))
@@ -156,7 +163,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         const seq = ++this.reloadSeq
         const registry = this.Provider.get(LibraryRegistry.Key)
         const roots = this.Roots
-        if (registry === undefined) {
+        if (registry === undefined)
+        {
             roots.Clear()
             this.setIsEmpty(true)
             this.setIsLoading(false)
@@ -178,12 +186,14 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         roots.Clear()
         this.clearPreview()
         const leaves: LibraryTreeNode[] = []
-        for (const lib of libs) {
+        for (const lib of libs)
+        {
             const libNode = LibraryTreeNode.library(`${lib.name}  ·  ${lib.version}`, lib.id, lib.version)
             libNode.DeleteCommand = new RelayCommand(() => void this.deleteLibrary(libNode))
             const byConcept = new Map<string, LibraryTreeNode>()
             const sorted = [...lib.classes].sort((x, y) => (x.label ?? x.localId ?? x.id).localeCompare(y.label ?? y.localId ?? y.id))
-            for (const cls of sorted) {
+            for (const cls of sorted)
+            {
                 let conceptNode = byConcept.get(cls.concept)
                 if (conceptNode === undefined) { conceptNode = LibraryTreeNode.group(cls.concept, LibraryNodeKind.Concept); byConcept.set(cls.concept, conceptNode) }
                 const display = cls.label ?? cls.localId ?? cls.id
@@ -205,7 +215,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         // canvas) reflects installs/uninstalls even when the toolbox/canvas hasn't
         // been the trigger. (Adapters were registered up front, above, so the leaf
         // icon VMs could resolve the registry.)
-        if (services.get(StorageService.Key) !== undefined) {
+        if (services.get(StorageService.Key) !== undefined)
+        {
             await presentation.discover()
         }
 
@@ -221,7 +232,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
     {
         const wiki = this.Provider.get(WikiService.Key)
         if (wiki === undefined) return
-        for (const n of nodes) {
+        for (const n of nodes)
+        {
             if (n.Kind !== LibraryNodeKind.Class) continue
             const concept = n.Concept
             if (concept.length === 0) continue

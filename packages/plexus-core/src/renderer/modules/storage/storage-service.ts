@@ -24,7 +24,8 @@ export type StorageProviderFactory = (location: string) => IStorage;
 //
 // Concrete and core: composed once by the Storage module (its `.services:`
 // registers this as a root singleton under Key), so no app subclasses it.
-export class StorageService extends ServiceBase implements IStorageProvider {
+export class StorageService extends ServiceBase implements IStorageProvider
+{
     // The token every consumer resolves the service through — the single shared
     // token both apps use (no per-app subclass Key).
     public static readonly Key = new ServiceKey<StorageService>('StorageService');
@@ -34,7 +35,8 @@ export class StorageService extends ServiceBase implements IStorageProvider {
 
     private readonly factories = new Map<string, StorageProviderFactory>();
 
-    constructor(provider: IServiceProvider) {
+    constructor(provider: IServiceProvider)
+    {
         super(provider);
         // Register the built-in local-FS provider. FileSystemService is resolved
         // lazily, per Create() call, so constructing the service on a host without
@@ -46,17 +48,20 @@ export class StorageService extends ServiceBase implements IStorageProvider {
         );
     }
 
-    public Register(id: string, factory: StorageProviderFactory): void {
+    public Register(id: string, factory: StorageProviderFactory): void
+    {
         this.factories.set(id, factory);
     }
 
-    public Has(id: string): boolean {
+    public Has(id: string): boolean
+    {
         return this.factories.has(id);
     }
 
     // Build a rooted IStorage for a backend id. Throws for an unregistered id
     // (a project whose manifest names a backend this build doesn't ship).
-    public Create(id: string, location: string): IStorage {
+    public Create(id: string, location: string): IStorage
+    {
         const factory = this.factories.get(id);
         if (factory === undefined) throw new Error(`Unknown storage backend "${id}".`);
         return factory(location);
@@ -65,7 +70,8 @@ export class StorageService extends ServiceBase implements IStorageProvider {
     // Rooted IStorage for a folder using the default provider. Satisfies the
     // solution package's IStorageProviderRegistry so a SolutionManagerService can
     // root the solution + its members without knowing the backend id.
-    public CreateStorage(location: string): IStorage {
+    public CreateStorage(location: string): IStorage
+    {
         return this.Create(StorageService.DefaultBackendId, location);
     }
 }

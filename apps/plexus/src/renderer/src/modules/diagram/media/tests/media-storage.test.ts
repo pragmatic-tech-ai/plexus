@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { MediaKind } from '../media-kind'
 import { LargeFileChoice, MEDIA_INLINE_LIMIT_BYTES, resolveDroppedFile, writeMedia } from '../media-storage'
 
-function fakeStorage() {
+function fakeStorage()
+{
     const files = new Map<string, Uint8Array>()
     return {
         files,

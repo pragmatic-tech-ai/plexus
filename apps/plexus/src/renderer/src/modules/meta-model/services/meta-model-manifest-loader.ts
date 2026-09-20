@@ -32,9 +32,12 @@ export async function loadMetaModelManifest(
 {
     const base = `${id}/${version}`
     let file: MetaModelManifestFile
-    try {
+    try
+    {
         file = JSON.parse(await backend.ReadText(`${base}/manifest.json`))
-    } catch (e) {
+    }
+    catch (e)
+    {
         return {
             id, version, name: id, annotations: {},
             problems: [{ severity: 'error', uri: 'manifest.json',

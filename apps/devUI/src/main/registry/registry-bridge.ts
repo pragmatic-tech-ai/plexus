@@ -25,7 +25,8 @@ import type {
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
 
 /** The subset of `PackageManager` the bridge uses (structurally satisfied by it). */
-export interface PackageManagerLike {
+export interface PackageManagerLike
+{
   list(): Promise<string[]>;
   versions(name: string): Promise<VersionList>;
   manifestKind(name: string): Promise<string>;
@@ -43,13 +44,15 @@ export interface PackageManagerLike {
 /** The subset of `PackageCompiler` the bridge uses (structurally satisfied by it).
  *  Compiling a directory is a Compiler concern — kept separate from the
  *  PackageManager, which only handles registry / compiled / published packages. */
-export interface PackageCompilerLike {
+export interface PackageCompilerLike
+{
   compile(directory: string, options?: { scope?: string; outDir?: string }): Promise<CompileResult>;
 }
 
 /** A directory compile result, serialized for the renderer. The compiled output
  *  is written to `outDir`; on success that directory is what `publishDir` takes. */
-export interface CompileResultView {
+export interface CompileResultView
+{
   ok: boolean;
   outDir: string;
   files: string[];
@@ -61,7 +64,8 @@ export interface CompileResultView {
   sourceCount?: number;
 }
 
-export interface RegistryBridgeDeps {
+export interface RegistryBridgeDeps
+{
   /** The registry connections source of truth: the connection list + default, the
    *  per-connection tokens, and the effective config for any connection id. */
   manager: PackageRegistryManager;
@@ -74,44 +78,53 @@ export interface RegistryBridgeDeps {
   localStore: LocalPackageStore;
 }
 
-export class RegistryBridge {
+export class RegistryBridge
+{
   constructor(private readonly deps: RegistryBridgeDeps) {}
 
   /** Package names in a connection's registry (defaults to the default connection
    *  when `connectionId` is omitted — the Package Manager passes each connection's
    *  id to build its tree root). */
-  list(connectionId?: string): Promise<string[]> {
+  list(connectionId?: string): Promise<string[]>
+  {
     return this.managerFor(connectionId).list();
   }
 
-  versions(name: string): Promise<VersionList> {
+  versions(name: string): Promise<VersionList>
+  {
     return this.managerFor().versions(name);
   }
 
-  getContent(ref: PackageRef): Promise<Uint8Array> {
+  getContent(ref: PackageRef): Promise<Uint8Array>
+  {
     return this.managerFor().getContent(ref);
   }
 
-  getPackage(ref: PackageRef): Promise<InstalledPackage> {
+  getPackage(ref: PackageRef): Promise<InstalledPackage>
+  {
     return this.managerFor().getPackage(ref);
   }
 
-  resolveClosure(rootDeps: readonly string[]): Promise<ResolvedClosure> {
+  resolveClosure(rootDeps: readonly string[]): Promise<ResolvedClosure>
+  {
     return this.managerFor().resolveClosure(rootDeps);
   }
 
-  getMeta(name: string): Promise<string> {
+  getMeta(name: string): Promise<string>
+  {
     return this.managerFor().manifestKind(name);
   }
 
-  publishDir(dir: string): Promise<void> {
+  publishDir(dir: string): Promise<void>
+  {
     return this.managerFor().publish(dir);
   }
 
   /** Delete a published version from a connection's registry (the republish-after-
    *  409 flow, and the Package Manager's Delete command). `connectionId` omitted ⇒
    *  the default connection (back-compat with the compiler's republish path). */
-  deleteVersion(name: string, version: string, connectionId?: string): Promise<void> {
+  deleteVersion(name: string, version: string, connectionId?: string): Promise<void>
+  {
     return this.managerFor(connectionId).deleteVersion(name, version);
   }
 
@@ -119,7 +132,8 @@ export class RegistryBridge {
    *  the Package Manager's "delete all versions" choice. Lists the versions, then
    *  deletes each. (GitHub Packages may refuse to delete the *last* version of a
    *  public package; private org packages delete cleanly.) */
-  async deleteAllVersions(name: string, connectionId?: string): Promise<void> {
+  async deleteAllVersions(name: string, connectionId?: string): Promise<void>
+  {
     const mgr = this.managerFor(connectionId);
     const { versions } = await mgr.versions(name);
     for (const version of versions) await mgr.deleteVersion(name, version);
@@ -129,7 +143,8 @@ export class RegistryBridge {
    *  `project.plexus`, returning the new version. The caller then recompiles +
    *  republishes. The publishable version lives in `modelVersion` (a meta-model)
    *  or `libVersion` (a library); `project.plexus` is plain JSON. */
-  async bumpVersion(dir: string): Promise<string> {
+  async bumpVersion(dir: string): Promise<string>
+  {
     const manifestPath = join(dir, "project.plexus");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as
       { type?: string; id?: string; modelVersion?: string; libVersion?: string };
@@ -146,14 +161,16 @@ export class RegistryBridge {
 
   /** The next unused patch: patch+1 above the highest of `current` ∪ `published`,
    *  skipping any already taken. Non-`major.minor.patch` inputs are ignored. */
-  private static nextUnusedPatch(current: string, published: readonly string[]): string {
+  private static nextUnusedPatch(current: string, published: readonly string[]): string
+  {
     const parse = (v: string): [number, number, number] | undefined => {
       const m = /^(\d+)\.(\d+)\.(\d+)$/.exec(v.trim());
       return m === null ? undefined : [Number(m[1]), Number(m[2]), Number(m[3])];
     };
     const cmp = (a: readonly number[], b: readonly number[]): number => a[0]! - b[0]! || a[1]! - b[1]! || a[2]! - b[2]!;
     let best: [number, number, number] = parse(current) ?? [0, 0, 0];
-    for (const v of published) {
+    for (const v of published)
+    {
       const p = parse(v);
       if (p !== undefined && cmp(p, best) > 0) best = p;
     }
@@ -168,7 +185,8 @@ export class RegistryBridge {
    *  `outDir` is what `publishDir` publishes. Compilation throws for a non-
    *  compilable manifest (e.g. an architecture) or an unresolvable dependency;
    *  a failing compile (source errors) returns `ok: false` with diagnostics. */
-  async compileDir(dir: string): Promise<CompileResultView> {
+  async compileDir(dir: string): Promise<CompileResultView>
+  {
     const outDir = join(dir, "dist");
     const result = await this.deps.createCompiler().compile(dir, { outDir });
     const pkg = result.package;
@@ -193,16 +211,19 @@ export class RegistryBridge {
   /** Resolve a package against a connection (defaults to the default connection).
    *  A solution passes its assigned connection so Compose resolves members + deps
    *  from that registry. */
-  resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage> {
+  resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage>
+  {
     return this.managerFor(connectionId).resolveResolved(ref);
   }
 
   /** Versions for a package id (local store unioned with a connection's registry). */
-  packageVersions(model: string, connectionId?: string): Promise<string[]> {
+  packageVersions(model: string, connectionId?: string): Promise<string[]>
+  {
     return this.managerFor(connectionId).resolvedVersions(model);
   }
 
-  getSources(ref: PackageRef): Promise<PackageSource[]> {
+  getSources(ref: PackageRef): Promise<PackageSource[]>
+  {
     return this.managerFor().getSources(ref);
   }
 
@@ -210,58 +231,72 @@ export class RegistryBridge {
    *  raw model, deps, versions) from one fetch — backs the content tree. The
    *  Package Manager passes the owning connection's id (defaults to the default
    *  connection). */
-  getPackageContents(name: string, connectionId?: string): Promise<PackageContents> {
+  getPackageContents(name: string, connectionId?: string): Promise<PackageContents>
+  {
     return this.managerFor(connectionId).getContents({ name });
   }
 
   // --- Connections management (config:* superseded) ---------------------------
 
-  listConnections(): ConnectionView[] {
+  listConnections(): ConnectionView[]
+  {
     return this.deps.manager.listViews();
   }
 
-  addConnection(input: ConnectionInput): ConnectionView {
+  addConnection(input: ConnectionInput): ConnectionView
+  {
     return this.deps.manager.add(input);
   }
 
-  updateConnection(id: string, partial: Partial<ConnectionInput>): ConnectionView | undefined {
+  updateConnection(id: string, partial: Partial<ConnectionInput>): ConnectionView | undefined
+  {
     return this.deps.manager.update(id, partial);
   }
 
-  removeConnection(id: string): void {
+  removeConnection(id: string): void
+  {
     this.deps.manager.remove(id);
   }
 
-  setConnectionToken(id: string, token: string): void {
+  setConnectionToken(id: string, token: string): void
+  {
     this.deps.manager.setToken(id, token);
   }
 
-  useConnectionEnvToken(id: string, varName: string): void {
+  useConnectionEnvToken(id: string, varName: string): void
+  {
     this.deps.manager.useEnvToken(id, varName);
   }
 
-  setDefaultConnection(id: string): void {
+  setDefaultConnection(id: string): void
+  {
     this.deps.manager.setDefault(id);
   }
 
-  listEnvVars(): string[] {
+  listEnvVars(): string[]
+  {
     return this.deps.manager.listEnvVars();
   }
 
   /** Test a connection by listing its registry — surfaces the auth outcome (a 401
    *  "Bad credentials", a package count on success) to the Connections manager. */
-  async testConnection(id: string): Promise<ConnectionTestResult> {
-    try {
+  async testConnection(id: string): Promise<ConnectionTestResult>
+  {
+    try
+    {
       const names = await this.managerFor(id).list();
       return { ok: true, count: names.length };
-    } catch (e) {
+    }
+    catch (e)
+    {
       return { ok: false, message: (e as Error).message };
     }
   }
 
   /** Build a PackageManager bound to a connection's effective config (its
    *  non-secret fields + resolved token). `connectionId` omitted ⇒ the default. */
-  private managerFor(connectionId?: string): PackageManagerLike {
+  private managerFor(connectionId?: string): PackageManagerLike
+  {
     return this.deps.createManager(this.deps.manager.effectiveConfig(connectionId));
   }
 }

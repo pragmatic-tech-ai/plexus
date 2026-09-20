@@ -10,16 +10,22 @@ import { EnvironmentChannel, OperatingSystem, type EnvironmentInfo } from '../sh
 
 // app.getPath throws when a well-known dir can't be resolved (rare — e.g.
 // 'downloads' on a stripped environment). Fall back to '' rather than crash.
-function safePath(name: Parameters<typeof app.getPath>[0]): string {
-  try {
+function safePath(name: Parameters<typeof app.getPath>[0]): string
+{
+  try
+  {
     return app.getPath(name)
-  } catch {
+  }
+  catch
+  {
     return ''
   }
 }
 
-function toOperatingSystem(platform: NodeJS.Platform): OperatingSystem {
-  switch (platform) {
+function toOperatingSystem(platform: NodeJS.Platform): OperatingSystem
+{
+  switch (platform)
+  {
     case 'win32':
       return OperatingSystem.Windows
     case 'darwin':
@@ -31,7 +37,8 @@ function toOperatingSystem(platform: NodeJS.Platform): OperatingSystem {
   }
 }
 
-export function buildEnvironmentInfo(): EnvironmentInfo {
+export function buildEnvironmentInfo(): EnvironmentInfo
+{
   return {
     CurrentDirectory: process.cwd(),
     HomeDirectory: safePath('home'),
@@ -54,7 +61,8 @@ export function buildEnvironmentInfo(): EnvironmentInfo {
   }
 }
 
-export function registerEnvironmentHandlers(): void {
+export function registerEnvironmentHandlers(): void
+{
   // Snapshot once — the facts are constant for the process lifetime.
   const snapshot = buildEnvironmentInfo()
   // Synchronous one-shot: the preload reads this at load time via

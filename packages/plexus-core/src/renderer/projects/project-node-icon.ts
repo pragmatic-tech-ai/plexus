@@ -15,7 +15,8 @@ import type { ProjectNodeKind } from './project.js'
 // unrecognised kind falls back to the generic file glyph.
 export function iconKeyForKind(kind: ProjectNodeKind): string
 {
-    switch (kind) {
+    switch (kind)
+    {
         case 'folder': return 'Folder'
         case 'diagram': return 'Diagram'
         case 'todl': return 'Todl'

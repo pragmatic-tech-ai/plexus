@@ -3,7 +3,8 @@ import { BindingResolver, type BindingContextSources } from '../binding-resolver
 import { BindingSource } from '../../../../../../shared/skill-api.js'
 import { BindingPayloadKind } from '../../../../../../shared/skill-context-api.js'
 
-function sources(over: Partial<BindingContextSources> = {}): BindingContextSources {
+function sources(over: Partial<BindingContextSources> = {}): BindingContextSources
+{
     return {
         currentProject: () => ({ name: 'P', path: '/p' }),
         diagramSelection: () => ({ entityIds: ['a', 'b'], entities: [{ id: 'a' }, { id: 'b' }] }),

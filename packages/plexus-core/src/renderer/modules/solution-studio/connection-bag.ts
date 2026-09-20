@@ -6,11 +6,13 @@ import { CONNECTION_BAG_ID, CONNECTION_BAG_TITLE, CONNECTION_ID_KEY, CONNECTION_
 // its members compile / compose / publish against. Stored as a single
 // connection-ID reference (the connection's URL/scope/token live in the
 // Connections manager). Persisted in solution.json via the SolutionSettingsRegistry.
-export class ConnectionBag {
+export class ConnectionBag
+{
   static readonly Id = CONNECTION_BAG_ID;
   static readonly ConnectionIdKey = CONNECTION_ID_KEY;
 
-  static definition(): SettingBagDefinition {
+  static definition(): SettingBagDefinition
+  {
     return new SettingBagDefinition(
       CONNECTION_BAG_ID,
       CONNECTION_BAG_TITLE,
@@ -18,11 +20,13 @@ export class ConnectionBag {
     );
   }
 
-  static contribute(registry: SolutionSettingsRegistry): void {
+  static contribute(registry: SolutionSettingsRegistry): void
+  {
     registry.Contribute(ConnectionBag.definition());
   }
 
-  private static toDefinition(key: string, label: string): SettingDefinition {
+  private static toDefinition(key: string, label: string): SettingDefinition
+  {
     const d = new SettingDefinition();
     d.Key = key;
     d.Label = label;

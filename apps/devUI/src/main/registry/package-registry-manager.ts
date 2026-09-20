@@ -21,7 +21,8 @@ import type {
   ConnectionInput,
 } from "./registry-connection.js";
 
-export interface PackageRegistryManagerDeps {
+export interface PackageRegistryManagerDeps
+{
   connectionStore: ConnectionStore;
   tokenStore: ConnectionTokenStore;
   /** The process environment, for env-var-sourced tokens (prod: `process.env`). */
@@ -34,13 +35,15 @@ export interface PackageRegistryManagerDeps {
 
 const SEED_NAME = "GitHub Packages";
 
-export class PackageRegistryManager {
+export class PackageRegistryManager
+{
   constructor(private readonly deps: PackageRegistryManagerDeps) {}
 
   /** On first run (no connections yet), seed one connection from the legacy
    *  single-registry settings + token so existing users keep working and every
    *  install always has at least one connection. Idempotent. */
-  migrateIfNeeded(): void {
+  migrateIfNeeded(): void
+  {
     if (!this.deps.connectionStore.isEmpty()) return;
     const s = this.deps.legacySettings.get();
     const seeded = this.deps.connectionStore.add({
@@ -56,43 +59,51 @@ export class PackageRegistryManager {
     if (legacyToken.length > 0) this.deps.tokenStore.setToken(seeded.id, legacyToken);
   }
 
-  listViews(): ConnectionView[] {
+  listViews(): ConnectionView[]
+  {
     const defaultId = this.deps.connectionStore.defaultId();
     return this.deps.connectionStore.list().map((c) => this.viewOf(c, defaultId));
   }
 
-  add(input: ConnectionInput): ConnectionView {
+  add(input: ConnectionInput): ConnectionView
+  {
     const connection = this.deps.connectionStore.add(input);
     return this.viewOf(connection, this.deps.connectionStore.defaultId());
   }
 
-  update(id: string, partial: Partial<ConnectionInput>): ConnectionView | undefined {
+  update(id: string, partial: Partial<ConnectionInput>): ConnectionView | undefined
+  {
     const connection = this.deps.connectionStore.update(id, partial);
     return connection === undefined ? undefined : this.viewOf(connection, this.deps.connectionStore.defaultId());
   }
 
-  remove(id: string): void {
+  remove(id: string): void
+  {
     this.deps.connectionStore.remove(id);
     this.deps.tokenStore.clear(id);
   }
 
   /** Store an encrypted token for a connection and switch it to the Stored
    *  source (entering a token implies stored auth). */
-  setToken(id: string, token: string): void {
+  setToken(id: string, token: string): void
+  {
     this.deps.tokenStore.setToken(id, token);
     this.deps.connectionStore.update(id, { tokenSource: TokenSource.Stored });
   }
 
   /** Point a connection at an environment variable for its token. */
-  useEnvToken(id: string, varName: string): void {
+  useEnvToken(id: string, varName: string): void
+  {
     this.deps.connectionStore.update(id, { tokenSource: TokenSource.Env, tokenEnvVar: varName });
   }
 
-  setDefault(id: string): void {
+  setDefault(id: string): void
+  {
     this.deps.connectionStore.setDefault(id);
   }
 
-  listEnvVars(): string[] {
+  listEnvVars(): string[]
+  {
     return Object.keys(this.deps.env)
       .filter((k) => this.deps.env[k] !== undefined)
       .sort((a, b) => a.localeCompare(b));
@@ -101,9 +112,11 @@ export class PackageRegistryManager {
   /** The effective registry config for a connection (its non-secret fields plus
    *  the resolved token). Falls back to the default connection when `id` is
    *  omitted (legacy, non-connection-scoped ops). */
-  effectiveConfig(id?: string): NpmRegistryConfig {
+  effectiveConfig(id?: string): NpmRegistryConfig
+  {
     const connection = this.resolve(id);
-    if (connection === undefined) {
+    if (connection === undefined)
+    {
       const s = this.deps.legacySettings.get();
       return { registry: s.registry, scope: s.scope, org: s.org, githubApi: s.githubApi, token: "" };
     }
@@ -116,19 +129,23 @@ export class PackageRegistryManager {
     };
   }
 
-  private resolve(id?: string): RegistryConnection | undefined {
+  private resolve(id?: string): RegistryConnection | undefined
+  {
     const target = id ?? this.deps.connectionStore.defaultId();
     return target === undefined ? undefined : this.deps.connectionStore.get(target);
   }
 
-  private tokenFor(connection: RegistryConnection): string {
-    if (connection.tokenSource === TokenSource.Env) {
+  private tokenFor(connection: RegistryConnection): string
+  {
+    if (connection.tokenSource === TokenSource.Env)
+    {
       return this.deps.env[connection.tokenEnvVar] ?? "";
     }
     return this.deps.tokenStore.getToken(connection.id);
   }
 
-  private viewOf(c: RegistryConnection, defaultId: string | undefined): ConnectionView {
+  private viewOf(c: RegistryConnection, defaultId: string | undefined): ConnectionView
+  {
     return {
       id: c.id,
       name: c.name,

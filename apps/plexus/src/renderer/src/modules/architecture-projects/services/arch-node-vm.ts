@@ -18,7 +18,8 @@ export const ARCH_TILE_DEFAULT = { w: 72, h: 56 } as const
 // from the drop factory's store record, and content-fit from the container's
 // SizeToContent (set when the container binds a VM). See the container-owned-
 // geometry redesign.
-export class ArchNodeVM extends NodeViewModel {
+export class ArchNodeVM extends NodeViewModel
+{
     static readonly LabelKey = MuralBase.RegisterProperty<string>(ArchNodeVM, 'Label', '', MetaData.None)
     // The icon-presentation VM the ContentControl + TodlVisualSelector renders:
     // maps this node's entity key to its baked icon resource key ($Icon.IconKey).
@@ -144,7 +145,8 @@ export class ArchNodeVM extends NodeViewModel {
     // The ArchDiagramBinding subscribes to persist the new title to the entity.
     private readonly labelCommitted: Array<(title: string) => void> = []
 
-    constructor() {
+    constructor()
+    {
         super()
         // Icon size is no longer a per-node concern: the canvas PART_Icon binds the
         // inheritable Diagram.DefaultIconWidth/Height attached DPs (settings-backed).
@@ -155,63 +157,78 @@ export class ArchNodeVM extends NodeViewModel {
         this.set_property_value(ArchNodeVM.ScenariosKey, new ObservableCollection<ArchNavItemVM>())
     }
 
-    get Label(): string {
+    get Label(): string
+    {
         return this.get_property_value(ArchNodeVM.LabelKey)
     }
 
-    set Label(v: string) {
+    set Label(v: string)
+    {
         this.set_property_value(ArchNodeVM.LabelKey, v)
     }
 
-    get Icon(): EntityIconVM | undefined {
+    get Icon(): EntityIconVM | undefined
+    {
         return this.get_property_value(ArchNodeVM.IconKey)
     }
 
-    set Icon(v: EntityIconVM | undefined) {
+    set Icon(v: EntityIconVM | undefined)
+    {
         this.set_property_value(ArchNodeVM.IconKey, v)
     }
 
-    get Concept(): string {
+    get Concept(): string
+    {
         return this.get_property_value(ArchNodeVM.ConceptKey)
     }
 
-    set Concept(v: string) {
+    set Concept(v: string)
+    {
         this.set_property_value(ArchNodeVM.ConceptKey, v)
     }
 
-    get HasWiki(): boolean {
+    get HasWiki(): boolean
+    {
         return this.get_property_value(ArchNodeVM.HasWikiKey)
     }
 
-    set HasWiki(v: boolean) {
+    set HasWiki(v: boolean)
+    {
         this.set_property_value(ArchNodeVM.HasWikiKey, v)
     }
 
-    get IsContainer(): boolean {
+    get IsContainer(): boolean
+    {
         return this.get_property_value(ArchNodeVM.IsContainerKey)
     }
 
-    set IsContainer(v: boolean) {
+    set IsContainer(v: boolean)
+    {
         this.set_property_value(ArchNodeVM.IsContainerKey, v)
     }
 
-    get EntityId(): string | undefined {
+    get EntityId(): string | undefined
+    {
         return this.Id
     }
 
-    get IsEditing(): boolean {
+    get IsEditing(): boolean
+    {
         return this.get_property_value(ArchNodeVM.IsEditingKey)
     }
 
-    set IsEditing(v: boolean) {
+    set IsEditing(v: boolean)
+    {
         this.set_property_value(ArchNodeVM.IsEditingKey, v)
     }
 
-    get EditingLabel(): string {
+    get EditingLabel(): string
+    {
         return this.get_property_value(ArchNodeVM.EditingLabelKey)
     }
 
-    set EditingLabel(v: string) {
+    set EditingLabel(v: string)
+    {
         this.set_property_value(ArchNodeVM.EditingLabelKey, v)
     }
 
@@ -234,7 +251,8 @@ export class ArchNodeVM extends NodeViewModel {
     // The text-style target mural's FormatMirror seeds from + broadcasts to for
     // this node's label (the Text page). Lazily built; wraps the DPs above.
     private _textStyle: ArchLabelTextStyle | undefined
-    get TextStyle(): ITextStyleTarget {
+    get TextStyle(): ITextStyleTarget
+    {
         return (this._textStyle ??= new ArchLabelTextStyle(this))
     }
 
@@ -243,7 +261,8 @@ export class ArchNodeVM extends NodeViewModel {
     // its own, so without this a label-style edit never marks the doc dirty and is
     // never saved). The card fill/stroke lives on the container Figure, which the
     // document tracks separately.
-    DirtyStyleKeys(): PropertyKey<unknown>[] {
+    DirtyStyleKeys(): PropertyKey<unknown>[]
+    {
         return [
             ArchNodeVM.LabelFontFamilyKey,
             ArchNodeVM.LabelFontSizeKey,
@@ -258,7 +277,8 @@ export class ArchNodeVM extends NodeViewModel {
     // Enter in-place title editing: seed the buffer from the current title and
     // reveal the editor (the trigger swaps in the TextBox; FocusOnVisibleBehavior
     // focuses + selects it). No-op when already editing.
-    BeginEdit(): void {
+    BeginEdit(): void
+    {
         if (this.IsEditing) return
         this.EditingLabel = this.Label
         this.IsEditing = true
@@ -269,7 +289,8 @@ export class ArchNodeVM extends NodeViewModel {
     // An empty or unchanged edit just leaves edit mode — no persist, no clobber.
     // Idempotent: the IsEditing guard makes a redundant commit (e.g. a LostFocus
     // firing right after an Enter commit) a no-op.
-    CommitEdit(): void {
+    CommitEdit(): void
+    {
         if (!this.IsEditing) return
         this.IsEditing = false
         const next = this.EditingLabel.trim()
@@ -278,7 +299,8 @@ export class ArchNodeVM extends NodeViewModel {
     }
 
     // Abandon the edit — the buffer is discarded, Label unchanged.
-    CancelEdit(): void {
+    CancelEdit(): void
+    {
         if (!this.IsEditing) return
         this.IsEditing = false
     }
@@ -322,7 +344,8 @@ export class ArchNodeVM extends NodeViewModel {
     // the router (ArchNavigationService.navigateTo bound to this model + project);
     // each item / flat command invokes it with its own NavTarget. Re-applying
     // replaces the previous set wholesale (a rescan re-derives targets).
-    ApplyNavTargets(targets: NavTargets, run: (t: NavTarget) => void): void {
+    ApplyNavTargets(targets: NavTargets, run: (t: NavTarget) => void): void
+    {
         const component = targets.component
         this.CanGoToComponent = component !== undefined
         this.set_property_value(
@@ -360,7 +383,8 @@ export class ArchNodeVM extends NodeViewModel {
         hasOneKey: PropertyKey<boolean>,
         hasManyKey: PropertyKey<boolean>,
         singleCommandKey: PropertyKey<ICommand | undefined>,
-    ): void {
+    ): void
+    {
         coll.Clear()
         for (const t of list) coll.Add(new ArchNavItemVM(t.label, new RelayCommand(() => run(t))))
         this.set_property_value(hasKey, list.length > 0)
@@ -374,7 +398,8 @@ export class ArchNodeVM extends NodeViewModel {
 
     // Subscribe to committed title edits (the ArchDiagramBinding wires this to
     // persist the new title to the backing entity). Returns an unsubscribe thunk.
-    AddLabelCommittedListener(cb: (title: string) => void): () => void {
+    AddLabelCommittedListener(cb: (title: string) => void): () => void
+    {
         this.labelCommitted.push(cb)
         return () => {
             const i = this.labelCommitted.indexOf(cb)
@@ -387,7 +412,8 @@ export class ArchNodeVM extends NodeViewModel {
 // (which the tile's PART_Title binds), the Current* read the effective value the
 // Text page reflects. Bold/italic map to FontWeight/FontStyle; underline +
 // strikethrough share the TextDecorations flags so both can be on at once.
-class ArchLabelTextStyle implements ITextStyleTarget {
+class ArchLabelTextStyle implements ITextStyleTarget
+{
     constructor(private readonly vm: ArchNodeVM) {}
 
     private decos(): TextDecorations { return this.vm.LabelTextDecorations ?? TextDecorations.None }

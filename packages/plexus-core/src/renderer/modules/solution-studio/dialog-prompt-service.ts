@@ -21,36 +21,45 @@ import {
 // that needs them registers a fuller IPromptService over its own bridge. An
 // unhandled ask throws so a missing handler surfaces loudly rather than
 // silently returning a wrong default.
-export class DialogPromptService implements IPromptService {
+export class DialogPromptService implements IPromptService
+{
   constructor(private readonly dialogs: DialogService) {}
 
-  async Ask<R>(request: Ask<R>): Promise<R> {
-    if (request instanceof ConfirmAsk) {
+  async Ask<R>(request: Ask<R>): Promise<R>
+  {
+    if (request instanceof ConfirmAsk)
+    {
       return (await this.confirm(request)) as R;
     }
     throw new Error(`DialogPromptService has no handler for ${request.constructor.name}`);
   }
 
-  Confirm(message: string, confirmLabel?: string): Promise<boolean> {
+  Confirm(message: string, confirmLabel?: string): Promise<boolean>
+  {
     return this.Ask(new ConfirmAsk(message, confirmLabel));
   }
-  PickFolder(): Promise<string | undefined> {
+  PickFolder(): Promise<string | undefined>
+  {
     return Promise.resolve(undefined);
   }
-  PickFile(_title: string, _filters?: readonly FileFilter[]): Promise<string | undefined> {
+  PickFile(_title: string, _filters?: readonly FileFilter[]): Promise<string | undefined>
+  {
     return Promise.resolve(undefined);
   }
-  PromptText(): Promise<string | undefined> {
+  PromptText(): Promise<string | undefined>
+  {
     return Promise.resolve(undefined);
   }
-  Choose<T>(_title: string, _options: readonly Choice<T>[]): Promise<T | undefined> {
+  Choose<T>(_title: string, _options: readonly Choice<T>[]): Promise<T | undefined>
+  {
     return Promise.resolve(undefined);
   }
 
   // A modal yes/no built directly on DialogService, so it renders without any
   // host-wired DataTemplate. Resolves true only when the confirming action is
   // chosen; cancel / scrim / Escape → false.
-  private async confirm(ask: ConfirmAsk): Promise<boolean> {
+  private async confirm(ask: ConfirmAsk): Promise<boolean>
+  {
     const body = new TextBlock();
     body.Text = ask.Message;
     body.TextWrapping = TextWrapping.Wrap;

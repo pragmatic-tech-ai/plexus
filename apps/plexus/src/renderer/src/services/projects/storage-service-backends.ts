@@ -10,14 +10,16 @@ import { ensureLibrariesBackend } from '../../modules/library/services/libraries
 // lazily registering each on the app's StorageService on first use — the app-coupled
 // half of the seam; todl owns only the contract. Rooted at <userData>/meta-models and
 // <userData>/libraries via the local-FS backend today.
-export class StorageServiceBackends implements IProducerBackends {
+export class StorageServiceBackends implements IProducerBackends
+{
     // Registered under todl's ProducerBackendsKey (the `.services:` addInstance
     // convention keys by static Key), so the producer factories resolve it.
     public static readonly Key = ProducerBackendsKey
 
     constructor(private readonly provider: IServiceProvider) {}
 
-    public Backend(kind: PackageKind): IStorage {
+    public Backend(kind: PackageKind): IStorage
+    {
         return kind === PackageKind.Library
             ? ensureLibrariesBackend(this.provider)
             : ensureMetaModelsBackend(this.provider)

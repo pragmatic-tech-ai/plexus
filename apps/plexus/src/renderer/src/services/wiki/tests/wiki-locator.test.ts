@@ -7,7 +7,8 @@ import { WikiLocator, wikiPathOf } from '../wiki-locator.js'
 // A fake OpenProject: its Storage yields one .todl source (its own model text).
 // collectTodlSources walks with storage.List(dir) → [{Name, IsDirectory}] and
 // reads with storage.ReadText(path); the fake models exactly those two calls.
-function fakeProject(root: string, name: string, todl: string): unknown {
+function fakeProject(root: string, name: string, todl: string): unknown
+{
     const storage = {
         List: () => Promise.resolve([{ Name: 'model.todl', IsDirectory: false }]),
         ReadText: () => Promise.resolve(todl),
@@ -15,7 +16,8 @@ function fakeProject(root: string, name: string, todl: string): unknown {
     return { Project: { RootPath: root, Name: name }, Storage: storage }
 }
 
-function locatorWith(...projects: unknown[]): WikiLocator {
+function locatorWith(...projects: unknown[]): WikiLocator
+{
     const explorer = { OpenProjects: new ObservableCollection(projects) } as unknown as ProjectExplorerService
     const provider = new ServiceProvider()
     provider.registerInstance(ProjectExplorerService.Key, explorer)
@@ -43,7 +45,8 @@ test('returns undefined for a concept without a wiki annotation', async () => {
 
 // ── wikiPathOf: the cheap, loaded-model resolution (no source recompile) ──
 
-function repoFrom(todl: string, namespace: string) {
+function repoFrom(todl: string, namespace: string)
+{
     return ModelDraft.fromSources([], [{ uri: 'm.todl', text: todl }], { namespace }).model
 }
 

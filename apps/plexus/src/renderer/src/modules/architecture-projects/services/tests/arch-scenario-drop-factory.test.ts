@@ -10,21 +10,24 @@ import { ArchScenarioDropFactory, ArchScenarioDropFactoryKey, scenarioIdOf } fro
 import type { FlowEntity } from '../scenario-flow.js'
 
 // Fake entities: a scenario 'sc' with one sequence a->b->c.
-function ent(id: string, rels: Record<string, FlowEntity[]> = {}): FlowEntity {
+function ent(id: string, rels: Record<string, FlowEntity[]> = {}): FlowEntity
+{
   return { id, refs: (m) => rels[m] ?? [] }
 }
 function step(s: FlowEntity, d: FlowEntity): FlowEntity { return ent('step', { src: [s], dst: [d] }) }
 const a = ent('a'), b = ent('b'), c = ent('c')
 const scenario = ent('sc', { sequences: [ent('s', { steps: [step(a, b), step(b, c)] })] })
 
-function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext {
+function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext
+{
   const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'scenario')
   const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
   const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'scenario'))
   return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Diagram: undefined as never, Mutator: doc }
 }
 
-function stubProvider() {
+function stubProvider()
+{
   const model = { entities: () => [scenario], create: vi.fn(), addRef: vi.fn(), save: vi.fn() }
   const bindingSvc = { modelForDocument: () => model, addScenario: vi.fn(() => Promise.resolve()) }
   const provider = { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
@@ -58,7 +61,8 @@ test('dropping a scenario adds a node per participant and registers the scenario
 // A model rich enough for the containment reader: components c1/c2 both nest in
 // location 'azure' (marked @has_children), a scenario c1->c2. The fake repo answers
 // only what containmentParentOf / isContainerConcept touch here.
-function containedProvider() {
+function containedProvider()
+{
   const azure = { id: 'azure', concept: 'location', schema: () => ({ relationships: [] }), refs: () => [], referrers: () => [] }
   const comp = (id: string): FlowEntity & { concept: string; schema: () => { relationships: Array<{ name: string; targets: string[] }> }; referrers: () => FlowEntity[] } => ({
     id,

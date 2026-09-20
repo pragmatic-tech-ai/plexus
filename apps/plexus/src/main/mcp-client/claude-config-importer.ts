@@ -53,7 +53,8 @@ export class ClaudeConfigImporter
     private parse(raw: string | undefined): ClaudeConfig | undefined
     {
         if (raw === undefined) return undefined
-        try { return JSON.parse(raw) as ClaudeConfig } catch { return undefined }
+        try { return JSON.parse(raw) as ClaudeConfig }
+        catch { return undefined }
     }
 
     private toEntry(key: string, def: RawServer): McpServerEntry | undefined

@@ -129,14 +129,20 @@ const skillContext: ISkillContextApi = {
 
 const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp, skillContext }
 
-if (process.contextIsolated) {
-  try {
+if (process.contextIsolated)
+{
+  try
+  {
     contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
-  } catch (error) {
+  }
+  catch (error)
+  {
     console.error(error)
   }
-} else {
+}
+else
+{
   // @ts-ignore (contextIsolation disabled)
   window.electron = electronAPI
   // @ts-ignore (contextIsolation disabled)

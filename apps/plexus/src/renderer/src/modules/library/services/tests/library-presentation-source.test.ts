@@ -9,7 +9,8 @@ import { LibraryPresentationSource } from '../library-presentation-source.js'
 import { ensureLibrariesBackend } from '../libraries-backend.js'
 
 // Wire a provider around a pre-populated backend.
-function envWith(backend: FakeStorage): ServiceProvider {
+function envWith(backend: FakeStorage): ServiceProvider
+{
     const provider = new ServiceProvider()
     const storageRegistry = new StorageService(provider)
     storageRegistry.Register(LIBRARIES_BACKEND_ID, () => backend)
@@ -19,7 +20,8 @@ function envWith(backend: FakeStorage): ServiceProvider {
 
 const SVG = '<svg viewBox="0 0 10 10"><path d="M0 0 L10 0 L10 10 Z"/></svg>'
 
-function iconManifest(icon?: string): string {
+function iconManifest(icon?: string): string
+{
     const cls: Record<string, unknown> = { id: 'microsoft.azure', localId: 'azure', label: 'Azure', concept: 'location' }
     if (icon !== undefined) cls.icon = icon
     return JSON.stringify({ id: 'microsoft', version: '0.1.0', name: 'microsoft', metaModel: { id: 'ea', version: '5' }, classes: [cls], assets: [], docs: [], samples: [] })
@@ -27,7 +29,8 @@ function iconManifest(icon?: string): string {
 
 // Bake a presentation artifact (assets + icon-index) into the backend for one
 // iconful class, plus the library.json so discoverLibraries lists it.
-async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void> {
+async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
+{
     const proj = new FakeStorage('fake://proj')
     if (withIcon) void proj.WriteText('resources/azure.svg', SVG)
     const doc = withIcon
@@ -43,7 +46,8 @@ async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
     void backend.WriteText('microsoft/0.1.0/library.json', iconManifest(withIcon ? 'resources/azure.svg' : undefined))
 }
 
-function makeSource(provider: ServiceProvider): LibraryPresentationSource {
+function makeSource(provider: ServiceProvider): LibraryPresentationSource
+{
     const backend = ensureLibrariesBackend(provider)
     return new LibraryPresentationSource(provider, async () => discoverLibraries(backend))
 }

@@ -7,11 +7,13 @@ import { launchPlexus, seedSession, corpusAvailable, cloneCorpus, type Launched 
 
 const ART = path.join(__dirname, '.artifacts')
 
-async function dumpFigures(l: Launched) {
+async function dumpFigures(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
@@ -20,7 +22,8 @@ async function dumpFigures(l: Launched) {
         const brush = (b: any) => (b == null ? null : (b.Color?.toString?.() ?? b.Color ?? b.toString?.() ?? String(b)))
         const pen = (p: any) => (p == null ? null : { brush: brush(p.Brush), thickness: p.Thickness })
         const out: any[] = []
-        for (const vm of arr) {
+        for (const vm of arr)
+        {
             const fig = vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
             if (!fig) continue
             out.push({
@@ -52,11 +55,13 @@ test.describe.serial('container stroke vs shape stroke', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 30; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 300); await l.win.waitForTimeout(150)
         }
-        for (let a = 0; a < 4 && (await dumpFigures(l)).length === 0; a++) {
+        for (let a = 0; a < 4 && (await dumpFigures(l)).length === 0; a++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
@@ -78,7 +83,8 @@ test.describe.serial('container stroke vs shape stroke', () => {
 
         const containers = figs.filter((f) => f.figure === 'ContentContainerFigure')
         expect(containers.length, 'containers present').toBeGreaterThan(0)
-        for (const c of containers) {
+        for (const c of containers)
+        {
             // The container border is the shape default stroke: a visible (non-
             // transparent) pen at the shape default width (1.5), not the old
             // container-specific gray. Same brush the Figure ctor gives a shape.

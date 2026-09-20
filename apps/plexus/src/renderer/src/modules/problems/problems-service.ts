@@ -130,7 +130,8 @@ export class ProblemsService extends ServiceBase
         // publish and made this O(N) rebuild run per-item (O(N^2), froze the app).
         store?.Subscribe(() => this.rebuild())
         const viewport = provider.get(ViewportService.Key)
-        if (viewport !== undefined) {
+        if (viewport !== undefined)
+        {
             const sync = (): void => {
                 this.updateListMaxHeight(viewport.Height)
                 this.setPopupWidth(viewport.Width)
@@ -190,7 +191,8 @@ export class ProblemsService extends ServiceBase
         const all: Diagnostic[] = store ? [...store.All] : []
 
         let errors = 0, warnings = 0
-        for (const d of all) {
+        for (const d of all)
+        {
             if (d.severity === DiagnosticSeverity.Error) errors += 1
             else if (d.severity === DiagnosticSeverity.Warning) warnings += 1
         }
@@ -205,7 +207,8 @@ export class ProblemsService extends ServiceBase
         const visible = all.filter((d) => this.matchesFilter(d))
 
         const byProject = new Map<string, { name: string; diags: Diagnostic[] }>()
-        for (const d of visible) {
+        for (const d of visible)
+        {
             let proj = byProject.get(d.projectId)
             if (proj === undefined) { proj = { name: d.projectName, diags: [] }; byProject.set(d.projectId, proj) }
             proj.diags.push(d)
@@ -214,9 +217,11 @@ export class ProblemsService extends ServiceBase
         const rows = this.Rows
         rows.Clear()
         const multiProject = byProject.size > 1
-        for (const [projectId, proj] of byProject) {
+        for (const [projectId, proj] of byProject)
+        {
             if (multiProject) rows.Add(new ProblemsRow({ kind: ProblemRowKind.ProjectHeader, label: proj.name }))
-            for (const d of proj.diags) {
+            for (const d of proj.diags)
+            {
                 const row = new ProblemsRow({
                     kind: ProblemRowKind.Diagnostic,
                     label: d.message,

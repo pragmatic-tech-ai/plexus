@@ -25,7 +25,8 @@ const MM = `namespace archmm {
   viewpoint V : frames component, location, actor, technology, connector
 }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
@@ -34,7 +35,8 @@ function buildModel(): ArchModel {
     return model
 }
 
-function setup(model: ArchModel, srcConcept: string, tgtConcept: string) {
+function setup(model: ArchModel, srcConcept: string, tgtConcept: string)
+{
     const src = model.createInViewpoint(srcConcept, 'V')
     const tgt = model.createInViewpoint(tgtConcept, 'V')
     const doc = new DiagramDocument()

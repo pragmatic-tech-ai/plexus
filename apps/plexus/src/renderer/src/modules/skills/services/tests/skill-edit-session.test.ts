@@ -6,7 +6,8 @@ import { Skill } from '../skill.js'
 import { SkillDescriptorFactory, SkillScope } from '../../../../../../shared/skill-api.js'
 import { AgentSkillKind } from '../../../../../../shared/agent-api.js'
 
-class FakeBuffer {
+class FakeBuffer
+{
     saved = 0
     constructor(public Content: string) {}
     async Save(): Promise<void> { this.saved++ }

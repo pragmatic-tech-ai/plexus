@@ -8,7 +8,8 @@ import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ArchModelInstanceDropFactory, ArchModelInstanceDropFactoryKey, entityIdOf } from '../arch-model-instance-drop-factory.js'
 
-function makeContext(doc: DiagramDocument, entityId: string): ToolboxDropContext {
+function makeContext(doc: DiagramDocument, entityId: string): ToolboxDropContext
+{
     const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'service')
     const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
     const item = new ArchToolboxItem('instance:' + entityId, 'Svc', descriptor, ArchModelInstanceDropFactoryKey, new EntityIconVM(reg, 'service'))
@@ -16,7 +17,8 @@ function makeContext(doc: DiagramDocument, entityId: string): ToolboxDropContext
 }
 
 // A stub binding service + model just recording the calls the factory makes.
-function stubProvider(placed: Set<string>) {
+function stubProvider(placed: Set<string>)
+{
     const model = { notifyChanged: vi.fn(), create: vi.fn(), addRef: vi.fn(), save: vi.fn() }
     const bindingSvc = {
         modelForDocument: () => model,

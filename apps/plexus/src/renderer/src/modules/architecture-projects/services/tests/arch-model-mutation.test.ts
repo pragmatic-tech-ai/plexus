@@ -16,7 +16,8 @@ const fileB = { uri: 'model-b.todl', text: `namespace archmm {
   model Arch : archmm conforms DeploymentView { Node host {} }
 }` }
 
-function buildModel(storage = new FakeStorage('fake://Arch')): ArchModel {
+function buildModel(storage = new FakeStorage('fake://Arch')): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [fileA, fileB], { namespace: 'archmm' })

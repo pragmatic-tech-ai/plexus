@@ -14,13 +14,15 @@ const ART = path.join(__dirname, '.artifacts')
 
 // The live focus picture: whether the active diagram canvas is focused, and
 // whether the document-host tab control contains focus (the active-pane state).
-async function focusState(l: Launched): Promise<{ canvasFocused: boolean; hostFocusWithin: boolean; focusedCtor: string | undefined }> {
+async function focusState(l: Launched): Promise<{ canvasFocused: boolean; hostFocusWithin: boolean; focusedCtor: string | undefined }>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let canvasFocused = false
         let hostFocusWithin = false
         let focusedCtor: string | undefined
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v) continue
             const ctor = v.constructor?.name
@@ -32,11 +34,13 @@ async function focusState(l: Launched): Promise<{ canvasFocused: boolean; hostFo
     })
 }
 
-async function archNodeCount(l: Launched): Promise<number> {
+async function archNodeCount(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let n = 0
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v && v.constructor?.name === 'Figure' && v.Tag?.constructor?.name === 'ArchNodeVM') n++
         }
@@ -58,13 +62,15 @@ test.describe.serial('focus management (live)', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 16; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
-        for (let attempt = 0; attempt < 3 && (await archNodeCount(l)) === 0; attempt++) {
+        for (let attempt = 0; attempt < 3 && (await archNodeCount(l)) === 0; attempt++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

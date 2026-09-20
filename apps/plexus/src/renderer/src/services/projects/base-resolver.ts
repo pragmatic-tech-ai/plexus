@@ -37,18 +37,22 @@ export async function resolveBases(
     if (bindings.metaModel !== undefined) queue.push({ kind: PackageKind.MetaModel, ...bindings.metaModel })
     for (const lib of bindings.libraries ?? []) queue.push({ kind: PackageKind.Library, ...lib })
 
-    while (queue.length > 0) {
+    while (queue.length > 0)
+    {
         const ref = queue.shift()!
         const key = `${ref.kind}:${ref.id}@${ref.version}`
         if (visited.has(key)) continue
         visited.add(key)
 
         const path = `${ref.id}/${ref.version}/model.json`
-        try {
+        try
+        {
             const doc = JSON.parse(await backendFor(ref.kind).ReadText(path)) as PackageDocument
             bases.push({ nodes: doc.nodes, edges: doc.edges })
             for (const dep of doc.dependencies ?? []) queue.push(dep)
-        } catch {
+        }
+        catch
+        {
             const kind = ref.kind === PackageKind.Library ? 'library' : 'meta-model'
             problems.push(`${kind} "${ref.id}@${ref.version}" is not published`)
         }

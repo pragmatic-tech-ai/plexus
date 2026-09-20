@@ -24,7 +24,8 @@ export async function collectTodlSources(storage: IStorage): Promise<SourceFile[
     const out: SourceFile[] = []
     async function walk(dir: string): Promise<void>
     {
-        for (const e of await storage.List(dir)) {
+        for (const e of await storage.List(dir))
+        {
             const path = joinRel(dir, e.Name)
             if (e.IsDirectory) await walk(path)
             else if (extname(e.Name) === '.todl') out.push({ uri: path, text: await storage.ReadText(path) })
@@ -48,7 +49,8 @@ export async function collectTaxonomySources(
     const out: SourceFile[] = []
     async function walk(dir: string): Promise<void>
     {
-        for (const e of await storage.List(dir)) {
+        for (const e of await storage.List(dir))
+        {
             if (dir === '' && e.IsDirectory && exclude.has(e.Name)) continue
             const path = joinRel(dir, e.Name)
             if (e.IsDirectory) await walk(path)

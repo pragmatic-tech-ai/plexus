@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import { RegistryClient } from "../registry-client.js";
 
 const calls: Array<[string, unknown[]]> = [];
-function stubWindow(overrides: Record<string, (...a: any[]) => any> = {}) {
+function stubWindow(overrides: Record<string, (...a: any[]) => any> = {})
+{
   const record = (name: string) => (...args: any[]) => {
     calls.push([name, args]);
     return overrides[name]?.(...args) ?? Promise.resolve(undefined);

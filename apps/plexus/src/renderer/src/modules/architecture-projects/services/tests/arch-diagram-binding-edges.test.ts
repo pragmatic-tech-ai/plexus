@@ -12,7 +12,8 @@ const MM = `namespace archmm {
   viewpoint V : frames component, service
 }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
@@ -20,7 +21,8 @@ function buildModel(): ArchModel {
 }
 
 // Place two related entities as nodes, attach, and expect one projected connector.
-function setup(): { doc: DiagramDocument; model: ArchModel; a: ArchNodeVM; b: ArchNodeVM } {
+function setup(): { doc: DiagramDocument; model: ArchModel; a: ArchNodeVM; b: ArchNodeVM }
+{
     const model = buildModel()
     const comp = model.createInViewpoint('component', 'V')
     const svc = model.createInViewpoint('service', 'V')

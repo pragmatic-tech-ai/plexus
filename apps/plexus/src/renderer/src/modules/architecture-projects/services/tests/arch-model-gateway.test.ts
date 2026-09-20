@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ArchModelGateway } from '../arch-model-gateway.js'
 import { PatchOpKind } from '../../../../../../shared/model-patch-api.js'
 
-class FakeModel {
+class FakeModel
+{
     calls: string[] = []
     create(c: string, id: string): void { this.calls.push(`create ${c} ${id}`) }
     setField(id: string, f: string, v: string): void { this.calls.push(`set ${id}.${f}=${v}`) }

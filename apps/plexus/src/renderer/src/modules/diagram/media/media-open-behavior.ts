@@ -40,7 +40,8 @@ export class MediaOpenBehavior extends Behavior
 // default app via FileSystemService.OpenExternal (shell.openPath).
 function openMediaTarget(target: string): void
 {
-    if (/^https?:/i.test(target)) {
+    if (/^https?:/i.test(target))
+    {
         if (typeof window !== 'undefined') window.open(target, '_blank', 'noopener')
         return
     }

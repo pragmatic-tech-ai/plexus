@@ -4,7 +4,8 @@ import { AiProviderService } from '../ai-provider-service.js'
 import type { AiProviderSession, IAiProvider } from '../ai-provider.js'
 import { AgentEventKind, type AgentEvent, type TaggedAgentEvent } from '../../../shared/agent-api.js'
 
-function recordingProvider() {
+function recordingProvider()
+{
     const started: Array<{ sessionId: string; onEvent: (e: AgentEvent) => void; disposed: boolean }> = []
     const provider: IAiProvider = {
         Id: 'rec', Resumable: true,

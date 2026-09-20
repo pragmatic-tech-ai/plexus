@@ -33,13 +33,15 @@ export const TEST_PROJECTS = [
 // Electron default userData (no productName override → "Electron").
 const SESSION_FILE = path.join(os.homedir(), 'AppData/Roaming/Electron/open-projects.json')
 
-export function corpusAvailable(): boolean {
+export function corpusAvailable(): boolean
+{
     return fs.existsSync(MAIN) && fs.existsSync(ELECTRON_EXE) && TEST_PROJECTS.every((p) => fs.existsSync(p))
 }
 
 // Seed the restore-session file with the given projects; returns a restore()
 // that puts the previous contents back (call in afterAll).
-export function seedSession(projects: string[] = TEST_PROJECTS): () => void {
+export function seedSession(projects: string[] = TEST_PROJECTS): () => void
+{
     const prev = fs.existsSync(SESSION_FILE) ? fs.readFileSync(SESSION_FILE, 'utf8') : null
     fs.mkdirSync(path.dirname(SESSION_FILE), { recursive: true })
     fs.writeFileSync(SESSION_FILE, JSON.stringify(projects))
@@ -62,10 +64,12 @@ export const PROJECT_RELS = [
 // Clone the corpus projects into a fresh temp dir. Returns the clone root (remove
 // it in afterAll), the cloned project dirs (pass to seedSession), and the arch
 // project dir (where diagram fixtures live).
-export function cloneCorpus(): { root: string; projects: string[]; archDir: string } {
+export function cloneCorpus(): { root: string; projects: string[]; archDir: string }
+{
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-corpus-'))
     const projects: string[] = []
-    for (const rel of PROJECT_RELS) {
+    for (const rel of PROJECT_RELS)
+    {
         const dst = path.join(root, rel)
         fs.cpSync(path.join(CORPUS, rel), dst, { recursive: true })
         projects.push(dst)
@@ -84,7 +88,8 @@ export function cloneCorpus(): { root: string; projects: string[]; archDir: stri
 // no `in` ref) is placed OUTSIDE the container as a loose node — the drag-in test
 // nests it at runtime (component→location containment is legal, same as the
 // enterprise_legacy_app child).
-export function writeContainmentDemoFixture(archDir: string): void {
+export function writeContainmentDemoFixture(archDir: string): void
+{
     const diagram = {
         version: 3,
         nodes: [
@@ -113,7 +118,8 @@ export function writeContainmentDemoFixture(archDir: string): void {
 // `component.in`) → realizes as a ContentContainerFigure, exercising the
 // re-mint-at-depth path. Nodes are placed at diagram-space coords that are visually
 // nested; membership itself comes from the model (projectContainment), not geometry.
-export function writeNestingFixture(archDir: string): void {
+export function writeNestingFixture(archDir: string): void
+{
     const diagram = {
         version: 3,
         nodes: [
@@ -132,7 +138,8 @@ export function writeNestingFixture(archDir: string): void {
     fs.writeFileSync(path.join(archDir, 'nesting-demo.diagram'), JSON.stringify(diagram, null, 1))
 }
 
-export interface Launched {
+export interface Launched
+{
     app: ElectronApplication
     win: Page
     errors: string[]
@@ -142,7 +149,8 @@ export interface Launched {
 // Launch the built app as a GUI (ELECTRON_RUN_AS_NODE must be stripped, or
 // Electron runs as a plain node process and never opens a window). Collects
 // renderer console.error + uncaught page errors into `errors`.
-export async function launchPlexus(): Promise<Launched> {
+export async function launchPlexus(): Promise<Launched>
+{
     const env = { ...process.env }
     delete env.ELECTRON_RUN_AS_NODE
     const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN], cwd: PLEXUS_ROOT, env })
@@ -166,7 +174,8 @@ const IGNORABLE = [
     /devtools/i,
     /Autofill\./i,
 ]
-export function appErrors(errors: string[]): string[] {
+export function appErrors(errors: string[]): string[]
+{
     return errors.filter((e) => !IGNORABLE.some((re) => re.test(e)))
 }
 
@@ -182,13 +191,15 @@ export async function snapshot(win: Page): Promise<{
     ctorHisto: Record<string, number>
     problemsText: string | undefined
     bodyText: string
-}> {
+}>
+{
     return win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         const histo: Record<string, number> = {}
         let visualCount = 0
         let root: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v) continue
             visualCount++
@@ -211,11 +222,13 @@ export async function snapshot(win: Page): Promise<{
     })
 }
 
-export async function countByCtor(win: Page, ctor: string): Promise<number> {
+export async function countByCtor(win: Page, ctor: string): Promise<number>
+{
     return win.evaluate((c) => {
         const S = Symbol.for('mural:visual-backref')
         let n = 0
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v && v.constructor?.name === c) n++
         }
@@ -230,12 +243,14 @@ export async function rectsForCtor(
     win: Page,
     ctor: string,
     labelIncludes?: string,
-): Promise<Array<{ x: number; y: number; w: number; h: number; text: string }>> {
+): Promise<Array<{ x: number; y: number; w: number; h: number; text: string }>>
+{
     return win.evaluate(
         ({ ctor, labelIncludes }) => {
             const S = Symbol.for('mural:visual-backref')
             const out: Array<{ x: number; y: number; w: number; h: number; text: string }> = []
-            for (const el of document.querySelectorAll('*')) {
+            for (const el of document.querySelectorAll('*'))
+            {
                 const v = (el as any)[S]
                 if (!v || v.constructor?.name !== ctor) continue
                 const r = (el as Element).getBoundingClientRect()
@@ -250,6 +265,7 @@ export async function rectsForCtor(
     )
 }
 
-export async function clickCenter(win: Page, r: { x: number; y: number; w: number; h: number }): Promise<void> {
+export async function clickCenter(win: Page, r: { x: number; y: number; w: number; h: number }): Promise<void>
+{
     await win.mouse.click(r.x + r.w / 2, r.y + r.h / 2)
 }

@@ -5,7 +5,8 @@ import { registerArchToolboxAdapters } from '../register-arch-toolbox-adapters.j
 import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { ArchInstanceDropFactoryKey } from '../../../architecture-projects/services/arch-instance-drop-factory.js'
 
-function providerWithRegistry(): ServiceProvider {
+function providerWithRegistry(): ServiceProvider
+{
   const p = new ServiceProvider()
   p.registerInstance(LibraryRegistry.Key, { discover: async () => [] } as never)
   return p

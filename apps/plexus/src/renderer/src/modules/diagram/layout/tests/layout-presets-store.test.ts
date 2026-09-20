@@ -9,7 +9,8 @@ import { LayoutPresetsStore } from '../layout-presets-store.js'
 // An in-memory FileSystemService covering only the methods the store uses.
 // Keys are absolute file paths; ListDirectory returns the immediate children
 // of a directory path.
-function fakeFs(): { fs: FileSystemService; files: Map<string, string> } {
+function fakeFs(): { fs: FileSystemService; files: Map<string, string> }
+{
     const files = new Map<string, string>()
     const fs = {
         CreateDirectory: (_p: string) => Promise.resolve(),
@@ -27,7 +28,8 @@ function fakeFs(): { fs: FileSystemService; files: Map<string, string> } {
     return { fs, files }
 }
 
-function storeWith(fs: FileSystemService): LayoutPresetsStore {
+function storeWith(fs: FileSystemService): LayoutPresetsStore
+{
     const provider = new ServiceProvider()
     provider.registerInstance(FileSystemService.Key, fs)
     provider.registerInstance(EnvironmentService.Key, { UserDataDirectory: '/data' } as unknown as EnvironmentService)

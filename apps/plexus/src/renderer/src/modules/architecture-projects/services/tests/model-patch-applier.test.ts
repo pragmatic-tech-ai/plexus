@@ -3,7 +3,8 @@ import { ModelPatchApplier, ApplyOutcome, type ArchModelHandle } from '../model-
 import { PatchOpKind, type ModelPatch } from '../../../../../../shared/model-patch-api.js'
 import { SkillProblemSeverity, type SkillProblem } from '../../../../../../shared/skill-api.js'
 
-class FakeHandle implements ArchModelHandle {
+class FakeHandle implements ArchModelHandle
+{
     applied: string[] = []; saved = 0; restored = 0
     private snap = new Map([['a.todl', 'v1']])
     constructor(public problems: SkillProblem[] = []) {}

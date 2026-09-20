@@ -21,7 +21,8 @@ const fileB = { uri: 'model-b.todl', text: `namespace archmm {
   model Arch : archmm conforms DeploymentView { Node host {} }
 }` }
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [fileA, fileB], { namespace: 'archmm' })
@@ -29,7 +30,8 @@ function buildModel(): ArchModel {
 }
 
 // Add an ArchNodeVM to a doc with a specific Id.
-function addVM(doc: DiagramDocument, id: string): ArchNodeVM {
+function addVM(doc: DiagramDocument, id: string): ArchNodeVM
+{
     const vm = new ArchNodeVM()
     vm.Id = id
     doc.Nodes.Add(vm)

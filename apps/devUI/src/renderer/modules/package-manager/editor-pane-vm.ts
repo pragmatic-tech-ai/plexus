@@ -7,10 +7,12 @@ import { MonacoEditorHost, EditorLanguage } from "../../editor/monaco-editor-hos
 // place and swaps its buffer (edits are local scratch — not persisted). Owning
 // ONE editor (rather than a fresh one per selection) avoids Monaco churn and is
 // presented directly via `ContentControl [ Content = $Editor ]`.
-export class EditorPaneVM extends Observable {
+export class EditorPaneVM extends Observable
+{
   private readonly editor = new MonacoEditorHost();
 
-  constructor() {
+  constructor()
+  {
     super();
     this.editor.Language = EditorLanguage.PlainText;
     this.editor.Text = "Select a node in the tree to view its content.";
@@ -21,7 +23,8 @@ export class EditorPaneVM extends Observable {
 
   /** Show `text` in the editor under `language` (Language before Text so the
    *  model's language is set before the new buffer lands). */
-  show(text: string, language: EditorLanguage): void {
+  show(text: string, language: EditorLanguage): void
+  {
     this.editor.Language = language;
     this.editor.Text = text;
   }

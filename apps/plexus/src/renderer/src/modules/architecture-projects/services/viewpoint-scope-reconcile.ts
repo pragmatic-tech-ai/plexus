@@ -24,7 +24,8 @@ export function nodesLeavingScope(doc: DiagramDocument, model: ArchModel, chosen
     const repo = model.repository()
     const byId = new Map(model.entities().map((e) => [e.id, e]))
     const leaving: LeavingNode[] = []
-    for (const node of doc.Nodes.ToArray()) {
+    for (const node of doc.Nodes.ToArray())
+    {
         if (!(node instanceof ArchNodeVM || node instanceof Figure)) continue
         const id = node.Id
         if (id === undefined) continue

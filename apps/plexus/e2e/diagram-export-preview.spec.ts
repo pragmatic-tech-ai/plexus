@@ -21,19 +21,23 @@ const PROJECT_RELS = [
   'meta-models/tech-architecture', 'libraries/microsoft', 'libraries/aws', 'architecures/test_architecture',
 ]
 
-function makeCopy(): string {
+function makeCopy(): string
+{
   const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-export-preview-'))
-  for (const rel of PROJECT_RELS) {
+  for (const rel of PROJECT_RELS)
+  {
     fs.cpSync(path.join(CORPUS, rel), path.join(copyRoot, rel), { recursive: true })
   }
   return copyRoot
 }
 
-async function openDiagram(l: Launched): Promise<void> {
+async function openDiagram(l: Launched): Promise<void>
+{
   await l.win.evaluate(async () => {
     const S = Symbol.for('mural:visual-backref')
     let explorer: any
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const dc = (el as any)[S]?.DataContext
       if (dc && typeof dc.OpenFileInProject === 'function') { explorer = dc; break }
     }
@@ -67,12 +71,15 @@ const RESOLVE_BY_DESC = `
 
 // Walk the visual tree for the mounted preview VM (a DataContext whose ctor is
 // DiagramExportPreviewModel) and report its live preview state.
-function findPreviewVm(l: Launched) {
+function findPreviewVm(l: Launched)
+{
   return l.win.evaluate(() => {
     const S = Symbol.for('mural:visual-backref')
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const dc = (el as any)[S]?.DataContext
-      if (dc?.constructor?.name === 'DiagramExportPreviewModel') {
+      if (dc?.constructor?.name === 'DiagramExportPreviewModel')
+      {
         return {
           found: true,
           previewUri: dc.Preview?.Uri ?? null,
@@ -152,7 +159,8 @@ test.describe.serial('diagram-export-preview', () => {
     // Dismiss the modal via the VM's CancelCommand so the app returns to rest.
     await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name === 'DiagramExportPreviewModel') { dc.CancelCommand?.Execute?.(undefined); return }
       }

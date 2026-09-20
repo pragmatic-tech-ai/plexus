@@ -27,13 +27,16 @@ export interface HighlightToken
 // degrades to a single plain token so a viewer never throws on odd input.
 export function highlightCode(code: string, lang?: string): HighlightToken[]
 {
-    try {
+    try
+    {
         const language = lang?.trim().toLowerCase()
         const html = language && hljs.getLanguage(language) !== undefined
             ? hljs.highlight(code, { language, ignoreIllegals: true }).value
             : hljs.highlightAuto(code).value
         return tokenizeHighlighted(html)
-    } catch {
+    }
+    catch
+    {
         return [{ text: code }]
     }
 }
@@ -54,7 +57,8 @@ export function tokenizeHighlighted(html: string): HighlightToken[]
     const tag = /<span class="([^"]*)">|<\/span>/g
     let last = 0
     let m: RegExpExecArray | null
-    while ((m = tag.exec(html)) !== null) {
+    while ((m = tag.exec(html)) !== null)
+    {
         if (m.index > last) emit(html.slice(last, m.index))
         if (m[0].startsWith('</')) stack.pop()
         else stack.push(primaryScope(m[1]!))
@@ -69,7 +73,8 @@ export function tokenizeHighlighted(html: string): HighlightToken[]
 // `function_` refine it but we colour by the primary bucket).
 function primaryScope(classAttr: string): string | undefined
 {
-    for (const cls of classAttr.split(/\s+/)) {
+    for (const cls of classAttr.split(/\s+/))
+    {
         if (cls.startsWith('hljs-')) return cls.slice(5)
     }
     return undefined

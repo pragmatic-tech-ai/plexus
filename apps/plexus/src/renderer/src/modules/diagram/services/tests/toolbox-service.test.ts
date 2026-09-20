@@ -36,13 +36,15 @@ const MODEL2 = JSON.stringify({
 
 // Inject a fake active document (its ToolboxContexts drives page visibility) and
 // skip arch-project enumeration — these tests exercise the published-taxonomy path.
-class TestToolbox extends ToolboxService {
+class TestToolbox extends ToolboxService
+{
   public active: unknown = undefined
   protected activeDoc(): unknown { return this.active }
   protected async openArchModels(): Promise<Array<{ model: never; namespace: string }>> { return [] }
 }
 
-function provider(seed: (mm: FakeStorage, lib: FakeStorage) => void): ServiceProvider {
+function provider(seed: (mm: FakeStorage, lib: FakeStorage) => void): ServiceProvider
+{
   const p = new ServiceProvider()
   const reg = new StorageService(p)
   const mm = new FakeStorage('fake://meta-models'); const lib = new FakeStorage('fake://libraries')

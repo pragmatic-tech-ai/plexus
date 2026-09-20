@@ -32,7 +32,8 @@ export class LibraryRegistry extends ServiceBase
         this.slices.clear()
         const backend = ensureLibrariesBackend(this.Provider)
         const libs = await discoverLibraries(backend)
-        for (const lib of libs) {
+        for (const lib of libs)
+        {
             const pid = this.projectIdOf(lib)
             this.slices.set(pid, { lib, problems: [...lib.problems] })
             this.publishSlice(pid)

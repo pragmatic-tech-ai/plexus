@@ -181,13 +181,17 @@ export class LayoutPipelineService extends ServiceBase
                 if (spec === undefined) delete layout[key]
                 else layout[key] = spec
 
-                if (isEdgeRouter && portAssignerStage !== undefined) {
-                    if (spec?.className === CARDINAL_SIDE_ROUTER) {
+                if (isEdgeRouter && portAssignerStage !== undefined)
+                {
+                    if (spec?.className === CARDINAL_SIDE_ROUTER)
+                    {
                         // Native routing owns port assignment: skip Fresco's
                         // port assigner and disable its combobox.
                         layout.portAssigner = { off: true }
                         portAssignerStage.Enabled = false
-                    } else {
+                    }
+                    else
+                    {
                         // Re-enable and restore the port assigner from its
                         // own current selection.
                         portAssignerStage.Enabled = true
@@ -225,10 +229,13 @@ export class LayoutPipelineService extends ServiceBase
         // The fake host in unit tests has no property-change surface — guard so
         // construction there still works (and still lists global presets).
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
-        if (host !== undefined && typeof (host as unknown as MuralBase).PropertyChanged === 'function') {
+        if (host !== undefined && typeof (host as unknown as MuralBase).PropertyChanged === 'function')
+        {
             host.PropertyChanged('ActiveDocument').subscribe(() => this.onActiveDocumentChanged())
             this.onActiveDocumentChanged()
-        } else {
+        }
+        else
+        {
             void this.refreshPresets()
         }
     }
@@ -317,7 +324,8 @@ export class LayoutPipelineService extends ServiceBase
     // Fetch a preset's config from its own scope.
     private async getPreset(ref: LayoutPresetRef): Promise<PipelineConfiguration | undefined>
     {
-        switch (ref.Scope) {
+        switch (ref.Scope)
+        {
             case PresetScope.Global:  return this.globalPresets.get(ref.Name)
             case PresetScope.Project: return this.projectPresets()?.get(ref.Name)
             case PresetScope.Diagram: { const d = this.activeDiagram(); return d === undefined ? undefined : getDiagramPreset(d, ref.Name) }
@@ -333,7 +341,8 @@ export class LayoutPipelineService extends ServiceBase
     {
         this.Config = structuredClone(cfg)
         const layout = this.Config.layout as Record<string, LayoutStageSpec | undefined>
-        for (const [stage, key] of this.stageKeys) {
+        for (const [stage, key] of this.stageKeys)
+        {
             if (!stage.Enabled) continue
             stage.LoadSpec(layout[key])
         }
@@ -376,14 +385,17 @@ export class LayoutPipelineService extends ServiceBase
     // name (sanitized for file-backed scopes). Diagram scope also saves the doc.
     private async savePreset(name: string, scope: PresetScope, cfg: PipelineConfiguration): Promise<string>
     {
-        switch (scope) {
+        switch (scope)
+        {
             case PresetScope.Global:
                 return this.globalPresets.save(name, cfg)
-            case PresetScope.Project: {
+            case PresetScope.Project:
+            {
                 const pp = this.projectPresets()
                 return pp === undefined ? name : pp.save(name, cfg)
             }
-            case PresetScope.Diagram: {
+            case PresetScope.Diagram:
+            {
                 const doc = this.activeDiagram()
                 if (doc !== undefined) { saveDiagramPreset(doc, name.trim(), cfg); this.persistDocument(doc) }
                 return name.trim()
@@ -398,7 +410,8 @@ export class LayoutPipelineService extends ServiceBase
     {
         const ref = this.SelectedPreset
         if (ref === undefined) return
-        switch (ref.Scope) {
+        switch (ref.Scope)
+        {
             case PresetScope.Global:  await this.globalPresets.delete(ref.Name); break
             case PresetScope.Project: await this.projectPresets()?.delete(ref.Name); break
             case PresetScope.Diagram: { const d = this.activeDiagram(); if (d !== undefined) { deleteDiagramPreset(d, ref.Name); this.persistDocument(d) } break }
@@ -417,7 +430,8 @@ export class LayoutPipelineService extends ServiceBase
         const doc = this.activeDiagram()
         const saved = doc === undefined ? undefined : readLayoutConfig(doc)
         this._hydrating = true
-        try { this.applyConfig(saved ?? DEFAULT_CONFIG) } finally { this._hydrating = false }
+        try { this.applyConfig(saved ?? DEFAULT_CONFIG) }
+        finally { this._hydrating = false }
         void this.refreshPresets()
     }
 
@@ -477,7 +491,8 @@ export class LayoutPipelineService extends ServiceBase
         const connectors = doc.Connectors.ToArray() as unknown as ConnectorLike[]
         const { graph, index, connectorEdges } = extract(figures, connectors)
 
-        try {
+        try
+        {
             const { graphPipeline, layoutPipeline } = BuildPipeline(this.Config, LoadElementRepository())
             const transformed = graphPipeline.Apply(graph)
             // fresco's pipeline Apply now returns a LayoutResult { positions, routes }
@@ -485,7 +500,9 @@ export class LayoutPipelineService extends ServiceBase
             const result = layoutPipeline.Apply(transformed)
             const outcome = computeOutcome(index, transformed, result.positions, (f) => this.sizeOf(f))
             return { index, connectorEdges, outcome, lastRoutes: result.routes }
-        } catch (err) {
+        }
+        catch (err)
+        {
             this.Status = `Pipeline error: ${(err as Error).message}`
             return undefined
         }
@@ -590,8 +607,10 @@ export class LayoutPipelineService extends ServiceBase
     {
         if (lastRoutes === undefined) return 0
         const byPair = new Map<string, EdgeSideLike>()
-        for (const [edge, routing] of lastRoutes) {
-            if (routing.kind === 'sides') {
+        for (const [edge, routing] of lastRoutes)
+        {
+            if (routing.kind === 'sides')
+            {
                 byPair.set(`${edge.From}|${edge.To}`, { source: routing.source, target: routing.target })
             }
         }
@@ -605,7 +624,8 @@ export class LayoutPipelineService extends ServiceBase
     // stale hand-route distorting the freshly laid-out diagram.
     private clearConnectorWaypoints(doc: DiagramDocument): void
     {
-        for (const c of doc.Connectors.ToArray()) {
+        for (const c of doc.Connectors.ToArray())
+        {
             if (c instanceof Connector) c.Waypoints = undefined
         }
     }
@@ -620,7 +640,8 @@ export class LayoutPipelineService extends ServiceBase
     {
         const view = doc.ActiveView
         const out: FigureLike[] = []
-        for (const node of doc.Nodes.ToArray()) {
+        for (const node of doc.Nodes.ToArray())
+        {
             const fig = node instanceof Figure ? node : view?.Generator.ContainerFromItem(node)
             if (fig instanceof Figure) out.push(fig as unknown as FigureLike)
         }
@@ -629,7 +650,8 @@ export class LayoutPipelineService extends ServiceBase
 
     private applyPositions(index: Map<string, FigureLike>, sets: PositionSet[]): void
     {
-        for (const s of sets) {
+        for (const s of sets)
+        {
             const fig = index.get(s.id)
             if (fig === undefined) continue
             fig.Left = s.left

@@ -3,7 +3,8 @@ import { confirmCloseDocs } from '../confirm-close-docs.js'
 import { SavePromptResult } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
 
 function doc(dirty: boolean) { return { Id: 'x', Title: 'x', IsDirty: dirty, Save: vi.fn() } }
-function host(docs: ReturnType<typeof doc>[], saveAll = vi.fn(async () => {})) {
+function host(docs: ReturnType<typeof doc>[], saveAll = vi.fn(async () => {}))
+{
     return { OpenDocuments: { ToArray: () => docs }, SaveAll: saveAll }
 }
 

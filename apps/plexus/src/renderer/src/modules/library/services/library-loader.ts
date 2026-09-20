@@ -30,7 +30,8 @@ export async function discoverLibraries(backend: IStorage): Promise<LoadedLibrar
 {
     const out: LoadedLibrary[] = []
     const ids = (await backend.List('')).filter((e) => e.IsDirectory).map((e) => e.Name).sort()
-    for (const id of ids) {
+    for (const id of ids)
+    {
         const versions = (await backend.List(id)).filter((e) => e.IsDirectory).map((e) => e.Name).sort()
         for (const version of versions) out.push(await loadLibrary(backend, id, version))
     }
@@ -49,20 +50,25 @@ export async function loadLibrary(backend: IStorage, id: string, version: string
         metaModel: { id: string; version: string }
         classes: Array<{ id: string; localId?: string; label?: string; concept: string; template?: string; thumbnail?: string; doc?: string; icon?: string }>
     }
-    try {
+    try
+    {
         manifest = JSON.parse(await backend.ReadText(`${base}/library.json`))
-    } catch (e) {
+    }
+    catch (e)
+    {
         return { id, version, name: id, metaModel: { id: '', version: '' }, classes: [],
                  problems: [{ severity: 'error', uri: 'library.json', message: `Library manifest is invalid: ${(e as Error).message}` }] }
     }
 
     const classes: LoadedClass[] = []
-    for (const c of manifest.classes ?? []) {
+    for (const c of manifest.classes ?? [])
+    {
         const cls: LoadedClass = { id: c.id, concept: c.concept }
         if (c.localId !== undefined) cls.localId = c.localId
         if (c.label !== undefined) cls.label = c.label
         if (c.icon !== undefined) cls.icon = c.icon
-        for (const [field, path] of [['templatePath', c.template], ['thumbnailPath', c.thumbnail], ['docPath', c.doc]] as const) {
+        for (const [field, path] of [['templatePath', c.template], ['thumbnailPath', c.thumbnail], ['docPath', c.doc]] as const)
+        {
             if (path === undefined) continue
             if (await backend.Exists(`${base}/${path}`)) (cls as unknown as Record<string, unknown>)[field] = path
             else problems.push({ severity: 'warning', uri: path, message: `Referenced resource is missing: ${path}` })

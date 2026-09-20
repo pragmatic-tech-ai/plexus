@@ -15,7 +15,8 @@ export interface SkillOutput { kind: OutputKind; target?: string }
 export interface SkillDeprecation { replacedBy?: string; note?: string }
 export interface SkillProblem { message: string; severity: SkillProblemSeverity }
 
-export interface SkillDescriptor {
+export interface SkillDescriptor
+{
     kind: AgentSkillKind
     name: string
     title: string
@@ -37,9 +38,11 @@ export interface SkillDescriptor {
 }
 
 // Factory home for descriptor construction (OOP: no free functions).
-export class SkillDescriptorFactory {
+export class SkillDescriptorFactory
+{
     // A plain Claude Code entry (no x-plexus): empty superset fields, base behavior.
-    static claudeCode(kind: AgentSkillKind, name: string, description: string, scope: SkillScope, folderPath: string): SkillDescriptor {
+    static claudeCode(kind: AgentSkillKind, name: string, description: string, scope: SkillScope, folderPath: string): SkillDescriptor
+    {
         return {
             kind, name, title: name, description, scope,
             sourceKind: SkillSourceKind.ClaudeCode,

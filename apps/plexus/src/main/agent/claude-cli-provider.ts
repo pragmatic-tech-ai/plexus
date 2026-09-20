@@ -193,7 +193,8 @@ export class ClaudeCliProvider implements IAiProvider
         {
             if ('url' in cfg)
             {
-                if (cfg.tagSession === true) { try { port = new URL(cfg.url).port || port } catch { /* keep default */ } }
+                if (cfg.tagSession === true) { try { port = new URL(cfg.url).port || port }
+                catch { /* keep default */ } }
                 const url = cfg.tagSession === true ? `${cfg.url}?session=${encodeURIComponent(sessionId)}` : cfg.url
                 const out: McpHttpServerConfig = { type: cfg.type, url }
                 if (cfg.headers !== undefined) out.headers = cfg.headers

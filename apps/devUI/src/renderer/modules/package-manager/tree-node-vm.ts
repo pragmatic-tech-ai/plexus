@@ -2,7 +2,8 @@ import { Observable, ObservableCollection } from "@pragmatic-tech-ai/mural/runti
 import { EditorLanguage } from "../../editor/monaco-editor-host.js";
 
 /** The content a selectable leaf routes to the editor (undefined for branches). */
-export interface LeafContent {
+export interface LeafContent
+{
   text: string;
   language: EditorLanguage;
 }
@@ -10,7 +11,8 @@ export interface LeafContent {
 /** Identifies a tree node as a published-package row: the package name and the
  *  connection it lives under. Set only on package nodes (undefined elsewhere), so
  *  the Delete command can act on the selection and target the right registry. */
-export interface PackageIdentity {
+export interface PackageIdentity
+{
   name: string;
   connectionId: string;
 }
@@ -26,7 +28,8 @@ export interface PackageIdentity {
 // lazy branch starts with a "Loading…" placeholder and runs `loader` the first
 // time it expands (OnExpand — the framework's lazy-load hook), replacing the
 // placeholder with the fetched children.
-export class TreeNodeVM extends Observable {
+export class TreeNodeVM extends Observable
+{
   private loaded = false;
 
   private constructor(
@@ -35,7 +38,8 @@ export class TreeNodeVM extends Observable {
     private readonly _content: LeafContent | undefined,
     private readonly loader: (() => Promise<TreeNodeVM[]>) | undefined,
     private readonly _package: PackageIdentity | undefined = undefined,
-  ) {
+  )
+  {
     super();
   }
 
@@ -47,7 +51,8 @@ export class TreeNodeVM extends Observable {
 
   /** Lazy-load hook — the TreeView calls this on each transition to expanded.
    *  Runs the loader once, swapping the placeholder for the real children. */
-  OnExpand(): void {
+  OnExpand(): void
+  {
     if (this.loader === undefined || this._children === undefined || this.loaded) return;
     this.loaded = true; // one-shot
     void this.loader().then((nodes) => {
@@ -57,24 +62,28 @@ export class TreeNodeVM extends Observable {
   }
 
   /** A selectable leaf: `Content` set, no children. */
-  static leaf(header: string, text: string, language: EditorLanguage): TreeNodeVM {
+  static leaf(header: string, text: string, language: EditorLanguage): TreeNodeVM
+  {
     return new TreeNodeVM(header, undefined, { text, language }, undefined);
   }
 
   /** An eagerly-populated branch. */
-  static branch(header: string, children: readonly TreeNodeVM[]): TreeNodeVM {
+  static branch(header: string, children: readonly TreeNodeVM[]): TreeNodeVM
+  {
     return new TreeNodeVM(header, new ObservableCollection<TreeNodeVM>([...children]), undefined, undefined);
   }
 
   /** A branch whose children are fetched the first time it expands. */
-  static lazy(header: string, loader: () => Promise<TreeNodeVM[]>): TreeNodeVM {
+  static lazy(header: string, loader: () => Promise<TreeNodeVM[]>): TreeNodeVM
+  {
     const children = new ObservableCollection<TreeNodeVM>([TreeNodeVM.leaf("Loading…", "", EditorLanguage.PlainText)]);
     return new TreeNodeVM(header, children, undefined, loader);
   }
 
   /** A lazy package row — like `lazy`, but tagged with its package identity so the
    *  Delete command can act on it and target the owning connection's registry. */
-  static package(name: string, connectionId: string, loader: () => Promise<TreeNodeVM[]>): TreeNodeVM {
+  static package(name: string, connectionId: string, loader: () => Promise<TreeNodeVM[]>): TreeNodeVM
+  {
     const children = new ObservableCollection<TreeNodeVM>([TreeNodeVM.leaf("Loading…", "", EditorLanguage.PlainText)]);
     return new TreeNodeVM(name, children, undefined, loader, { name, connectionId });
   }

@@ -3,13 +3,15 @@ import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 import type { IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectLayoutPresetsStore } from '../project-layout-presets-store.js'
 
-function cfg(name: string): PipelineConfiguration {
+function cfg(name: string): PipelineConfiguration
+{
     return { name, transforms: ['MakeAcyclicTransform'], layout: {} }
 }
 
 // An in-memory IStorage: project-relative POSIX paths → file contents. Only the
 // methods the store touches are implemented; the rest throw if used.
-function memStorage(seed: Record<string, string> = {}): IStorage {
+function memStorage(seed: Record<string, string> = {}): IStorage
+{
     const files = new Map<string, string>(Object.entries(seed))
     return {
         Root: 'mem',

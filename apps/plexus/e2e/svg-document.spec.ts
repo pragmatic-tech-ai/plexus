@@ -41,7 +41,8 @@ test.describe.serial('svg-document', () => {
     await l.win.evaluate(async () => {
       const S = Symbol.for('mural:visual-backref')
       let ex: any
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc && typeof dc.OpenFileInProject === 'function') { ex = dc; break }
       }
@@ -58,12 +59,15 @@ test.describe.serial('svg-document', () => {
   })
 
   // Locate the open SvgDocument's DataContext in the live tree.
-  async function svgDocState(): Promise<any> {
+  async function svgDocState(): Promise<any>
+  {
     return l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'SvgDocument') {
+        if (dc?.constructor?.name === 'SvgDocument')
+        {
           return {
             title: String(dc.Title),
             activeVisual: !!dc.IsVisualActive,
@@ -102,7 +106,8 @@ test.describe.serial('svg-document', () => {
   test('the bottom-tab commands swap views', async () => {
     await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name === 'SvgDocument') { dc.ShowText(); return }
       }
@@ -114,7 +119,8 @@ test.describe.serial('svg-document', () => {
 
     await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name === 'SvgDocument') { dc.ShowVisual(); return }
       }
@@ -129,9 +135,11 @@ test.describe.serial('svg-document', () => {
   test('clicking the XML / Visual tab buttons switches the view', async () => {
     const labelCenter = (label: string) => l.win.evaluate((t) => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const v = (el as any)[S]
-        if (v && v.constructor?.name === 'TextBlock' && String(v.Text) === t) {
+        if (v && v.constructor?.name === 'TextBlock' && String(v.Text) === t)
+        {
           const r = (el as Element).getBoundingClientRect()
           return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
         }
@@ -156,9 +164,11 @@ test.describe.serial('svg-document', () => {
     // then switch to visual so the scene re-parses.
     await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'SvgDocument') {
+        if (dc?.constructor?.name === 'SvgDocument')
+        {
           dc.Content = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
             + '<rect data-e2e="marker" x="10" y="10" width="60" height="40" fill="tomato"/>'
             + '<circle data-e2e="added" cx="80" cy="80" r="10" fill="royalblue"/></svg>'
@@ -178,7 +188,8 @@ test.describe.serial('svg-document', () => {
     // Save through the document and confirm the edit hit disk.
     await l.win.evaluate(async () => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name === 'SvgDocument') { await dc.Save(); return }
       }
@@ -214,7 +225,8 @@ test.describe.serial('svg-document editing', () => {
     await l.win.evaluate(async () => {
       const S = Symbol.for('mural:visual-backref')
       let ex: any
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc && typeof dc.OpenFileInProject === 'function') { ex = dc; break }
       }
@@ -231,10 +243,12 @@ test.describe.serial('svg-document editing', () => {
   })
 
   // The open document's Content (source of truth) + dirty flag.
-  async function docContent(): Promise<{ content: string; dirty: boolean }> {
+  async function docContent(): Promise<{ content: string; dirty: boolean }>
+  {
     return l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name === 'SvgDocument') return { content: String(dc.Content), dirty: !!dc.IsDirty }
       }
@@ -243,7 +257,8 @@ test.describe.serial('svg-document editing', () => {
   }
 
   // On-screen center of the first element matching `sel` (null if absent).
-  async function centerOf(sel: string): Promise<{ x: number; y: number } | null> {
+  async function centerOf(sel: string): Promise<{ x: number; y: number } | null>
+  {
     return l.win.evaluate((s) => {
       const e = document.querySelector(s)
       if (e === null) return null
@@ -309,12 +324,15 @@ test.describe.serial('svg-document editing', () => {
 
   // Reads/writes the document's SelectionStyle VM — exactly what the panel's
   // ColorPicker/TextBox two-way bindings do.
-  async function selectionStyle(): Promise<any> {
+  async function selectionStyle(): Promise<any>
+  {
     return l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'SvgDocument') {
+        if (dc?.constructor?.name === 'SvgDocument')
+        {
           const st = dc.SelectionStyle
           const fill = st.Fill && st.Fill.Color && typeof st.Fill.Color.ToHex === 'function' ? String(st.Fill.Color.ToHex()) : undefined
           return { has: !!dc.HasSelection, fill }
@@ -341,7 +359,8 @@ test.describe.serial('svg-document editing', () => {
     const vis = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       let hasSel = false; let ctrl: { w: number; h: number } | null = null
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const v = (el as any)[S]
         const dc = v?.DataContext
         if (dc?.constructor?.name === 'SvgDocument') hasSel = hasSel || !!dc.HasSelection
@@ -360,9 +379,11 @@ test.describe.serial('svg-document editing', () => {
     // bindings do — constructing new values from the live classes (no imports needed).
     await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'SvgDocument') {
+        if (dc?.constructor?.name === 'SvgDocument')
+        {
           const st = dc.SelectionStyle
           const ColorCls = st.Fill.Color.constructor
           st.Fill = new st.Fill.constructor(ColorCls.FromHex('#00cc00'))   // → Edited(Fill)
@@ -384,7 +405,8 @@ test.describe.serial('svg-document editing', () => {
     // confirm HasSelection stays true (the inspector rail persists across tabs).
     await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name === 'SvgDocument') { dc.ShowText(); return }
       }

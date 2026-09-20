@@ -11,14 +11,16 @@ import type { TodlPresentationRegistry } from '../../../diagram/services/todl-pr
 const MM = `namespace t { concept component {} viewpoint V : frames component }`
 const MODEL = `namespace t { model M : t conforms V { component web {} } }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
   const base = new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))
   const draft = ModelDraft.fromSources([base], [{ uri: 'a.todl', text: MODEL }], { namespace: 't' })
   return new ArchModel(draft, new FakeStorage('fake://A'), 't')
 }
 
 // Structural fakes: the bridge needs only these members.
-function fakes(model: ArchModel, selected: unknown[]) {
+function fakes(model: ArchModel, selected: unknown[])
+{
   const bindingSvc = { modelForDocument: () => model } as unknown as ArchDiagramBindingService
   const registry = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
   const doc = { ActiveView: { SelectedItems: selected } } as unknown as DiagramDocument

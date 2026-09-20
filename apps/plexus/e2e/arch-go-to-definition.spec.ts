@@ -50,7 +50,8 @@ test.describe.serial('arch-go-to-definition', () => {
   // Re-activate the architecture diagram so its ArchNodeVM tiles are in the DOM.
   // Navigation steals focus (opens a .todl tab), so each invocation test re-opens
   // the diagram before scanning for nodes.
-  async function reopenDiagram(): Promise<void> {
+  async function reopenDiagram(): Promise<void>
+  {
     await l.win.evaluate(async () => {
       const S = Symbol.for('mural:visual-backref')
       let ex: any
@@ -70,7 +71,8 @@ test.describe.serial('arch-go-to-definition', () => {
     const pt = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       let best: any = null
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.constructor?.name !== 'ArchNodeVM' || !dc.HasNavTargets) continue
         const r = (el as Element).getBoundingClientRect()
@@ -87,7 +89,8 @@ test.describe.serial('arch-go-to-definition', () => {
     const menu = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       const items: Record<string, boolean> = {}
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const v = (el as any)[S]
         if (v?.constructor?.name !== 'MenuItem') continue
         const r = (el as Element).getBoundingClientRect()
@@ -107,9 +110,11 @@ test.describe.serial('arch-go-to-definition', () => {
   test('the binding populates a component node\'s nav-target facet from the live model', async () => {
     const facet = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'ArchNodeVM' && dc.CanGoToComponent) {
+        if (dc?.constructor?.name === 'ArchNodeVM' && dc.CanGoToComponent)
+        {
           return {
             hasNav: !!dc.HasNavTargets,
             canComponent: !!dc.CanGoToComponent,
@@ -136,9 +141,11 @@ test.describe.serial('arch-go-to-definition', () => {
     await reopenDiagram()
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'ArchNodeVM' && dc.CanGoToComponent && dc.GoToComponentCommand) {
+        if (dc?.constructor?.name === 'ArchNodeVM' && dc.CanGoToComponent && dc.GoToComponentCommand)
+        {
           dc.GoToComponentCommand.Execute(undefined)
           return true
         }
@@ -155,16 +162,19 @@ test.describe.serial('arch-go-to-definition', () => {
     const state = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       let opened = false
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         const docs = dc?.OpenDocuments?.ToArray?.()
-        if (docs) for (const d of docs) {
+        if (docs) for (const d of docs)
+        {
           const p = String(d?.Storage?.Path ?? d?.Path ?? d?.Title ?? '')
           if (p.toLowerCase().includes('landscape.todl')) opened = true
         }
       }
       let caretLine = 0
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const v = (el as any)[S]
         if (v?.constructor?.name === 'CodeEditor') { caretLine = (v as any).editor?.getPosition?.()?.lineNumber ?? 0; break }
       }
@@ -182,9 +192,11 @@ test.describe.serial('arch-go-to-definition', () => {
     await reopenDiagram()
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'ArchNodeVM' && dc.HasTechnologies) {
+        if (dc?.constructor?.name === 'ArchNodeVM' && dc.HasTechnologies)
+        {
           const cmd = dc.HasOneTechnology ? dc.SingleTechnologyCommand : dc.Technologies?.Get(0)?.GoCommand
           if (cmd) { cmd.Execute(undefined); return true }
         }
@@ -198,11 +210,13 @@ test.describe.serial('arch-go-to-definition', () => {
       const S = Symbol.for('mural:visual-backref')
       let librariesSelected = false
       let sourceOpened = false
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         if (dc?.RevealTerm && dc?.Roots && dc.SelectedNode) librariesSelected = true
         const docs = dc?.OpenDocuments?.ToArray?.()
-        if (docs) for (const d of docs) {
+        if (docs) for (const d of docs)
+        {
           const p = String(d?.Storage?.Path ?? d?.Path ?? d?.Title ?? '').toLowerCase()
           if (p.endsWith('.todl')) sourceOpened = true
         }
@@ -217,9 +231,11 @@ test.describe.serial('arch-go-to-definition', () => {
     // A node participating in ≥1 scenario, and how many (drives flat vs submenu).
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'ArchNodeVM' && dc.HasScenarios) {
+        if (dc?.constructor?.name === 'ArchNodeVM' && dc.HasScenarios)
+        {
           const cmd = dc.HasOneScenario ? dc.SingleScenarioCommand : dc.Scenarios?.Get(0)?.GoCommand
           if (cmd) { cmd.Execute(undefined); return { count: dc.Scenarios?.Count ?? 0 } }
         }
@@ -235,15 +251,18 @@ test.describe.serial('arch-go-to-definition', () => {
     const state = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       let opened = false, caretLine = 0
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
         const docs = dc?.OpenDocuments?.ToArray?.()
-        if (docs) for (const d of docs) {
+        if (docs) for (const d of docs)
+        {
           const p = String(d?.Storage?.Path ?? d?.Path ?? d?.Title ?? '')
           if (p.toLowerCase().includes('landscape.todl')) opened = true
         }
       }
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const v = (el as any)[S]
         if (v?.constructor?.name === 'CodeEditor') { caretLine = (v as any).editor?.getPosition?.()?.lineNumber ?? 0; break }
       }

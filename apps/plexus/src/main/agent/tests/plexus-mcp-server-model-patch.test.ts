@@ -5,7 +5,8 @@ import { ModelPatchDecision, PatchOpKind, type ModelPatch, type ProposedModelPat
 
 type RequestModelPatch = (sessionId: string, projectPath: string, patch: ModelPatch) => Promise<ModelPatchDecision>
 
-function requestOn(server: PlexusMcpServer): RequestModelPatch {
+function requestOn(server: PlexusMcpServer): RequestModelPatch
+{
     return (server as unknown as { requestModelPatch: RequestModelPatch }).requestModelPatch.bind(server)
 }
 

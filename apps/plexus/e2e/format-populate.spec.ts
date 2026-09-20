@@ -8,10 +8,12 @@
 import { test, expect } from '@playwright/test'
 import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, type Launched } from './plexus-app'
 
-async function canvasFigs(l: Launched) {
+async function canvasFigs(l: Launched)
+{
     return (await rectsForCtor(l.win, 'Figure')).filter((f) => f.w > 60)
 }
-function selectByIndex(l: Launched, index: number) {
+function selectByIndex(l: Launched, index: number)
+{
     return l.win.evaluate((index) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -23,12 +25,15 @@ function selectByIndex(l: Launched, index: number) {
         return item?.Fill?.Color?.ToHex?.() ?? null
     }, index)
 }
-async function clickInspectorTab(l: Launched, title: string) {
+async function clickInspectorTab(l: Launched, title: string)
+{
     const pt = await l.win.evaluate((title) => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'NavigationItem' && v.DataContext?.Title === title) {
+            if (v?.constructor?.name === 'NavigationItem' && v.DataContext?.Title === title)
+            {
                 const r = (el as HTMLElement).getBoundingClientRect()
                 if (r.width === 0 || r.height === 0) return null
                 return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
@@ -41,7 +46,8 @@ async function clickInspectorTab(l: Launched, title: string) {
 }
 // The FillEditor's own SolidColor + its live PART_SolidColor picker swatch. The
 // picker lives in the swappable body's NameScope, so reach it via _bodyRoot.
-function readFillEditor(l: Launched) {
+function readFillEditor(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let fe: any
@@ -70,12 +76,14 @@ test.describe.serial('Format Shape populates from the selected figure', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 16; i++)
+        {
             if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(250)
         }
         let figs: any[] = []
-        for (let a = 0; a < 4 && figs.length === 0; a++) {
+        for (let a = 0; a < 4 && figs.length === 0; a++)
+        {
             const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

@@ -7,7 +7,8 @@ import {
 // The structured x-plexus block, decoupled from the on-disk YAML. Mirrors §3.2 of
 // the umbrella spec. `unknownVersion` marks a block authored with a schema Plexus
 // doesn't understand (preserved verbatim, edited read-only).
-export interface XPlexus {
+export interface XPlexus
+{
     version?: number
     title?: string
     category?: string
@@ -24,8 +25,10 @@ export interface XPlexus {
 }
 
 // Factory home for a blank extension (OOP: no free functions).
-export class XPlexuses {
-    static empty(): XPlexus {
+export class XPlexuses
+{
+    static empty(): XPlexus
+    {
         return { tags: [], allowedTools: [], requiresProjectType: [], inputs: [], bindings: [], outputs: [] }
     }
 }
@@ -35,16 +38,19 @@ export class XPlexuses {
 // markdown body survive byte-stable (CLI-parity constraint). The body is spliced
 // verbatim; only the frontmatter fence is re-serialized, and only when x-plexus
 // actually changes.
-export class SkillFileCodec {
+export class SkillFileCodec
+{
     private static readonly FENCE = /^---\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n)?/
 
     // Read the x-plexus block into a plain typed object (empty when absent).
-    readExtension(text: string): XPlexus {
+    readExtension(text: string): XPlexus
+    {
         const split = this.split(text)
         const out = XPlexuses.empty()
         if (!split.hadFence) return out
         let doc: Record<string, unknown>
-        try { doc = (parseYaml(split.fmText) ?? {}) as Record<string, unknown> } catch { return out }
+        try { doc = (parseYaml(split.fmText) ?? {}) as Record<string, unknown> }
+        catch { return out }
         const x = doc['x-plexus']
         if (typeof x !== 'object' || x === null || Array.isArray(x)) return out
         const o = x as Record<string, unknown>
@@ -65,16 +71,20 @@ export class SkillFileCodec {
 
     // Return `text` with its x-plexus block set to `ext` (or removed when `ext` is
     // undefined/empty). Base keys + body are preserved verbatim.
-    writeExtension(text: string, ext: XPlexus | undefined): string {
+    writeExtension(text: string, ext: XPlexus | undefined): string
+    {
         const split = this.split(text)
         const empty = ext === undefined || this.isEmpty(ext)
         // Nothing to add and no fence to touch → byte-identical.
         if (!split.hadFence && empty) return text
         const doc = split.hadFence ? parseDocument(split.fmText) : new Document({})
-        if (empty) {
+        if (empty)
+        {
             if (doc.get('x-plexus') === undefined) return text // already absent; don't reflow
             doc.delete('x-plexus')
-        } else {
+        }
+        else
+        {
             doc.set('x-plexus', doc.createNode(this.toPlain(ext)))
         }
         const fm = doc.toString()
@@ -82,13 +92,15 @@ export class SkillFileCodec {
         return `---\n${fm}---\n${body}`
     }
 
-    private split(text: string): { hadFence: boolean; fmText: string; body: string } {
+    private split(text: string): { hadFence: boolean; fmText: string; body: string }
+    {
         const m = SkillFileCodec.FENCE.exec(text)
         if (m === null) return { hadFence: false, fmText: '', body: text }
         return { hadFence: true, fmText: m[1], body: text.slice(m[0].length) }
     }
 
-    private isEmpty(ext: XPlexus): boolean {
+    private isEmpty(ext: XPlexus): boolean
+    {
         return ext.title === undefined && ext.category === undefined && ext.icon === undefined
             && ext.model === undefined && ext.tags.length === 0 && ext.allowedTools.length === 0
             && ext.requiresProjectType.length === 0 && ext.deprecation === undefined
@@ -98,7 +110,8 @@ export class SkillFileCodec {
     // Build the minimal plain object that YAML serializes — omit undefined scalars
     // and empty facets so the block stays readable. Enum members are already their
     // wire string values (InputKind.Enum === 'enum'), so they serialize CLI-ready.
-    private toPlain(ext: XPlexus): Record<string, unknown> {
+    private toPlain(ext: XPlexus): Record<string, unknown>
+    {
         const o: Record<string, unknown> = { version: ext.version ?? 1 }
         if (ext.title !== undefined) o.title = ext.title
         if (ext.category !== undefined) o.category = ext.category
@@ -114,14 +127,16 @@ export class SkillFileCodec {
         return o
     }
 
-    private plainDeprecation(d: { replacedBy?: string; note?: string }): Record<string, unknown> {
+    private plainDeprecation(d: { replacedBy?: string; note?: string }): Record<string, unknown>
+    {
         const o: Record<string, unknown> = {}
         if (d.replacedBy !== undefined) o.replacedBy = d.replacedBy
         if (d.note !== undefined) o.note = d.note
         return o
     }
 
-    private plainInput(i: SkillInput): Record<string, unknown> {
+    private plainInput(i: SkillInput): Record<string, unknown>
+    {
         const o: Record<string, unknown> = { key: i.key, label: i.label, type: i.type }
         if (i.options !== undefined && i.options.length > 0) o.options = [...i.options]
         if (i.required === true) o.required = true
@@ -129,50 +144,59 @@ export class SkillFileCodec {
         return o
     }
 
-    private plainBinding(b: SkillBinding): Record<string, unknown> {
+    private plainBinding(b: SkillBinding): Record<string, unknown>
+    {
         const o: Record<string, unknown> = { source: b.source }
         if (b.as !== undefined) o.as = b.as
         return o
     }
 
-    private plainOutput(x: SkillOutput): Record<string, unknown> {
+    private plainOutput(x: SkillOutput): Record<string, unknown>
+    {
         const o: Record<string, unknown> = { kind: x.kind }
         if (x.target !== undefined) o.target = x.target
         return o
     }
 
-    private strArr(v: unknown): string[] {
+    private strArr(v: unknown): string[]
+    {
         return Array.isArray(v) ? v.filter((e): e is string => typeof e === 'string') : []
     }
 
     // Map a token (enum wire value OR PascalCase key) to the enum value — parity
     // with SkillFrontmatterParser so authored + scanned files agree.
-    private enumMember<T extends Record<string, string>>(token: unknown, e: T): T[keyof T] | undefined {
+    private enumMember<T extends Record<string, string>>(token: unknown, e: T): T[keyof T] | undefined
+    {
         if (typeof token !== 'string') return undefined
-        for (const key of Object.keys(e)) {
+        for (const key of Object.keys(e))
+        {
             const value = (e as Record<string, string>)[key]
             if (key === token || value === token) return value as T[keyof T]
         }
         return undefined
     }
 
-    private enumArr<T extends Record<string, string>>(v: unknown, e: T): Array<T[keyof T]> {
+    private enumArr<T extends Record<string, string>>(v: unknown, e: T): Array<T[keyof T]>
+    {
         if (!Array.isArray(v)) return []
         const out: Array<T[keyof T]> = []
         for (const token of v) { const m = this.enumMember(token, e); if (m !== undefined) out.push(m) }
         return out
     }
 
-    private readDeprecation(v: unknown): XPlexus['deprecation'] {
+    private readDeprecation(v: unknown): XPlexus['deprecation']
+    {
         if (typeof v !== 'object' || v === null) return undefined
         const o = v as Record<string, unknown>
         return { replacedBy: typeof o.replacedBy === 'string' ? o.replacedBy : undefined, note: typeof o.note === 'string' ? o.note : undefined }
     }
 
-    private readInputs(v: unknown): SkillInput[] {
+    private readInputs(v: unknown): SkillInput[]
+    {
         if (!Array.isArray(v)) return []
         const out: SkillInput[] = []
-        for (const raw of v) {
+        for (const raw of v)
+        {
             if (typeof raw !== 'object' || raw === null) continue
             const o = raw as Record<string, unknown>
             const type = this.enumMember(o.type, InputKind)
@@ -186,10 +210,12 @@ export class SkillFileCodec {
         return out
     }
 
-    private readBindings(v: unknown): SkillBinding[] {
+    private readBindings(v: unknown): SkillBinding[]
+    {
         if (!Array.isArray(v)) return []
         const out: SkillBinding[] = []
-        for (const raw of v) {
+        for (const raw of v)
+        {
             if (typeof raw !== 'object' || raw === null) continue
             const o = raw as Record<string, unknown>
             const source = this.enumMember(o.source, BindingSource)
@@ -199,10 +225,12 @@ export class SkillFileCodec {
         return out
     }
 
-    private readOutputs(v: unknown): SkillOutput[] {
+    private readOutputs(v: unknown): SkillOutput[]
+    {
         if (!Array.isArray(v)) return []
         const out: SkillOutput[] = []
-        for (const raw of v) {
+        for (const raw of v)
+        {
             if (typeof raw !== 'object' || raw === null) continue
             const o = raw as Record<string, unknown>
             const kind = this.enumMember(o.kind, OutputKind)

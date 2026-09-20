@@ -17,6 +17,7 @@ export function setCrossFileOpener(fn: CrossFileOpener): void { opener = fn }
 
 // Returns true when an opener was set and it claimed the URI (so the caller can
 // suppress Monaco's default handling); false otherwise.
-export function handleCrossFileOpen(uri: string, selection?: CrossFileSelection): boolean {
+export function handleCrossFileOpen(uri: string, selection?: CrossFileSelection): boolean
+{
   return opener !== undefined ? opener(uri, selection) : false
 }

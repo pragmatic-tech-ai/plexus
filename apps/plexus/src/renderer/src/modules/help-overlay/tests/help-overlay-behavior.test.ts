@@ -4,7 +4,8 @@ import { Border } from '@pragmatic-tech-ai/mural/basic'
 import { HelpDocumentStore } from '../help-document-store.js'
 import { HelpOverlayController } from '../help-overlay-behavior.js'
 
-function makeStore(): HelpDocumentStore {
+function makeStore(): HelpDocumentStore
+{
     const s = new HelpDocumentStore({ get: () => undefined, getRequired: () => { throw new Error() }, has: () => false } as never)
     s.registerDoc('skills', '# S\n## Create a skill\nHello.')
     return s

@@ -6,7 +6,8 @@ import {
     diagramPresetNames, getDiagramPreset, saveDiagramPreset, deleteDiagramPreset,
 } from '../diagram-layout-store.js'
 
-function cfg(name: string): PipelineConfiguration {
+function cfg(name: string): PipelineConfiguration
+{
     return { name, transforms: ['MakeAcyclicTransform'], layout: { layerAssigner: { className: 'LongestPathLayerAssigner', params: {} } } }
 }
 

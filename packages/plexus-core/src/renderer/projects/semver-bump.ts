@@ -11,7 +11,8 @@ export function bumpVersion(current: string, part: VersionPart): string
     const major = Number(seg[0]) || 0
     const minor = Number(seg[1]) || 0
     const patch = Number(seg[2]) || 0
-    switch (part) {
+    switch (part)
+    {
         case VersionPart.Major: return `${major + 1}.0.0`
         case VersionPart.Minor: return `${major}.${minor + 1}.0`
         case VersionPart.Patch: return `${major}.${minor}.${patch + 1}`

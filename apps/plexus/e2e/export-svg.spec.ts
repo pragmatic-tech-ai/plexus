@@ -21,9 +21,11 @@ const PROJECT_RELS = [
   'meta-models/tech-architecture', 'libraries/microsoft', 'libraries/aws', 'architecures/test_architecture',
 ]
 
-function makeCopy(): string {
+function makeCopy(): string
+{
   const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-export-svg-'))
-  for (const rel of PROJECT_RELS) {
+  for (const rel of PROJECT_RELS)
+  {
     fs.cpSync(path.join(CORPUS, rel), path.join(copyRoot, rel), { recursive: true })
   }
   return copyRoot
@@ -31,11 +33,13 @@ function makeCopy(): string {
 
 // Open `diagram-2.diagram` from the arch project (it has nodes, so
 // `canExportActive` will be true once the diagram is loaded).
-async function openDiagram(l: Launched): Promise<void> {
+async function openDiagram(l: Launched): Promise<void>
+{
   await l.win.evaluate(async () => {
     const S = Symbol.for('mural:visual-backref')
     let explorer: any
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const dc = (el as any)[S]?.DataContext
       if (dc && typeof dc.OpenFileInProject === 'function') { explorer = dc; break }
     }
@@ -76,7 +80,8 @@ const RESOLVE_BY_DESC = `
 
 // Resolve DiagramExportService from the running renderer and call its test hook
 // (bypassing the save dialog) to get the SVG string.
-async function callRenderDiagramSvg(l: Launched): Promise<string | null> {
+async function callRenderDiagramSvg(l: Launched): Promise<string | null>
+{
   return l.win.evaluate((resolveSrc) => {
     const resolveByDesc = (0, eval)(resolveSrc) as (d: string) => any
     const svc: any = resolveByDesc('DiagramExportService')
@@ -89,10 +94,12 @@ async function callRenderDiagramSvg(l: Launched): Promise<string | null> {
 }
 
 // Check whether any diagram node is present in the active diagram.
-async function diagramHasNodes(l: Launched): Promise<boolean> {
+async function diagramHasNodes(l: Launched): Promise<boolean>
+{
   return l.win.evaluate(() => {
     const S = Symbol.for('mural:visual-backref')
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const v = (el as any)[S]
       if (v?.constructor?.name === 'Diagram')
         return (v.DataContext?.Nodes?.Count ?? 0) > 0

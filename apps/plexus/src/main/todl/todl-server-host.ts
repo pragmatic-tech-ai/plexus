@@ -4,7 +4,8 @@ import { TodlLspChannel } from '../../shared/todl-lsp-api.js'
 // The minimum a forked child must expose for the relay. Kept as a structural
 // type (not an electron UtilityProcess) so the host is unit-testable with an
 // in-memory fake child and carries no electron import.
-export interface ChildLike {
+export interface ChildLike
+{
   stdout: NodeJS.ReadableStream
   stdin: NodeJS.WritableStream
   on(event: 'exit', cb: () => void): void
@@ -16,7 +17,8 @@ export interface ChildLike {
 // objects across IPC; it never interprets them. Restarts the child on crash and
 // signals the renderer to resync. Electron wiring lives in ./register.ts so this
 // class stays headless-testable.
-export class TodlServerHost {
+export class TodlServerHost
+{
   private child: ChildLike | undefined
   private writer: StreamMessageWriter | undefined
   private disposed = false
@@ -26,7 +28,8 @@ export class TodlServerHost {
     private readonly emit: (channel: string, msg?: unknown) => void,
   ) {}
 
-  start(): void {
+  start(): void
+  {
     const child = this.spawnChild()
     this.child = child
     new StreamMessageReader(child.stdout).listen((msg) => this.emit(TodlLspChannel.FromServer, msg))
@@ -38,11 +41,13 @@ export class TodlServerHost {
     })
   }
 
-  send(msg: unknown): void {
+  send(msg: unknown): void
+  {
     void this.writer?.write(msg as never)
   }
 
-  dispose(): void {
+  dispose(): void
+  {
     this.disposed = true
     this.child?.kill()
   }

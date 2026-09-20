@@ -21,7 +21,8 @@ import type { IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 
 // A provider whose content host reports `doc` as the active document — the
 // same ActiveDocument source the arch binding / viewpoint-scope services read.
-function providerWithActive(doc: IDocument | undefined): ServiceProvider {
+function providerWithActive(doc: IDocument | undefined): ServiceProvider
+{
     const host = {
         ActiveDocument: doc,
         OpenDocuments: new ObservableCollection<IDocument>(doc ? [doc] : []),
@@ -34,7 +35,8 @@ function providerWithActive(doc: IDocument | undefined): ServiceProvider {
 // A provider with an in-memory filesystem host seeded with `presets`
 // (name -> config), plus the active-document host, so LoadPreset / SelectedPreset
 // can read real preset files.
-function providerWithPresets(doc: IDocument | undefined, presets: Record<string, PipelineConfiguration>): ServiceProvider {
+function providerWithPresets(doc: IDocument | undefined, presets: Record<string, PipelineConfiguration>): ServiceProvider
+{
     const provider = providerWithActive(doc)
     const files = new Map<string, string>()
     for (const [name, cfg] of Object.entries(presets)) files.set(`/data/layout-presets/${name}.json`, JSON.stringify(cfg))
@@ -57,7 +59,8 @@ function providerWithPresets(doc: IDocument | undefined, presets: Record<string,
 
 // The catalog's first real strategy for a given slot — used to build a preset
 // whose className the stage VM can resolve.
-function firstStrategy(slotId: string): { name: string; className: string } {
+function firstStrategy(slotId: string): { name: string; className: string }
+{
     const slot = GetPipelineCatalog().find((s) => s.slotId === slotId && s.kind === 'strategy-slot')!
     const strat = (slot as unknown as { strategies: { name: string; className: string }[] }).strategies[0]
     return { name: strat.name, className: strat.className }
@@ -144,7 +147,8 @@ test('LoadPreset of an unknown name leaves Config unchanged', async () => {
 // ── per-diagram persistence + scoped presets ─────────────────────────────────
 
 // An in-memory IStorage for the project-scoped preset backend.
-function memStorage(): IStorage {
+function memStorage(): IStorage
+{
     const files = new Map<string, string>()
     return {
         Root: 'mem',
@@ -165,16 +169,19 @@ function memStorage(): IStorage {
 // A content host that supports active-document switching with property-change
 // notification (the fake in providerWithActive is a static cast — this one lets
 // the service's ActiveDocument listener fire).
-class NotifyingHost {
+class NotifyingHost
+{
     private _active: IDocument | undefined
     private readonly listeners: Array<() => void> = []
     public readonly OpenDocuments = new ObservableCollection<IDocument>()
     public constructor(active?: IDocument) { this._active = active; if (active) this.OpenDocuments.Add(active) }
     public get ActiveDocument(): IDocument | undefined { return this._active }
-    public PropertyChanged(_key: unknown): { subscribe(cb: () => void): { dispose(): void } } {
+    public PropertyChanged(_key: unknown): { subscribe(cb: () => void): { dispose(): void } }
+    {
         const listeners = this.listeners
         return {
-            subscribe(cb: () => void): { dispose(): void } {
+            subscribe(cb: () => void): { dispose(): void }
+            {
                 listeners.push(cb)
                 return { dispose(): void { const i = listeners.indexOf(cb); if (i !== -1) listeners.splice(i, 1) } }
             },
@@ -183,14 +190,16 @@ class NotifyingHost {
     public setActive(doc: IDocument | undefined): void { this._active = doc; for (const cb of this.listeners) cb() }
 }
 
-function providerWithHost(host: NotifyingHost): ServiceProvider {
+function providerWithHost(host: NotifyingHost): ServiceProvider
+{
     const provider = new ServiceProvider()
     provider.registerInstance(ContentHostService.Key, host as unknown as ContentHostService)
     return provider
 }
 
 // A diagram with a saved working config in its metadata.
-function docWithConfig(name: string): DiagramDocument {
+function docWithConfig(name: string): DiagramDocument
+{
     const doc = new DiagramDocument()
     doc.Metadata = { 'layout.config': { name, transforms: ['MakeAcyclicTransform'], layout: {} } }
     return doc
@@ -271,7 +280,8 @@ test('selecting a diagram-scoped preset loads it into Config', async () => {
 // A diagram with two figure nodes + an a->b connector and a mounted (bare) view,
 // active in the host — enough for the pipeline to run and the preview overlay to
 // be published on the view.
-function diagramDocWithEdge(): { doc: DiagramDocument; view: Diagram; a: Figure; b: Figure } {
+function diagramDocWithEdge(): { doc: DiagramDocument; view: Diagram; a: Figure; b: Figure }
+{
     const doc = new DiagramDocument()
     const a = Figure.fromKind('rectangle', 0, 0);   a.Id = 'a'
     const b = Figure.fromKind('rectangle', 300, 0); b.Id = 'b'

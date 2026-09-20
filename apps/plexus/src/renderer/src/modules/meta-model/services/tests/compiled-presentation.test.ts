@@ -18,7 +18,8 @@ const DOC: TodlDocument = {
 
 // Bake a compiled presentation artifact into a FakeStorage via the real publisher
 // so the artifact format is always in sync.
-async function bakePresentation(): Promise<FakeStorage> {
+async function bakePresentation(): Promise<FakeStorage>
+{
     const project = new FakeStorage('fake://proj')
     await project.WriteText('resources/app.svg', SVG)
     const backend = new FakeStorage('fake://backend')

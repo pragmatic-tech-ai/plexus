@@ -3,14 +3,16 @@ import { ServiceKey } from "@pragmatic-tech-ai/mural/runtime";
 // A registry connection a solution can compile/compose against — a stable id
 // plus a display name. The panel persists the id (in solution.json) and shows
 // the name; the host maps between them and the underlying registry.
-export interface SolutionConnection {
+export interface SolutionConnection
+{
   readonly Id: string;
   readonly Name: string;
 }
 
 // The outcome of compiling one solution member into the local package store:
 // its resolved package id + version when it compiled, plus a diagnostic count.
-export interface MemberCompileResult {
+export interface MemberCompileResult
+{
   readonly Ok: boolean;
   readonly Id: string | undefined;
   readonly Version: string | undefined;
@@ -24,7 +26,8 @@ export interface MemberCompileResult {
 // under SolutionWorkspaceHostKey; the panel resolves it and stays free of any
 // registry/IPC knowledge. This is the seam that lets the whole Solution presentation
 // live in plexus-core.
-export interface ISolutionWorkspaceHost {
+export interface ISolutionWorkspaceHost
+{
   // Prompt for a solution folder (New / Open). Undefined when cancelled.
   PickSolutionFolder(): Promise<string | undefined>;
 

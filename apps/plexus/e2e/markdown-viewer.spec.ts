@@ -50,14 +50,17 @@ const FIXTURE_MD = [
 ].join('\n')
 
 // Open readme.md through the real service chain and report the resulting state.
-function openMarkdown(l: Launched, relPath: string) {
+function openMarkdown(l: Launched, relPath: string)
+{
     return l.win.evaluate(async ({ relPath }) => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
         let host: any, explorer: any
-        for (let p = root?.Services; p && (!host || !explorer); p = p._parent) {
-            for (const [, e] of (p._cache ?? new Map())) {
+        for (let p = root?.Services; p && (!host || !explorer); p = p._parent)
+        {
+            for (const [, e] of (p._cache ?? new Map()))
+            {
                 const n = (e as any)?.constructor?.name
                 if (n === 'DocumentsContentHostService') host = e
                 if (n === 'ProjectExplorerService') explorer = e
@@ -74,14 +77,18 @@ function openMarkdown(l: Launched, relPath: string) {
         // Open the file from whichever project actually holds it.
         let opened: any
         const diag: string[] = []
-        for (const op of explorer.OpenProjects.ToArray()) {
+        for (const op of explorer.OpenProjects.ToArray())
+        {
             const storage = op['storage']
-            try {
+            try
+            {
                 const doc = await factory.openFile(storage, relPath)
                 host.Open(doc)
                 opened = doc
                 break
-            } catch (e) {
+            }
+            catch (e)
+            {
                 diag.push(`${op?.Name}: storage=${!!storage} err=${(e as Error)?.message}`)
             }
         }
@@ -108,7 +115,8 @@ test.describe.serial('markdown viewer (live)', () => {
         // Drop the fixture (+ its local image) into every project so whichever one
         // is open by eval time holds it — arch projects can restore later than the
         // library/meta projects.
-        for (const proj of clone.projects) {
+        for (const proj of clone.projects)
+        {
             fs.writeFileSync(path.join(proj, 'readme.md'), FIXTURE_MD)
             fs.writeFileSync(path.join(proj, 'logo.png'), PNG_1x1)
         }

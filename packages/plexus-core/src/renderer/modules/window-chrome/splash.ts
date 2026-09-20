@@ -7,17 +7,20 @@
 // timing is unit-testable in the plain-'node' vitest env (no jsdom): the
 // renderer passes the real `document`; tests pass a hand-rolled double.
 
-export interface SplashElement {
+export interface SplashElement
+{
     style: { transition: string; opacity: string; pointerEvents: string }
     addEventListener(type: 'transitionend', cb: () => void, opts?: { once?: boolean }): void
     remove(): void
 }
 
-export interface SplashDocument {
+export interface SplashDocument
+{
     getElementById(id: string): SplashElement | null
 }
 
-export function removeSplash(doc: SplashDocument = document, fadeMs = 240): void {
+export function removeSplash(doc: SplashDocument = document, fadeMs = 240): void
+{
     const el = doc.getElementById('splash')
     if (!el) return
 

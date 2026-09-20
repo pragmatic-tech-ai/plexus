@@ -4,7 +4,8 @@ import { StreamMessageWriter } from 'vscode-jsonrpc/node'
 import { TodlServerHost, type ChildLike } from '../todl-server-host.js'
 import { TodlLspChannel } from '../../../shared/todl-lsp-api.js'
 
-function fakeChild(): { child: ChildLike; toRenderer: PassThrough; fromRenderer: PassThrough; exit: () => void } {
+function fakeChild(): { child: ChildLike; toRenderer: PassThrough; fromRenderer: PassThrough; exit: () => void }
+{
   const toRenderer = new PassThrough() // acts as child stdout
   const fromRenderer = new PassThrough() // acts as child stdin
   let exitCb: (() => void) | undefined

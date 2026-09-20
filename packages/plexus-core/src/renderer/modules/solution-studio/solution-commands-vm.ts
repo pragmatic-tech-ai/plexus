@@ -4,7 +4,8 @@ import { Observable, RelayCommand, type ICommand } from "@pragmatic-tech-ai/mura
 // service, which owns the new/open/save flow. Passing callbacks (not the
 // service) keeps this VM free of a back-reference to the service type (the
 // PackageCompilerHeaderVM precedent).
-export interface SolutionCommandHandlers {
+export interface SolutionCommandHandlers
+{
   newSolution(): void;
   openSolution(): void;
   save(): void;
@@ -13,13 +14,15 @@ export interface SolutionCommandHandlers {
 
 // Toolbar actions for the Solution Explorer side panel — a button row rendered
 // by DataTemplate[SolutionCommandsVM].
-export class SolutionCommandsVM extends Observable {
+export class SolutionCommandsVM extends Observable
+{
   readonly New: ICommand;
   readonly Open: ICommand;
   readonly Save: ICommand;
   readonly Compose: ICommand;
 
-  constructor(handlers: SolutionCommandHandlers) {
+  constructor(handlers: SolutionCommandHandlers)
+  {
     super();
     this.New = new RelayCommand(() => handlers.newSolution(), undefined, {
       Text: "New", Description: "Create a new empty solution in a folder.",

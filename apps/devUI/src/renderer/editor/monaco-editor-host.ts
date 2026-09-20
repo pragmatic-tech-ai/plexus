@@ -6,7 +6,8 @@ import { MuralBase, MetaData, Size } from "@pragmatic-tech-ai/mural/runtime";
 
 /** The Monaco language a document is edited in. `todl` earns the Monarch
  *  grammar; `json` uses Monaco's built-in language; `plaintext` is unhighlighted. */
-export enum EditorLanguage {
+export enum EditorLanguage
+{
   Todl = "todl",
   Json = "json",
   PlainText = "plaintext",
@@ -16,7 +17,8 @@ export enum EditorLanguage {
  *  `Text` two-way-syncs with the editor (echo-guarded); `Language` switches the
  *  model's language in place (e.g. selecting a JSON node after a TODL one).
  *  Optionally binds the editor's model to a shared LSP URI so diagnostics land. */
-export class MonacoEditorHost extends DomHost {
+export class MonacoEditorHost extends DomHost
+{
   static TextKey = MuralBase.RegisterProperty<string>(MonacoEditorHost, "Text", "", MetaData.None);
   static ReadOnlyKey = MuralBase.RegisterProperty<boolean>(MonacoEditorHost, "ReadOnly", false, MetaData.None);
   static LanguageKey = MuralBase.RegisterProperty<EditorLanguage>(MonacoEditorHost, "Language", EditorLanguage.Todl, MetaData.None);
@@ -34,7 +36,8 @@ export class MonacoEditorHost extends DomHost {
   private autoHeight = false;
   private contentHeight = 0;
 
-  constructor() {
+  constructor()
+  {
     super();
     // DP → editor (external Source changes, e.g. loading an example / permalink).
     this.PropertyChanged(MonacoEditorHost.TextKey).subscribe(() => {
@@ -66,18 +69,21 @@ export class MonacoEditorHost extends DomHost {
   // Self-materialise: touching HostElement on first measure runs CreateHostElement
   // (mounting Monaco), so the renderer sees a ForeignElement to wrap. Without this
   // the foreignObject is never created (the renderer only reads ForeignElement).
-  protected override MeasureOverride(available: Size): Size {
+  protected override MeasureOverride(available: Size): Size
+  {
     void this.HostElement;
     const base = super.MeasureOverride(available);
     // Auto-height snippets size to their content; width still fills the column.
-    if (this.autoHeight && this.contentHeight > 0) {
+    if (this.autoHeight && this.contentHeight > 0)
+    {
       const width = Number.isFinite(available.Width) ? available.Width : base.Width;
       return new Size(width, this.contentHeight);
     }
     return base;
   }
 
-  protected override CreateHostElement(document: Document): HTMLElement {
+  protected override CreateHostElement(document: Document): HTMLElement
+  {
     const el = super.CreateHostElement(document);
     registerTodlDarkTheme();
     // Register the TODL Monarch grammar so `todl` documents get syntax colours.
@@ -96,7 +102,8 @@ export class MonacoEditorHost extends DomHost {
       this.set_property_value(MonacoEditorHost.TextKey, this.editor!.getValue());
       this.updating = false;
     });
-    if (this.autoHeight) {
+    if (this.autoHeight)
+    {
       const syncHeight = () => {
         const h = this.editor!.getContentHeight();
         if (h !== this.contentHeight) { this.contentHeight = h; this.InvalidateMeasure(); }
@@ -106,7 +113,8 @@ export class MonacoEditorHost extends DomHost {
     }
     // A host that fully owns input stops native events at its boundary so Mural's
     // routing doesn't fight Monaco's overlay widgets (menus, suggest, etc.).
-    for (const ev of ["keydown", "keyup", "pointerdown", "pointerup"]) {
+    for (const ev of ["keydown", "keyup", "pointerdown", "pointerup"])
+    {
       el.addEventListener(ev, (e) => e.stopPropagation());
     }
     return el;

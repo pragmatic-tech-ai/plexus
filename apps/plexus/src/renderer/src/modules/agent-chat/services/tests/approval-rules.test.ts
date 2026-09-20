@@ -2,7 +2,8 @@ import { test, expect } from 'vitest'
 import { ApprovalRuleRow, ApprovalRulesVM, type ApprovalRulesPort } from '../approval-rules.js'
 import type { ApprovalRule } from '../../../../../../shared/agent-api.js'
 
-function sameRule(a: ApprovalRule, b: ApprovalRule): boolean {
+function sameRule(a: ApprovalRule, b: ApprovalRule): boolean
+{
     return a.tool === b.tool && (a.prefix ?? '') === (b.prefix ?? '')
 }
 

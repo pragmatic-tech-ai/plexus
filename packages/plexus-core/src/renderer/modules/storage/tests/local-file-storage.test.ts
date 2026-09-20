@@ -8,63 +8,78 @@ import { LocalFileStorage } from '../local-file-storage.js'
 // LocalFileStorage joins root + relative correctly and delegates each verb. Files
 // are strings; directories are tracked as a set so List/Exists behave. Only the
 // methods LocalFileStorage calls are implemented; cast to FileSystemService.
-class FakeFileSystemService {
+class FakeFileSystemService
+{
   readonly files = new Map<string, string>()
   readonly dirs = new Set<string>()
   readonly opened: string[] = []
 
-  async ReadText(path: string): Promise<string> {
+  async ReadText(path: string): Promise<string>
+  {
     const v = this.files.get(path)
     if (v === undefined) throw new Error(`ENOENT ${path}`)
     return v
   }
-  async ReadBytes(path: string): Promise<Uint8Array> {
+  async ReadBytes(path: string): Promise<Uint8Array>
+  {
     return new TextEncoder().encode(await this.ReadText(path))
   }
-  async WriteText(path: string, content: string): Promise<void> {
+  async WriteText(path: string, content: string): Promise<void>
+  {
     this.files.set(path, content)
   }
-  async WriteBytes(path: string, bytes: Uint8Array): Promise<void> {
+  async WriteBytes(path: string, bytes: Uint8Array): Promise<void>
+  {
     this.files.set(path, new TextDecoder().decode(bytes))
   }
-  async Exists(path: string): Promise<boolean> {
+  async Exists(path: string): Promise<boolean>
+  {
     if (this.files.has(path) || this.dirs.has(path)) return true
     const prefix = path.endsWith('/') ? path : path + '/'
     for (const f of this.files.keys()) if (f.startsWith(prefix)) return true
     for (const d of this.dirs) if (d.startsWith(prefix)) return true
     return false
   }
-  async Delete(path: string): Promise<void> {
+  async Delete(path: string): Promise<void>
+  {
     this.files.delete(path)
     this.dirs.delete(path)
   }
-  async CreateDirectory(path: string): Promise<void> {
+  async CreateDirectory(path: string): Promise<void>
+  {
     this.dirs.add(path)
   }
-  async Rename(from: string, to: string): Promise<void> {
+  async Rename(from: string, to: string): Promise<void>
+  {
     const v = this.files.get(from)
-    if (v !== undefined) {
+    if (v !== undefined)
+    {
       this.files.set(to, v)
       this.files.delete(from)
     }
   }
-  async ListDirectory(path: string): Promise<readonly FileEntry[]> {
+  async ListDirectory(path: string): Promise<readonly FileEntry[]>
+  {
     const prefix = path.endsWith('/') ? path : path + '/'
     const out: FileEntry[] = []
-    for (const f of this.files.keys()) {
-      if (f.startsWith(prefix)) {
+    for (const f of this.files.keys())
+    {
+      if (f.startsWith(prefix))
+      {
         const rest = f.slice(prefix.length)
         if (!rest.includes('/')) out.push({ Name: rest, IsDirectory: false })
       }
     }
     return out
   }
-  async OpenExternal(path: string): Promise<void> {
+  async OpenExternal(path: string): Promise<void>
+  {
     this.opened.push(path)
   }
 }
 
-function storage(root: string): { s: LocalFileStorage; fs: FakeFileSystemService } {
+function storage(root: string): { s: LocalFileStorage; fs: FakeFileSystemService }
+{
   const fs = new FakeFileSystemService()
   return { s: new LocalFileStorage(root, fs as unknown as FileSystemService), fs }
 }

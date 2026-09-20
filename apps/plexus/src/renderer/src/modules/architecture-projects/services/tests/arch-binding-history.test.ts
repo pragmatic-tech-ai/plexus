@@ -24,7 +24,8 @@ beforeAll(() => { Application.current = null; new Application(); registerArchNod
 // edit (adding a node) commits before the assertions run.
 const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const base = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([base], [fileA], { namespace: 'archmm' })

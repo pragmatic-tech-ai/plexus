@@ -115,8 +115,10 @@ export class DiagramSvgRenderer
     const saved = pc !== undefined
       ? { thickness: pc.PageBorderThickness, paper: pc.PaperBrush, fill: pc.Fill }
       : undefined
-    try {
-      if (pc !== undefined) {
+    try
+    {
+      if (pc !== undefined)
+      {
         // Drop the per-page border lines unless the user kept them, and neutralize
         // the white paper + desk so no page chrome bleeds into the export (our own
         // background rect, if any, is painted below).
@@ -133,7 +135,8 @@ export class DiagramSvgRenderer
       const dc = new ExportDrawingContext()
       dc.PushTransform(new TranslateTransform(-bounds.X, -bounds.Y))
       // Surface background: one opaque rect behind the tree, covering the bounds.
-      if (options.background === ExportBackground.Surface && options.backgroundColor !== undefined) {
+      if (options.background === ExportBackground.Surface && options.backgroundColor !== undefined)
+      {
         dc.DrawRectangle(
           new SolidColorBrush(Color.FromHex(options.backgroundColor)),
           undefined,
@@ -143,12 +146,16 @@ export class DiagramSvgRenderer
       dc.Pop()
 
       let svg = dc.ToSvg(width, height)
-      if (options.foreground !== undefined) {
+      if (options.foreground !== undefined)
+      {
         svg = this.remapColors(svg, this.inkCssColors(), options.foreground)
       }
       return { svg, width, height }
-    } finally {
-      if (pc !== undefined && saved !== undefined) {
+    }
+    finally
+    {
+      if (pc !== undefined && saved !== undefined)
+      {
         pc.PageBorderThickness = saved.thickness
         pc.PaperBrush          = saved.paper
         pc.Fill                = saved.fill
@@ -198,7 +205,8 @@ export class DiagramSvgRenderer
     if (panel === undefined) return new Rect(0, 0, 0, 0)
 
     let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-    for (const child of panel.visualChildren) {
+    for (const child of panel.visualChildren)
+    {
       const r = child.ArrangedRect
       if (r.Width <= 0 || r.Height <= 0) continue
       minX = Math.min(minX, r.X); minY = Math.min(minY, r.Y)

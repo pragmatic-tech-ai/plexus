@@ -360,9 +360,12 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         // and then open. Writes don't mkdir parents, so create the subfolder first.
         const name = data.name.trim()
         const folder = joinPath(data.location, name)
-        try {
+        try
+        {
             await this.storageRegistry.Create(StorageService.DefaultBackendId, data.location).CreateDirectory(name)
-        } catch (e) {
+        }
+        catch (e)
+        {
             return { created: false, error: `Could not create the project folder: ${(e as Error).message}` }
         }
         const op = await this.createProjectAt(data.type, name, folder, data.metaModel, data.libraries)
@@ -381,9 +384,12 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const bootstrap = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
 
         let envelope: ProjectManifestEnvelope
-        try {
+        try
+        {
             envelope = JSON.parse(await bootstrap.ReadText(PROJECT_MANIFEST_FILENAME)) as ProjectManifestEnvelope
-        } catch {
+        }
+        catch
+        {
             this.Status = `No ${PROJECT_MANIFEST_FILENAME} in that folder.`
             return
         }
@@ -392,22 +398,28 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (factory === undefined) { this.Status = `No factory for project type "${envelope.type}".`; return }
 
         let storage: IStorage
-        try {
+        try
+        {
             const backendId = envelope.storage ?? StorageService.DefaultBackendId
             storage = backendId === StorageService.DefaultBackendId
                 ? bootstrap
                 : this.storageRegistry.Create(backendId, folder)
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = (e as Error).message   // unknown storage backend
             return
         }
 
-        try {
+        try
+        {
             const project = await factory.openProject(storage)
             const op = await this.addOpenProject(project, factory, storage)
             await this.recents.Add({ name: op.Name, path: folder, type: envelope.type, openedAt: Date.now() })
             this.Status = `Opened ${op.Name}.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Open failed: ${(e as Error).message}`
         }
     }
@@ -423,7 +435,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (factory === undefined) { this.Status = `No factory for project type "${type}".`; return undefined }
 
         const storage = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
-        try {
+        try
+        {
             const bindings = (metaModel !== undefined || (libraries !== undefined && libraries.length > 0))
                 ? { metaModel, libraries }
                 : undefined
@@ -432,7 +445,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             await this.recents.Add({ name: op.Name, path: folder, type, openedAt: Date.now() })
             this.Status = `Created ${op.Name}.`
             return op
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Create failed: ${(e as Error).message}`
             return undefined
         }
@@ -442,12 +457,15 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // project manifest is gone; already-open folders dedupe.
     public async RestoreSession(): Promise<void>
     {
-        for (const folder of await this.openStore.List()) {
+        for (const folder of await this.openStore.List())
+        {
             let hasManifest = false
-            try {
+            try
+            {
                 const storage = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
                 hasManifest = await storage.Exists(PROJECT_MANIFEST_FILENAME)
-            } catch { hasManifest = false }
+            }
+            catch { hasManifest = false }
             if (hasManifest) await this.openProjectAt(folder)
             else await this.openStore.Remove(folder)
         }
@@ -537,7 +555,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (format === undefined) { this.Status = 'This project type has no file format.'; return }
         const factory = this.resolveDocumentFactory(format.extension)
         if (factory === undefined) { this.Status = `No editor for ${format.extension}.`; return }
-        try {
+        try
+        {
             const name = await uniqueStorageName(op.Storage, joinRel(parentFolder, `${format.kind}${format.extension}`))
             const path = await factory.newFile(op.Storage, name)
             // Refresh the project's tree so the new file appears, then open it.
@@ -547,7 +566,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             // may abort creation (e.g. the user cancelled the picker); if so,
             // delete the file, re-scan, and skip opening it.
             const keep = await this.Provider.get(NewFileParticipantKey)?.OnCreated(op, path)
-            if (keep === false) {
+            if (keep === false)
+            {
                 await op.Storage.Delete(path)
                 op.Adopt(await op.Factory.openProject(op.Storage))
                 this.wireNodes(op.Root, op)
@@ -556,7 +576,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             }
             await this.openDocument(op, path, factory)
             this.Status = `New ${format.displayName} at ${basename(path)}.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `New file failed: ${(e as Error).message}`
         }
     }
@@ -567,7 +589,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private newItemChoices(op: OpenProject, container: string): ObservableCollection<NewItemChoice>
     {
         const choices = new ObservableCollection<NewItemChoice>()
-        for (const format of op.Factory.formats) {
+        for (const format of op.Factory.formats)
+        {
             choices.Add(new NewItemChoice(format.displayName, new RelayCommand(() => void this.newFileIn(op, container, format))))
         }
         return choices
@@ -579,13 +602,16 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // format, so this goes straight through the project's storage.
     private async newFolderIn(op: OpenProject, parentFolder = ''): Promise<void>
     {
-        try {
+        try
+        {
             const path = await uniqueStorageName(op.Storage, joinRel(parentFolder, 'New Folder'))
             await op.Storage.CreateDirectory(path)
             op.Adopt(await op.Factory.openProject(op.Storage))
             this.wireNodes(op.Root, op)
             this.Status = `Created folder ${basename(path)}.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `New folder failed: ${(e as Error).message}`
         }
     }
@@ -599,9 +625,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const picked = await this.fs.OpenFiles({ Title: `Import files into ${op.Name}`, Filters: importFilters(op.Factory.formats) })
         if (picked === null || picked.length === 0) return
 
-        try {
+        try
+        {
             const added: string[] = []
-            for (const file of picked) {
+            for (const file of picked)
+            {
                 const name = await uniqueStorageName(op.Storage, joinRel(target, basename(file.Path)))
                 await op.Storage.WriteBytes(name, file.Bytes)
                 added.push(name)
@@ -614,7 +642,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             this.Status = added.length === 1
                 ? `Added ${basename(added[0]!)}.`
                 : `Added ${added.length} files.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Import failed: ${(e as Error).message}`
         }
     }
@@ -628,7 +658,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const dir = await this.fs.OpenFolder({ Title: `Import folder into ${op.Name}` })
         if (dir === null) return
 
-        try {
+        try
+        {
             const destTop = await uniqueStorageName(op.Storage, joinRel(target, basename(dir)))
             await this.copyOsFolderInto(dir, destTop, op)
             op.Adopt(await op.Factory.openProject(op.Storage))
@@ -636,7 +667,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             // Expand the destination folder so the freshly-imported subtree is visible.
             this.revealImportTarget(op, target)
             this.Status = `Imported ${basename(destTop)}.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Import failed: ${(e as Error).message}`
         }
     }
@@ -647,12 +680,16 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private async copyOsFolderInto(srcAbsDir: string, destRel: string, op: OpenProject): Promise<void>
     {
         await op.Storage.CreateDirectory(destRel)
-        for (const entry of await this.fs.ListDirectory(srcAbsDir)) {
+        for (const entry of await this.fs.ListDirectory(srcAbsDir))
+        {
             const childSrc = `${srcAbsDir}/${entry.Name}`
             const childDest = joinRel(destRel, entry.Name)
-            if (entry.IsDirectory) {
+            if (entry.IsDirectory)
+            {
                 await this.copyOsFolderInto(childSrc, childDest, op)
-            } else {
+            }
+            else
+            {
                 await op.Storage.WriteBytes(childDest, await this.fs.ReadBytes(childSrc))
             }
         }
@@ -664,21 +701,26 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private handleTreeKey(op: OpenProject, args: KeyEventArgs): void
     {
         if (args === undefined) return
-        switch (args.Key) {
-            case Key.F2: {
+        switch (args.Key)
+        {
+            case Key.F2:
+            {
                 const node = op.SelectedNode
                 if (node !== undefined && node.Path !== '') { this.beginRename(op, node); args.Handled = true }
                 return
             }
-            case Key.Return: {
+            case Key.Return:
+            {
                 if (op.EditingNode !== undefined) { void this.commitRename(op, op.EditingNode); args.Handled = true }
                 return
             }
-            case Key.Escape: {
+            case Key.Escape:
+            {
                 if (op.EditingNode !== undefined) { this.cancelRename(op, op.EditingNode); args.Handled = true }
                 return
             }
-            case Key.Delete: {
+            case Key.Delete:
+            {
                 // Not while a rename editor is open — there Delete edits text.
                 if (op.EditingNode !== undefined) return
                 const targets = this.selectionOf(op)
@@ -718,15 +760,19 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (targets.length === 0) return
         if (!(await this.confirmDelete(targets))) return
 
-        try {
-            for (const node of topLevelNodes(targets)) {
+        try
+        {
+            for (const node of topLevelNodes(targets))
+            {
                 await op.Storage.Delete(node.Path)
                 this.closeDocumentsUnder(op, node.Path)
                 this.removeNodeInPlace(op, node)
             }
             op.SelectedNodes = []
             this.Status = targets.length === 1 ? `Deleted ${targets[0].Name}.` : `Deleted ${targets.length} items.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Delete failed: ${(e as Error).message}`
         }
     }
@@ -761,9 +807,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // delete), and forget it — the file is gone, so the tab can't save back.
     private closeDocumentsUnder(op: OpenProject, path: string): void
     {
-        for (const [doc, docPath] of [...this.docPaths]) {
+        for (const [doc, docPath] of [...this.docPaths])
+        {
             if (this.docOwners.get(doc) !== op) continue
-            if (docPath === path || docPath.startsWith(path + '/')) {
+            if (docPath === path || docPath.startsWith(path + '/'))
+            {
                 this.host.Close(doc)
                 this.docOwners.delete(doc)
                 this.docPaths.delete(doc)
@@ -800,7 +848,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (/[\\/]/.test(proposed)) { this.Status = "A name can't contain a path separator."; this.cancelRename(op, node); return }
 
         const dest = joinRel(parentOf(node.Path), proposed)
-        try {
+        try
+        {
             if (await op.Storage.Exists(dest)) { this.Status = `"${proposed}" already exists.`; this.cancelRename(op, node); return }
             await this.relocatePath(op, node.Path, dest)
             // Surgical, in-place update — the node object (and the whole tree)
@@ -809,7 +858,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             this.renameNodeInPlace(op, node, proposed, dest)
             op.EditingNode = undefined
             this.Status = `Renamed to ${proposed}.`
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.cancelRename(op, node)
             this.Status = `Rename failed: ${(e as Error).message}`
         }
@@ -821,7 +872,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // relocate (their tabs would need a manual reopen).
     private repointOpenDocuments(op: OpenProject, oldPath: string, newPath: string): void
     {
-        for (const [doc, path] of [...this.docPaths]) {
+        for (const [doc, path] of [...this.docPaths])
+        {
             if (this.docOwners.get(doc) !== op) continue
             const moved = path === oldPath ? newPath
                 : path.startsWith(oldPath + '/') ? newPath + path.slice(oldPath.length)
@@ -863,7 +915,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // Names are unchanged; only the path (the identity + file-open key) moves.
     private reprefixSubtree(node: ProjectNode, oldPrefix: string, newPrefix: string): void
     {
-        for (const child of node.Children.ToArray()) {
+        for (const child of node.Children.ToArray())
+        {
             child.Path = newPrefix + child.Path.slice(oldPrefix.length)
             this.reprefixSubtree(child, oldPrefix, newPrefix)
         }
@@ -889,9 +942,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // for the root itself or a node not attached under `root`.
     private findParent(root: ProjectNode, target: ProjectNode): ProjectNode | undefined
     {
-        for (const child of root.Children.ToArray()) {
+        for (const child of root.Children.ToArray())
+        {
             if (child === target) return root
-            if (child.Kind === 'folder') {
+            if (child.Kind === 'folder')
+            {
                 const hit = this.findParent(child, target)
                 if (hit !== undefined) return hit
             }
@@ -919,14 +974,16 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const { moves, rejects } = planNodeMoves(nodes, destParentPath)
         const collisions: string[] = []
         let moved = 0
-        for (const m of moves) {
+        for (const m of moves)
+        {
             if (await op.Storage.Exists(m.to)) { collisions.push(m.name); continue }
             await this.relocatePath(op, m.from, m.to)
             moved++
         }
         if (moved > 0) await this.rescan(op)
 
-        if (collisions.length === 0 && rejects.length === 0) {
+        if (collisions.length === 0 && rejects.length === 0)
+        {
             if (moved > 0) this.Status = `Moved ${moved} item(s).`
             return
         }
@@ -946,7 +1003,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const { moves } = planNodeMoves(nodes, destParentPath, false)
         const collisions: string[] = []
         let moved = 0
-        for (const m of moves) {
+        for (const m of moves)
+        {
             if (await target.Storage.Exists(m.to)) { collisions.push(m.name); continue }
             const node = nodes.find((n) => n.Path === m.from)!
             await copyTree(source.Storage, m.from, target.Storage, m.to, node.Kind === 'folder')
@@ -966,18 +1024,22 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // it (a non-relocatable editor can't follow the file across storages).
     private repointMovedDocs(source: OpenProject, target: OpenProject, fromPath: string, toPath: string): void
     {
-        for (const [doc, path] of [...this.docPaths]) {
+        for (const [doc, path] of [...this.docPaths])
+        {
             if (this.docOwners.get(doc) !== source) continue
             const moved = path === fromPath ? toPath
                 : path.startsWith(fromPath + '/') ? toPath + path.slice(fromPath.length)
                     : undefined
             if (moved === undefined) continue
             const factory = this.resolveDocumentFactory(extname(moved))
-            if (factory !== undefined && isRelocatableAcrossStorage(factory)) {
+            if (factory !== undefined && isRelocatableAcrossStorage(factory))
+            {
                 factory.relocateAcrossStorage(doc, target.Storage, moved)
                 this.docOwners.set(doc, target)
                 this.docPaths.set(doc, moved)
-            } else {
+            }
+            else
+            {
                 this.host.Close(doc); this.docOwners.delete(doc); this.docPaths.delete(doc)
             }
         }
@@ -1027,9 +1089,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (!isPublishable(op.Factory)) { this.Status = "This project type can't be published."; return }
         // Refresh diagnostics so the Problems dock reflects exactly what publish sees.
         await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
-        try {
+        try
+        {
             const result = await op.Factory.publish(op.Project, op.Storage, this.Provider)
-            if (result.ok) {
+            if (result.ok)
+            {
                 this.Status = result.message
                 this.reportProjectProblem(op, 'publish', undefined)   // clear any prior failure
                 return
@@ -1039,7 +1103,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             this.Status = 'Publish failed — see Problems.'
             this.reportProjectProblem(op, 'publish', result.message)
             this.Provider.get(ProblemsDockKey)?.Expand()
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = 'Publish failed — see Problems.'
             this.reportProjectProblem(op, 'publish', `Publish failed: ${(e as Error).message}`)
             this.Provider.get(ProblemsDockKey)?.Expand()
@@ -1053,12 +1119,15 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private async generatePresentation(op: OpenProject, colored: boolean): Promise<void>
     {
         if (!canGeneratePresentation(op.Factory)) { this.Status = 'This project type has no presentation.'; return }
-        try {
+        try
+        {
             await op.Factory.regeneratePresentation(op.Storage, colored)
             await this.rescan(op)
             this.Status = `Presentation regenerated (${colored ? 'colorful' : 'monochrome'}).`
             this.reportProjectProblem(op, 'presentation', undefined)   // clear any prior failure
-        } catch (e) {
+        }
+        catch (e)
+        {
             const message = `Generate presentation failed: ${(e as Error).message}`
             this.Status = message
             this.reportProjectProblem(op, 'presentation', message)
@@ -1163,11 +1232,15 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         // guard performs the actual Close on Save/Don't-Save, so we only forget
         // the doc's tracking afterwards).
         const guard = this.Provider.get(DocumentCloseGuard.Key)
-        for (const [doc, owner] of [...this.docOwners]) {
+        for (const [doc, owner] of [...this.docOwners])
+        {
             if (owner !== op) continue
-            if (guard !== undefined) {
+            if (guard !== undefined)
+            {
                 if (!(await guard.TryCloseDocument(doc))) return   // cancelled — leave the project open
-            } else {
+            }
+            else
+            {
                 this.host.Close(doc)
             }
             this.docOwners.delete(doc); this.docPaths.delete(doc)
@@ -1187,16 +1260,24 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     {
         if (node.Kind === 'folder') return
         const factory = this.resolveDocumentFactory(extname(node.Path))
-        try {
-            if (factory !== undefined) {
+        try
+        {
+            if (factory !== undefined)
+            {
                 await this.openDocument(op, node.Path, factory)
                 this.Status = `Opened ${node.Name}.`
-            } else if (isLocalFileAccess(op.Storage)) {
+            }
+            else if (isLocalFileAccess(op.Storage))
+            {
                 await op.Storage.OpenExternal(node.Path)
-            } else {
+            }
+            else
+            {
                 this.Status = `Can't open ${node.Name} — no editor for its type.`
             }
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Open failed: ${(e as Error).message}`
         }
     }
@@ -1245,7 +1326,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // The already-open document for (project, project-relative path), if any.
     private findOpenDoc(op: OpenProject, path: string): IDocument | undefined
     {
-        for (const [doc, p] of this.docPaths) {
+        for (const [doc, p] of this.docPaths)
+        {
             if (p === path && this.docOwners.get(doc) === op) return doc
         }
         return undefined
@@ -1332,7 +1414,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         // Optional module-contributed action (e.g. the arch "Edit Viewpoints…" on a
         // .diagram node), surfaced on the node's context menu when present.
         const action = this.Provider.get(NodeCommandContributorKey)?.contribute(op, node)
-        if (action !== undefined) {
+        if (action !== undefined)
+        {
             node.NodeActionLabel = action.label
             node.NodeActionCommand = action.command
             node.HasNodeAction = true
@@ -1340,7 +1423,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         // Diagram export — a .diagram file can be exported straight from the tree
         // (SVG / PPTX) without being opened, when a host provides IDiagramTreeExport.
         // HasExport gates the context-menu submenu.
-        if (node.Kind === 'diagram' && this.Provider.get(DiagramTreeExportKey) !== undefined) {
+        if (node.Kind === 'diagram' && this.Provider.get(DiagramTreeExportKey) !== undefined)
+        {
             node.ExportSvgCommand  = new RelayCommand(() => void this.exportNode(node, op, DiagramExportFormat.Svg))
             node.ExportPptxCommand = new RelayCommand(() => void this.exportNode(node, op, DiagramExportFormat.Pptx))
             node.HasExport = true
@@ -1354,9 +1438,12 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     {
         const exporter = this.Provider.get(DiagramTreeExportKey)
         if (exporter === undefined) return
-        try {
+        try
+        {
             await exporter.Export(op, node.Path, format)
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.Status = `Export failed: ${(e as Error).message}`
         }
     }
@@ -1445,7 +1532,8 @@ function topLevelNodes(nodes: readonly ProjectNode[]): ProjectNode[]
 // permanent — deletion has no undo (consistent with rename).
 function deleteMessage(nodes: readonly ProjectNode[]): string
 {
-    if (nodes.length === 1) {
+    if (nodes.length === 1)
+    {
         const node = nodes[0]!
         return node.Kind === 'folder'
             ? `Delete folder "${node.Name}" and its contents? This can't be undone.`
@@ -1464,7 +1552,8 @@ export async function uniqueStorageName(storage: IStorage, fileName: string): Pr
     const dot = fileName.lastIndexOf('.')
     const stem = dot > 0 ? fileName.slice(0, dot) : fileName
     const ext = dot > 0 ? fileName.slice(dot) : ''
-    for (let n = 2; ; n++) {
+    for (let n = 2; ; n++)
+    {
         const candidate = `${stem}-${n}${ext}`
         if (!(await storage.Exists(candidate))) return candidate
     }

@@ -16,7 +16,8 @@ import { defineConfig } from "vitest/config";
 const CONDITIONS = ["import", "module", "browser", "default"];
 
 // Locate a package dir: app-local, then workspace root (npm workspaces hoist).
-function pkgRoot(spec: string): string {
+function pkgRoot(spec: string): string
+{
   const hit = [
     new URL(`./node_modules/${spec}`, import.meta.url),
     new URL(`../../node_modules/${spec}`, import.meta.url),

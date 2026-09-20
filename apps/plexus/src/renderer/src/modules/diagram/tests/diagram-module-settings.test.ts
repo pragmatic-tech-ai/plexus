@@ -10,7 +10,8 @@ import { DiagramModule } from '../diagram.module.mu.js'
 // contributing those definitions, ApplicationSettings.Get returns undefined and the
 // DP falls back to its registration default (0), collapsing the stretched icon.
 // These keys/defaults must match mural's DiagramSettingKey.DefaultIconWidth/Height.
-function settingByKey(key: string): SettingDefinition | undefined {
+function settingByKey(key: string): SettingDefinition | undefined
+{
     return [...DiagramModule.Settings].find((d) => d.Key === key)
 }
 

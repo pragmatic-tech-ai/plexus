@@ -8,7 +8,8 @@ function doc(nodes: TodlDocument['nodes']): TodlDocument { return { nodes, edges
 
 // An `<x>@icon` annotation application node — the sole icon source now that the
 // legacy `attrs.icon` field form is gone.
-function iconNode(id: string, path: string): TodlDocument['nodes'][number] {
+function iconNode(id: string, path: string): TodlDocument['nodes'][number]
+{
     return { id, tier: 'Ontology', type: 'icon', attrs: { path } } as unknown as TodlDocument['nodes'][number]
 }
 

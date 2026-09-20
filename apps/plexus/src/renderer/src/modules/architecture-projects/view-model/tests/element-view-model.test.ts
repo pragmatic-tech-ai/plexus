@@ -3,7 +3,8 @@ import type { Element } from '@pragmatic-tech-ai/todl'
 import { ElementViewModel, registerElementViewModel, toViewModel } from '../element-view-model.js'
 
 // Minimal Element factory for VM tests (facets not under test get sane defaults).
-function el(partial: Partial<Element> & Pick<Element, 'id' | 'concept'>): Element {
+function el(partial: Partial<Element> & Pick<Element, 'id' | 'concept'>): Element
+{
   return {
     fields: {}, refs: {},
     schema: { concept: partial.concept, extends: null, fields: [], relationships: [] },
@@ -12,10 +13,12 @@ function el(partial: Partial<Element> & Pick<Element, 'id' | 'concept'>): Elemen
   } as Element
 }
 
-class Technology extends ElementViewModel {
+class Technology extends ElementViewModel
+{
   get name(): string { return String(this.field('label') ?? this.label) }
 }
-class Component extends ElementViewModel {
+class Component extends ElementViewModel
+{
   get name(): string { return String(this.field('name') ?? this.label) }
   get implementedBy(): Technology[] { return this.refs('implementedBy') as Technology[] }
 }

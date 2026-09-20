@@ -9,7 +9,8 @@ import { TodlSemanticScope } from '../semantic-scopes.js'
 
 const LEGEND = { tokenTypes: ['type', 'class', 'property'], tokenModifiers: [] }
 
-function fakeConn() {
+function fakeConn()
+{
   return {
     // handshake's `initialize` request returns the server capabilities incl. legend.
     sendRequest: () => Promise.resolve({ capabilities: { semanticTokensProvider: { legend: LEGEND } } }),
@@ -19,7 +20,8 @@ function fakeConn() {
   }
 }
 
-function providerWithBase() {
+function providerWithBase()
+{
   const provider = new ServiceProvider()
   const doc = toJSON(check([{ uri: 'p.todl', text: 'namespace ea { concept C { label : string; } }' }]).model)
   provider.registerInstance(WorkspaceBaseResolver.Key, {

@@ -24,11 +24,13 @@ const shot = (l: Launched, name: string) =>
     l.win.screenshot({ path: path.join(ART, `${name}.png`) }).catch(() => {})
 
 // Every arch node's label, resolved through its container Figure's Tag.
-async function archNodes(l: Launched): Promise<Array<{ id: string; label: string }>> {
+async function archNodes(l: Launched): Promise<Array<{ id: string; label: string }>>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         const out: Array<{ id: string; label: string }> = []
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v || v.constructor?.name !== 'Figure') continue
             const tag = v.Tag
@@ -44,14 +46,17 @@ async function archNodes(l: Launched): Promise<Array<{ id: string; label: string
 // commits an in-place title edit (→ the binding's bracketed setField + save);
 // `undo` / `redo` drive the document's history. Returns the label the diagram
 // shows for that node afterwards, plus the history flags.
-function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string) {
+function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string)
+{
     return l.win.evaluate(({ op, probe }) => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
         let host: any
-        for (let p = root?.Services; p && !host; p = p._parent) {
-            for (const [, e] of (p._cache ?? new Map())) {
+        for (let p = root?.Services; p && !host; p = p._parent)
+        {
+            for (const [, e] of (p._cache ?? new Map()))
+            {
                 if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break }
             }
         }
@@ -64,7 +69,8 @@ function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string) {
         if (!vm) return { ok: false, reason: 'no arch node' }
         const id = vm.Id
 
-        if (op === 'rename') {
+        if (op === 'rename')
+        {
             const before = vm.Label
             vm.BeginEdit(); vm.EditingLabel = probe; vm.CommitEdit()
             return { ok: true, id, before, label: vm.Label, canUndo: doc.History.CanUndo, canRedo: doc.History.CanRedo }
@@ -77,10 +83,12 @@ function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string) {
 }
 
 // Every .todl under the arch project, concatenated — for a disk-truth assertion.
-function todlText(archDir: string): string {
+function todlText(archDir: string): string
+{
     const out: string[] = []
     const walk = (dir: string): void => {
-        for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+        for (const ent of fs.readdirSync(dir, { withFileTypes: true }))
+        {
             const p = path.join(dir, ent.name)
             if (ent.isDirectory()) walk(p)
             else if (ent.name.endsWith('.todl')) out.push(fs.readFileSync(p, 'utf8'))
@@ -92,8 +100,10 @@ function todlText(archDir: string): string {
 
 // Poll the arch project's .todl until the probe's on-disk presence matches
 // `present` (model.save() is fire-and-forget after commit / reconcile).
-async function waitForDisk(l: Launched, archDir: string, present: boolean): Promise<boolean> {
-    for (let i = 0; i < 30; i++) {
+async function waitForDisk(l: Launched, archDir: string, present: boolean): Promise<boolean>
+{
+    for (let i = 0; i < 30; i++)
+    {
         if (todlText(archDir).includes(PROBE) === present) return true
         await l.win.waitForTimeout(200)
     }
@@ -122,13 +132,15 @@ test.describe.serial('arch rename undo/redo (live)', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 16; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
-        for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++) {
+        for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

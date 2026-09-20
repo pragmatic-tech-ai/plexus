@@ -31,7 +31,8 @@ import {
 // compilation, connection routing) is resolved through ISolutionWorkspaceHost, so
 // this service — and the whole Solution presentation — carries no registry or IPC
 // knowledge and lives in plexus-core. The host (devUI) supplies the seam impl.
-export class SolutionExplorerService extends ServiceBase implements IActivatable {
+export class SolutionExplorerService extends ServiceBase implements IActivatable
+{
     private _title = 'No solution open';
     private _hasSolution = false;
     private _commands: SolutionCommandsVM = undefined as unknown as SolutionCommandsVM;
@@ -44,27 +45,34 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     private _selectedConnection: string | undefined = undefined;
     private _composeStatus = '';
 
-    get Title(): string {
+    get Title(): string
+    {
         return this._title;
     }
-    get HasSolution(): boolean {
+    get HasSolution(): boolean
+    {
         return this._hasSolution;
     }
-    get Commands(): SolutionCommandsVM {
+    get Commands(): SolutionCommandsVM
+    {
         return this._commands;
     }
-    get TreeRoots(): ObservableCollection<SolutionMemberNodeVM> {
+    get TreeRoots(): ObservableCollection<SolutionMemberNodeVM>
+    {
         return this._treeRoots;
     }
     // The registry connections a solution can be assigned to (display labels), and
     // the one this solution uses for compose/resolve.
-    get Connections(): ObservableCollection<string> {
+    get Connections(): ObservableCollection<string>
+    {
         return this._connections;
     }
-    get SelectedConnection(): string | undefined {
+    get SelectedConnection(): string | undefined
+    {
         return this._selectedConnection;
     }
-    set SelectedConnection(v: string | undefined) {
+    set SelectedConnection(v: string | undefined)
+    {
         const old = this._selectedConnection;
         if (old === v) return;
         this._selectedConnection = v;
@@ -73,7 +81,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
         this.assignConnection(this.labels.idForLabel(v));
     }
     // A one-line result of the last Compose (member/dependency diagnostics summary).
-    get ComposeStatus(): string {
+    get ComposeStatus(): string
+    {
         return this._composeStatus;
     }
 
@@ -83,7 +92,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     private readonly workspace: ISolutionWorkspaceHost;
     private tree: SolutionTreeVM | undefined; // hold a ref so its VMs aren't GC'd
 
-    constructor(provider: IServiceProvider) {
+    constructor(provider: IServiceProvider)
+    {
         super(provider);
         this.manager = provider.getRequired(SolutionManagerService.Key);
         this.settings = provider.getRequired(SolutionSettingsRegistry.Key);
@@ -106,13 +116,15 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
         this.manager.PropertyChanged('ActiveSolution').subscribe(() => this.refresh());
     }
 
-    OnActivated(): void {
+    OnActivated(): void
+    {
         this.refresh();
     }
 
     // Public so a Home / welcome page can drive the same flows (New/Open) and then
     // navigate the user to this capability.
-    public async NewSolution(): Promise<void> {
+    public async NewSolution(): Promise<void>
+    {
         const dir = await this.workspace.PickSolutionFolder();
         if (dir === undefined) return; // canceled
         await this.manager.NewSolution(dir);
@@ -120,20 +132,23 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
         this.refresh();
     }
 
-    public async OpenSolution(): Promise<void> {
+    public async OpenSolution(): Promise<void>
+    {
         const dir = await this.workspace.PickSolutionFolder();
         if (dir === undefined) return;
         await this.OpenSolutionAt(dir);
     }
 
     // Open a solution at a known folder (no picker) — used by a recent list.
-    public async OpenSolutionAt(dir: string): Promise<void> {
+    public async OpenSolutionAt(dir: string): Promise<void>
+    {
         await this.manager.OpenSolution(dir);
         this.bindBags();
         this.refresh();
     }
 
-    private async save(): Promise<void> {
+    private async save(): Promise<void>
+    {
         await this.manager.Save();
     }
 
@@ -142,22 +157,26 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     // Domain and surface the cross-project diagnostics. Public so a Home page or a
     // command can drive it. A member that fails to COMPILE is reported here; a
     // member that compiles but fails to LOAD/bind is reported by Compose.
-    public async ComposeSolution(): Promise<void> {
+    public async ComposeSolution(): Promise<void>
+    {
         const session = this.manager.ActiveSolution;
-        if (session === undefined) {
+        if (session === undefined)
+        {
             this.setComposeStatus('No solution open.');
             return;
         }
         this.setComposeStatus('Composing…');
         const members: PackageRef[] = [];
         const compileErrors: string[] = [];
-        for (const member of session.Members.ToArray()) {
+        for (const member of session.Members.ToArray())
+        {
             const dir = SolutionExplorerService.joinOs(
                 session.Storage?.Root ?? '',
                 member.Ref.path,
             );
             const result = await this.workspace.CompileMember(dir);
-            if (!result.Ok || result.Id === undefined || result.Version === undefined) {
+            if (!result.Ok || result.Id === undefined || result.Version === undefined)
+            {
                 compileErrors.push(
                     `${member.Ref.path} failed to compile (${result.DiagnosticCount} diagnostic(s))`,
                 );
@@ -176,12 +195,14 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
     // Materialize the registered bag definitions onto the active session, so the
     // connection bag has a live value to read/write.
-    private bindBags(): void {
+    private bindBags(): void
+    {
         this.manager.ActiveSolution?.BindBags(this.settings.Definitions);
     }
 
     // Project the active solution into the bindable view state.
-    private refresh(): void {
+    private refresh(): void
+    {
         const session = this.manager.ActiveSolution;
         this.setHasSolution(session !== undefined);
         this.setTitle(session === undefined ? 'No solution open' : session.Name);
@@ -189,7 +210,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
         const roots = this.TreeRoots;
         roots.Clear();
         this.tree = undefined;
-        if (session === undefined) {
+        if (session === undefined)
+        {
             this._connections.Clear();
             this.restoreConnection(undefined);
             return;
@@ -209,7 +231,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
     // Fill the connection picker from the host (unique display labels), then select
     // the one this solution has persisted — WITHOUT re-persisting.
-    private async loadConnections(): Promise<void> {
+    private async loadConnections(): Promise<void>
+    {
         const views = await this.workspace.ListConnections();
         this.labels = new ConnectionLabels(views.map((v) => ({ id: v.Id, name: v.Name })));
         this._connections.Clear();
@@ -221,7 +244,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     }
 
     // The active solution's connection bag (materialized by bindBags).
-    private connectionBag(): SolutionSettingBag | undefined {
+    private connectionBag(): SolutionSettingBag | undefined
+    {
         return this.manager.ActiveSolution?.SettingBags.ToArray().find(
             (b) => b.Definition.Id === ConnectionBag.Id,
         );
@@ -229,7 +253,8 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
     // Adopt a selection without writing it back (restore path): update the field +
     // route the package source, but do not touch the (already-persisted) bag.
-    private restoreConnection(label: string | undefined): void {
+    private restoreConnection(label: string | undefined): void
+    {
         const old = this._selectedConnection;
         this._selectedConnection = label;
         if (old !== label) this.RaisePropertyChanged('SelectedConnection', old, label);
@@ -238,24 +263,28 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
     // Persist the chosen connection id into the solution + point the package source
     // at it, so Compose resolves this solution's members from that registry.
-    private assignConnection(id: string | undefined): void {
+    private assignConnection(id: string | undefined): void
+    {
         this.workspace.SetActiveConnection(id);
         this.connectionBag()?.Set(ConnectionBag.ConnectionIdKey, id ?? '');
     }
 
-    private setComposeStatus(v: string): void {
+    private setComposeStatus(v: string): void
+    {
         const old = this._composeStatus;
         this._composeStatus = v;
         this.RaisePropertyChanged('ComposeStatus', old, v);
     }
 
-    private setTitle(v: string): void {
+    private setTitle(v: string): void
+    {
         const old = this._title;
         this._title = v;
         this.RaisePropertyChanged('Title', old, v);
     }
 
-    private setHasSolution(v: boolean): void {
+    private setHasSolution(v: boolean): void
+    {
         const old = this._hasSolution;
         this._hasSolution = v;
         this.RaisePropertyChanged('HasSolution', old, v);
@@ -263,10 +292,12 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
 
     // Join a (possibly Windows) root folder with a relative POSIX member path
     // using the root's separator — mirrors LocalFileStorage's abs().
-    private static joinOs(root: string, rel: string): string {
+    private static joinOs(root: string, rel: string): string
+    {
         const sep = root.includes('\\') && !root.includes('/') ? '\\' : '/';
         const segments: string[] = [];
-        for (const seg of rel.split(/[\\/]+/)) {
+        for (const seg of rel.split(/[\\/]+/))
+        {
             if (seg === '' || seg === '.') continue;
             if (seg === '..') segments.pop();
             else segments.push(seg);

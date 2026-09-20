@@ -4,12 +4,14 @@ import { ServiceBase, ServiceKey, RelayCommand, type ICommand, type IServiceProv
 // with no document/file operations, so the menu carries the one genuinely useful
 // dev action: reload the window. Kept as a service so the menu can bind it via
 // $service(DevUiWindowCommands).ReloadCommand.
-export class DevUiWindowCommands extends ServiceBase {
+export class DevUiWindowCommands extends ServiceBase
+{
   public static readonly Key = new ServiceKey<DevUiWindowCommands>("DevUiWindowCommands");
 
   public readonly ReloadCommand: ICommand;
 
-  constructor(provider: IServiceProvider) {
+  constructor(provider: IServiceProvider)
+  {
     super(provider);
     this.ReloadCommand = new RelayCommand(() => {
       if (typeof location !== "undefined") location.reload();

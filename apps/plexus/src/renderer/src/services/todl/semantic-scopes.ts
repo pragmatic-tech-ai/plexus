@@ -10,7 +10,8 @@
 
 interface Legend { tokenTypes: string[]; tokenModifiers: string[] }
 
-export enum TodlSemanticScope {
+export enum TodlSemanticScope
+{
   Type = 'todlType',
   Class = 'todlClass',
 }
@@ -29,21 +30,24 @@ const RENAME: Record<string, string> = {
 
 // Any legend type not explicitly mapped still gets a todl* prefix so no generic
 // scope leaks through to the base theme.
-function scopeFor(serverType: string): string {
+function scopeFor(serverType: string): string
+{
   return RENAME[serverType] ?? `todl${serverType.charAt(0).toUpperCase()}${serverType.slice(1)}`
 }
 
 export const TODL_KEYWORD_BLUE_DARK = '569CD6'
 export const TODL_KEYWORD_BLUE_LIGHT = '0000FF'
 
-export function editorSemanticLegend(server: Legend): Legend {
+export function editorSemanticLegend(server: Legend): Legend
+{
   return {
     tokenTypes: server.tokenTypes.map(scopeFor),
     tokenModifiers: [...server.tokenModifiers],
   }
 }
 
-export function todlSemanticThemeRules(dark: boolean): { token: string; foreground: string }[] {
+export function todlSemanticThemeRules(dark: boolean): { token: string; foreground: string }[]
+{
   const blue = dark ? TODL_KEYWORD_BLUE_DARK : TODL_KEYWORD_BLUE_LIGHT
   return [
     { token: TodlSemanticScope.Type, foreground: blue },

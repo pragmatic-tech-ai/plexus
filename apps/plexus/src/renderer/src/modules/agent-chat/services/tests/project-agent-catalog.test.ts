@@ -4,7 +4,8 @@ import { AgentSkillKind, type IAgentApi, type ProjectCatalog } from '../../../..
 import { ProjectAgentCatalog } from '../project-agent-catalog.js'
 
 let calls: string[]
-function install(catalog: ProjectCatalog) {
+function install(catalog: ProjectCatalog)
+{
     calls = []
     const agent = {
         listAgentsAndSkills: (dir: string) => { calls.push(dir); return Promise.resolve(catalog) },

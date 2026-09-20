@@ -142,7 +142,8 @@ export class NewProjectDialogModel extends MuralBase
     {
         super()
         const types = new ObservableCollection<ProjectTypeChoice>()
-        for (const c of choices) {
+        for (const c of choices)
+        {
             c.SelectCommand = new RelayCommand(() => this.select(c))
             types.Add(c)
         }

@@ -6,12 +6,15 @@ import { writeCamera, readCamera, type DiagramCameraState } from '../../persiste
 
 // Minimal per-key property-change listener host, shared by the fake view (for
 // Diagram.ZoomKey) and its fake ScrollHost (for the offset keys).
-class Listenable {
+class Listenable
+{
     private readonly listeners = new Map<unknown, Set<() => void>>()
-    public PropertyChanged(key: unknown): { subscribe(fn: () => void): { dispose(): void } } {
+    public PropertyChanged(key: unknown): { subscribe(fn: () => void): { dispose(): void } }
+    {
         const listeners = this.listeners
         return {
-            subscribe(fn: () => void): { dispose(): void } {
+            subscribe(fn: () => void): { dispose(): void }
+            {
                 if (!listeners.has(key)) listeners.set(key, new Set())
                 listeners.get(key)!.add(fn)
                 return { dispose(): void { listeners.get(key)?.delete(fn) } }
@@ -30,11 +33,13 @@ class Listenable {
 // property-change listeners over Diagram.ZoomKey (on the view) and the
 // ScrollViewer offset keys (on ScrollHost). Using a fake avoids mounting the
 // mural theme to construct a real Diagram under jsdom.
-class FakeView extends Listenable {
+class FakeView extends Listenable
+{
     private state: DiagramCameraState = { zoom: 1, offsetX: 0, offsetY: 0 }
     public readonly ScrollHost = new Listenable()
     public get Camera(): DiagramCameraState { return this.state }
-    public SetCamera(c: DiagramCameraState): void {
+    public SetCamera(c: DiagramCameraState): void
+    {
         this.state = { zoom: c.zoom, offsetX: c.offsetX, offsetY: c.offsetY }
         this.fire(Diagram.ZoomKey)
         this.ScrollHost.fire(ScrollViewer.HorizontalOffsetKey)
@@ -42,26 +47,30 @@ class FakeView extends Listenable {
     }
     // Simulate a scrollbar/wheel scroll: the offset changes but the zoom does
     // NOT, so only the ScrollViewer offset keys fire (never Diagram.ZoomKey).
-    public Scroll(offsetX: number, offsetY: number): void {
+    public Scroll(offsetX: number, offsetY: number): void
+    {
         this.state = { ...this.state, offsetX, offsetY }
         this.ScrollHost.fire(ScrollViewer.HorizontalOffsetKey)
         this.ScrollHost.fire(ScrollViewer.VerticalOffsetKey)
     }
 }
 
-function providerWith(host: unknown): { get(k: unknown): unknown; getRequired(k: unknown): unknown } {
+function providerWith(host: unknown): { get(k: unknown): unknown; getRequired(k: unknown): unknown }
+{
     return {
         get: (k: unknown) => (k === ContentHostService.Key ? host : undefined),
         getRequired: (k: unknown) => (k === ContentHostService.Key ? host : undefined),
     }
 }
 
-function fakeHost() {
+function fakeHost()
+{
     const OpenDocuments = new ObservableCollection<unknown>()
     return { OpenDocuments } as unknown as { OpenDocuments: ObservableCollection<unknown> }
 }
 
-function publish(doc: DiagramDocument, view: FakeView): void {
+function publish(doc: DiagramDocument, view: FakeView): void
+{
     doc.ActiveView = view as unknown as Diagram
 }
 

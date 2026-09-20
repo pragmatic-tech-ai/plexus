@@ -29,90 +29,118 @@ import type { TodlBridge } from "../../env.js";
 // (mural's ./runtime subpath is not node-resolvable). The service container
 // registers it by class-token and constructs it with the provider; peers resolve
 // it via `provider.getRequired(RegistryClient)`.
-export class RegistryClient {
+export class RegistryClient
+{
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   constructor(_provider?: IServiceProvider) {}
 
-  private bridge(): TodlBridge {
+  private bridge(): TodlBridge
+  {
     return (window as unknown as { __todlBridge?: TodlBridge }).__todlBridge ?? window.todl;
   }
-  list(connectionId?: string): Promise<string[]> {
+  list(connectionId?: string): Promise<string[]>
+  {
     return this.bridge().registry.list(connectionId);
   }
-  versions(name: string): Promise<VersionList> {
+  versions(name: string): Promise<VersionList>
+  {
     return this.bridge().registry.versions(name);
   }
-  getContent(ref: PackageRef): Promise<Uint8Array> {
+  getContent(ref: PackageRef): Promise<Uint8Array>
+  {
     return this.bridge().registry.getContent(ref);
   }
-  getPackage(ref: PackageRef): Promise<InstalledPackage> {
+  getPackage(ref: PackageRef): Promise<InstalledPackage>
+  {
     return this.bridge().registry.getPackage(ref);
   }
-  resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage> {
+  resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage>
+  {
     return this.bridge().registry.resolvePackage(ref, connectionId);
   }
-  packageVersions(model: string, connectionId?: string): Promise<string[]> {
+  packageVersions(model: string, connectionId?: string): Promise<string[]>
+  {
     return this.bridge().registry.packageVersions(model, connectionId);
   }
-  getSources(ref: PackageRef): Promise<PackageSource[]> {
+  getSources(ref: PackageRef): Promise<PackageSource[]>
+  {
     return this.bridge().registry.getSources(ref);
   }
-  getPackageContents(name: string, connectionId?: string): Promise<PackageContents> {
+  getPackageContents(name: string, connectionId?: string): Promise<PackageContents>
+  {
     return this.bridge().registry.getPackageContents(name, connectionId);
   }
-  deleteVersion(name: string, version: string, connectionId?: string): Promise<void> {
+  deleteVersion(name: string, version: string, connectionId?: string): Promise<void>
+  {
     return this.bridge().registry.deleteVersion(name, version, connectionId);
   }
-  deleteAllVersions(name: string, connectionId?: string): Promise<void> {
+  deleteAllVersions(name: string, connectionId?: string): Promise<void>
+  {
     return this.bridge().registry.deleteAllVersions(name, connectionId);
   }
-  bumpVersion(dir: string): Promise<string> {
+  bumpVersion(dir: string): Promise<string>
+  {
     return this.bridge().registry.bumpVersion(dir);
   }
-  getMeta(name: string): Promise<string> {
+  getMeta(name: string): Promise<string>
+  {
     return this.bridge().registry.getMeta(name);
   }
-  publishDir(dir: string): Promise<void> {
+  publishDir(dir: string): Promise<void>
+  {
     return this.bridge().registry.publishDir(dir);
   }
-  compileDir(dir: string): Promise<CompileResultView> {
+  compileDir(dir: string): Promise<CompileResultView>
+  {
     return this.bridge().registry.compileDir(dir);
   }
-  resolveClosure(rootDeps: string[]): Promise<ResolvedClosure> {
+  resolveClosure(rootDeps: string[]): Promise<ResolvedClosure>
+  {
     return this.bridge().registry.resolveClosure(rootDeps);
   }
   // --- Registry connections (the Connections manager) -------------------------
-  listConnections(): Promise<ConnectionView[]> {
+  listConnections(): Promise<ConnectionView[]>
+  {
     return this.bridge().connections.list();
   }
-  addConnection(input: ConnectionInput): Promise<ConnectionView> {
+  addConnection(input: ConnectionInput): Promise<ConnectionView>
+  {
     return this.bridge().connections.add(input);
   }
-  updateConnection(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined> {
+  updateConnection(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined>
+  {
     return this.bridge().connections.update(id, partial);
   }
-  removeConnection(id: string): Promise<void> {
+  removeConnection(id: string): Promise<void>
+  {
     return this.bridge().connections.remove(id);
   }
-  setConnectionToken(id: string, token: string): Promise<void> {
+  setConnectionToken(id: string, token: string): Promise<void>
+  {
     return this.bridge().connections.setToken(id, token);
   }
-  useConnectionEnvToken(id: string, name: string): Promise<void> {
+  useConnectionEnvToken(id: string, name: string): Promise<void>
+  {
     return this.bridge().connections.useEnvToken(id, name);
   }
-  setDefaultConnection(id: string): Promise<void> {
+  setDefaultConnection(id: string): Promise<void>
+  {
     return this.bridge().connections.setDefault(id);
   }
-  testConnection(id: string): Promise<ConnectionTestResult> {
+  testConnection(id: string): Promise<ConnectionTestResult>
+  {
     return this.bridge().connections.test(id);
   }
-  listEnvVars(): Promise<string[]> {
+  listEnvVars(): Promise<string[]>
+  {
     return this.bridge().connections.listEnvVars();
   }
-  pickDirectory(): Promise<string> {
+  pickDirectory(): Promise<string>
+  {
     return this.bridge().dialog.pickDirectory();
   }
-  readDir(path: string): Promise<DirEntry[]> {
+  readDir(path: string): Promise<DirEntry[]>
+  {
     return this.bridge().fs.readDir(path);
   }
 }

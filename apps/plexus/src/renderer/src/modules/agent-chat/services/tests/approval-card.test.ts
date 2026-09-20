@@ -2,7 +2,8 @@ import { test, expect, vi } from 'vitest'
 import { ToolApprovalCard } from '../approval-card.js'
 import { ToolApprovalDecision, type ToolApprovalAnswer } from '../../../../../../shared/agent-api.js'
 
-function card(onSubmit: (a: ToolApprovalAnswer) => void) {
+function card(onSubmit: (a: ToolApprovalAnswer) => void)
+{
     return new ToolApprovalCard({ id: 'a1', toolName: 'Bash', command: 'python foo.py', prefix: 'python' }, onSubmit, 10000)
 }
 

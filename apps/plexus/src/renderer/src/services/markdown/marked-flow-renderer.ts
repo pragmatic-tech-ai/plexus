@@ -41,16 +41,20 @@ export function renderMarkdown(markdown: string, ctx: MarkdownRenderContext = {}
 {
     const doc = new FlowDocument()
     let tokens: Token[]
-    try {
+    try
+    {
         tokens = lexer(markdown.replace(/\r\n?/g, '\n'))
-    } catch {
+    }
+    catch
+    {
         // Never throw on odd input — degrade to a single plain paragraph.
         const p = new Paragraph()
         p.AddChild(new Run(markdown))
         doc.AddChild(p)
         return doc
     }
-    for (const tok of tokens) {
+    for (const tok of tokens)
+    {
         for (const block of blocksFor(tok, ctx)) doc.AddChild(block)
     }
     return doc
@@ -62,7 +66,8 @@ export function renderMarkdown(markdown: string, ctx: MarkdownRenderContext = {}
 // paragraphs), so this always returns an array.
 function blocksFor(tok: Token, ctx: MarkdownRenderContext): Block[]
 {
-    switch (tok.type) {
+    switch (tok.type)
+    {
         case 'space':      return []
         case 'heading':    return [headingBlock(tok as Tokens.Heading, ctx)]
         case 'paragraph':  return paragraphBlocks(tok as Tokens.Paragraph, ctx)
@@ -104,8 +109,10 @@ function paragraphBlock(inlineTokens: Token[], ctx: MarkdownRenderContext): Para
 function quoteBlocks(tok: Tokens.Blockquote, ctx: MarkdownRenderContext): Block[]
 {
     const out: Block[] = []
-    for (const inner of tok.tokens) {
-        for (const block of blocksFor(inner, ctx)) {
+    for (const inner of tok.tokens)
+    {
+        for (const block of blocksFor(inner, ctx))
+        {
             block.Margin = new Thickness(12, 0, 0, 8)
             block.FontStyle = FontStyle.Italic                          // inherited by inline runs
             bindTheme(block, TextElement.ForegroundKey, 'OnSurfaceVariant')   // muted
@@ -133,7 +140,8 @@ function listItem(item: Tokens.ListItem, ctx: MarkdownRenderContext): ListItem
     if (blocks.length === 0) blocks.push(paragraphBlock([], ctx))
 
     // A task item prefixes its first paragraph with a checkbox glyph.
-    if (item.task && blocks[0] instanceof Paragraph) {
+    if (item.task && blocks[0] instanceof Paragraph)
+    {
         const glyph = new Run(item.checked ? '☑ ' : '☐ ')   // ☑ / ☐
         blocks[0].Inlines.Insert(0, glyph)
     }
@@ -146,7 +154,8 @@ function listItem(item: Tokens.ListItem, ctx: MarkdownRenderContext): ListItem
 // the fence to display an image; everything else is a highlighted code paragraph.
 function codeBlocks(tok: Tokens.Code, ctx: MarkdownRenderContext): Block[]
 {
-    if ((tok.lang ?? '').trim().toLowerCase() === 'svg' && SvgInline.looksLikeSvg(tok.text)) {
+    if ((tok.lang ?? '').trim().toLowerCase() === 'svg' && SvgInline.looksLikeSvg(tok.text))
+    {
         const svg = SvgInline.extract(tok.text)
         if (svg !== undefined) return [svgImageBlock(svg)]
     }
@@ -168,7 +177,8 @@ function codeBlock(tok: Tokens.Code, ctx: MarkdownRenderContext): Paragraph
 // of inline HTML, not an html block) is DRAWN; anything else is a normal paragraph.
 function paragraphBlocks(tok: Tokens.Paragraph, ctx: MarkdownRenderContext): Block[]
 {
-    if (SvgInline.looksLikeSvg(tok.text)) {
+    if (SvgInline.looksLikeSvg(tok.text))
+    {
         const svg = SvgInline.extract(tok.text)
         if (svg !== undefined) return [svgImageBlock(svg)]
     }
@@ -190,7 +200,8 @@ function svgImageBlock(svg: string): Paragraph
 function emitCodeRuns(p: Paragraph, tokens: readonly { text: string; scope?: string }[]): void
 {
     let atLineStart = true
-    for (const tok of tokens) {
+    for (const tok of tokens)
+    {
         const segments = tok.text.split('\n')
         segments.forEach((seg, i) => {
             if (i > 0) { p.AddChild(new LineBreak()); atLineStart = true }
@@ -234,11 +245,14 @@ function tableCell(cell: Tokens.TableCell, align: TextAlignment, header: boolean
     p.LineHeight = BODY_LINE_HEIGHT
     p.TextAlignment = align
     const parsed = renderInlines(cell.tokens, ctx)
-    if (header) {
+    if (header)
+    {
         const bold = new Bold()
         for (const inline of parsed) bold.AddChild(inline)
         p.AddChild(bold)
-    } else {
+    }
+    else
+    {
         for (const inline of parsed) p.AddChild(inline)
     }
     td.AddChild(p)
@@ -296,17 +310,20 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
 
     const toks = tokens ?? []
     let i = 0
-    while (i < toks.length) {
+    while (i < toks.length)
+    {
         const tok = toks[i]!
         // Inline <svg> arrives as a RUN of html tokens (<svg…>, <path/>, …, </svg>)
         // with any whitespace between — reassemble it and DRAW it at its set size.
         // mural renders no HTML, so otherwise the element strips to nothing (this is
         // the icon-in-a-table-cell case). Everything else falls to the switch.
-        if (tok.type === 'html' && SvgInline.looksLikeSvg((tok as Tokens.HTML).text)) {
+        if (tok.type === 'html' && SvgInline.looksLikeSvg((tok as Tokens.HTML).text))
+        {
             const run = collectInlineSvg(toks, i)
             if (run !== undefined) { add(SvgInline.toImage(run.svg)); i = run.next; continue }
         }
-        switch (tok.type) {
+        switch (tok.type)
+        {
             case 'text':
                 for (const i of textTokenInlinesRendered(tok, ctx)) add(i)
                 break
@@ -319,7 +336,8 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
             case 'em':
                 add(fill(new Italic(), (tok as Tokens.Em).tokens, ctx))
                 break
-            case 'del': {
+            case 'del':
+            {
                 const s = new Span()
                 s.TextDecorations = TextDecorations.Strikethrough
                 add(fill(s, (tok as Tokens.Del).tokens, ctx))
@@ -328,7 +346,8 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
             case 'codespan':
                 add(codeChip((tok as Tokens.Codespan).text))
                 break
-            case 'link': {
+            case 'link':
+            {
                 const l = tok as Tokens.Link
                 const link = new Hyperlink()
                 link.NavigateUri = l.href
@@ -346,7 +365,8 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
             case 'html':
                 handleInlineHtml((tok as Tokens.HTML).text, stack, ctx)
                 break
-            default: {
+            default:
+            {
                 const text = (tok as { text?: string }).text
                 if (typeof text === 'string' && text.length > 0) add(new Run(softBreak(text)))
             }
@@ -362,9 +382,11 @@ function renderInlines(tokens: Token[] | undefined, ctx: MarkdownRenderContext):
 function collectInlineSvg(toks: readonly Token[], start: number): { svg: string; next: number } | undefined
 {
     let raw = ''
-    for (let j = start; j < toks.length; j++) {
+    for (let j = start; j < toks.length; j++)
+    {
         raw += (toks[j] as { raw?: string }).raw ?? ''
-        if (/<\/svg\s*>/i.test((toks[j] as { raw?: string }).raw ?? '')) {
+        if (/<\/svg\s*>/i.test((toks[j] as { raw?: string }).raw ?? ''))
+        {
             const svg = SvgInline.extract(raw)
             return svg !== undefined ? { svg, next: j + 1 } : undefined
         }
@@ -408,23 +430,29 @@ function handleInlineHtml(raw: string, stack: { name: string; add: (i: Inline) =
 {
     const tag = parseTag(raw)
     if (tag === undefined) { stack[stack.length - 1]!.add(new Run(raw)); return }
-    if (tag.kind === HtmlTagKind.Void) {
+    if (tag.kind === HtmlTagKind.Void)
+    {
         if (tag.name === 'br') stack[stack.length - 1]!.add(new LineBreak())
         return
     }
-    if (tag.kind === HtmlTagKind.Open) {
+    if (tag.kind === HtmlTagKind.Open)
+    {
         const span = openTagInline(tag, (uri) => ctx.openLink?.(uri))
-        if (span !== undefined) {
+        if (span !== undefined)
+        {
             stack[stack.length - 1]!.add(span)
             stack.push({ name: tag.name, add: (i) => span.AddChild(i) })
-        } else {
+        }
+        else
+        {
             const parent = stack[stack.length - 1]!
             stack.push({ name: tag.name, add: parent.add })   // stripped: children flow up
         }
         return
     }
     // Close — pop to the matching open.
-    for (let k = stack.length - 1; k > 0; k -= 1) {
+    for (let k = stack.length - 1; k > 0; k -= 1)
+    {
         if (stack[k]!.name === tag.name) { stack.length = k; break }
     }
 }
@@ -442,7 +470,8 @@ function htmlFragmentInlines(html: string, ctx: MarkdownRenderContext): Inline[]
         const text = decodeEntities(raw)
         if (text.length > 0) stack[stack.length - 1]!.add(new Run(text))
     }
-    while ((m = re.exec(html)) !== null) {
+    while ((m = re.exec(html)) !== null)
+    {
         if (m.index > last) addText(html.slice(last, m.index))
         if (parseTag(m[0]) !== undefined) handleInlineHtml(m[0], stack, ctx)
         else addText(m[0])

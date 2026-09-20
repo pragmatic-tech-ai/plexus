@@ -12,14 +12,17 @@ import { TodlPackageProjectFactory, TODL_PACKAGE_TYPE } from "./todl-package-pro
 
 // Resolves a project type id to the factory that opens it. This app ships one
 // project type (the TODL package); later modules register more types here.
-export class TodlProjectFactoryRegistry implements IProjectFactoryRegistry {
+export class TodlProjectFactoryRegistry implements IProjectFactoryRegistry
+{
   private readonly todlPackage = new TodlPackageProjectFactory();
 
-  public factoryFor(typeId: string): IProjectFactory | undefined {
+  public factoryFor(typeId: string): IProjectFactory | undefined
+  {
     return typeId === TODL_PACKAGE_TYPE ? this.todlPackage : undefined;
   }
 
-  public All(): readonly IProjectFactory[] {
+  public All(): readonly IProjectFactory[]
+  {
     return [this.todlPackage];
   }
 }
@@ -32,8 +35,10 @@ export class TodlProjectFactoryRegistry implements IProjectFactoryRegistry {
 // The generic seams (prompt service, storage-provider registry) come from
 // SolutionStudioSeams (plexus-core); the engine services themselves from
 // SolutionServicesEngine (@pragmatic-tech-ai/todl, added imperatively from main.ts).
-export class SolutionServicesRegistration {
-  public static Register(services: IServiceContainer): void {
+export class SolutionServicesRegistration
+{
+  public static Register(services: IServiceContainer): void
+  {
     services.register(
       SolutionManagerService.ProjectFactoryRegistryKey,
       (): IProjectFactoryRegistry => new TodlProjectFactoryRegistry(),

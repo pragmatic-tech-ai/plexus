@@ -3,7 +3,8 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { readDiagramViewpoints, writeDiagramViewpoints } from '../diagram-viewpoints.js'
 
-async function seeded(): Promise<FakeStorage> {
+async function seeded(): Promise<FakeStorage>
+{
     const s = new FakeStorage('fake://Acme')
     await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
         type: 'architecture', name: 'Acme', version: 1,

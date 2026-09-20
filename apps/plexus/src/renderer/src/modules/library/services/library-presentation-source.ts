@@ -25,7 +25,8 @@ export class LibraryPresentationSource implements PresentationSource
         const backend = ensureLibrariesBackend(this.provider)
         const assets = new ResourceDictionary()
         const iconKeys = new Map<string, string>()
-        for (const lib of await this.libraries()) {
+        for (const lib of await this.libraries())
+        {
             const base = `${lib.id}/${lib.version}`
             const pres = await loadCompiledPresentation(backend, base)
             if (pres !== undefined) for (const [k, v] of pres.Entries()) assets.Set(k, v)

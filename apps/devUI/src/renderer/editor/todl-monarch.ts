@@ -58,7 +58,8 @@ const todlLanguageConfiguration: monaco.languages.LanguageConfiguration = {
 
 let registered = false;
 /** Register the 'todl' language + Monarch grammar + config. Idempotent. */
-export function registerTodlLanguage(): void {
+export function registerTodlLanguage(): void
+{
   if (registered) return;
   registered = true;
   monaco.languages.register({ id: "todl" });

@@ -47,13 +47,15 @@ function parseBlocks(text: string): Block[]
     const blocks: Block[] = []
     let i = 0
 
-    while (i < lines.length) {
+    while (i < lines.length)
+    {
         const line = lines[i]!
         if (line.trim() === '') { i += 1; continue }
 
         // Fenced code — ``` or ~~~ … matching fence (or end of text on a stream).
         const fence = /^\s*(`{3,}|~{3,})/.exec(line)
-        if (fence) {
+        if (fence)
+        {
             const close = new RegExp('^\\s*' + fence[1]![0] + '{3,}\\s*$')
             const code: string[] = []
             i += 1
@@ -65,16 +67,19 @@ function parseBlocks(text: string): Block[]
 
         // ATX heading — # … ######.
         const heading = /^(#{1,6})\s+(.*)$/.exec(line)
-        if (heading) {
+        if (heading)
+        {
             blocks.push(headingBlock(heading[1]!.length, heading[2]!.trim()))
             i += 1
             continue
         }
 
         // Blockquote — consecutive `>` lines folded into one quoted paragraph.
-        if (/^\s*>\s?/.test(line)) {
+        if (/^\s*>\s?/.test(line))
+        {
             const quoted: string[] = []
-            while (i < lines.length && /^\s*>\s?/.test(lines[i]!)) {
+            while (i < lines.length && /^\s*>\s?/.test(lines[i]!))
+            {
                 quoted.push(lines[i]!.replace(/^\s*>\s?/, '')); i += 1
             }
             blocks.push(quoteBlock(quoted.join(' ')))
@@ -82,11 +87,13 @@ function parseBlocks(text: string): Block[]
         }
 
         // Unordered list — -, *, or + markers.
-        if (/^\s*[-*+]\s+/.test(line)) {
+        if (/^\s*[-*+]\s+/.test(line))
+        {
             const list = new List()
             list.MarkerStyle = ListMarkerStyle.Disc
             list.Margin = blockGap()
-            while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i]!)) {
+            while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i]!))
+            {
                 list.AddChild(listItem(lines[i]!.replace(/^\s*[-*+]\s+/, ''))); i += 1
             }
             blocks.push(list)
@@ -95,12 +102,14 @@ function parseBlocks(text: string): Block[]
 
         // Ordered list — `1.` markers; the first number seeds StartIndex.
         const ordered = /^\s*(\d+)\.\s+/.exec(line)
-        if (ordered) {
+        if (ordered)
+        {
             const list = new List()
             list.MarkerStyle = ListMarkerStyle.Decimal
             list.StartIndex = parseInt(ordered[1]!, 10)
             list.Margin = blockGap()
-            while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i]!)) {
+            while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i]!))
+            {
                 list.AddChild(listItem(lines[i]!.replace(/^\s*\d+\.\s+/, ''))); i += 1
             }
             blocks.push(list)
@@ -110,13 +119,15 @@ function parseBlocks(text: string): Block[]
         // GFM table — a header row of `| … |` cells immediately followed by a
         // delimiter row of dashes (`| --- | :--: |`). The lookahead keeps a lone
         // sentence that happens to contain a pipe from being read as a table.
-        if (startsTable(lines, i)) {
+        if (startsTable(lines, i))
+        {
             const header = splitTableRow(line)
             const aligns = columnAlignments(lines[i + 1]!, header.length)
             i += 2
             const body: string[][] = []
             // Body runs until a blank line or a line without a pipe (a new block).
-            while (i < lines.length && lines[i]!.trim() !== '' && lines[i]!.includes('|')) {
+            while (i < lines.length && lines[i]!.trim() !== '' && lines[i]!.includes('|'))
+            {
                 body.push(splitTableRow(lines[i]!)); i += 1
             }
             blocks.push(tableBlock(header, aligns, body))
@@ -126,7 +137,8 @@ function parseBlocks(text: string): Block[]
         // Paragraph — gather soft-wrapped lines until a blank line or a new block
         // (including a table that starts on the next line).
         const para: string[] = []
-        while (i < lines.length && lines[i]!.trim() !== '' && !isBlockStart(lines[i]!) && !startsTable(lines, i)) {
+        while (i < lines.length && lines[i]!.trim() !== '' && !isBlockStart(lines[i]!) && !startsTable(lines, i))
+        {
             para.push(lines[i]!.trim()); i += 1
         }
         blocks.push(paragraph(para.join(' ')))
@@ -236,7 +248,8 @@ function columnAlignments(delimiter: string, count: number): TextAlignment[]
 {
     const cells = splitTableRow(delimiter)
     const aligns: TextAlignment[] = []
-    for (let i = 0; i < count; i += 1) {
+    for (let i = 0; i < count; i += 1)
+    {
         const c = cells[i] ?? ''
         const left = c.startsWith(':')
         const right = c.endsWith(':')
@@ -279,11 +292,14 @@ function tableCell(text: string, align: TextAlignment, header: boolean): TableCe
     p.LineHeight = BODY_LINE_HEIGHT
     p.TextAlignment = align
     const parsed = parseInlines(text)
-    if (header) {
+    if (header)
+    {
         const bold = new Bold()
         for (const inline of parsed) bold.AddChild(inline)
         p.AddChild(bold)
-    } else {
+    }
+    else
+    {
         for (const inline of parsed) p.AddChild(inline)
     }
     cell.AddChild(p)
@@ -309,13 +325,16 @@ function parseInlines(text: string): Inline[]
     const flush = (): void => { if (buffer.length > 0) { out.push(new Run(buffer)); buffer = '' } }
 
     let i = 0
-    while (i < text.length) {
+    while (i < text.length)
+    {
         const ch = text[i]!
 
         // Inline code — `…`. Parsed first so markup inside a span is literal.
-        if (ch === '`') {
+        if (ch === '`')
+        {
             const end = text.indexOf('`', i + 1)
-            if (end > i) {
+            if (end > i)
+            {
                 flush()
                 out.push(codeChip(text.slice(i + 1, end)))
                 i = end + 1
@@ -325,9 +344,11 @@ function parseInlines(text: string): Inline[]
 
         // Bold — **…** or __…__.
         const bold = text.startsWith('**', i) ? '**' : text.startsWith('__', i) ? '__' : ''
-        if (bold !== '') {
+        if (bold !== '')
+        {
             const end = text.indexOf(bold, i + 2)
-            if (end > i + 1) {
+            if (end > i + 1)
+            {
                 flush()
                 const span = new Bold()
                 for (const inline of parseInlines(text.slice(i + 2, end))) span.AddChild(inline)
@@ -338,9 +359,11 @@ function parseInlines(text: string): Inline[]
         }
 
         // Italic — *…* or _…_ (a single marker, not the doubled emphasis).
-        if ((ch === '*' || ch === '_') && text[i + 1] !== ch) {
+        if ((ch === '*' || ch === '_') && text[i + 1] !== ch)
+        {
             const end = findSingle(text, ch, i + 1)
-            if (end > i) {
+            if (end > i)
+            {
                 flush()
                 const span = new Italic()
                 for (const inline of parseInlines(text.slice(i + 1, end))) span.AddChild(inline)
@@ -351,9 +374,11 @@ function parseInlines(text: string): Inline[]
         }
 
         // Link — [text](uri "optional title").
-        if (ch === '[') {
+        if (ch === '[')
+        {
             const m = /^\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/.exec(text.slice(i))
-            if (m !== null) {
+            if (m !== null)
+            {
                 flush()
                 const uri = m[2]!
                 const link = new Hyperlink()
@@ -378,7 +403,8 @@ function parseInlines(text: string): Inline[]
 // italic scanning doesn't stop on the `**` of a bold run).
 function findSingle(text: string, marker: string, from: number): number
 {
-    for (let j = from; j < text.length; j += 1) {
+    for (let j = from; j < text.length; j += 1)
+    {
         if (text[j] === marker && text[j + 1] !== marker && text[j - 1] !== marker) return j
     }
     return -1
@@ -389,7 +415,8 @@ function findSingle(text: string, marker: string, from: number): number
 // host, which routes it to the OS browser.
 function openExternal(uri: string): void
 {
-    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+    if (typeof window !== 'undefined' && typeof window.open === 'function')
+    {
         window.open(uri, '_blank', 'noopener')
     }
 }

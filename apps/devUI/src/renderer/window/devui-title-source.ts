@@ -7,25 +7,30 @@ import { type ITitleSource } from "@pragmatic-tech-ai/plexus-core/renderer/modul
 // projects), so the navigation selection is the meaningful title. Registered under
 // TitleSourceKey in app.mu's .services: (the precedence itself lives in
 // plexus-core's TitleService: activeDocumentTitle → firstProjectName → appName).
-export class DevUiTitleSource implements ITitleSource {
+export class DevUiTitleSource implements ITitleSource
+{
   public readonly appName = "TODL";
 
   constructor(private readonly provider: IServiceProvider) {}
 
-  private nav(): NavigationService | undefined {
+  private nav(): NavigationService | undefined
+  {
     return this.provider.get(NavigationService.Key);
   }
 
-  public activeDocumentTitle(): string | undefined {
+  public activeDocumentTitle(): string | undefined
+  {
     const item = this.nav()?.SelectedItem as { Label?: string } | undefined;
     return item?.Label || undefined;
   }
 
-  public firstProjectName(): string | undefined {
+  public firstProjectName(): string | undefined
+  {
     return undefined;
   }
 
-  public subscribe(onChange: () => void): () => void {
+  public subscribe(onChange: () => void): () => void
+  {
     const unsub = this.nav()?.PropertyChanged("SelectedItem").subscribe(onChange);
     return () => unsub?.();
   }

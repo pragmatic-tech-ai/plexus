@@ -27,7 +27,8 @@ export class DiagramGuidesService extends ServiceBase
     private sync(host: DocumentsContentHostService): void
     {
         const current = new Set(host.OpenDocuments.ToArray())
-        for (const [doc, detach] of [...this.bindings]) {
+        for (const [doc, detach] of [...this.bindings])
+        {
             if (!current.has(doc)) { detach(); this.bindings.delete(doc) }
         }
         for (const doc of current) this.attach(doc)
@@ -68,9 +69,11 @@ export class DiagramGuidesService extends ServiceBase
             if (view === undefined) return
             // Hydrate: apply the persisted guides without triggering a persist.
             const saved = readGuides(doc)
-            if (saved !== undefined) {
+            if (saved !== undefined)
+            {
                 hydrating = true
-                try { view.Guides = saved.guides } finally { hydrating = false }
+                try { view.Guides = saved.guides }
+                finally { hydrating = false }
             }
             const subGuides = view.PropertyChanged(Diagram.GuidesKey).subscribe(onChanged)
             detachView = (): void => { subGuides.dispose() }

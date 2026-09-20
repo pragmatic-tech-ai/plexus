@@ -25,9 +25,11 @@ export class PublishedBases extends ServiceBase implements IPublishedBases
     private async enumerate(backend: IStorage): Promise<BaseRef[]>
     {
         const refs: BaseRef[] = []
-        for (const id of await backend.List('')) {
+        for (const id of await backend.List(''))
+        {
             if (!id.IsDirectory) continue
-            for (const version of await backend.List(id.Name)) {
+            for (const version of await backend.List(id.Name))
+            {
                 if (version.IsDirectory) refs.push({ id: id.Name, version: version.Name })
             }
         }

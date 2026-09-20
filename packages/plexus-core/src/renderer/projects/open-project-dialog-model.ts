@@ -59,7 +59,8 @@ export class OpenProjectDialogModel extends MuralBase
     {
         super()
         const items = new ObservableCollection<RecentProjectItem>()
-        for (const r of recents) {
+        for (const r of recents)
+        {
             const item = new RecentProjectItem(r.name, r.path)
             item.OpenCommand = new RelayCommand(() => this.close({ location: item.Path }))
             items.Add(item)

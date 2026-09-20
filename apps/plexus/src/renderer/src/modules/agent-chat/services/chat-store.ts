@@ -9,7 +9,8 @@ import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/envi
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage';
 import type { SerializedMessage } from './transcript-serializer.js';
 
-export interface StoredConversation {
+export interface StoredConversation
+{
     Id: string;
     Title: string;
     Transcript: SerializedMessage[];
@@ -27,33 +28,41 @@ export interface StoredConversation {
     UpdatedAt: number;
 }
 
-export class ChatStore extends ServiceBase {
+export class ChatStore extends ServiceBase
+{
     public static readonly Key = new ServiceKey<ChatStore>('ChatStore');
     private static readonly FileName = 'conversations.json';
 
     // In-memory mirror of the persisted list, lazily loaded on first List().
     private records: StoredConversation[] | null = null;
 
-    constructor(provider: IServiceProvider) {
+    constructor(provider: IServiceProvider)
+    {
         super(provider);
     }
 
-    private get fs(): FileSystemService {
+    private get fs(): FileSystemService
+    {
         return this.Provider.getRequired(FileSystemService.Key);
     }
-    private get env(): IEnvironment {
+    private get env(): IEnvironment
+    {
         return this.Provider.getRequired(EnvironmentService.Key);
     }
-    private get filePath(): string {
+    private get filePath(): string
+    {
         return join(this.env.UserDataDirectory, ChatStore.FileName);
     }
 
     // The stored conversations. Loads the file into the mirror once (subsequent
     // calls return the mirror). Tolerates a missing/corrupt file → [].
-    public async List(): Promise<readonly StoredConversation[]> {
+    public async List(): Promise<readonly StoredConversation[]>
+    {
         if (this.records !== null) return this.records;
-        try {
-            if (!(await this.fs.Exists(this.filePath))) {
+        try
+        {
+            if (!(await this.fs.Exists(this.filePath)))
+            {
                 this.records = [];
                 return this.records;
             }
@@ -61,14 +70,17 @@ export class ChatStore extends ServiceBase {
             this.records = Array.isArray(parsed)
                 ? (parsed as StoredConversation[]).map(normalize)
                 : [];
-        } catch {
+        }
+        catch
+        {
             this.records = [];
         }
         return this.records;
     }
 
     // Insert or replace by id.
-    public async Upsert(rec: StoredConversation): Promise<void> {
+    public async Upsert(rec: StoredConversation): Promise<void>
+    {
         const list = [...(await this.List())];
         const i = list.findIndex((r) => r.Id === rec.Id);
         if (i >= 0) list[i] = rec;
@@ -77,20 +89,23 @@ export class ChatStore extends ServiceBase {
         await this.write(list);
     }
 
-    public async Remove(id: string): Promise<void> {
+    public async Remove(id: string): Promise<void>
+    {
         const list = (await this.List()).filter((r) => r.Id !== id);
         this.records = list;
         await this.write(list);
     }
 
-    private write(list: readonly StoredConversation[]): Promise<void> {
+    private write(list: readonly StoredConversation[]): Promise<void>
+    {
         return this.fs.WriteText(this.filePath, JSON.stringify(list, null, 2));
     }
 }
 
 // Back-fill fields added after records were first written: UpdatedAt (0 → no
 // time label) and Cwd ('' → the caller resumes at the current cwd).
-function normalize(rec: StoredConversation): StoredConversation {
+function normalize(rec: StoredConversation): StoredConversation
+{
     return {
         ...rec,
         UpdatedAt: typeof rec.UpdatedAt === 'number' ? rec.UpdatedAt : 0,
@@ -100,7 +115,8 @@ function normalize(rec: StoredConversation): StoredConversation {
 
 // Join with the directory's own separator (no node:path in the renderer). Copied
 // from OpenProjectsStore.
-function join(dir: string, name: string): string {
+function join(dir: string, name: string): string
+{
     const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/';
     return dir.endsWith(sep) ? dir + name : dir + sep + name;
 }

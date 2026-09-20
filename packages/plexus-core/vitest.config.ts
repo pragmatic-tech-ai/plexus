@@ -13,7 +13,8 @@ import { defineConfig } from 'vitest/config'
 const CONDITIONS = ['import', 'module', 'browser', 'default']
 
 // Locate a package dir: package-local, then hoisted workspace root.
-function pkgRoot(spec: string): string {
+function pkgRoot(spec: string): string
+{
     const hit = [
         new URL(`./node_modules/${spec}`, import.meta.url),
         new URL(`../../node_modules/${spec}`, import.meta.url),

@@ -2,14 +2,16 @@
 // these into its own defineConfig so the mural handling stays identical across
 // apps without a monolithic shared config. App-specific bits (the todl→dist
 // alias, whose path differs per app, and the rollup input) stay in the app.
-export class MuralRendererConfig {
+export class MuralRendererConfig
+{
     // resolve.conditions that pin mural to its built dist (drop "development",
     // which points at uncompiled src). As of mural 0.55.14 no shim aliases are
     // needed: mural imports opentype.js's ESM bundle path directly (the one
     // specifier Node and bundlers both treat as real ESM) and no longer imports
     // `node:module` in shipped source, so the compiler runs unchanged in the
     // Chromium renderer.
-    public static resolve(): { conditions: string[] } {
+    public static resolve(): { conditions: string[] }
+    {
         return {
             conditions: ['import', 'module', 'browser', 'default'],
         };
@@ -32,7 +34,8 @@ export class MuralRendererConfig {
     // serves their built dist as live ESM — a rebuilt engine dist is picked up on
     // the next dev start with no stale-cache SyntaxError. Each subpath the renderer
     // imports is listed explicitly (Vite optimizes per subpath).
-    public static optimizeDepsExclude(): string[] {
+    public static optimizeDepsExclude(): string[]
+    {
         return [
             '@pragmatic-tech-ai/mural',
             '@pragmatic-tech-ai/mural/runtime',

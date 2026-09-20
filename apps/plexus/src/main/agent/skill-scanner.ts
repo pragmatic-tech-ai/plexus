@@ -8,20 +8,24 @@ import type { SkillDescriptor } from '../../shared/skill-api.js'
 
 // Walks every scope root and parses each SKILL.md into a SkillDescriptor. Flat,
 // scope-tagged output; precedence dedupe is the renderer catalog's job (spec §5.1).
-export class SkillScanner {
+export class SkillScanner
+{
     private readonly resolver: SkillScopeResolver
     private readonly parser: SkillFrontmatterParser
     private readonly io: CatalogIo
 
-    constructor(resolver: SkillScopeResolver, parser: SkillFrontmatterParser, io: CatalogIo) {
+    constructor(resolver: SkillScopeResolver, parser: SkillFrontmatterParser, io: CatalogIo)
+    {
         this.resolver = resolver
         this.parser = parser
         this.io = io
     }
 
-    async scan(projectDir: string): Promise<SkillDescriptor[]> {
+    async scan(projectDir: string): Promise<SkillDescriptor[]>
+    {
         const out: SkillDescriptor[] = []
-        for (const root of this.resolver.rootsFor(projectDir)) {
+        for (const root of this.resolver.rootsFor(projectDir))
+        {
             if (root.nested) out.push(...await this.scanPackaged(root))
             else out.push(...await this.scanFlat(root.skillsDir, root))
         }
@@ -29,10 +33,12 @@ export class SkillScanner {
     }
 
     // A flat skills dir: <skillsDir>/<name>/SKILL.md.
-    private async scanFlat(skillsDir: string, root: ScopeRoot): Promise<SkillDescriptor[]> {
+    private async scanFlat(skillsDir: string, root: ScopeRoot): Promise<SkillDescriptor[]>
+    {
         if (!(await this.io.exists(skillsDir))) return []
         const out: SkillDescriptor[] = []
-        for (const name of await this.io.readDir(skillsDir)) {
+        for (const name of await this.io.readDir(skillsDir))
+        {
             const folder = join(skillsDir, name)
             const file = join(folder, 'SKILL.md')
             if (!(await this.io.exists(file))) continue
@@ -42,12 +48,15 @@ export class SkillScanner {
     }
 
     // A package backend: <backend>/<id>/<version>/skills/<name>/SKILL.md.
-    private async scanPackaged(root: ScopeRoot): Promise<SkillDescriptor[]> {
+    private async scanPackaged(root: ScopeRoot): Promise<SkillDescriptor[]>
+    {
         if (!(await this.io.exists(root.skillsDir))) return []
         const out: SkillDescriptor[] = []
-        for (const id of await this.io.readDir(root.skillsDir)) {
+        for (const id of await this.io.readDir(root.skillsDir))
+        {
             const idDir = join(root.skillsDir, id)
-            for (const version of await this.io.readDir(idDir)) {
+            for (const version of await this.io.readDir(idDir))
+            {
                 const skillsDir = join(idDir, version, 'skills')
                 out.push(...await this.scanFlat(skillsDir, root))
             }

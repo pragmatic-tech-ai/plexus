@@ -35,8 +35,10 @@ export function buildAgentSkillChoices(catalog: ProjectCatalog, run: (item: Cata
 
 // Builds submenu choices from catalog Skills (house-style class over the legacy free
 // function). Label mirrors the old "skill: name" / "agent: name" convention.
-export class SkillChoiceBuilder {
-    static fromSkills(skills: readonly Skill[], run: (s: Skill) => void): AgentSkillChoice[] {
+export class SkillChoiceBuilder
+{
+    static fromSkills(skills: readonly Skill[], run: (s: Skill) => void): AgentSkillChoice[]
+    {
         return skills.map(s => new AgentSkillChoice(
             `${s.Kind === AgentSkillKind.Agent ? 'agent' : 'skill'}: ${s.Name}`,
             () => run(s),

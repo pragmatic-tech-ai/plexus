@@ -14,7 +14,8 @@ const file = { uri: 'model.todl', text: `namespace archmm {
   model Arch : archmm conforms ComponentView { location loc {} component comp { in = loc; } }
 }` }
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })

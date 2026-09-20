@@ -32,7 +32,8 @@ export async function buildMediaNode(
     const vm = new MediaNodeVM()
     vm.Id = deps.newId()
 
-    if (item.file !== undefined) {
+    if (item.file !== undefined)
+    {
         const file = item.file
         const kind = classifyFile(file)
         const bytes = new Uint8Array(await file.arrayBuffer())
@@ -46,7 +47,9 @@ export async function buildMediaNode(
         vm.Source = resolved.source
         vm.Label = resolved.label
         if (kind !== MediaKind.Image && osPath !== undefined) vm.HyperlinkUri = osPath
-    } else {
+    }
+    else
+    {
         const uri = item.uri as string
         const kind = classifyUri(uri)
         vm.MediaKind = kind
@@ -79,7 +82,8 @@ export async function placeDroppedItems(
 ): Promise<void>
 {
     let offset = 0
-    for (const item of items) {
+    for (const item of items)
+    {
         const { vm, natural } = await buildMediaNode(item, deps)
         placeNode(doc, vm, natural, originX + offset, originY + offset)
         offset += CASCADE_STEP
@@ -106,9 +110,11 @@ export function pasteItemsFromClipboard(data: DataTransfer): DroppedItem[]
 {
     const out: DroppedItem[] = []
     const items = data.items
-    for (let i = 0; i < items.length; i++) {
+    for (let i = 0; i < items.length; i++)
+    {
         const it = items[i]
-        if (it.kind === 'file') {
+        if (it.kind === 'file')
+        {
             const file = it.getAsFile()
             if (file !== null) out.push({ file })
         }
@@ -138,7 +144,8 @@ export function attachMediaPaste(view: Diagram, doc: DiagramDocument, deps: Medi
 // disk (deserialize rebuilds the VM but not its bitmap).
 export async function reloadMediaBitmaps(doc: DiagramDocument, storage: IStorage): Promise<void>
 {
-    for (const node of doc.Nodes.ToArray()) {
+    for (const node of doc.Nodes.ToArray())
+    {
         if (node instanceof MediaNodeVM) await node.LoadAsync({ storage, baseDir: '' })
     }
 }

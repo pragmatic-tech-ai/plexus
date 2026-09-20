@@ -27,7 +27,8 @@ test('AgentSkillChoice exposes Label + Command', () => {
     expect(typeof c.Command.Execute).toBe('function')
 })
 
-function skill(name: string, superset: boolean): Skill {
+function skill(name: string, superset: boolean): Skill
+{
     const d: SkillDescriptor = {
         kind: AgentSkillKind.Skill, name, title: name, description: '', scope: SkillScope.Project,
         sourceKind: superset ? SkillSourceKind.PlexusSuperset : SkillSourceKind.ClaudeCode,

@@ -34,21 +34,24 @@ const MM = `namespace archmm {
   viewpoint S : frames scenario, sequence, step
 }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
-function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext {
+function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext
+{
     const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'scenario')
     const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
     const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'scenario'))
     return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Diagram: undefined as never, Mutator: doc }
 }
 
-function providerFor(model: ArchModel): IServiceProvider {
+function providerFor(model: ArchModel): IServiceProvider
+{
     const bindingSvc = { modelForDocument: () => model, addScenario: vi.fn(() => Promise.resolve()) }
     return { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
 }

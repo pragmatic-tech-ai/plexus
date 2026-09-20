@@ -5,7 +5,8 @@ import { TokenSource } from "../../../main/registry/registry-connection.js";
 
 /** What a ConnectionVM needs back from its owning manager: refresh the list after
  *  a mutation, and remove a connection by id. */
-export interface ConnectionHost {
+export interface ConnectionHost
+{
   refresh(): Promise<void>;
   removeConnection(id: string): Promise<void>;
 }
@@ -15,7 +16,8 @@ export interface ConnectionHost {
 // selection is pure view state: it just decides which auth control block shows —
 // the actual persistence happens through Save token / Use env var, which flip the
 // stored TokenSource. Kept in sync with TokenSource on load.
-export enum AuthMode {
+export enum AuthMode
+{
   Token = "Token value",
   Env = "Environment variable",
 }
@@ -25,7 +27,8 @@ export enum AuthMode {
 // two-way bound to TextBoxes; the token is write-only (`Token`) — it travels to
 // main via setConnectionToken and is cleared here after, never read back
 // (the bridge exposes only `HasToken`). A lightweight Observable, not MuralBase.
-export class ConnectionVM extends Observable {
+export class ConnectionVM extends Observable
+{
   readonly Id: string;
 
   private _name: string;
@@ -59,7 +62,8 @@ export class ConnectionVM extends Observable {
     private readonly client: RegistryClient,
     private readonly host: ConnectionHost,
     envVars: readonly string[] = [],
-  ) {
+  )
+  {
     super();
     this.Id = view.id;
     this._name = view.name;
@@ -76,7 +80,8 @@ export class ConnectionVM extends Observable {
     // Seed the env-var picker: the live process vars, plus the saved value if it
     // isn't among them (so a ComboBox SelectedItem = TokenEnvVar still resolves).
     for (const name of envVars) this.EnvVars.Add(name);
-    if (this._tokenEnvVar.length > 0 && !envVars.includes(this._tokenEnvVar)) {
+    if (this._tokenEnvVar.length > 0 && !envVars.includes(this._tokenEnvVar))
+    {
       this.EnvVars.Add(this._tokenEnvVar);
     }
 
@@ -125,7 +130,8 @@ export class ConnectionVM extends Observable {
   // IsEnvMode); the value is committed by Save token / Use env var.
   get AuthModes(): AuthMode[] { return [AuthMode.Token, AuthMode.Env]; }
   get AuthMode(): AuthMode { return this._authMode; }
-  set AuthMode(v: AuthMode) {
+  set AuthMode(v: AuthMode)
+  {
     const old = this._authMode;
     if (old === v) return;
     this._authMode = v;
@@ -137,14 +143,16 @@ export class ConnectionVM extends Observable {
   get IsEnvMode(): boolean { return this._authMode === AuthMode.Env; }
 
   /** A one-line summary for the master list row. */
-  get Summary(): string {
+  get Summary(): string
+  {
     const marks: string[] = [];
     if (this._isDefault) marks.push("default");
     marks.push(this._hasToken ? "token set" : "no token");
     return `${this._name}  (${marks.join(", ")})`;
   }
 
-  private async save(): Promise<void> {
+  private async save(): Promise<void>
+  {
     await this.client.updateConnection(this.Id, {
       name: this._name,
       registry: this._registry,
@@ -156,7 +164,8 @@ export class ConnectionVM extends Observable {
     await this.host.refresh();
   }
 
-  private async saveToken(): Promise<void> {
+  private async saveToken(): Promise<void>
+  {
     if (this._token.length === 0) { this.setStatus("Enter a token first."); return; }
     await this.client.setConnectionToken(this.Id, this._token);
     this.Token = ""; // never keep the secret in the VM
@@ -164,29 +173,34 @@ export class ConnectionVM extends Observable {
     await this.host.refresh();
   }
 
-  private async useEnv(): Promise<void> {
+  private async useEnv(): Promise<void>
+  {
     if (this._tokenEnvVar.length === 0) { this.setStatus("Enter an environment variable name."); return; }
     await this.client.useConnectionEnvToken(this.Id, this._tokenEnvVar);
     this.setStatus(`Using $${this._tokenEnvVar}.`);
     await this.host.refresh();
   }
 
-  private async test(): Promise<void> {
+  private async test(): Promise<void>
+  {
     this.setStatus("Testing…");
     const result = await this.client.testConnection(this.Id);
     this.setStatus(result.ok ? `Connected — ${result.count} package(s).` : `Failed: ${result.message}`);
   }
 
-  private async makeDefault(): Promise<void> {
+  private async makeDefault(): Promise<void>
+  {
     await this.client.setDefaultConnection(this.Id);
     await this.host.refresh();
   }
 
-  private setStatus(v: string): void {
+  private setStatus(v: string): void
+  {
     this.assign("Status", this._status, v, (x) => (this._status = x));
   }
 
-  private assign(name: string, oldValue: string | boolean, value: string, set: (v: string) => void): void {
+  private assign(name: string, oldValue: string | boolean, value: string, set: (v: string) => void): void
+  {
     if (oldValue === value) return;
     set(value);
     this.RaisePropertyChanged(name, oldValue, value);

@@ -66,10 +66,13 @@ export class LocalFileStorage implements IStorage, ILocalFileAccess
     public async List(path: string): Promise<readonly StorageEntry[]>
     {
         const abs = this.abs(path)
-        try {
+        try
+        {
             const entries = await this.fs.ListDirectory(abs)
             return entries.map((e) => ({ Name: e.Name, IsDirectory: e.IsDirectory }))
-        } catch (e) {
+        }
+        catch (e)
+        {
             // A non-existent directory lists as empty — matching the in-memory
             // FakeStorage double and the normal "backend not created yet" state
             // (e.g. <userData>/meta-models before anything is published). Any other

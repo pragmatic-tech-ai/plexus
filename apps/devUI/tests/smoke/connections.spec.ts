@@ -10,7 +10,8 @@ const mainEntry = resolve(here, "../../out/main/index.js");
 // RegistryClient reads `__todlBridge` first (the production injection seam). This
 // keeps the smoke deterministic (independent of the real userData connections.json)
 // while still exercising the ConnectionsManagerModule VMs + templates end to end.
-function installFakeConnections(window: Page): Promise<void> {
+function installFakeConnections(window: Page): Promise<void>
+{
   return window.evaluate(() => {
     const rows: any[] = [{
       id: "gh", name: "GitHub Packages", registry: "https://npm.pkg.github.com",
@@ -42,12 +43,15 @@ function installFakeConnections(window: Page): Promise<void> {
 }
 
 // Rail cells are 48×48 SVG rects stacked from the top.
-function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: number }[]> {
+function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: number }[]>
+{
   return window.evaluate(() => {
     const byY = new Map<number, { x: number; y: number; w: number; h: number }>();
-    for (const el of Array.from(document.querySelectorAll("#app rect"))) {
+    for (const el of Array.from(document.querySelectorAll("#app rect")))
+    {
       const r = (el as Element).getBoundingClientRect();
-      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48) {
+      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48)
+      {
         byY.set(Math.round(r.y), { x: r.x, y: r.y, w: r.width, h: r.height });
       }
     }
@@ -58,9 +62,11 @@ function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: 
 // Activate a rail capability robustly: wait for the rail to lay out, then click
 // its cell and confirm the side panel responded (polling for `expectText`),
 // retrying the click — a fresh-startup first rail click is sometimes swallowed.
-async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void>
+{
   await expect.poll(async () => (await railCells(window)).length, { timeout: 15_000 }).toBeGreaterThan(index);
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1)
+  {
     const c = (await railCells(window))[index]!;
     await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
     const landed = await hasTextContaining(window, expectText)
@@ -73,10 +79,13 @@ async function activateCapability(window: Page, index: number, expectText: strin
 // Click an SVG label by coordinate — element-level clicks on lower content are
 // swallowed by mural's full-pane hit rect, so click the text's centre via the
 // mouse (the same approach the rail uses).
-async function clickText(window: Page, text: string): Promise<void> {
+async function clickText(window: Page, text: string): Promise<void>
+{
   const box = await window.evaluate((t) => {
-    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan"))) {
-      if ((el.textContent ?? "").trim() === t) {
+    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan")))
+    {
+      if ((el.textContent ?? "").trim() === t)
+      {
         const r = (el as Element).getBoundingClientRect();
         return { x: r.x, y: r.y, w: r.width, h: r.height };
       }
@@ -91,9 +100,11 @@ async function clickText(window: Page, text: string): Promise<void> {
 // (non-zero size). A Visibility=Collapsed subtree keeps its stale SVG text in the
 // DOM but arranges it at 0×0, so text presence alone can't tell shown from hidden
 // — geometry can.
-function textVisible(window: Page, text: string): Promise<boolean> {
+function textVisible(window: Page, text: string): Promise<boolean>
+{
   return window.evaluate((t) => {
-    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan"))) {
+    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan")))
+    {
       if ((el.textContent ?? "").trim() !== t) continue;
       const r = (el as Element).getBoundingClientRect();
       if (r.width > 0 && r.height > 0) return true;
@@ -102,7 +113,8 @@ function textVisible(window: Page, text: string): Promise<boolean> {
   }, text);
 }
 
-function hasTextContaining(window: Page, text: string): Promise<boolean> {
+function hasTextContaining(window: Page, text: string): Promise<boolean>
+{
   return window.evaluate(
     (t) =>
       Array.from(document.querySelectorAll("#app text, #app tspan"))
@@ -116,7 +128,8 @@ test("Connections capability lists connections and renders the editor for the se
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry], env });
-  try {
+  try
+  {
     const window = await app.firstWindow();
     await window.waitForSelector("#app svg", { timeout: 30_000 });
     await installFakeConnections(window);
@@ -129,7 +142,9 @@ test("Connections capability lists connections and renders the editor for the se
     await expect.poll(() => hasTextContaining(window, "Test connection"), { timeout: 10_000 }).toBe(true);
 
     await app.close();
-  } finally {
+  }
+  finally
+  {
     // app.close already called on the happy path; guard against a mid-test throw.
   }
 });

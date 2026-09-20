@@ -127,7 +127,8 @@ test('block raw html strips unknown tags but keeps text', () => {
 })
 
 // The rendered image for the first block, or undefined if it isn't an SVG image.
-function svgImage(md: string): { w: number; h: number; uri: string } | undefined {
+function svgImage(md: string): { w: number; h: number; uri: string } | undefined
+{
     const c = inlines(blocks(md)[0] as Paragraph)[0]
     if (!(c instanceof InlineUIContainer) || !(c.Child instanceof Image)) return undefined
     const src = c.Child.Source as BitmapImage

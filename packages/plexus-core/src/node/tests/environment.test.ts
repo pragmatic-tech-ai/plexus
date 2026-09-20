@@ -17,7 +17,8 @@ describe('NodeEnvironment — directories (Electron-parity conventions)', () => 
     test('UserDataDirectory follows the platform config-root convention + app name', () => {
         const info = new NodeEnvironment({ appName: 'plexus-test' }).Build();
         let expectedRoot: string;
-        switch (process.platform) {
+        switch (process.platform)
+        {
             case 'win32':
                 expectedRoot = process.env.APPDATA ?? join(HOME, 'AppData', 'Roaming');
                 break;
@@ -52,7 +53,8 @@ describe('NodeEnvironment — Linux XDG user-dir overrides', () => {
         saved.XDG_DOWNLOAD_DIR = process.env.XDG_DOWNLOAD_DIR;
     });
     afterEach(() => {
-        for (const [k, v] of Object.entries(saved)) {
+        for (const [k, v] of Object.entries(saved))
+        {
             if (v === undefined) delete process.env[k];
             else process.env[k] = v;
         }

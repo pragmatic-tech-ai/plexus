@@ -12,8 +12,10 @@ export function propagationFills(repo: Repository, targetConcept: string, termId
     const rels = repo.effectiveSchema(targetConcept).relationships
     const filled = new Set<string>([primaryMember])
     const out: PropFill[] = []
-    for (const [, targets] of repo.effectiveRelationships(termId)) {
-        for (const tgt of targets) {
+    for (const [, targets] of repo.effectiveRelationships(termId))
+    {
+        for (const tgt of targets)
+        {
             const accept = acceptSet(repo, conceptTypeOf(repo, tgt))
             const matching = rels.filter((r) => !filled.has(r.name) && r.targets.some((t) => accept.has(t)))
             if (matching.length !== 1) continue

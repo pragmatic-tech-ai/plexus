@@ -10,7 +10,8 @@ const mainEntry = resolve(here, "../../out/main/index.js");
 // dialog (not a bridge call), so the fake needs no confirm hook. `window.todl`
 // is frozen by contextBridge, so RegistryClient reads the mutable
 // `__todlBridge` override first.
-function installFakeBridge(window: Page): Promise<void> {
+function installFakeBridge(window: Page): Promise<void>
+{
   return window.evaluate(() => {
     (window as unknown as { __todlBridge: unknown }).__todlBridge = {
       dialog: { pickDirectory: () => Promise.resolve("C:/proj/demo") },
@@ -38,12 +39,15 @@ function installFakeBridge(window: Page): Promise<void> {
   });
 }
 
-async function clickRailCapability(window: Page, index: number): Promise<void> {
+async function clickRailCapability(window: Page, index: number): Promise<void>
+{
   const cells = await window.evaluate(() => {
     const byY = new Map<number, { x: number; y: number; w: number; h: number }>();
-    for (const el of Array.from(document.querySelectorAll("#app rect"))) {
+    for (const el of Array.from(document.querySelectorAll("#app rect")))
+    {
       const r = (el as Element).getBoundingClientRect();
-      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48) {
+      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48)
+      {
         byY.set(Math.round(r.y), { x: r.x, y: r.y, w: r.width, h: r.height });
       }
     }
@@ -53,7 +57,8 @@ async function clickRailCapability(window: Page, index: number): Promise<void> {
   await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
 }
 
-function hasText(window: Page, text: string): Promise<boolean> {
+function hasText(window: Page, text: string): Promise<boolean>
+{
   return window.evaluate(
     (t) => Array.from(document.querySelectorAll("#app text, #app tspan")).some((n) => (n.textContent ?? "").trim() === t),
     text,
@@ -62,8 +67,10 @@ function hasText(window: Page, text: string): Promise<boolean> {
 
 // Robustly activate a capability — a fresh-startup first rail click is sometimes
 // swallowed, so retry until the panel responds.
-async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void>
+{
+  for (let attempt = 0; attempt < 4; attempt += 1)
+  {
     await clickRailCapability(window, index);
     const landed = await hasText(window, expectText)
       .then((v) => v || new Promise<boolean>((r) => setTimeout(() => r(hasText(window, expectText)), 1200)));
@@ -77,18 +84,22 @@ async function activateCapability(window: Page, index: number, expectText: strin
 // buttons overflow into the chevron popup, which mounts only when opened. The
 // chevron carries no text, so locate it via the ToolBar's PART_Chevron and click
 // its centre (the established mural-visual-backref introspection path).
-async function openToolbarOverflow(window: Page): Promise<void> {
+async function openToolbarOverflow(window: Page): Promise<void>
+{
   const center = await window.evaluate(() => {
     const REF = Symbol.for("mural:visual-backref");
     let toolbar: { visualChildren?: { FindName(n: string): unknown }[] } | undefined;
-    for (const el of Array.from(document.querySelectorAll("#app *"))) {
+    for (const el of Array.from(document.querySelectorAll("#app *")))
+    {
       const v = (el as unknown as Record<symbol, { constructor: { name: string } }>)[REF];
       if (v?.constructor?.name === "ToolBar") { toolbar = v as never; break; }
     }
     const chevron = toolbar?.visualChildren?.[0]?.FindName("PART_Chevron");
     if (chevron === undefined || chevron === null) return null;
-    for (const el of Array.from(document.querySelectorAll("#app *"))) {
-      if ((el as unknown as Record<symbol, unknown>)[REF] === chevron) {
+    for (const el of Array.from(document.querySelectorAll("#app *")))
+    {
+      if ((el as unknown as Record<symbol, unknown>)[REF] === chevron)
+      {
         const r = (el as Element).getBoundingClientRect();
         return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
       }
@@ -99,7 +110,8 @@ async function openToolbarOverflow(window: Page): Promise<void> {
   await window.mouse.click(center.x, center.y);
 }
 
-function allText(window: Page): Promise<string> {
+function allText(window: Page): Promise<string>
+{
   return window.evaluate(() =>
     Array.from(document.querySelectorAll("#app text, #app tspan"))
       .map((n) => n.textContent ?? "")
@@ -113,10 +125,12 @@ function allText(window: Page): Promise<string> {
 // on the toolbar (behind the scrim), so pick the LOWEST (max-y) exact-label text
 // to target the dialog action. Coordinate click lands on the button's `mural-hit`
 // rect (which would otherwise intercept an actionability click).
-async function clickDialogButton(window: Page, label: string): Promise<void> {
+async function clickDialogButton(window: Page, label: string): Promise<void>
+{
   const box = await window.evaluate((wanted) => {
     let best: { x: number; y: number; w: number; h: number } | null = null;
-    for (const t of Array.from(document.querySelectorAll("text, tspan"))) {
+    for (const t of Array.from(document.querySelectorAll("text, tspan")))
+    {
       if ((t.textContent ?? "").trim() !== wanted) continue;
       const r = (t as Element).getBoundingClientRect();
       if (best === null || r.y > best.y) best = { x: r.x, y: r.y, w: r.width, h: r.height };
@@ -202,7 +216,8 @@ test("Compiler capability: declining the publish confirm dialog does not publish
 
 // A publish that first hits a 409 "existing version" conflict, offering the user
 // a choice; clicking "Bump version" bumps, recompiles, republishes.
-function installConflictBridge(window: Page): Promise<void> {
+function installConflictBridge(window: Page): Promise<void>
+{
   return window.evaluate(() => {
     let publishCount = 0;
     (window as unknown as { __todlBridge: unknown }).__todlBridge = {
@@ -216,7 +231,8 @@ function installConflictBridge(window: Page): Promise<void> {
           Promise.resolve({ ok: true, outDir: dir + "/dist", files: ["package.json"], diagnostics: [], name: "@scope/demo", version: "0.1.0", sourceCount: 1 }),
         publishDir: (dir: string) => {
           publishCount += 1;
-          if (publishCount === 1) {
+          if (publishCount === 1)
+          {
             return Promise.reject(new Error('publish @scope/demo@0.1.0 failed: HTTP 409 {"error":"Cannot publish over existing version"}'));
           }
           (window as unknown as { __published: string }).__published = dir;

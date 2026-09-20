@@ -12,7 +12,8 @@ import { ChatSessionsService } from '../../agent-chat/services/chat-sessions-ser
 
 // The collaborators the runner needs, injected for testing (the production set is
 // built from the provider in buildDeps).
-export interface RunnerDeps {
+export interface RunnerDeps
+{
     presentForm(skill: Skill, seed?: ResolvedInput[]): Promise<ResolvedInput[] | undefined>
     bindingSourcesFor(projectDir: string, projectName: string): BindingContextSources
     runAgentSkill(item: CatalogItem, dir: string, name: string, opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void }): { Id: string }
@@ -22,19 +23,23 @@ export interface RunnerDeps {
 // bindings against live context → compose a context block + structured context →
 // hand off to ChatSessionsService.RunAgentSkill. A skill with no inputs/bindings
 // runs exactly as before (no form, no context block, no context push).
-export class SkillRunner extends ServiceBase {
+export class SkillRunner extends ServiceBase
+{
     public static readonly Key = new ServiceKey<SkillRunner>('SkillRunner')
     private readonly deps: RunnerDeps
     private readonly composer = new PreambleComposer()
 
-    constructor(provider: IServiceProvider, deps?: RunnerDeps) {
+    constructor(provider: IServiceProvider, deps?: RunnerDeps)
+    {
         super(provider)
         this.deps = deps ?? this.buildDeps()
     }
 
-    async run(skill: Skill, projectDir: string, projectName: string, opts?: { seed?: ResolvedInput[] }): Promise<void> {
+    async run(skill: Skill, projectDir: string, projectName: string, opts?: { seed?: ResolvedInput[] }): Promise<void>
+    {
         let inputs: ResolvedInput[] = []
-        if (skill.HasInputs) {
+        if (skill.HasInputs)
+        {
             const collected = await this.deps.presentForm(skill, opts?.seed)
             if (collected === undefined) return          // cancelled — no side effects
             inputs = collected
@@ -50,7 +55,8 @@ export class SkillRunner extends ServiceBase {
     }
 
     // ── Production wiring ───────────────────────────────────────────────
-    private buildDeps(): RunnerDeps {
+    private buildDeps(): RunnerDeps
+    {
         return {
             presentForm: (skill, seed) => this.presentModalForm(skill, seed),
             bindingSourcesFor: (dir, name) => this.liveSources(dir, name),
@@ -60,7 +66,8 @@ export class SkillRunner extends ServiceBase {
 
     // Show the generated input form as a modal dialog; resolves with the collected
     // inputs or undefined on cancel/dismiss. `seed` prefills the form on a re-run.
-    private async presentModalForm(skill: Skill, seed?: ResolvedInput[]): Promise<ResolvedInput[] | undefined> {
+    private async presentModalForm(skill: Skill, seed?: ResolvedInput[]): Promise<ResolvedInput[] | undefined>
+    {
         const dialogs = this.Provider.get(DialogService.Key)
         if (dialogs === undefined) return []                 // no dialog host → run with defaults
         const form = new SkillInputFormVm(skill.Descriptor.inputs, (r) => dialogs.Close(r), seed)
@@ -71,7 +78,8 @@ export class SkillRunner extends ServiceBase {
 
     // The five live binding sources for a run. Each returns undefined when its
     // context is absent (BindingResolver maps that to an Empty payload).
-    private liveSources(projectDir: string, projectName: string): BindingContextSources {
+    private liveSources(projectDir: string, projectName: string): BindingContextSources
+    {
         return {
             currentProject: () => ({ name: projectName, path: projectDir }),
             diagramSelection: () => this.selection(),
@@ -81,7 +89,8 @@ export class SkillRunner extends ServiceBase {
         }
     }
 
-    private selection(): { entityIds: string[]; entities: Array<{ id: string; term?: string }> } | undefined {
+    private selection(): { entityIds: string[]; entities: Array<{ id: string; term?: string }> } | undefined
+    {
         const view = (this.activeDocument() as { ActiveView?: { SelectedItems?: readonly unknown[] } } | undefined)?.ActiveView
         const items = view?.SelectedItems
         if (items === undefined || items.length === 0) return undefined
@@ -90,13 +99,15 @@ export class SkillRunner extends ServiceBase {
         return { entityIds: ids, entities: ids.map((id) => ({ id })) }
     }
 
-    private activeDoc(): { path: string; kind: string; text?: string } | undefined {
+    private activeDoc(): { path: string; kind: string; text?: string } | undefined
+    {
         const doc = this.activeDocument() as { Id?: string } | undefined
         if (doc?.Id === undefined) return undefined
         return { path: doc.Id, kind: this.extensionOf(doc.Id) }
     }
 
-    private activeDocument(): unknown {
+    private activeDocument(): unknown
+    {
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         return (host as unknown as { ActiveDocument?: unknown } | undefined)?.ActiveDocument
     }

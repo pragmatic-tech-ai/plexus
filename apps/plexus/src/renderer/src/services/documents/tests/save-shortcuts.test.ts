@@ -3,7 +3,8 @@ import { attachSaveShortcuts } from '../save-shortcuts.js'
 
 // A minimal ICommand — only CanExecute/Execute matter here; the
 // CanExecuteChanged listeners are inert no-ops to satisfy the interface.
-function fakeCommand(execute: () => void) {
+function fakeCommand(execute: () => void)
+{
     return {
         CanExecute: () => true,
         Execute: execute,
@@ -12,7 +13,8 @@ function fakeCommand(execute: () => void) {
     }
 }
 
-function fakeHost() {
+function fakeHost()
+{
     const calls = { save: 0, saveAll: 0, close: 0 }
     return {
         calls,
@@ -23,7 +25,8 @@ function fakeHost() {
 }
 
 // Minimal EventTarget capturing the capture-phase keydown listener.
-function fakeWindow() {
+function fakeWindow()
+{
     let handler: ((e: KeyboardEvent) => void) | undefined
     return {
         addEventListener: (t: string, h: (e: KeyboardEvent) => void, opts?: unknown) => {

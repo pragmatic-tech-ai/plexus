@@ -26,11 +26,13 @@ const shot = (l: Launched, name: string) =>
 // ArchNodeVM through its container Figure's Tag (Selector.exposedValueOf).
 async function archNodes(l: Launched): Promise<
     Array<{ label: string; editing: boolean; editingLabel: string; x: number; y: number; w: number; h: number }>
-> {
+>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         const out: Array<{ label: string; editing: boolean; editingLabel: string; x: number; y: number; w: number; h: number }> = []
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v || v.constructor?.name !== 'Figure') continue
             const tag = v.Tag
@@ -47,11 +49,13 @@ async function archNodes(l: Launched): Promise<
 // editor TextBox in its template; only the one revealed by $IsEditing lays out
 // with a real rect. Counted as a DELTA over the ambient baseline (chat input,
 // etc.) so unrelated TextBoxes don't skew the assertion.
-function visibleTextBoxes(l: Launched): Promise<number> {
+function visibleTextBoxes(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let n = 0
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v || v.constructor?.name !== 'TextBox') continue
             const r = (el as Element).getBoundingClientRect()
@@ -78,13 +82,15 @@ test.describe.serial('arch node title edit', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 16; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
-        for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++) {
+        for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

@@ -3,7 +3,8 @@ import { Image, InlineUIContainer } from '@pragmatic-tech-ai/mural/basic'
 import { BitmapImage } from '@pragmatic-tech-ai/mural/visual-engine'
 import { SvgInline } from '../svg-inline.js'
 
-function sizeOf(svg: string): { w: number; h: number } {
+function sizeOf(svg: string): { w: number; h: number }
+{
     const img = (SvgInline.toImage(svg) as InlineUIContainer).Child as Image
     const src = img.Source as BitmapImage
     return { w: src.NaturalSize.Width, h: src.NaturalSize.Height }

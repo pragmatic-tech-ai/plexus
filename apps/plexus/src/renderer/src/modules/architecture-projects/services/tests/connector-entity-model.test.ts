@@ -22,7 +22,8 @@ const MM = `namespace archmm {
   viewpoint V : frames component, location, actor, technology, connector
 }`
 
-function buildModel(): { model: ArchModel; storage: FakeStorage } {
+function buildModel(): { model: ArchModel; storage: FakeStorage }
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
@@ -32,7 +33,8 @@ function buildModel(): { model: ArchModel; storage: FakeStorage } {
 
 // All own instances serialized to one string (own delta partitions by home file;
 // here everything lands in the default namespace file).
-async function emit(model: ArchModel, storage: FakeStorage): Promise<string> {
+async function emit(model: ArchModel, storage: FakeStorage): Promise<string>
+{
     await model.save()
     const out: string[] = []
     for (const e of await storage.List('')) if (e.Name.endsWith('.todl')) out.push(await storage.ReadText(e.Name))

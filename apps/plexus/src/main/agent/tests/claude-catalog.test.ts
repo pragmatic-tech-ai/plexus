@@ -3,7 +3,8 @@ import { scanClaudeCatalog, parseFrontMatter, type CatalogIo } from '../claude-c
 import { AgentSkillKind } from '../../../shared/agent-api.js'
 
 // An in-memory filesystem: dirs → child names, files → contents.
-function fakeIo(files: Record<string, string>, dirs: Record<string, string[]>): CatalogIo {
+function fakeIo(files: Record<string, string>, dirs: Record<string, string[]>): CatalogIo
+{
     return {
         exists: (p) => Promise.resolve(p in files || p in dirs),
         readDir: (p) => Promise.resolve(dirs[p] ?? []),

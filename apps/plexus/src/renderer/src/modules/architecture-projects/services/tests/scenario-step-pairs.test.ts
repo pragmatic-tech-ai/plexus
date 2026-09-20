@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { scenarioStepPairs, type FlowEntity } from '../scenario-flow.js'
 
-function ent(id: string, rels: Record<string, FlowEntity[]> = {}): FlowEntity {
+function ent(id: string, rels: Record<string, FlowEntity[]> = {}): FlowEntity
+{
   return { id, refs: (m) => rels[m] ?? [] }
 }
 function step(s: FlowEntity, d: FlowEntity): FlowEntity { return ent('step', { src: [s], dst: [d] }) }

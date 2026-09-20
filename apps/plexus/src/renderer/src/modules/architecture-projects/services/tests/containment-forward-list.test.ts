@@ -35,7 +35,8 @@ const file = { uri: 'model.todl', text: `namespace archmm {
   }
 }` }
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
@@ -48,7 +49,8 @@ function fakeView(): {
     view: Diagram
     reparents: Array<{ id: string | undefined; parentId: string | undefined }>
     fireReparent: (args: { Node: { Id?: string }; OldParentId?: string; NewParentId?: string }) => void
-} {
+}
+{
     const figs = new Map<string, Figure>()
     const figFor = (id: string): Figure => {
         let f = figs.get(id)
@@ -77,13 +79,15 @@ function fakeView(): {
     return { view, reparents, fireReparent: (args) => onReparent?.(args) }
 }
 
-class TestDoc extends DiagramDocument {
+class TestDoc extends DiagramDocument
+{
     public fakeView: Diagram | undefined
     public override get ActiveView(): Diagram | undefined { return this.fakeView }
     public override set ActiveView(_v: Diagram | undefined) { /* driven via fakeView */ }
 }
 
-function addVM(doc: DiagramDocument, id: string): void {
+function addVM(doc: DiagramDocument, id: string): void
+{
     const vm = new ArchNodeVM()
     vm.Id = id
     doc.Nodes.Add(vm)

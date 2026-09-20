@@ -22,7 +22,8 @@ describe('SavePromptModel', () => {
 describe('SavePromptModel auto-close', () => {
     it('counts down on the DontSave label and chooses DontSave at zero', () => {
         vi.useFakeTimers()
-        try {
+        try
+        {
             const seen: SavePromptResult[] = []
             const m = new SavePromptModel('Msg', 'Save All', 'Discard All', (r) => seen.push(r), 10)
             expect(m.DontSaveLabel).toBe('Discard All (10)')
@@ -30,30 +31,35 @@ describe('SavePromptModel auto-close', () => {
             expect(m.DontSaveLabel).toBe('Discard All (9)')
             vi.advanceTimersByTime(9000)
             expect(seen).toEqual([SavePromptResult.DontSave])
-        } finally { vi.useRealTimers() }
+        }
+        finally { vi.useRealTimers() }
     })
 
     it('an explicit choice before zero cancels the countdown', () => {
         vi.useFakeTimers()
-        try {
+        try
+        {
             const seen: SavePromptResult[] = []
             const m = new SavePromptModel('Msg', 'Save All', 'Discard All', (r) => seen.push(r), 10)
             m.CancelCommand.Execute(undefined)
             vi.advanceTimersByTime(20000)
             expect(seen).toEqual([SavePromptResult.Cancel]) // no late auto DontSave
-        } finally { vi.useRealTimers() }
+        }
+        finally { vi.useRealTimers() }
     })
 
     it('stopAutoClose halts the timer (scrim/Escape path) and restores the label', () => {
         vi.useFakeTimers()
-        try {
+        try
+        {
             const seen: SavePromptResult[] = []
             const m = new SavePromptModel('Msg', 'Save All', 'Discard All', (r) => seen.push(r), 10)
             m.stopAutoClose()
             expect(m.DontSaveLabel).toBe('Discard All')
             vi.advanceTimersByTime(20000)
             expect(seen).toEqual([])
-        } finally { vi.useRealTimers() }
+        }
+        finally { vi.useRealTimers() }
     })
 })
 

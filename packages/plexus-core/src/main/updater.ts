@@ -8,13 +8,16 @@
 // electron-updater so that native dep loads only in the one environment that
 // auto-updates. A failed check (offline, no release yet) is swallowed -- it must
 // never block startup.
-export class Updater {
-    static shouldAutoUpdate(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): boolean {
+export class Updater
+{
+    static shouldAutoUpdate(platform: NodeJS.Platform, env: NodeJS.ProcessEnv): boolean
+    {
         return platform === 'linux' && Boolean(env.APPIMAGE)
     }
 
     // Called once after the first window is ready.
-    static init(): void {
+    static init(): void
+    {
         if (!Updater.shouldAutoUpdate(process.platform, process.env)) return
         void import('electron-updater')
             .then(({ autoUpdater }) => autoUpdater.checkForUpdatesAndNotify())

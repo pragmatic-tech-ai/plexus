@@ -8,7 +8,8 @@ import { SkillProblemSeverity } from '../../../../../../shared/skill-api.js'
 const req: ProposedModelPatchRequest = { id: 'mp1', projectPath: '/p', patch: {
     ops: [{ kind: PatchOpKind.SetField, id: 'x', field: 'name', value: 'y' }] } }
 
-class FakeHost implements PendingCardHost {
+class FakeHost implements PendingCardHost
+{
     added: string[] = []; released: string[] = []
     addPendingCard(id: string): void { this.added.push(id) }
     releasePending(id: string): void { this.released.push(id) }

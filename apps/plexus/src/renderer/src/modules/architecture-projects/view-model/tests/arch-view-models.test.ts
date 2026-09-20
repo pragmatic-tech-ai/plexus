@@ -5,7 +5,8 @@ import { Component, Technology, Category, registerArchViewModels } from '../arch
 
 registerArchViewModels()
 
-function el(partial: Partial<Element> & Pick<Element, 'id' | 'concept'>): Element {
+function el(partial: Partial<Element> & Pick<Element, 'id' | 'concept'>): Element
+{
   return {
     fields: {}, refs: {},
     schema: { concept: partial.concept, extends: null, fields: [], relationships: [] },

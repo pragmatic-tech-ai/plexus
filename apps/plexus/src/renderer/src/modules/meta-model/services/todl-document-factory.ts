@@ -62,7 +62,8 @@ export class TodlDocumentFactory extends ServiceBase implements IDocumentFactory
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         this.hostUnsub = host?.OpenDocuments.Subscribe((change) => {
             if (change.kind === 'removed') for (const d of change.items) this.detachDiagnostics(d as CodeDocument)
-            else if (change.kind === 'cleared') {
+            else if (change.kind === 'cleared')
+            {
                 for (const unsub of this.diagSubs.values()) unsub()
                 this.diagSubs.clear()
             }

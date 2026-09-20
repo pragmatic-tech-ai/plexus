@@ -1,7 +1,8 @@
 import { test, expect } from 'vitest'
 import { SvgStyle } from '../svg-style.js'
 
-class FakeEl {
+class FakeEl
+{
     private a = new Map<string, string>()
     getAttribute(n: string): string | null { return this.a.get(n) ?? null }
     setAttribute(n: string, v: string): void { this.a.set(n, v) }

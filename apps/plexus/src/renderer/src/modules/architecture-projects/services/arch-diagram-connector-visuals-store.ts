@@ -115,7 +115,8 @@ function captureConnectorLabel(c: Connector): ConnectorLabelVisual | undefined
 {
     const t = c.Text
     const style: LabelStyle = {}
-    if (isSet(t, ShapeText.FontFamilyKey)) {
+    if (isSet(t, ShapeText.FontFamilyKey))
+    {
         const f = t.FontFamily
         style.fontFamily = f instanceof FontFamily ? f.Source : (typeof f === 'string' ? f : undefined)
     }
@@ -139,7 +140,8 @@ function captureConnectorLabel(c: Connector): ConnectorLabelVisual | undefined
 function applyConnectorLabel(c: Connector, l: ConnectorLabelVisual): void
 {
     const t = c.Text
-    if (l.style !== undefined) {
+    if (l.style !== undefined)
+    {
         const s = LabelStyleCodec.Deserialize(l.style)
         if (s.fontFamily !== undefined) t.FontFamily = s.fontFamily
         if (s.fontSize !== undefined) t.FontSize = s.fontSize
@@ -185,11 +187,13 @@ export function applyConnectorVisual(c: Connector, v: ConnectorVisual): void
     if (v.waypoints !== undefined && v.waypoints.length > 0)
         c.Waypoints = v.waypoints.map((w) => ({ point: new Point(w.x, w.y), userAltered: w.userAltered }))
     if (v.routingMode !== undefined) c.RoutingMode = v.routingMode
-    if (v.source !== undefined && c.Source !== undefined) {
+    if (v.source !== undefined && c.Source !== undefined)
+    {
         if (v.source.portSide !== undefined) c.Source.PortSide = v.source.portSide
         if (v.source.portIndex !== undefined) c.Source.PortIndex = v.source.portIndex
     }
-    if (v.target !== undefined && c.Target !== undefined) {
+    if (v.target !== undefined && c.Target !== undefined)
+    {
         if (v.target.portSide !== undefined) c.Target.PortSide = v.target.portSide
         if (v.target.portIndex !== undefined) c.Target.PortIndex = v.target.portIndex
     }

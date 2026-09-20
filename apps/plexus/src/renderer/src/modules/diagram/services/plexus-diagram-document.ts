@@ -48,7 +48,8 @@ export class PlexusDiagramDocument extends DiagramDocument
         this._wiredView = view
         if (view === undefined) return
         const deps = this._mediaDropDeps()
-        if (deps !== undefined) {
+        if (deps !== undefined)
+        {
             this._detachMediaDrop = attachMediaDrop(view, this, deps)
             this._detachMediaPaste = attachMediaPaste(view, this, deps)
         }

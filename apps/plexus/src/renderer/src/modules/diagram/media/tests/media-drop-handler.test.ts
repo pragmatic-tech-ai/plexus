@@ -4,7 +4,8 @@ import { MediaKind } from '../media-kind'
 import { LargeFileChoice } from '../media-storage'
 import { buildMediaNode } from '../media-drop-handler'
 
-function deps() {
+function deps()
+{
     const files = new Map<string, Uint8Array>()
     const storage = {
         Root: '', ReadText: vi.fn(), WriteText: vi.fn(), Delete: vi.fn(), Rename: vi.fn(), List: vi.fn(),

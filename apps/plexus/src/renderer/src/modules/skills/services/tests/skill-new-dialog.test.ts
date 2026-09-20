@@ -5,7 +5,8 @@ import type { NewSkillRequest } from '../skill-scaffolder.js'
 
 const projects = [new ProjectChoice('alpha', '/a'), new ProjectChoice('beta', '/b')]
 
-function collect(scope: SkillScope, pick?: ProjectChoice): NewSkillRequest | undefined {
+function collect(scope: SkillScope, pick?: ProjectChoice): NewSkillRequest | undefined
+{
     let out: NewSkillRequest | undefined
     const form = new SkillNewFormVm(scope, projects, (r) => { out = r ?? undefined })
     form.Name = 'My Skill'

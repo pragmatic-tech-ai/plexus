@@ -5,7 +5,8 @@ import { SkillScope, SkillSourceKind, ProjectType, type SkillDescriptor } from '
 // Renderer view-model over one SkillDescriptor. Immutable wrapper (a rescan
 // replaces the instance); extends the lightweight Observable INPC root per house
 // style so a .mu can bind its typed getters.
-export class Skill extends Observable {
+export class Skill extends Observable
+{
     private readonly d: SkillDescriptor
     private readonly origin?: string
 
@@ -35,12 +36,14 @@ export class Skill extends Observable {
     get HasProblems(): boolean { return this.d.problems.length > 0 }
 
     // Empty requiresProjectType ⇒ unconstrained (matches every project type).
-    appliesToProjectType(t: ProjectType): boolean {
+    appliesToProjectType(t: ProjectType): boolean
+    {
         return this.d.requiresProjectType.length === 0 || this.d.requiresProjectType.includes(t)
     }
 
     // Last path segment, tolerant of both `/` and `\` (renderer has no node:path).
-    private static basename(path: string): string {
+    private static basename(path: string): string
+    {
         const trimmed = path.replace(/[/\\]+$/, '')
         const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'))
         return cut >= 0 ? trimmed.slice(cut + 1) : trimmed

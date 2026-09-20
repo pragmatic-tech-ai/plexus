@@ -25,8 +25,10 @@ export class MetaModelPresentationSource implements PresentationSource
 
         const assets = new ResourceDictionary()
         const iconKeys = new Map<string, string>()
-        for (const { id, versions } of await scanPublishedModels(backend)) {
-            for (const version of versions) {
+        for (const { id, versions } of await scanPublishedModels(backend))
+        {
+            for (const version of versions)
+            {
                 const base = `${id}/${version}`
                 const pres = await loadCompiledPresentation(backend, base)
                 if (pres !== undefined) for (const [k, v] of pres.Entries()) assets.Set(k, v)

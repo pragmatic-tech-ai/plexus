@@ -8,7 +8,8 @@ import {
 } from '../markdown-image.js'
 
 // Minimal in-memory storage exposing just ReadBytes for these tests.
-function memStorage(files: Record<string, Uint8Array>): IStorage {
+function memStorage(files: Record<string, Uint8Array>): IStorage
+{
     return {
         Root: '/mem',
         ReadBytes: async (p: string) => {

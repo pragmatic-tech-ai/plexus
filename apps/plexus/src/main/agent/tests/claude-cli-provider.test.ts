@@ -7,7 +7,8 @@ import { AgentEventKind, AgentSkillKind, type AgentEvent } from '../../../shared
 import type { CatalogIo } from '../claude-catalog.js'
 
 // A fake child that lets the test drive stdout/error/close and observe stdin/kill.
-function fakeChild() {
+function fakeChild()
+{
     const stdoutListeners: Array<(c: string) => void> = []
     const stderrListeners: Array<(c: string) => void> = []
     const errorListeners: Array<(e: Error) => void> = []
@@ -41,7 +42,8 @@ const helloFixture = readFileSync(join(__dirname, 'fixtures', 'hello.stream.json
 const initLine = helloFixture.split('\n').find((l) => l.includes('"subtype":"init"')) as string
 
 // A spawn that records (command, args, cwd) and returns an inert child.
-function captureSpawn() {
+function captureSpawn()
+{
     const calls: Array<{ command: string; args: string[]; cwd: string }> = []
     const spawn: SpawnFn = (command, args, options) => {
         calls.push({ command, args: [...args], cwd: options.cwd })
@@ -262,7 +264,8 @@ test('dispose gracefully ends stdin (EOF → flush) instead of killing, and reso
 
 test('dispose falls back to a force-kill if the child does not exit within the grace window', async () => {
     vi.useFakeTimers()
-    try {
+    try
+    {
         const f = fakeChild()
         const session = new ClaudeCliProvider('claude', () => f.child).start('s1', '/proj', [], () => {})
         const done = session.dispose()
@@ -271,7 +274,9 @@ test('dispose falls back to a force-kill if the child does not exit within the g
         await vi.advanceTimersByTimeAsync(3000)
         expect(f.killed).toBe(true)      // grace elapsed → tree-kill fallback
         await done
-    } finally {
+    }
+    finally
+    {
         vi.useRealTimers()
     }
 })

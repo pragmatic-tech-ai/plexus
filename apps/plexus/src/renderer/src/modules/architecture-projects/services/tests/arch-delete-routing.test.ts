@@ -11,7 +11,8 @@ const MM = `namespace archmm {
   viewpoint V : frames component
 }`
 
-function setup() {
+function setup()
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })

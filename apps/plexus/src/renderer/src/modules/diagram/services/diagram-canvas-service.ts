@@ -65,7 +65,8 @@ export class DiagramCanvasService extends ServiceBase
     private sync(host: DocumentsContentHostService): void
     {
         const current = new Set(host.OpenDocuments.ToArray())
-        for (const [doc, detach] of [...this.bindings]) {
+        for (const [doc, detach] of [...this.bindings])
+        {
             if (!current.has(doc)) { detach(); this.bindings.delete(doc) }
         }
         for (const doc of current) this.attach(doc)
@@ -106,7 +107,8 @@ export class DiagramCanvasService extends ServiceBase
         const settings = this.settings()
         if (settings === undefined) return
         const reapply = (): void => this.reapplyAll()
-        for (const key of [SHOW_KEY, SIZE_KEY, WIDTH_KEY, HEIGHT_KEY]) {
+        for (const key of [SHOW_KEY, SIZE_KEY, WIDTH_KEY, HEIGHT_KEY])
+        {
             settings.GetSetting(key)?.PropertyChanged(Setting.ValueKey).subscribe(reapply)
         }
     }
@@ -130,7 +132,8 @@ export class DiagramCanvasService extends ServiceBase
 
         // Grid. Off → drop the local PaperBrush so the template's @DiagramCanvas
         // dynamic-resource paper re-applies (theme-adaptive again).
-        if (settings.Get(SHOW_KEY) === false) {
+        if (settings.Get(SHOW_KEY) === false)
+        {
             canvas.ClearValue(PaginatedCanvas.PaperBrushKey)
             return
         }

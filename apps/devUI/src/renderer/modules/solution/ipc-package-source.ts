@@ -8,7 +8,8 @@ import type { RegistryClient } from "../../services/registry/registry-client.js"
 // Connection-aware: the active solution assigns a connection (SetConnection), so
 // Compose resolves its members + dependencies from THAT registry. Undefined ⇒ the
 // default connection.
-export class IpcPackageSource implements PackageSource {
+export class IpcPackageSource implements PackageSource
+{
   private connectionId: string | undefined = undefined;
 
   constructor(private readonly client: RegistryClient) {}
@@ -16,15 +17,18 @@ export class IpcPackageSource implements PackageSource {
   /** Point subsequent resolve/versions calls at a specific connection (or the
    *  default when undefined). Called by SolutionExplorerService when the active
    *  solution's assigned connection changes. */
-  SetConnection(connectionId: string | undefined): void {
+  SetConnection(connectionId: string | undefined): void
+  {
     this.connectionId = connectionId;
   }
 
-  resolve(ref: PackageRef): Promise<ResolvedPackage> {
+  resolve(ref: PackageRef): Promise<ResolvedPackage>
+  {
     return this.client.resolvePackage(ref, this.connectionId);
   }
 
-  versions(model: string): Promise<readonly string[]> {
+  versions(model: string): Promise<readonly string[]>
+  {
     return this.client.packageVersions(model, this.connectionId);
   }
 }

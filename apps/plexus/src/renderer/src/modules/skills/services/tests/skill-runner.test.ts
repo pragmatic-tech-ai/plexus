@@ -6,7 +6,8 @@ import { SkillScope, SkillSourceKind, InputKind, BindingSource, type SkillDescri
 import type { BindingContextSources } from '../binding-resolver.js'
 import type { ResolvedInput, SkillContext } from '../../../../../../shared/skill-context-api.js'
 
-function skill(over: Partial<SkillDescriptor> = {}): Skill {
+function skill(over: Partial<SkillDescriptor> = {}): Skill
+{
     return new Skill({
         kind: AgentSkillKind.Skill, name: 'gen', title: 'gen', description: '', scope: SkillScope.Project,
         sourceKind: SkillSourceKind.PlexusSuperset, tags: [], requiresProjectType: [], allowedTools: [],
@@ -19,7 +20,8 @@ const emptySources: BindingContextSources = {
     primaryEntity: () => undefined, workspaceRoot: () => undefined,
 }
 
-function runner(deps: Partial<RunnerDeps>): { runner: SkillRunner; calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void } }> } {
+function runner(deps: Partial<RunnerDeps>): { runner: SkillRunner; calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void } }> }
+{
     const calls: Array<{ opts?: { contextBlock?: string; context?: SkillContext; rerun?: () => void } }> = []
     const full: RunnerDeps = {
         presentForm: async () => { throw new Error('presentForm should not be called') },

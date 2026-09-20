@@ -5,7 +5,8 @@ import { projectToolbox } from '../toolbox-projection.js'
 // A doc with: a visible taxonomy `actors` (2 terms, one hidden), and a taxonomy
 // `plain` with no toolbox annotation (excluded). Annotations are Annotated edges
 // to `<node>@toolbox` application nodes carrying the `visible` attr.
-function doc(): TodlDocument {
+function doc(): TodlDocument
+{
   return {
     nodes: [
       { id: 'actors', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Actors' } },

@@ -46,11 +46,15 @@ export async function readIcons(project: IStorage, doc: TodlDocument): Promise<R
     const svgByPath = new Map<string, string>()
     const rasterUriByPath = new Map<string, string>()
     const missing: string[] = []
-    for (const path of distinctIcons(doc)) {
-        if (isRasterIcon(path)) {
+    for (const path of distinctIcons(doc))
+    {
+        if (isRasterIcon(path))
+        {
             try { rasterUriByPath.set(path, `data:${mimeOf(path)};base64,${bytesToBase64(await project.ReadBytes(path))}`) }
             catch { missing.push(path) }
-        } else {
+        }
+        else
+        {
             try { svgByPath.set(path, await project.ReadText(path)) }
             catch { missing.push(path) }
         }
@@ -73,7 +77,8 @@ export async function readIcons(project: IStorage, doc: TodlDocument): Promise<R
 export function iconIncludeResolver(svgByPath: Map<string, string>, rasterUriByPath: Map<string, string>): IncludeResolver
 {
     return (path, ctx): IncludeResolution => {
-        if (isRasterIcon(path)) {
+        if (isRasterIcon(path))
+        {
             const uri = rasterUriByPath.get(path)
             if (uri === undefined) throw new Error(`presentation raster include not pre-read: ${path}`)
             return {
@@ -83,7 +88,8 @@ export function iconIncludeResolver(svgByPath: Map<string, string>, rasterUriByP
         }
         const text = svgByPath.get(path)
         if (text === undefined) throw new Error(`presentation include not pre-read: ${path}`)
-        if (ctx.colored) {
+        if (ctx.colored)
+        {
             return {
                 entries: [{ key: ctx.key ?? path, valueJs: `parseSvgIcon(${JSON.stringify(text)})` }],
                 imports: [{ module: BASIC, names: ['parseSvgIcon'] }],

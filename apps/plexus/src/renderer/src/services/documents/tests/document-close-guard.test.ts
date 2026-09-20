@@ -3,7 +3,8 @@ import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/docu
 import { SavePromptResult } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
 
 function doc(id: string, dirty: boolean) { return { Id: id, Title: id, IsDirty: dirty, Save: vi.fn() } }
-function makeHost(docs: ReturnType<typeof doc>[]) {
+function makeHost(docs: ReturnType<typeof doc>[])
+{
     return {
         OpenDocuments: { ToArray: () => docs },
         Save: vi.fn(async () => {}),
@@ -12,7 +13,8 @@ function makeHost(docs: ReturnType<typeof doc>[]) {
 }
 // A guard with an injected host + a stubbed prompt returning a fixed result. The
 // empty provider is never consulted because host/prompt are supplied.
-function guardWith(host: ReturnType<typeof makeHost>, result: SavePromptResult) {
+function guardWith(host: ReturnType<typeof makeHost>, result: SavePromptResult)
+{
     return new DocumentCloseGuard(
         { get: () => undefined } as never,
         { host: host as never, prompt: async () => result })

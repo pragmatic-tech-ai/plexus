@@ -9,7 +9,8 @@ import { SettingsStore, TokenSource } from "../settings-store.js";
 import { TokenStore, type Encryptor } from "../token-store.js";
 import { PackageRegistryManager, type PackageRegistryManagerDeps } from "../package-registry-manager.js";
 
-class FakeEncryptor implements Encryptor {
+class FakeEncryptor implements Encryptor
+{
   available(): boolean { return true; }
   encrypt(plain: string): Buffer { return Buffer.from(plain.split("").reverse().join(""), "utf8"); }
   decrypt(cipher: Buffer): string { return cipher.toString("utf8").split("").reverse().join(""); }
@@ -19,7 +20,8 @@ let dir: string;
 let deps: PackageRegistryManagerDeps;
 let manager: PackageRegistryManager;
 
-function build(env: Record<string, string | undefined> = {}): void {
+function build(env: Record<string, string | undefined> = {}): void
+{
   deps = {
     connectionStore: new ConnectionStore(dir),
     tokenStore: new ConnectionTokenStore(dir, new FakeEncryptor()),

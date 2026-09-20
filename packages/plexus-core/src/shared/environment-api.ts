@@ -9,7 +9,8 @@
 // (ipcRenderer.sendSync ↔ ipcMain.on + event.returnValue). The data is static,
 // so a one-shot blocking read at preload time is simpler and cheaper than the
 // async invoke plumbing the file-system api needs.
-export enum EnvironmentChannel {
+export enum EnvironmentChannel
+{
     GetSnapshot = 'environment:get-snapshot',
 }
 
@@ -21,7 +22,8 @@ import { OperatingSystem } from '@pragmatic-tech-ai/todl-runtime';
 
 // A snapshot of host environment facts, captured once at startup. Every field
 // is constant for the process lifetime.
-export interface EnvironmentInfo {
+export interface EnvironmentInfo
+{
     // ── Directories ──
     CurrentDirectory: string; // process.cwd()
     HomeDirectory: string; // the user's home

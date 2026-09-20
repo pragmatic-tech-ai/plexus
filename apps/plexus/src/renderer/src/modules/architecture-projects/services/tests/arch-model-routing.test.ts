@@ -11,7 +11,8 @@ const MM = `namespace archmm {
 
 function mmDoc() { return toJSON(load([{ uri: 'mm.todl', text: MM }]).model) }
 
-function emptyModel(): ArchModel {
+function emptyModel(): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(mmDoc()))], [], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }

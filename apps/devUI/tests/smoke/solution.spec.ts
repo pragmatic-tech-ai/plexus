@@ -15,7 +15,8 @@ const mainEntry = resolve(here, "../../out/main/index.js");
 // `window.todl`); RegistryClient reads `__todlBridge` first. Navigation goes through
 // the Home welcome page's own "New Solution" / "Open Solution" buttons (text, not
 // rail geometry — robust to the shell chrome).
-function setPickDir(window: Page, pickDir: string): Promise<void> {
+function setPickDir(window: Page, pickDir: string): Promise<void>
+{
   return window.evaluate((pickDir) => {
     // Merge the REAL bridge so registry/connections keep working — only the
     // native directory picker is stubbed. (RegistryClient reads __todlBridge
@@ -28,11 +29,13 @@ function setPickDir(window: Page, pickDir: string): Promise<void> {
   }, pickDir);
 }
 
-function makeTempDir(): Promise<string> {
+function makeTempDir(): Promise<string>
+{
   return mkdtemp(join(tmpdir(), "devui-sol-"));
 }
 
-function allText(window: Page): Promise<string> {
+function allText(window: Page): Promise<string>
+{
   return window.evaluate(() =>
     Array.from(document.querySelectorAll("#app text, #app tspan"))
       .map((n) => n.textContent ?? "")
@@ -46,7 +49,8 @@ test("Solutions: New Solution → settings pane renders → Save writes solution
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry], env });
-  try {
+  try
+  {
     const window = await app.firstWindow();
     await window.waitForSelector("#app svg", { timeout: 30_000 });
     await expect.poll(async () => (await allText(window)).includes("Welcome to TODL"), { timeout: 10_000 }).toBe(true);
@@ -65,7 +69,9 @@ test("Solutions: New Solution → settings pane renders → Save writes solution
     await expect
       .poll(async () => readFile(join(dir, "solution.json"), "utf8").catch(() => ""), { timeout: 10_000 })
       .toContain("todl-solution");
-  } finally {
+  }
+  finally
+  {
     await app.close();
     await rm(dir, { recursive: true, force: true });
   }
@@ -76,7 +82,8 @@ test("Home welcome is the startup landing; New Solution navigates to the Solutio
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry], env });
-  try {
+  try
+  {
     const window = await app.firstWindow();
     await window.waitForSelector("#app svg", { timeout: 30_000 });
 
@@ -90,7 +97,9 @@ test("Home welcome is the startup landing; New Solution navigates to the Solutio
     await window.getByText("New Solution", { exact: true }).first().click();
     await expect.poll(async () => (await allText(window)).includes("Untitled Solution"), { timeout: 10_000 }).toBe(true);
     await expect.poll(async () => (await allText(window)).includes("Connection"), { timeout: 10_000 }).toBe(true);
-  } finally {
+  }
+  finally
+  {
     await app.close();
     await rm(dir, { recursive: true, force: true });
   }
@@ -115,7 +124,8 @@ test("Solutions: Open a solution with a todl-package member shows the member row
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry], env });
-  try {
+  try
+  {
     const window = await app.firstWindow();
     await window.waitForSelector("#app svg", { timeout: 30_000 });
     await expect.poll(async () => (await allText(window)).includes("Open Solution"), { timeout: 10_000 }).toBe(true);
@@ -128,7 +138,9 @@ test("Solutions: Open a solution with a todl-package member shows the member row
     // The member row (its relative path "api", normalized from "./api") appears in
     // the Solution Explorer tree.
     await expect.poll(async () => (await allText(window)).includes("api"), { timeout: 10_000 }).toBe(true);
-  } finally {
+  }
+  finally
+  {
     await app.close();
     await rm(dir, { recursive: true, force: true });
   }
@@ -142,7 +154,8 @@ test("Solutions: the connection picker lists the migrated GitHub Packages connec
   const env = { ...process.env };
   delete env["ELECTRON_RUN_AS_NODE"];
   const app = await electron.launch({ args: [mainEntry, `--user-data-dir=${userDataDir}`], env });
-  try {
+  try
+  {
     const window = await app.firstWindow();
     await window.waitForSelector("#app svg", { timeout: 30_000 });
     await expect.poll(async () => (await allText(window)).includes("Welcome to TODL"), { timeout: 10_000 }).toBe(true);
@@ -159,24 +172,30 @@ test("Solutions: the connection picker lists the migrated GitHub Packages connec
       const REF = Symbol.for("mural:visual-backref");
       let labelY = -1;
       let labelX = -1;
-      for (const el of Array.from(document.querySelectorAll("#app text, #app tspan"))) {
-        if ((el.textContent ?? "").trim() === "Connection") {
+      for (const el of Array.from(document.querySelectorAll("#app text, #app tspan")))
+      {
+        if ((el.textContent ?? "").trim() === "Connection")
+        {
           const r = (el as Element).getBoundingClientRect();
           labelY = r.y; labelX = r.x; break;
         }
       }
-      for (const el of Array.from(document.querySelectorAll("#app *"))) {
+      for (const el of Array.from(document.querySelectorAll("#app *")))
+      {
         const v = (el as unknown as Record<symbol, { constructor?: { name?: string }; ItemsSource?: { ToArray(): unknown[] } }>)[REF];
         if (v?.constructor?.name !== "ComboBox") continue;
         const r = (el as Element).getBoundingClientRect();
-        if (r.y >= labelY && Math.abs(r.x - labelX) < 40) {
+        if (r.y >= labelY && Math.abs(r.x - labelX) < 40)
+        {
           return (v.ItemsSource?.ToArray() ?? []).map((x) => String(x));
         }
       }
       return [];
     });
     expect(comboItems).toContain("GitHub Packages");
-  } finally {
+  }
+  finally
+  {
     await app.close();
     await rm(dir, { recursive: true, force: true });
     await rm(userDataDir, { recursive: true, force: true });

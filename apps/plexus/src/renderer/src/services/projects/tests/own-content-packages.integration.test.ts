@@ -32,7 +32,8 @@ const ARCH = `namespace sys {
   }
 }`
 
-function env(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage } {
+function env(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage }
+{
   const provider = new ServiceProvider()
   const registry = new StorageService(provider)
   const meta = new FakeStorage('fake://meta-models')

@@ -27,9 +27,11 @@ const PROJECT_RELS = [
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
-function walkTodl(dir: string): string[] {
+function walkTodl(dir: string): string[]
+{
     const out: string[] = []
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }))
+    {
         const p = path.join(dir, e.name)
         if (e.isDirectory()) out.push(...walkTodl(p))
         else if (e.name.endsWith('.todl')) out.push(p)
@@ -38,18 +40,21 @@ function walkTodl(dir: string): string[] {
 }
 
 // Whether any .todl under the arch project records a connector between the ids.
-function connectorRecorded(copyRoot: string, a: string, b: string): boolean {
+function connectorRecorded(copyRoot: string, a: string, b: string): boolean
+{
     const archDir = path.join(copyRoot, 'architecures/test_architecture')
     const block = new RegExp(`connector\\s+\\w+\\s*\\{[\\s\\S]*?\\b${a}\\b[\\s\\S]*?\\b${b}\\b[\\s\\S]*?\\}`)
     const op = new RegExp(`\\b${a}\\b\\s*-->\\s*\\b${b}\\b|\\b${b}\\b\\s*-->\\s*\\b${a}\\b`)
     return walkTodl(archDir).some((f) => { const t = fs.readFileSync(f, 'utf8'); return block.test(t) || op.test(t) })
 }
 
-async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: boolean; reason?: string }> {
+async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: boolean; reason?: string }>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         if (!diagram) return { ok: false, reason: 'no Diagram view' }
@@ -64,16 +69,19 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: bo
     }, { fromId, toId })
 }
 
-async function labelBetween(l: Launched, fromId: string, toId: string): Promise<string | undefined> {
+async function labelBetween(l: Launched, fromId: string, toId: string): Promise<string | undefined>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         if (!diagram) return undefined
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        for (const c of diagram.Connectors?.ToArray?.() ?? []) {
+        for (const c of diagram.Connectors?.ToArray?.() ?? [])
+        {
             const s = idOf(c.Source), t = idOf(c.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) return c.LabelText
         }
@@ -82,11 +90,13 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
 }
 
 // The active DiagramDocument's IsDirty (the Diagram view's DataContext IS the doc).
-async function docIsDirty(l: Launched): Promise<boolean | undefined> {
+async function docIsDirty(l: Launched): Promise<boolean | undefined>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         const doc = diagram?.DataContext
@@ -95,10 +105,12 @@ async function docIsDirty(l: Launched): Promise<boolean | undefined> {
 }
 
 // Whether a node with the given entity id is present on the diagram.
-async function hasNode(l: Launched, id: string): Promise<boolean> {
+async function hasNode(l: Launched, id: string): Promise<boolean>
+{
     return l.win.evaluate((id) => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram')
                 return (v.ItemsSource?.ToArray?.() ?? []).some((vm: any) => vm?.Id === id)
@@ -107,10 +119,12 @@ async function hasNode(l: Launched, id: string): Promise<boolean> {
     }, id)
 }
 
-async function hasNodes(l: Launched): Promise<boolean> {
+async function hasNodes(l: Launched): Promise<boolean>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0
         }
@@ -121,15 +135,18 @@ async function hasNodes(l: Launched): Promise<boolean> {
 // Open diagram-2 via the project explorer, verifying it truly opened by a
 // diagram-2-SPECIFIC node (endpoint A), retrying the double-click until it lands.
 // (A generic hasNodes guard is unreliable: another diagram may already be open.)
-async function openDiagram2(l: Launched): Promise<boolean> {
+async function openDiagram2(l: Launched): Promise<boolean>
+{
     const navs = await rectsForCtor(l.win, 'NavigationItem')
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1200)
     const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-    for (let attempt = 0; attempt < 6; attempt++) {
+    for (let attempt = 0; attempt < 6; attempt++)
+    {
         if (await hasNode(l, A)) return true
         // Scroll the tree until the file row is present, then double-click it.
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 25; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(150)
         }
@@ -147,11 +164,13 @@ async function openDiagram2(l: Launched): Promise<boolean> {
 // EXACT in-session tab close+reopen path; the explorer double-click is flaky
 // after a close, so we drive the service method the double-click ultimately calls.
 // Close every open document (clean slate).
-async function closeAllDocs(l: Launched): Promise<string[]> {
+async function closeAllDocs(l: Launched): Promise<string[]>
+{
     const ids = await l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let host: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) { host = dc; break }
         }
@@ -166,11 +185,13 @@ async function closeAllDocs(l: Launched): Promise<string[]> {
 
 // Open one diagram file programmatically via OpenFileInProject (folder = the
 // test_architecture project's RootPath).
-async function openDiagramFile(l: Launched, relPath: string): Promise<any> {
+async function openDiagramFile(l: Launched, relPath: string): Promise<any>
+{
     const r = await l.win.evaluate(async (relPath) => {
         const S = Symbol.for('mural:visual-backref')
         let explorer: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (dc && typeof dc.OpenFileInProject === 'function') { explorer = dc; break }
         }
@@ -184,11 +205,13 @@ async function openDiagramFile(l: Launched, relPath: string): Promise<any> {
     return r
 }
 
-async function closeAndReopenActive(l: Launched, fileHint: string): Promise<any> {
+async function closeAndReopenActive(l: Launched, fileHint: string): Promise<any>
+{
     const r = await l.win.evaluate(async (fileHint) => {
         const S = Symbol.for('mural:visual-backref')
         let host: any, explorer: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (!host && dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) host = dc
             if (!explorer && dc && typeof dc.OpenFileInProject === 'function') explorer = dc
@@ -218,7 +241,8 @@ async function closeAndReopenActive(l: Launched, fileHint: string): Promise<any>
     return r
 }
 
-function makeCopy(): string {
+function makeCopy(): string
+{
     const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-conn-save-'))
     for (const rel of PROJECT_RELS) fs.cpSync(path.join(CORPUS, rel), path.join(copyRoot, rel), { recursive: true })
     return copyRoot
@@ -286,7 +310,8 @@ test.describe.serial('connector dirty + save', () => {
 
 // Set a pinned waypoint on the A↔B connector (simulates a user route drag) and
 // return whether it took.
-async function setWaypoint(l: Launched, fromId: string, toId: string, x: number, y: number): Promise<boolean> {
+async function setWaypoint(l: Launched, fromId: string, toId: string, x: number, y: number): Promise<boolean>
+{
     return l.win.evaluate(({ fromId, toId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -309,7 +334,8 @@ async function setWaypoint(l: Launched, fromId: string, toId: string, x: number,
 }
 
 // The pinned waypoints of the A↔B connector as [{x,y,userAltered}], or [].
-async function waypointsOf(l: Launched, fromId: string, toId: string): Promise<Array<{ x: number; y: number; userAltered: boolean }>> {
+async function waypointsOf(l: Launched, fromId: string, toId: string): Promise<Array<{ x: number; y: number; userAltered: boolean }>>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -324,7 +350,8 @@ async function waypointsOf(l: Launched, fromId: string, toId: string): Promise<A
 }
 
 // Save the active document (persists the .diagram to disk).
-async function saveActiveDoc(l: Launched): Promise<void> {
+async function saveActiveDoc(l: Launched): Promise<void>
+{
     await l.win.evaluate(async () => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -339,13 +366,15 @@ async function saveActiveDoc(l: Launched): Promise<void> {
 
 // Snapshot / restore every .todl under the arch project (to simulate an external
 // edit that deletes a connector — the user's Bug 2).
-function snapshotTodl(copyRoot: string): Map<string, string> {
+function snapshotTodl(copyRoot: string): Map<string, string>
+{
     const archDir = path.join(copyRoot, 'architecures/test_architecture')
     const snap = new Map<string, string>()
     for (const f of walkTodl(archDir)) snap.set(f, fs.readFileSync(f, 'utf8'))
     return snap
 }
-function restoreTodl(snap: Map<string, string>): void {
+function restoreTodl(snap: Map<string, string>): void
+{
     for (const [f, text] of snap) fs.writeFileSync(f, text)
 }
 
@@ -442,7 +471,8 @@ test.describe.serial('external .todl edit refreshes the diagram (Bug 2)', () => 
         // The file-watch must refresh the cached model → the diagram drops the
         // now-deleted connector. Poll up to ~10s for the live re-projection.
         let label: string | undefined = 'calls'
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 20; i++)
+        {
             label = await labelBetween(l, A, B)
             if (label === undefined) break
             await l.win.waitForTimeout(500)
@@ -458,11 +488,13 @@ test.describe.serial('duplicate-document repro', () => {
     let restoreSession: () => void
     let copyRoot: string
 
-    async function openCount(fileHint: string): Promise<number> {
+    async function openCount(fileHint: string): Promise<number>
+    {
         return l.win.evaluate((fileHint) => {
             const S = Symbol.for('mural:visual-backref')
             let host: any
-            for (const el of document.querySelectorAll('*')) {
+            for (const el of document.querySelectorAll('*'))
+            {
                 const dc = (el as any)[S]?.DataContext
                 if (dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) { host = dc; break }
             }

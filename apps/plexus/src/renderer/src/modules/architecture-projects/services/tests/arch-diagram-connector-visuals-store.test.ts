@@ -7,7 +7,8 @@ import { captureConnectorVisual, applyConnectorVisual, writeConnectorVisual, rea
 
 // A real projected connector between two arch nodes (as ArchDiagramBinding.projectEdges
 // builds them) so capture/apply exercise a genuine Connector + its ShapeText label.
-function makeConnector(): { doc: DiagramDocument; c: Connector } {
+function makeConnector(): { doc: DiagramDocument; c: Connector }
+{
     const doc = new DiagramDocument()
     const a = new ArchNodeVM(); a.Id = 'A'
     const b = new ArchNodeVM(); b.Id = 'B'

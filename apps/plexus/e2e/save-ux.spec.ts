@@ -21,17 +21,20 @@ const PROJECT_RELS = [
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
-function makeCopy(): string {
+function makeCopy(): string
+{
     const copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-save-ux-'))
     for (const rel of PROJECT_RELS) fs.cpSync(path.join(CORPUS, rel), path.join(copyRoot, rel), { recursive: true })
     return copyRoot
 }
 
-async function draw(l: Launched, fromId: string, toId: string): Promise<boolean> {
+async function draw(l: Launched, fromId: string, toId: string): Promise<boolean>
+{
     const r = await l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         if (!diagram) return false
@@ -48,10 +51,12 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<boolean>
     return r
 }
 
-async function hasNode(l: Launched, id: string): Promise<boolean> {
+async function hasNode(l: Launched, id: string): Promise<boolean>
+{
     return l.win.evaluate((id) => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram')
                 return (v.ItemsSource?.ToArray?.() ?? []).some((vm: any) => vm?.Id === id)
@@ -60,11 +65,13 @@ async function hasNode(l: Launched, id: string): Promise<boolean> {
     }, id)
 }
 
-async function docIsDirty(l: Launched): Promise<boolean | undefined> {
+async function docIsDirty(l: Launched): Promise<boolean | undefined>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         const doc = diagram?.DataContext
@@ -72,10 +79,12 @@ async function docIsDirty(l: Launched): Promise<boolean | undefined> {
     })
 }
 
-async function openCount(l: Launched): Promise<number> {
+async function openCount(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) return dc.OpenDocuments.ToArray().length
         }
@@ -87,12 +96,15 @@ async function openCount(l: Launched): Promise<number> {
 // exactly what the button binding (Command = $CancelCommand, …) does. Driving the
 // command is more robust than a DOM click: mural renders an invisible
 // <rect class="mural-hit"> hit layer that intercepts Playwright text-clicks.
-async function clickPrompt(l: Launched, which: 'Save' | 'DontSave' | 'Cancel'): Promise<boolean> {
+async function clickPrompt(l: Launched, which: 'Save' | 'DontSave' | 'Cancel'): Promise<boolean>
+{
     return l.win.evaluate((which) => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
-            if (dc && dc.constructor?.name === 'SavePromptModel') {
+            if (dc && dc.constructor?.name === 'SavePromptModel')
+            {
                 const cmd = which === 'Save' ? dc.SaveCommand : which === 'DontSave' ? dc.DontSaveCommand : dc.CancelCommand
                 cmd?.Execute(undefined)
                 return true
@@ -103,10 +115,12 @@ async function clickPrompt(l: Launched, which: 'Save' | 'DontSave' | 'Cancel'): 
 }
 
 // Whether a SavePromptModel dialog is currently in the visual tree.
-async function promptShown(l: Launched): Promise<boolean> {
+async function promptShown(l: Launched): Promise<boolean>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             if ((el as any)[S]?.DataContext?.constructor?.name === 'SavePromptModel') return true
         }
         return false
@@ -115,11 +129,13 @@ async function promptShown(l: Launched): Promise<boolean> {
 
 // Fire the host's CloseDocumentCommand for the ACTIVE document — the exact command
 // the tab ✕ and Ctrl+W invoke (now routed through the close guard).
-async function fireActiveClose(l: Launched): Promise<boolean> {
+async function fireActiveClose(l: Launched): Promise<boolean>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let host: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) { host = dc; break }
         }
@@ -131,11 +147,13 @@ async function fireActiveClose(l: Launched): Promise<boolean> {
     })
 }
 
-async function closeAllDocs(l: Launched): Promise<void> {
+async function closeAllDocs(l: Launched): Promise<void>
+{
     await l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let host: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) { host = dc; break }
         }
@@ -144,11 +162,13 @@ async function closeAllDocs(l: Launched): Promise<void> {
     await l.win.waitForTimeout(1200)
 }
 
-async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void> {
+async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void>
+{
     await l.win.evaluate(async (relPath) => {
         const S = Symbol.for('mural:visual-backref')
         let explorer: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as any)[S]?.DataContext
             if (dc && typeof dc.OpenFileInProject === 'function') { explorer = dc; break }
         }
@@ -161,8 +181,10 @@ async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void> 
 
 // Open diagram-2 and wait until a diagram-2-specific node is present, retrying the
 // open (OpenFileInProject can no-op if the explorer service isn't reachable yet).
-async function ensureDiagramOpen(l: Launched, relPath: string, probeId: string): Promise<boolean> {
-    for (let attempt = 0; attempt < 6; attempt++) {
+async function ensureDiagramOpen(l: Launched, relPath: string, probeId: string): Promise<boolean>
+{
+    for (let attempt = 0; attempt < 6; attempt++)
+    {
         if (await hasNode(l, probeId)) return true
         await openDiagramFileOnce(l, relPath)
     }

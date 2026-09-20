@@ -62,7 +62,8 @@ test.describe.serial('Plexus live smoke (Observable/MuralBase split)', () => {
     test('activity-bar panels each switch and render without new errors', async () => {
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         expect(navs.length).toBeGreaterThanOrEqual(3)
-        for (let i = 0; i < navs.length; i++) {
+        for (let i = 0; i < navs.length; i++)
+        {
             const before = appErrors(l.errors).length
             await clickCenter(l.win, navs[i]!)
             await l.win.waitForTimeout(1200)
@@ -106,7 +107,8 @@ test.describe.serial('Plexus live smoke (Observable/MuralBase split)', () => {
         await shot(l, '04-document')
         // Whether or not a tree row was clickable, no error may have surfaced.
         expect(appErrors(l.errors).length).toBe(before)
-        if (opened) {
+        if (opened)
+        {
             // A code document mounts a CodeEditor host (DomHost + Monaco);
             // Plexus renders source through Monaco, not mural text visuals.
             const editors = await countByCtor(l.win, 'CodeEditor')

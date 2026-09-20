@@ -3,7 +3,8 @@ import { SkillCatalog } from '../skill-catalog.js'
 import { AgentSkillKind } from '../../../../../../shared/agent-api.js'
 import { SkillScope, SkillSourceKind, ProjectType, type SkillDescriptor } from '../../../../../../shared/skill-api.js'
 
-function d(name: string, scope: SkillScope, over: Partial<SkillDescriptor> = {}): SkillDescriptor {
+function d(name: string, scope: SkillScope, over: Partial<SkillDescriptor> = {}): SkillDescriptor
+{
     return {
         kind: AgentSkillKind.Skill, name, title: name, description: '', scope,
         sourceKind: SkillSourceKind.ClaudeCode, tags: [], requiresProjectType: [], allowedTools: [],
@@ -12,7 +13,8 @@ function d(name: string, scope: SkillScope, over: Partial<SkillDescriptor> = {})
 }
 
 // SkillCatalog takes an injected loader so the test needs no window.api/IPC.
-function catalogWith(descriptors: SkillDescriptor[]): SkillCatalog {
+function catalogWith(descriptors: SkillDescriptor[]): SkillCatalog
+{
     return new SkillCatalog(undefined as never, () => Promise.resolve(descriptors))
 }
 

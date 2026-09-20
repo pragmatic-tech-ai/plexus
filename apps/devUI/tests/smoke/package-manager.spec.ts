@@ -11,7 +11,8 @@ const mainEntry = resolve(here, "../../out/main/index.js");
 // (one connection) plus registry.list / getPackageContents (which now receive a
 // trailing connectionId the fakes ignore). `window.todl` is frozen by
 // contextBridge, so RegistryClient reads the mutable `__todlBridge` override.
-function installFakeRegistry(window: Page): Promise<void> {
+function installFakeRegistry(window: Page): Promise<void>
+{
   return window.evaluate(() => {
     (window as unknown as { __pkgNames: string[] }).__pkgNames = ["aws", "azure"];
     (window as unknown as { __todlBridge: unknown }).__todlBridge = {
@@ -37,12 +38,15 @@ function installFakeRegistry(window: Page): Promise<void> {
   });
 }
 
-function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: number }[]> {
+function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: number }[]>
+{
   return window.evaluate(() => {
     const byY = new Map<number, { x: number; y: number; w: number; h: number }>();
-    for (const el of Array.from(document.querySelectorAll("#app rect"))) {
+    for (const el of Array.from(document.querySelectorAll("#app rect")))
+    {
       const r = (el as Element).getBoundingClientRect();
-      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48) {
+      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48)
+      {
         byY.set(Math.round(r.y), { x: r.x, y: r.y, w: r.width, h: r.height });
       }
     }
@@ -53,9 +57,11 @@ function railCells(window: Page): Promise<{ x: number; y: number; w: number; h: 
 // Activate a rail capability robustly: wait for the rail to lay out, click its
 // cell, and confirm the panel responded — a fresh-startup first click is
 // sometimes swallowed, so retry.
-async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void>
+{
   await expect.poll(async () => (await railCells(window)).length, { timeout: 15_000 }).toBeGreaterThan(index);
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; attempt < 4; attempt += 1)
+  {
     const c = (await railCells(window))[index]!;
     await window.mouse.click(c.x + c.w / 2, c.y + c.h / 2);
     const landed = await hasText(window, expectText)
@@ -65,7 +71,8 @@ async function activateCapability(window: Page, index: number, expectText: strin
   throw new Error(`capability ${index} did not activate (no "${expectText}")`);
 }
 
-function hasText(window: Page, text: string): Promise<boolean> {
+function hasText(window: Page, text: string): Promise<boolean>
+{
   return window.evaluate(
     (t) =>
       Array.from(document.querySelectorAll("#app text, #app tspan"))
@@ -76,10 +83,13 @@ function hasText(window: Page, text: string): Promise<boolean> {
 }
 
 // The bounding box of an SVG tree-row label (first match, in the side panel).
-function labelBox(window: Page, label: string): Promise<{ x: number; y: number; w: number; h: number } | null> {
+function labelBox(window: Page, label: string): Promise<{ x: number; y: number; w: number; h: number } | null>
+{
   return window.evaluate((t) => {
-    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan"))) {
-      if ((el.textContent ?? "").trim() === t) {
+    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan")))
+    {
+      if ((el.textContent ?? "").trim() === t)
+      {
         const r = (el as Element).getBoundingClientRect();
         if (r.left < 360) return { x: r.x, y: r.y, w: r.width, h: r.height };
       }
@@ -89,14 +99,16 @@ function labelBox(window: Page, label: string): Promise<{ x: number; y: number; 
 }
 
 // Expand a tree row by clicking its chevron — just left of the label text.
-async function expandRow(window: Page, label: string): Promise<void> {
+async function expandRow(window: Page, label: string): Promise<void>
+{
   const b = await labelBox(window, label);
   if (b === null) throw new Error(`tree row "${label}" not found`);
   await window.mouse.click(b.x - 14, b.y + b.h / 2);
 }
 
 // Select a tree row by clicking its label.
-async function selectRow(window: Page, label: string): Promise<void> {
+async function selectRow(window: Page, label: string): Promise<void>
+{
   const b = await labelBox(window, label);
   if (b === null) throw new Error(`tree row "${label}" not found`);
   await window.mouse.click(b.x + b.w / 2, b.y + b.h / 2);
@@ -104,7 +116,8 @@ async function selectRow(window: Page, label: string): Promise<void> {
 
 // Click an SVG label by coordinate (mural's full-pane hit rect swallows
 // element-level clicks on the content).
-async function clickText(window: Page, text: string): Promise<void> {
+async function clickText(window: Page, text: string): Promise<void>
+{
   const b = await labelBox(window, text);
   if (b === null) throw new Error(`clickable text "${text}" not found`);
   await window.mouse.click(b.x + b.w / 2, b.y + b.h / 2);
@@ -112,7 +125,8 @@ async function clickText(window: Page, text: string): Promise<void> {
 
 // The source/JSON renders in a Monaco editor (HTML in a <foreignObject>), not
 // SVG <text> — read its rendered lines for content assertions.
-function editorText(window: Page): Promise<string> {
+function editorText(window: Page): Promise<string>
+{
   return window.evaluate(() => {
     const lines = document.querySelector("#app .monaco-editor .view-lines");
     return lines ? (lines.textContent ?? "") : "";

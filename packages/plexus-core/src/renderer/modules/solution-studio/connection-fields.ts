@@ -4,7 +4,8 @@
 // credentials. The connection itself (URL, scope, and its encrypted token) lives
 // in the Connections manager; a solution just points at one by id.
 
-export interface ConnectionFieldSpec {
+export interface ConnectionFieldSpec
+{
   key: string;
   label: string;
 }

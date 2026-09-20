@@ -81,7 +81,8 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
 
     // 2. Redirect override on the term, else on its facet concept.
     const spec = materializeOf(repo, termId) ?? materializeOf(repo, ct)
-    if (spec?.concept !== undefined && framed(spec.concept)) {
+    if (spec?.concept !== undefined && framed(spec.concept))
+    {
         const member = spec.via ?? singleAcceptingMember(repo, spec.concept, accept)
         if (member !== undefined)
             return [{ kind: DropActionKind.Reference, concept: spec.concept, member, term: termId, label: `${spec.concept}  (${member})` }]
@@ -89,7 +90,8 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
 
     // 3. Facet drop: scan ROOTS ONLY (not every concept) for a member accepting ct.
     const actions: DropAction[] = []
-    for (const r of roots) {
+    for (const r of roots)
+    {
         if (!framed(r)) continue
         for (const rel of repo.effectiveSchema(r).relationships)
             if (rel.targets.some((t) => accept.has(t)))
@@ -122,11 +124,13 @@ function legacyResolveDropActions(repo: Repository, termId: string, scope: Reado
     const actions: DropAction[] = []
     if (!isClassTerm && framed(ct)) actions.push({ kind: DropActionKind.Instance, concept: ct, label: ct })
 
-    for (const n of repo.allNodes()) {
+    for (const n of repo.allNodes())
+    {
         if (n.metaKind !== MetaKind.Concept) continue
         const x = n.id
         if (!framed(x)) continue
-        for (const rel of repo.effectiveSchema(x).relationships) {
+        for (const rel of repo.effectiveSchema(x).relationships)
+        {
             if (rel.targets.some((t) => accept.has(t)))
                 actions.push({ kind: DropActionKind.Reference, concept: x, member: rel.name, term: termId, label: `${x}  (${rel.name})` })
         }

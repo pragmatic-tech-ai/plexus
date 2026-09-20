@@ -12,28 +12,33 @@ import type { IpcPackageSource } from "./ipc-package-source.js";
 // IpcPackageSource (the same instance SolutionManagerService.Compose resolves) at
 // the solution's assigned connection. This is the only place the plexus-core
 // Solution presentation touches the registry — everything else stays generic.
-export class RegistrySolutionWorkspaceHost implements ISolutionWorkspaceHost {
+export class RegistrySolutionWorkspaceHost implements ISolutionWorkspaceHost
+{
   constructor(
     private readonly registry: RegistryClient,
     private readonly packageSource: IpcPackageSource,
   ) {}
 
-  async PickSolutionFolder(): Promise<string | undefined> {
+  async PickSolutionFolder(): Promise<string | undefined>
+  {
     const dir = await this.registry.pickDirectory();
     return dir.length === 0 ? undefined : dir;
   }
 
-  async ListConnections(): Promise<readonly SolutionConnection[]> {
+  async ListConnections(): Promise<readonly SolutionConnection[]>
+  {
     const views = await this.registry.listConnections();
     return views.map((v) => ({ Id: v.id, Name: v.name }));
   }
 
-  async CompileMember(absDir: string): Promise<MemberCompileResult> {
+  async CompileMember(absDir: string): Promise<MemberCompileResult>
+  {
     const view = await this.registry.compileDir(absDir);
     return { Ok: view.ok, Id: view.id, Version: view.version, DiagnosticCount: view.diagnostics.length };
   }
 
-  SetActiveConnection(connectionId: string | undefined): void {
+  SetActiveConnection(connectionId: string | undefined): void
+  {
     this.packageSource.SetConnection(connectionId);
   }
 }

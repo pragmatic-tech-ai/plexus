@@ -14,19 +14,22 @@ import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, 
 // SpinEdit DOM order inside the Size & Position template.
 const SPIN = { Height: 0, Width: 1, Rotation: 2, ScaleHeight: 3, ScaleWidth: 4, Horizontal: 5, Vertical: 6 } as const
 
-async function canvasFigs(l: Launched) {
+async function canvasFigs(l: Launched)
+{
     return (await rectsForCtor(l.win, 'Figure')).filter((f) => f.w > 60).sort((a, b) => a.y - b.y || a.x - b.x)
 }
 
 // Live introspection of the selected shape + the editor's control state.
-function readState(l: Launched) {
+function readState(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any, ctl: any
         const spins: any[] = []
         const combos: any[] = []
         let sw: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v) continue
             const n = v.constructor?.name
@@ -54,7 +57,8 @@ function readState(l: Launched) {
 // Deterministically select the i-th diagram node through the real selection
 // path (HandleContainerClick), independent of canvas position — clicking by
 // pixel is unreliable once earlier tests have moved/resized shapes.
-function selectFigureByIndex(l: Launched, index: number) {
+function selectFigureByIndex(l: Launched, index: number)
+{
     return l.win.evaluate((index) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -68,7 +72,8 @@ function selectFigureByIndex(l: Launched, index: number) {
 
 // Commit a value into the Nth SpinEdit (its Value DP is the $$ binding target,
 // exactly what a typed-and-committed edit writes).
-function setSpin(l: Launched, index: number, value: number) {
+function setSpin(l: Launched, index: number, value: number)
+{
     return l.win.evaluate(({ index, value }) => {
         const S = Symbol.for('mural:visual-backref')
         const spins: any[] = []
@@ -77,17 +82,20 @@ function setSpin(l: Launched, index: number, value: number) {
     }, { index, value })
 }
 
-function setSwitch(l: Launched, checked: boolean) {
+function setSwitch(l: Launched, checked: boolean)
+{
     return l.win.evaluate((checked) => {
         const S = Symbol.for('mural:visual-backref')
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Switch') { v.IsChecked = checked; return } }
     }, checked)
 }
 
-function setFromCombo(l: Launched, label: string) {
+function setFromCombo(l: Launched, label: string)
+{
     return l.win.evaluate((label) => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'ComboBox' && (v.SelectedItem === 'Top Left Corner' || v.SelectedItem === 'Center')) { v.SelectedItem = label; return }
         }
@@ -99,12 +107,15 @@ function setFromCombo(l: Launched, label: string) {
 // DataContext (the InspectorPage) and click its real DOM rect — exercising the
 // rail while staying deterministic. Ignores the activity-bar NavigationItems
 // (their DataContext is a NavigationDestination, no matching Title).
-async function clickInspectorTab(l: Launched, title: string): Promise<boolean> {
+async function clickInspectorTab(l: Launched, title: string): Promise<boolean>
+{
     const pt = await l.win.evaluate((title) => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'NavigationItem' && v.DataContext?.Title === title) {
+            if (v?.constructor?.name === 'NavigationItem' && v.DataContext?.Title === title)
+            {
                 const r = (el as HTMLElement).getBoundingClientRect()
                 if (r.width === 0 || r.height === 0) return null
                 return { x: r.x + r.width / 2, y: r.y + r.height / 2 }
@@ -134,14 +145,16 @@ test.describe.serial('Size & Position sub-editors drive the selected shape', () 
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < 14; i++)
+        {
             if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
-        for (let attempt = 0; attempt < 3 && figs.length === 0; attempt++) {
+        for (let attempt = 0; attempt < 3 && figs.length === 0; attempt++)
+        {
             const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
@@ -283,7 +296,8 @@ test.describe.serial('Size & Position sub-editors drive the selected shape', () 
         await setSpin(l, SPIN.Height, 80)
         await setSwitch(l, true)
         await l.win.waitForTimeout(200)
-        for (const v of [81, 82, 83]) {
+        for (const v of [81, 82, 83])
+        {
             await setSpin(l, SPIN.Width, v)
             await l.win.waitForTimeout(200)
             const st = await readState(l)

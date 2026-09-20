@@ -5,19 +5,22 @@ import { SkillDescriptorFactory, SkillScope, type SkillDescriptor } from '../../
 import { SkillTemplateKind, type NewSkillRequest } from '../skill-scaffolder.js'
 import { AgentSkillKind } from '../../../../../../shared/agent-api.js'
 
-class FakeBuffer {
+class FakeBuffer
+{
     saved = 0
     constructor(public Content: string) {}
     async Save(): Promise<void> { this.saved++ }
 }
 const FILE = `---\nname: demo\ndescription: d\n---\n\nbody\n`
 
-function skillAt(folder: string, scope: SkillScope = SkillScope.Project, name = 'demo', origin?: string): Skill {
+function skillAt(folder: string, scope: SkillScope = SkillScope.Project, name = 'demo', origin?: string): Skill
+{
     const d: SkillDescriptor = SkillDescriptorFactory.claudeCode(AgentSkillKind.Skill, name, 'd', scope, folder)
     return new Skill(d, origin)
 }
 
-function service(over: Partial<AuthoringDeps>, catalog: Skill[]): SkillAuthoringService {
+function service(over: Partial<AuthoringDeps>, catalog: Skill[]): SkillAuthoringService
+{
     const full: AuthoringDeps = {
         skills: () => catalog,
         openProjectDirs: () => [],

@@ -69,7 +69,8 @@ export class DocumentCloseGuard extends ServiceBase
         const choice = await this.prompt(
             'Unsaved changes', `"${doc.Title}" has unsaved changes.`, 'Save', "Don't Save")
         if (choice === SavePromptResult.Cancel) return false
-        if (choice === SavePromptResult.Save) {
+        if (choice === SavePromptResult.Save)
+        {
             try { await host.Save(doc) }
             catch { return false }   // save failed → keep the tab open + dirty
         }
@@ -81,7 +82,8 @@ export class DocumentCloseGuard extends ServiceBase
     {
         const host = this.host()
         if (host === undefined) return false
-        for (const doc of host.OpenDocuments.ToArray()) {
+        for (const doc of host.OpenDocuments.ToArray())
+        {
             if (!(await this.TryCloseDocument(doc))) return false   // Cancel aborts the batch
         }
         return true

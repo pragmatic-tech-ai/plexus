@@ -1,7 +1,8 @@
 import { MuralBase, MetaData, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 
 // Lifecycle of one background task.
-export enum TaskStatus {
+export enum TaskStatus
+{
     Queued     = 'queued',
     Running    = 'running',
     Succeeded  = 'succeeded',
@@ -17,7 +18,8 @@ function abortError(): DOMException { return new DOMException('Task cancelled', 
 // templates bind $Title / $Progress / $Status / $Output etc. The manager drives
 // it via markRunning / succeed / fail / finishCancelled; the row UI drives it via
 // CancelCommand / OpenOutputCommand.
-export class TaskHandle extends MuralBase {
+export class TaskHandle extends MuralBase
+{
     public static readonly TitleKey           = MuralBase.RegisterProperty<string>(TaskHandle, 'Title', '', MetaData.None)
     public static readonly StatusKey          = MuralBase.RegisterProperty<TaskStatus>(TaskHandle, 'Status', TaskStatus.Queued, MetaData.None)
     public static readonly ProgressKey        = MuralBase.RegisterProperty<number>(TaskHandle, 'Progress', 0, MetaData.None)

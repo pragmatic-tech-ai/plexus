@@ -49,7 +49,8 @@ export function modelPageItems(model: ArchModel, scope: ReadonlySet<string>, pla
     const repo = model.repository()
     const inScope = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
     const items: ArchToolboxItem[] = []
-    for (const e of model.entities()) {
+    for (const e of model.entities())
+    {
         if (placed.has(e.id) || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
         const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, key)
@@ -74,7 +75,8 @@ export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, 
     const repo = model.repository()
     const inScope = (concept: string): boolean => repo.viewpointsFraming(concept).some((v) => scope.has(v))
     const items: ArchToolboxItem[] = []
-    for (const e of model.entities()) {
+    for (const e of model.entities())
+    {
         if (e.concept !== SCENARIO_CONCEPT || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
         const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, key)
@@ -162,12 +164,15 @@ export class ArchModelToolboxContributor extends ServiceBase
         // A "Scenarios" page lists the in-scope scenarios; dropping one
         // materializes its whole flow. Removed when there are none in scope.
         const scenarioItems = scenarioPageItems(model, scope, registry)
-        if (scenarioItems.length > 0) {
+        if (scenarioItems.length > 0)
+        {
             const spage = repo.EnsurePage(SCENARIO_PAGE_ID, scenarioPageTitle(model))
             spage.Items.Clear()
             for (const item of scenarioItems) spage.Items.Add(item)
             this.markWiki(scenarioItems, model.repository())
-        } else {
+        }
+        else
+        {
             repo.RemovePage(SCENARIO_PAGE_ID)
         }
     }
@@ -180,7 +185,8 @@ export class ArchModelToolboxContributor extends ServiceBase
     {
         const wiki = this.Provider.get(WikiService.Key)
         if (wiki === undefined) return
-        for (const it of items) {
+        for (const it of items)
+        {
             if (it.Concept.length === 0) continue
             it.HasWiki = wiki.hasWikiIn(repo, it.Concept)
         }

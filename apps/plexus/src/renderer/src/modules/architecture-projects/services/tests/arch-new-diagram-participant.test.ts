@@ -17,25 +17,30 @@ const MM = `namespace archmm {
   viewpoint ComponentView : frames component
   viewpoint DeploymentView : frames component
 }`
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
-function op(storage: FakeStorage, type = 'architecture'): OpenProject {
+function op(storage: FakeStorage, type = 'architecture'): OpenProject
+{
     const project = new Project(type, 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     return { Project: project, Storage: storage } as unknown as OpenProject
 }
 // A fake DialogService whose Show immediately resolves `result` — standing in
 // for the user confirming the picker with `result` selected, or (undefined)
 // cancelling it.
-function fakeDialogs(result: string[] | undefined): DialogService {
+function fakeDialogs(result: string[] | undefined): DialogService
+{
     return { Show: async () => result, Close: () => {} } as unknown as DialogService
 }
-async function seedArch(storage: FakeStorage): Promise<void> {
+async function seedArch(storage: FakeStorage): Promise<void>
+{
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', name: 'Acme', version: 1 }))
     await storage.WriteText('x.diagram', JSON.stringify({ nodes: [], connectors: [], nextId: 1 }))
 }
-function providerWith(storage: FakeStorage, dialogs?: DialogService): ServiceProvider {
+function providerWith(storage: FakeStorage, dialogs?: DialogService): ServiceProvider
+{
     const provider = new ServiceProvider()
     provider.registerInstance(ArchitectureModelService.Key, { modelFor: async () => buildModel(storage) } as unknown as ArchitectureModelService)
     if (dialogs !== undefined) provider.registerInstance(DialogService.Key, dialogs)

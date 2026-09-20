@@ -10,11 +10,13 @@ export interface ScopeRoot { scope: SkillScope; skillsDir: string; agentsDir?: s
 // Resolves the three skill scope roots. Base directories are injected (home,
 // userData) so the resolver is testable without Electron `app`; the main wiring
 // passes app.getPath('home') / app.getPath('userData').
-export class SkillScopeResolver {
+export class SkillScopeResolver
+{
     private readonly paths: ScopePaths
     constructor(paths: ScopePaths) { this.paths = paths }
 
-    rootsFor(projectDir: string): ScopeRoot[] {
+    rootsFor(projectDir: string): ScopeRoot[]
+    {
         const claude = join(projectDir, '.claude')
         const homeClaude = join(this.paths.home, '.claude')
         return [

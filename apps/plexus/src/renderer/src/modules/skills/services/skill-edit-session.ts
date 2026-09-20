@@ -9,7 +9,8 @@ import { SkillFrontmatterFormVm } from './skill-frontmatter-form.js'
 // (Content is the whole SKILL.md the Monaco tab shows). Keeping the seam narrow
 // makes the session unit-testable with a fake and guarantees a single authoritative
 // copy: form edits and body edits land in the SAME buffer, saved once.
-export interface EditBuffer {
+export interface EditBuffer
+{
     get Content(): string
     set Content(v: string)
     Save(): Promise<void>
@@ -18,7 +19,8 @@ export interface EditBuffer {
 // Edits one skill: binds a structured x-plexus form to the open SKILL.md buffer. A
 // form field commit re-serializes only the x-plexus region back into the buffer
 // (body untouched) and re-runs validation. Packaged scope is read-only.
-export class SkillEditSession extends Observable {
+export class SkillEditSession extends Observable
+{
     private readonly buffer: EditBuffer
     private readonly codec: SkillFileCodec
     private readonly validator: SkillValidator
@@ -26,7 +28,8 @@ export class SkillEditSession extends Observable {
     private readonly _readOnly: boolean
     private _problems: SkillProblem[]
 
-    constructor(skill: Skill, buffer: EditBuffer, codec: SkillFileCodec, validator: SkillValidator) {
+    constructor(skill: Skill, buffer: EditBuffer, codec: SkillFileCodec, validator: SkillValidator)
+    {
         super()
         this.buffer = buffer
         this.codec = codec
@@ -48,7 +51,8 @@ export class SkillEditSession extends Observable {
 
     // Merge the form's current x-plexus into the shared buffer, touching only that
     // region; an empty block removes x-plexus entirely (stays a plain Claude skill).
-    private applyFrontmatter(): void {
+    private applyFrontmatter(): void
+    {
         const ext = this._form.toExtension()
         this.buffer.Content = this.codec.writeExtension(this.buffer.Content, this.isEmpty(ext) ? undefined : ext)
         const prev = this._problems
@@ -58,7 +62,8 @@ export class SkillEditSession extends Observable {
         this.RaisePropertyChanged('ProblemText', undefined, this.ProblemText)
     }
 
-    private isEmpty(ext: XPlexus): boolean {
+    private isEmpty(ext: XPlexus): boolean
+    {
         return ext.title === undefined && ext.category === undefined && ext.icon === undefined
             && ext.model === undefined && ext.tags.length === 0 && ext.allowedTools.length === 0
             && ext.requiresProjectType.length === 0 && ext.deprecation === undefined

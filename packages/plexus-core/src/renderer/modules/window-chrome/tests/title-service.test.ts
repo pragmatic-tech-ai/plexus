@@ -8,7 +8,8 @@ function makeSource(doc: string | undefined, project: string | undefined): {
     source: ITitleSource
     setDoc: (v: string | undefined) => void
     fire: () => void
-} {
+}
+{
     let d = doc
     let cb: () => void = () => {}
     const source: ITitleSource = {
@@ -20,7 +21,8 @@ function makeSource(doc: string | undefined, project: string | undefined): {
     return { source, setDoc: (v) => { d = v }, fire: () => cb() }
 }
 
-function serviceFor(source: ITitleSource): TitleService {
+function serviceFor(source: ITitleSource): TitleService
+{
     const p = new ServiceProvider()
     p.registerInstance(TitleSourceKey, source)
     return new TitleService(p)

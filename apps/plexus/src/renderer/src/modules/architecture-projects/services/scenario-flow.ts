@@ -1,6 +1,7 @@
 // Structural view of a todl Entity: enough to walk a scenario's flow. The real
 // Entity (@pragmatic-tech-ai/todl) satisfies this (its refs(member) returns Entity[]).
-export interface FlowEntity {
+export interface FlowEntity
+{
   id: string
   refs(member: string): FlowEntity[]
 }
@@ -8,15 +9,18 @@ export interface FlowEntity {
 // Walk scenario -> sequences -> steps -> (src,dst); return the participant ids
 // (union, first-seen order) and the deduped directed step edges. A step missing
 // either endpoint is skipped.
-export function collectScenarioFlow(scenario: FlowEntity): { participants: string[]; edges: Array<[string, string]> } {
+export function collectScenarioFlow(scenario: FlowEntity): { participants: string[]; edges: Array<[string, string]> }
+{
   const participants: string[] = []
   const seenNode = new Set<string>()
   const edges: Array<[string, string]> = []
   const seenEdge = new Set<string>()
   const note = (id: string): void => { if (!seenNode.has(id)) { seenNode.add(id); participants.push(id) } }
 
-  for (const seq of scenario.refs('sequences')) {
-    for (const step of seq.refs('steps')) {
+  for (const seq of scenario.refs('sequences'))
+  {
+    for (const step of seq.refs('steps'))
+    {
       const src = step.refs('src')[0]
       const dst = step.refs('dst')[0]
       if (src === undefined || dst === undefined) continue
@@ -32,11 +36,14 @@ export function collectScenarioFlow(scenario: FlowEntity): { participants: strin
 // pairs whose BOTH endpoints are currently placed, deduped across scenarios.
 // Used by the diagram binding to project a scenario's steps as connectors (so
 // they are model-derived and survive the connector-authoritative rescan).
-export function scenarioStepPairs(scenarios: FlowEntity[], placed: ReadonlySet<string>): Array<[string, string]> {
+export function scenarioStepPairs(scenarios: FlowEntity[], placed: ReadonlySet<string>): Array<[string, string]>
+{
   const seen = new Set<string>()
   const out: Array<[string, string]> = []
-  for (const sc of scenarios) {
-    for (const [s, d] of collectScenarioFlow(sc).edges) {
+  for (const sc of scenarios)
+  {
+    for (const [s, d] of collectScenarioFlow(sc).edges)
+    {
       if (!placed.has(s) || !placed.has(d)) continue
       const key = `${s}|${d}`
       if (seen.has(key)) continue
@@ -57,7 +64,8 @@ const DEFAULT_DIMS: DropDims = { colDx: 200, rowDy: 120 }
 // (`in` / `in_block`) is a placed container gets laid out INSIDE that container
 // instead of in the free flow. The factory builds this from the ArchModel + doc;
 // when absent (or no participant nests) the layout is the plain L-R flow.
-export interface ContainmentLayout {
+export interface ContainmentLayout
+{
   // The placed container a participant nests into, or undefined for free flow.
   containerOf(participantId: string): string | undefined
   // Current diagram-space top-left of a placed container (undefined if unplaced).
@@ -81,7 +89,8 @@ const CONTAIN_INSET_TOP = 32 // mural CONTAINER_TITLE_BAND + CONTAINER_PADDING
 // The diagram-space top-left for the `slot`-th child inside a container whose
 // top-left is `base` — the wrapping grid shared by planScenarioDrop's contained
 // participants and the factory's full-membership materialization.
-export function containerChildSlot(base: { left: number; top: number }, slot: number): { left: number; top: number } {
+export function containerChildSlot(base: { left: number; top: number }, slot: number): { left: number; top: number }
+{
   const c = slot % CONTAIN_COLS
   const r = Math.floor(slot / CONTAIN_COLS)
   return { left: base.left + CONTAIN_INSET_X + c * CONTAIN_DX, top: base.top + CONTAIN_INSET_TOP + r * CONTAIN_DY }
@@ -90,7 +99,8 @@ export function containerChildSlot(base: { left: number; top: number }, slot: nu
 // Drop the edges that close a cycle (a DFS back-edge), so the layering graph is
 // a DAG. Dropped edges are still drawn as connectors — they just don't drive
 // columns.
-function acyclicEdges(nodes: string[], edges: Array<[string, string]>): Array<[string, string]> {
+function acyclicEdges(nodes: string[], edges: Array<[string, string]>): Array<[string, string]>
+{
   const adj = new Map<string, string[]>()
   for (const n of nodes) adj.set(n, [])
   for (const [s, d] of edges) adj.get(s)?.push(d)
@@ -98,7 +108,8 @@ function acyclicEdges(nodes: string[], edges: Array<[string, string]>): Array<[s
   const back = new Set<string>()
   const visit = (u: string): void => {
     state.set(u, 1)
-    for (const v of adj.get(u) ?? []) {
+    for (const v of adj.get(u) ?? [])
+    {
       const st = state.get(v) ?? 0
       if (st === 1) back.add(`${u}|${v}`)
       else if (st === 0) visit(v)
@@ -110,7 +121,8 @@ function acyclicEdges(nodes: string[], edges: Array<[string, string]>): Array<[s
 }
 
 // column(v) = longest path length from any source, over the acyclic graph.
-export function layoutColumns(participants: string[], edges: Array<[string, string]>): Map<string, number> {
+export function layoutColumns(participants: string[], edges: Array<[string, string]>): Map<string, number>
+{
   const preds = new Map<string, string[]>()
   for (const n of participants) preds.set(n, [])
   for (const [s, d] of acyclicEdges(participants, edges)) preds.get(d)?.push(s)
@@ -138,14 +150,16 @@ export function planScenarioDrop(
   origin: { x: number; y: number },
   dims: DropDims = DEFAULT_DIMS,
   layout?: ContainmentLayout,
-): { nodes: PlannedNode[]; edges: Array<[string, string]> } {
+): { nodes: PlannedNode[]; edges: Array<[string, string]> }
+{
   const { participants, edges } = collectScenarioFlow(scenario)
 
   // Partition: a participant whose containment parent is a PLACED container is
   // laid out inside that container; everything else flows in the free grid.
   const containerFor = new Map<string, string>()
   if (layout !== undefined)
-    for (const id of participants) {
+    for (const id of participants)
+    {
       const cid = layout.containerOf(id)
       if (cid !== undefined && layout.containerAt(cid) !== undefined) containerFor.set(id, cid)
     }
@@ -155,7 +169,8 @@ export function planScenarioDrop(
   // Contained: wrapping grid inside each container, new members appended after
   // the container's existing children (already-placed participants keep place).
   const nextSlot = new Map<string, number>()
-  for (const id of participants) {
+  for (const id of participants)
+  {
     const cid = containerFor.get(id)
     if (cid === undefined) continue
     const base = layout!.containerAt(cid)!

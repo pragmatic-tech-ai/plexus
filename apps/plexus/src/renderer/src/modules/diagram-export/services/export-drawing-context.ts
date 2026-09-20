@@ -23,7 +23,8 @@ export class ExportDrawingContext extends SvgDrawingContext
     // FormattedText.FontFamily is readonly, so substitute a corrected copy rather
     // than mutate it — only when the family is actually absent (the common case
     // passes straight through).
-    if (text.FontFamily === undefined || text.FontFamily === '') {
+    if (text.FontFamily === undefined || text.FontFamily === '')
+    {
       text = new FormattedText(
         text.Text, ExportDrawingContext.DefaultFontFamily, text.FontSize, text.Foreground,
         text.FontWeight, text.FontStyle, text.Metrics, text.LetterSpacing, text.Decorations)

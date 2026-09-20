@@ -7,12 +7,15 @@ import type { PersistentGuide } from '@pragmatic-tech-ai/mural/runtime'
 
 // Per-key property-change listener host, standing in for the live Diagram's
 // Guides DP notifications without mounting the mural theme under jsdom.
-class Listenable {
+class Listenable
+{
     private readonly listeners = new Map<unknown, Set<() => void>>()
-    public PropertyChanged(key: unknown): { subscribe(fn: () => void): { dispose(): void } } {
+    public PropertyChanged(key: unknown): { subscribe(fn: () => void): { dispose(): void } }
+    {
         const listeners = this.listeners
         return {
-            subscribe(fn: () => void): { dispose(): void } {
+            subscribe(fn: () => void): { dispose(): void }
+            {
                 if (!listeners.has(key)) listeners.set(key, new Set())
                 listeners.get(key)!.add(fn)
                 return { dispose(): void { listeners.get(key)?.delete(fn) } }
@@ -27,19 +30,22 @@ class Listenable {
     public fire(key: unknown): void { for (const fn of this.listeners.get(key) ?? []) fn() }
 }
 
-class FakeView extends Listenable {
+class FakeView extends Listenable
+{
     private guides: readonly PersistentGuide[] = []
     public get Guides(): readonly PersistentGuide[] { return this.guides }
     public set Guides(v: readonly PersistentGuide[]) { this.guides = v; this.fire(Diagram.GuidesKey) }
 }
 
-function providerWith(host: unknown): { get(k: unknown): unknown; getRequired(k: unknown): unknown } {
+function providerWith(host: unknown): { get(k: unknown): unknown; getRequired(k: unknown): unknown }
+{
     return {
         get: (k: unknown) => (k === ContentHostService.Key ? host : undefined),
         getRequired: (k: unknown) => (k === ContentHostService.Key ? host : undefined),
     }
 }
-function fakeHost() {
+function fakeHost()
+{
     const OpenDocuments = new ObservableCollection<unknown>()
     return { OpenDocuments } as unknown as { OpenDocuments: ObservableCollection<unknown> }
 }

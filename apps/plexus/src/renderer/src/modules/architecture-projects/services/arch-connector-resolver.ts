@@ -23,8 +23,10 @@ export function resolveConnectorActions(
     if (!repo.viewpointsFraming(sourceConcept).some((v) => scope.has(v))) return []
     const accept = acceptSet(repo, targetConcept)   // targetConcept ∪ its supertypes
     const out: ConnectorAction[] = []
-    for (const rel of repo.effectiveSchema(sourceConcept).relationships) {
-        if (rel.targets.some((t) => accept.has(t))) {
+    for (const rel of repo.effectiveSchema(sourceConcept).relationships)
+    {
+        if (rel.targets.some((t) => accept.has(t)))
+        {
             out.push({ member: rel.name, label: `${rel.name} → ${targetConcept}` })
         }
     }

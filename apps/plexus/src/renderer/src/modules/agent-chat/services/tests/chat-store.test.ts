@@ -5,7 +5,8 @@ import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modul
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { TranscriptRole } from '../transcript.js'
 
-function fakeFs() {
+function fakeFs()
+{
     const files = new Map<string, string>()
     return {
         Exists: (p: string) => Promise.resolve(files.has(p)),
@@ -14,7 +15,8 @@ function fakeFs() {
     }
 }
 
-function providerWith(fs: unknown): ServiceProvider {
+function providerWith(fs: unknown): ServiceProvider
+{
     const provider = new ServiceProvider()
     provider.registerInstance(FileSystemService.Key, fs as FileSystemService)
     provider.registerInstance(EnvironmentService.Key, { UserDataDirectory: '/data' } as EnvironmentService)

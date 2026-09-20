@@ -6,14 +6,18 @@
 import { safeStorage } from "electron";
 import type { Encryptor } from "./token-store.js";
 
-export class SafeStorageEncryptor implements Encryptor {
-  available(): boolean {
+export class SafeStorageEncryptor implements Encryptor
+{
+  available(): boolean
+  {
     return safeStorage.isEncryptionAvailable();
   }
-  encrypt(plain: string): Buffer {
+  encrypt(plain: string): Buffer
+  {
     return safeStorage.encryptString(plain);
   }
-  decrypt(cipher: Buffer): string {
+  decrypt(cipher: Buffer): string
+  {
     return safeStorage.decryptString(cipher);
   }
 }

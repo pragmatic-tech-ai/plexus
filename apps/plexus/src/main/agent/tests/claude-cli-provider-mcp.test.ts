@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs'
 import { ClaudeCliProvider } from '../claude-cli-provider.js'
 import type { ChildLike, McpOptions } from '../ai-provider.js'
 
-function fakeChild(): ChildLike {
+function fakeChild(): ChildLike
+{
     return {
         pid: 1,
         stdout: { on: () => {} }, stderr: { on: () => {} },

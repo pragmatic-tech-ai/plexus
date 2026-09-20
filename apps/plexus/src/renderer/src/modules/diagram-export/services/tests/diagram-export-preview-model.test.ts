@@ -2,7 +2,8 @@ import { describe, it, expect, vi } from 'vitest'
 import { DiagramExportPreviewModel } from '../diagram-export-preview-model.js'
 import { ExportFormat, ExportBackground } from '../export-options.js'
 
-function make(over: { hasSelection?: boolean } = {}) {
+function make(over: { hasSelection?: boolean } = {})
+{
   const render = vi.fn((_o) => ({ svg: '<svg>x</svg>', width: 120, height: 80 }))
   const closed: Array<unknown> = []
   const vm = new DiagramExportPreviewModel(

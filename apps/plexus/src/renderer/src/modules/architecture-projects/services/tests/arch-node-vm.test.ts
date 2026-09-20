@@ -21,7 +21,8 @@ test('carries no geometry — the container Figure owns it', () => {
     const vm = new ArchNodeVM() as unknown as Record<string, unknown>
     // Geometry (position/size + sizing mode) moved to the container Figure +
     // the document's NodeVisualStore; the VM is content + Id only.
-    for (const prop of ['Left', 'Top', 'Width', 'Height', 'SizeToContent', 'UserSized']) {
+    for (const prop of ['Left', 'Top', 'Width', 'Height', 'SizeToContent', 'UserSized'])
+    {
         expect(vm[prop], `${prop} must not exist on a content VM`).toBeUndefined()
     }
 })

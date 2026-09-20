@@ -167,8 +167,10 @@ export class ArchModel
     // `conforms` attr is `vp`, else a fresh `<vp>.todl` (lowercased).
     public homeForViewpoint(vp: string): string
     {
-        for (const e of this.entities()) {
-            if (this.repository().resolve(e.id)?.attrs.get('conforms') === vp) {
+        for (const e of this.entities())
+        {
+            if (this.repository().resolve(e.id)?.attrs.get('conforms') === vp)
+            {
                 const h = this.draft.homeOf(e.id)
                 if (h !== undefined) return h
             }

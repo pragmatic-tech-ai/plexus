@@ -80,8 +80,10 @@ export class ArchDiagramBindingService extends ServiceBase
         const current = new Set(host.OpenDocuments.ToArray())
 
         // Closed documents: dispose + forget.
-        for (const [doc, binding] of [...this.bindings]) {
-            if (!current.has(doc)) {
+        for (const [doc, binding] of [...this.bindings])
+        {
+            if (!current.has(doc))
+            {
                 binding.dispose()
                 this.bindings.delete(doc)
             }
@@ -118,7 +120,8 @@ export class ArchDiagramBindingService extends ServiceBase
         // (called from the active-doc change) bail without stamping ToolboxContexts,
         // so the toolbox's visibility pass ran against an empty context — hiding then
         // re-showing every in-context page and churning ~400 tiles per switch.
-        if (host.OpenDocuments.ToArray().includes(doc) || host.ActiveDocument === doc) {
+        if (host.OpenDocuments.ToArray().includes(doc) || host.ActiveDocument === doc)
+        {
             const chooser = this.Provider.get(DropCandidateChooserService.Key)
             const wiki = this.Provider.get(WikiService.Key)
             const status = this.Provider.get(StatusService.Key)
@@ -128,7 +131,8 @@ export class ArchDiagramBindingService extends ServiceBase
             const binding = new ArchDiagramBinding(doc, model, chooser, wiki, status, dialogs, nav, op.Project.RootPath, registry)
             binding.attach()
             const store = doc.Storage
-            if (store instanceof FileDiagramStorage) {
+            if (store instanceof FileDiagramStorage)
+            {
                 // Governing viewpoints travel with the diagram (its metadata),
                 // falling back to the legacy manifest for older diagrams.
                 const vps = await loadViewpoints(doc, store.ProjectStorage, store.Path)
@@ -142,10 +146,12 @@ export class ArchDiagramBindingService extends ServiceBase
             // pages): every published ref the project references, plus its own model.
             // Best-effort — a missing/partial resolver must not break the binding.
             const contexts = new Set<string>(['model:' + model.namespace])
-            try {
+            try
+            {
                 const resolver = this.Provider.get(WorkspaceBaseResolver.Key)
                 if (resolver !== undefined) for (const r of await resolver.referencedPublishedRefs(model.Storage)) contexts.add(r)
-            } catch { /* leave contexts at just the model token */ }
+            }
+            catch { /* leave contexts at just the model token */ }
             ;(doc as unknown as ToolboxContextTarget).ToolboxContexts = contexts
             binding.model.notifyChanged()
             this.bindings.set(doc, binding)
@@ -183,7 +189,8 @@ export class ArchDiagramBindingService extends ServiceBase
         const binding = new ArchDiagramBinding(doc, model, chooser, wiki, status, dialogs, undefined, undefined, registry)
         binding.attach()
         const store = doc.Storage
-        if (store instanceof FileDiagramStorage) {
+        if (store instanceof FileDiagramStorage)
+        {
             const vps = await loadViewpoints(doc, store.ProjectStorage, store.Path)
             if (vps !== undefined) binding.setScope(vps)
         }
@@ -291,7 +298,8 @@ export class ArchDiagramBindingService extends ServiceBase
         if (!(store instanceof FileDiagramStorage)) return undefined
         const explorer = this.Provider.get(ProjectExplorerService.Key)
         if (explorer === undefined) return undefined
-        for (const op of explorer.OpenProjects.ToArray()) {
+        for (const op of explorer.OpenProjects.ToArray())
+        {
             if (op.Storage === store.ProjectStorage && op.Project.Type === 'architecture') return op
         }
         return undefined

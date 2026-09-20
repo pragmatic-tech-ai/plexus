@@ -77,18 +77,21 @@ export async function scanResources(
         return i > 0 ? name.slice(0, i) : name
     }
 
-    for (const name of await files('visuals')) {
+    for (const name of await files('visuals'))
+    {
         if (!name.endsWith('.mural')) continue
         const id = stem(name)
         if (known.has(id)) ensure(id).template = `visuals/${name}`
         else warnings.push(`visuals/${name} targets unknown class "${id}"`)
     }
-    for (const name of await files('thumbnails')) {
+    for (const name of await files('thumbnails'))
+    {
         const id = stem(name)
         if (known.has(id)) ensure(id).thumbnail = `thumbnails/${name}`
         else warnings.push(`thumbnails/${name} targets unknown class "${id}"`)
     }
-    for (const name of await files('docs')) {
+    for (const name of await files('docs'))
+    {
         const id = stem(name)
         if (name.endsWith('.md') && known.has(id)) ensure(id).doc = `docs/${name}`
     }

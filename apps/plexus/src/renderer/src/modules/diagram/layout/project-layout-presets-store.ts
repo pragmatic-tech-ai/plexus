@@ -23,13 +23,16 @@ export class ProjectLayoutPresetsStore
     // missing folder, a backend error — yields [].
     public async names(): Promise<string[]>
     {
-        try {
+        try
+        {
             const entries = await this.storage.List(FOLDER)
             return entries
                 .filter((e) => !e.IsDirectory && e.Name.endsWith('.json'))
                 .map((e) => e.Name.slice(0, -'.json'.length))
                 .sort()
-        } catch {
+        }
+        catch
+        {
             return []
         }
     }
@@ -37,9 +40,12 @@ export class ProjectLayoutPresetsStore
     // The preset by name, or undefined if missing / unreadable / not valid JSON.
     public async get(name: string): Promise<PipelineConfiguration | undefined>
     {
-        try {
+        try
+        {
             return JSON.parse(await this.storage.ReadText(this.path(safeStem(name)))) as PipelineConfiguration
-        } catch {
+        }
+        catch
+        {
             return undefined
         }
     }
@@ -57,9 +63,12 @@ export class ProjectLayoutPresetsStore
     // Delete the preset file; tolerates its absence.
     public async delete(name: string): Promise<void>
     {
-        try {
+        try
+        {
             await this.storage.Delete(this.path(safeStem(name)))
-        } catch {
+        }
+        catch
+        {
             // already gone — nothing to do
         }
     }

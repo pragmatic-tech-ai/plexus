@@ -23,17 +23,20 @@ const SYMBOL_TOKEN = 'OnSurfaceVariant'
 // The preload bridge (window.api.titlebar) — untyped here (main.js-style access);
 // absent when running outside Electron (e.g. a plain browser preview).
 interface TitleBarBridge { setOverlay(colors: { color: string; symbolColor: string }): void }
-function bridge(): TitleBarBridge | undefined {
+function bridge(): TitleBarBridge | undefined
+{
     return (globalThis as unknown as { api?: { titlebar?: TitleBarBridge } }).api?.titlebar
 }
 
 // Resolve a colour token to an opaque #rrggbb hex from the active scheme.
-function tokenHex(token: string, fallback: string): string {
+function tokenHex(token: string, fallback: string): string
+{
     const res = Application.current?.Resources.Resolve(token)
     return res instanceof SolidColorBrush ? res.Color.ToHex().slice(0, 7) : fallback
 }
 
-export function attachTitleBar(_app: Application): void {
+export function attachTitleBar(_app: Application): void
+{
     const platform = (globalThis as unknown as { api?: { environment?: { Platform?: string } } }).api?.environment?.Platform
     if (platform === 'darwin') document.body.classList.add('is-mac')
 

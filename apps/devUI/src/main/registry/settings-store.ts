@@ -10,7 +10,8 @@ import { TokenSource } from "./registry-connection.js";
 
 export { TokenSource };
 
-export interface RegistrySettings {
+export interface RegistrySettings
+{
   registry: string;
   scope: string;
   org: string;
@@ -30,20 +31,24 @@ const DEFAULTS: RegistrySettings = {
   tokenEnvVar: "",
 };
 
-export class SettingsStore {
+export class SettingsStore
+{
   private readonly path: string;
 
-  constructor(private readonly userDataDir: string) {
+  constructor(private readonly userDataDir: string)
+  {
     this.path = join(userDataDir, SETTINGS_FILE);
   }
 
-  get(): RegistrySettings {
+  get(): RegistrySettings
+  {
     if (!existsSync(this.path)) return { ...DEFAULTS };
     const stored = JSON.parse(readFileSync(this.path, "utf8")) as Partial<RegistrySettings>;
     return { ...DEFAULTS, ...stored };
   }
 
-  update(partial: Partial<RegistrySettings>): void {
+  update(partial: Partial<RegistrySettings>): void
+  {
     const next = { ...this.get(), ...partial };
     mkdirSync(this.userDataDir, { recursive: true });
     writeFileSync(this.path, JSON.stringify(next, null, 2));

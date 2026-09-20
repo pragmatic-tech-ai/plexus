@@ -2,10 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { collectScenarioFlow, type FlowEntity } from '../scenario-flow.js'
 
 // Tiny FlowEntity builder: a map of member -> child entities.
-function ent(id: string, rels: Record<string, FlowEntity[]> = {}): FlowEntity {
+function ent(id: string, rels: Record<string, FlowEntity[]> = {}): FlowEntity
+{
   return { id, refs: (m) => rels[m] ?? [] }
 }
-function step(src?: FlowEntity, dst?: FlowEntity): FlowEntity {
+function step(src?: FlowEntity, dst?: FlowEntity): FlowEntity
+{
   return ent('step', { src: src ? [src] : [], dst: dst ? [dst] : [] })
 }
 

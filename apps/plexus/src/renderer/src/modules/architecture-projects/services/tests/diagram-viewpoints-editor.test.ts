@@ -9,18 +9,21 @@ const doc = {} as IDocument
 
 // A DialogService whose Show resolves each queued result in turn (call 1 = the
 // picker, call 2 = the confirmation), so a test scripts the user's answers.
-function fakeDialogs(results: unknown[]): DialogService {
+function fakeDialogs(results: unknown[]): DialogService
+{
     let i = 0
     return { Show: async () => results[i++], Close: () => {} } as unknown as DialogService
 }
 
-interface BindingOverrides {
+interface BindingOverrides
+{
     modelForDocument?: () => unknown
     scopeForDocument?: () => Set<string> | undefined
     nodesLeavingScope?: () => LeavingNode[]
     setDocumentScope?: (doc: IDocument, vps: string[]) => Promise<void>
 }
-function fakeBinding(over: BindingOverrides = {}): ArchDiagramBindingService {
+function fakeBinding(over: BindingOverrides = {}): ArchDiagramBindingService
+{
     return {
         modelForDocument: () => ({ viewpoints: () => [{ id: 'A' }, { id: 'B' }] }),
         scopeForDocument: () => new Set(['A', 'B']),
@@ -30,7 +33,8 @@ function fakeBinding(over: BindingOverrides = {}): ArchDiagramBindingService {
     } as unknown as ArchDiagramBindingService
 }
 
-function editorWith(dialogs: DialogService, binding: ArchDiagramBindingService): DiagramViewpointsEditor {
+function editorWith(dialogs: DialogService, binding: ArchDiagramBindingService): DiagramViewpointsEditor
+{
     const provider = new ServiceProvider()
     provider.registerInstance(DialogService.Key, dialogs)
     provider.registerInstance(ArchDiagramBindingService.Key, binding)

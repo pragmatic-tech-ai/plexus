@@ -30,10 +30,12 @@ export function planNodeMoves(nodes: readonly ProjectNode[], destParentPath: str
     const moves: PlannedMove[] = []
     const rejects: { name: string; reason: string }[] = []
     const paths = nodes.map((n) => n.Path)
-    for (const node of nodes) {
+    for (const node of nodes)
+    {
         if (paths.some((p) => p !== node.Path && node.Path.startsWith(p + '/'))) continue   // ancestor selected
         if (sameProject && parentOf(node.Path) === destParentPath) continue                 // already there
-        if (sameProject && (destParentPath === node.Path || destParentPath.startsWith(node.Path + '/'))) {
+        if (sameProject && (destParentPath === node.Path || destParentPath.startsWith(node.Path + '/')))
+        {
             rejects.push({ name: node.Name, reason: 'into itself' }); continue               // into self/descendant
         }
         moves.push({ from: node.Path, to: joinRel(destParentPath, node.Name), name: node.Name })

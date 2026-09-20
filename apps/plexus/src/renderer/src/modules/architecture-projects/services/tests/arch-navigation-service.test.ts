@@ -4,14 +4,16 @@ import { ArchNavigationService, NavTargetKind } from '../arch-navigation-service
 import type { ArchModel } from '../arch-model.js'
 
 // Build a fake Element (id/concept/fields/refs) — the resolver reads only these.
-function el(id: string, concept: string, label: string, refs: Record<string, Element[]> = {}): Element {
+function el(id: string, concept: string, label: string, refs: Record<string, Element[]> = {}): Element
+{
   return { id, concept, fields: { label }, refs } as unknown as Element
 }
 
 // A resolver whose elementFor returns hand-built Elements, so resolveTargets'
 // LOGIC (which members it reads, cardinality, adaptivity per concept) is tested
 // without depending on the TODL compiler / source syntax.
-class FakeNav extends ArchNavigationService {
+class FakeNav extends ArchNavigationService
+{
   public constructor(private readonly els: Map<string, Element>) { super({ get: () => undefined } as never) }
   protected override elementFor(_model: ArchModel, id: string): Element | undefined { return this.els.get(id) }
 }
@@ -21,7 +23,8 @@ const data = el('categories.data', 'category', 'Data')
 const dotnet = el('tech.dotnet', 'technology', '.NET', { applicable_to: [backend, data] })
 const orders = el('orders', 'component', 'Orders', { implemented_by: [dotnet], category: [backend] })
 
-function navWith(...elements: Element[]): FakeNav {
+function navWith(...elements: Element[]): FakeNav
+{
   return new FakeNav(new Map(elements.map((e) => [e.id, e])))
 }
 // resolveTargets scans model.entities() for scenario participation; the resolver
@@ -66,17 +69,20 @@ test('an unknown id yields empty targets', () => {
 
 // ── scenario participation ─────────────────────────────────────────────────
 // A minimal Entity/FlowEntity: id + concept + field(label) + refs(member).
-function scEnt(id: string, concept: string, refs: Record<string, any[]>, label?: string): any {
+function scEnt(id: string, concept: string, refs: Record<string, any[]>, label?: string): any
+{
   return { id, concept, field: (n: string) => (n === 'label' ? label : undefined), refs: (m: string) => refs[m] ?? [] }
 }
 // scenario X { sequences = [sequence { steps = [a ==> b, b ==> c] }] }
-function scenario(id: string, label: string, edges: Array<[string, string]>): any {
+function scenario(id: string, label: string, edges: Array<[string, string]>): any
+{
   const steps = edges.map(([s, d], i) => scEnt(`${id}#step${i}`, 'step', { src: [scEnt(s, 'component', {})], dst: [scEnt(d, 'component', {})] }))
   return scEnt(id, 'scenario', { sequences: [scEnt(`${id}#seq`, 'sequence', { steps })] }, label)
 }
 // A resolver over a fixed entity set; elementFor still returns undefined (the
 // scenario path is independent of the clicked element).
-class ScenarioNav extends ArchNavigationService {
+class ScenarioNav extends ArchNavigationService
+{
   public constructor() { super({ get: () => undefined } as never) }
   protected override elementFor(): Element | undefined { return undefined }
 }
@@ -104,11 +110,13 @@ import { NavTargetKind as Kind } from '../arch-navigation-service.js'
 
 // A routing harness: overrides the two navigator seams + activation so the fork
 // logic is verified independent of the real services.
-function routing(origin: 'published' | 'project') {
+function routing(origin: 'published' | 'project')
+{
   const opened: Array<{ p: string; u: string; l: number }> = []
   const revealed: string[] = []
   let activated = false
-  class RouteNav extends ArchNavigationService {
+  class RouteNav extends ArchNavigationService
+  {
     public constructor() { super({ get: () => undefined } as never) }
     protected override resolveExplorer() { return { OpenFileInProject: (p: string, u: string, l: number) => { opened.push({ p, u, l }); return Promise.resolve() } } }
     protected override resolveLibraries() { return { RevealTerm: (t: string) => { revealed.push(t); return true } } }

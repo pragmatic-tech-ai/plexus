@@ -63,7 +63,8 @@ const EDGES: [string, ResolvedPortSide, string, ResolvedPortSide][] = [
     ['component7', PortSide.E, 'component9', PortSide.S],
 ]
 
-function providerWithActive(doc: IDocument): ServiceProvider {
+function providerWithActive(doc: IDocument): ServiceProvider
+{
     const host = {
         ActiveDocument: doc,
         OpenDocuments: new ObservableCollection<IDocument>([doc]),
@@ -73,16 +74,19 @@ function providerWithActive(doc: IDocument): ServiceProvider {
     return provider
 }
 
-function buildDoc(): { doc: DiagramDocument; vms: Record<string, Figure>; conns: Connector[] } {
+function buildDoc(): { doc: DiagramDocument; vms: Record<string, Figure>; conns: Connector[] }
+{
     const doc = new DiagramDocument()
     const vms: Record<string, Figure> = {}
-    for (const [id, p] of Object.entries(NODES)) {
+    for (const [id, p] of Object.entries(NODES))
+    {
         const vm = Figure.fromKind('rectangle', p.left, p.top, { width: 80, height: 80 })
         vm.Id = id
         vms[id] = vm; doc.AddNode(vm)
     }
     const conns: Connector[] = []
-    for (const [s, ss, t, ts] of EDGES) {
+    for (const [s, ss, t, ts] of EDGES)
+    {
         const c = doc.CreateConnector(
             new ConnectorEndpoint({ Node: vms[s], PortSide: ss }),
             new ConnectorEndpoint({ Node: vms[t], PortSide: ts }))!
@@ -98,7 +102,8 @@ test('shared sides survive a DEFAULT layout run without stacking', () => {
 
     new LayoutPipelineService(providerWithActive(doc)).Run()
 
-    for (const [id, side] of SHARED) {
+    for (const [id, side] of SHARED)
+    {
         expect(vms[id]!.GetSideEndpointCount(side), `${id}|${side} count after default layout`).toBe(2)
     }
 })
@@ -118,8 +123,10 @@ test('shared sides survive a NATIVE-side-router layout run without stacking', ()
     // per side, and flag any side where two connectors resolved to the SAME
     // slot index (the stacking signature).
     const bySide = new Map<string, number[]>()
-    for (const c of conns) {
-        for (const e of [c.Source, c.Target]) {
+    for (const c of conns)
+    {
+        for (const e of [c.Source, c.Target])
+        {
             if (e === undefined || e.Node === undefined || e.PortSide === undefined) continue
             const host = e.Node as unknown as Figure
             const slot = host.GetSideSlot?.(e, e.PortSide as ResolvedPortSide)
@@ -131,7 +138,8 @@ test('shared sides survive a NATIVE-side-router layout run without stacking', ()
         }
     }
     const stacked: string[] = []
-    for (const [key, idxs] of bySide) {
+    for (const [key, idxs] of bySide)
+    {
         if (new Set(idxs).size !== idxs.length) stacked.push(`${key} idxs=${JSON.stringify(idxs)}`)
     }
     expect(stacked, `sides with two connectors on the same slot: ${stacked.join(', ')}`).toEqual([])

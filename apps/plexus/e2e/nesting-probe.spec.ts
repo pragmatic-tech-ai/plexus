@@ -27,12 +27,14 @@ const PROJECT_RELS = [
 ]
 
 // id → { figure ctor, containerParentId, DOM-descendant-of-its-container }.
-async function probe(l: Launched) {
+async function probe(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
         const elByVisual = new Map<any, Element>()
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v) continue
             if (!elByVisual.has(v)) elByVisual.set(v, el)
@@ -42,7 +44,8 @@ async function probe(l: Launched) {
         const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
         const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
         const rows: any[] = []
-        for (const vm of arr) {
+        for (const vm of arr)
+        {
             const fig = figOf(vm)
             if (!fig) { rows.push({ id: vm?.Id, figure: '(unrealized)' }); continue }
             const container = fig.ContainerParent
@@ -69,7 +72,8 @@ test.describe.serial('multi-level model-backed nesting projects at depth', () =>
         fs.mkdirSync(ART, { recursive: true })
         copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-nesting-'))
         const projects: string[] = []
-        for (const rel of PROJECT_RELS) {
+        for (const rel of PROJECT_RELS)
+        {
             const dst = path.join(copyRoot, rel)
             fs.cpSync(path.join(CORPUS, rel), dst, { recursive: true })
             projects.push(dst)
@@ -84,13 +88,15 @@ test.describe.serial('multi-level model-backed nesting projects at depth', () =>
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 20; i++)
+        {
             if (await l.win.getByText('nesting-demo.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 3; attempt++)
+        {
             const p = await probe(l)
             if (p.rows.length > 0) break
             const dd = l.win.getByText('nesting-demo.diagram', { exact: true }).first()
@@ -112,7 +118,8 @@ test.describe.serial('multi-level model-backed nesting projects at depth', () =>
         fs.writeFileSync(path.join(ART, 'nesting-rows.json'), JSON.stringify(rows, null, 2))
         const by = (id: string) => rows.find((r: any) => r.id === id)
 
-        for (const id of ['microsoft_tech.azure', 'microsoft_tech.m365', 'microsoft_tech.power_platform', 'business_agent']) {
+        for (const id of ['microsoft_tech.azure', 'microsoft_tech.m365', 'microsoft_tech.power_platform', 'business_agent'])
+        {
             expect(by(id), `${id} realized (rows: ${JSON.stringify(rows)})`).toBeTruthy()
             expect(by(id).figure, `${id} realized as a figure`).not.toBe('(unrealized)')
         }

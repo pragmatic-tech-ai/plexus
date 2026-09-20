@@ -18,7 +18,8 @@ const COMPLETION_KIND: Record<number, monaco.languages.CompletionItemKind> = {
   13: K.Enum, 14: K.Keyword, 18: K.Reference, 20: K.EnumMember, 22: K.Struct,
 }
 
-function foldingKind(kind: string | undefined): monaco.languages.FoldingRangeKind | undefined {
+function foldingKind(kind: string | undefined): monaco.languages.FoldingRangeKind | undefined
+{
   if (kind === 'comment') return monaco.languages.FoldingRangeKind.Comment
   if (kind === 'imports') return monaco.languages.FoldingRangeKind.Imports
   if (kind === 'region') return monaco.languages.FoldingRangeKind.Region
@@ -26,18 +27,21 @@ function foldingKind(kind: string | undefined): monaco.languages.FoldingRangeKin
 }
 
 // LSP SymbolKind (1-based) → Monaco SymbolKind (0-based).
-function symbolKind(kind: number): monaco.languages.SymbolKind {
+function symbolKind(kind: number): monaco.languages.SymbolKind
+{
   return Math.max(0, kind - 1) as monaco.languages.SymbolKind
 }
 
-function toMonacoSymbols(syms: Awaited<ReturnType<typeof provideDocumentSymbols>>): monaco.languages.DocumentSymbol[] {
+function toMonacoSymbols(syms: Awaited<ReturnType<typeof provideDocumentSymbols>>): monaco.languages.DocumentSymbol[]
+{
   return syms.map((s) => ({
     name: s.name, detail: s.detail, kind: symbolKind(s.kind), tags: [],
     range: s.range, selectionRange: s.selectionRange, children: toMonacoSymbols(s.children),
   }))
 }
 
-export function registerTodlProviders(client: TodlLanguageClient): void {
+export function registerTodlProviders(client: TodlLanguageClient): void
+{
   const lang = TODL_LANGUAGE_ID
 
   // The unified WorkspaceEdit path needs to find open models by URI.

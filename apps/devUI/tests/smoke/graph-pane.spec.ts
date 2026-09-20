@@ -35,7 +35,8 @@ const GRAPH = JSON.stringify({
   ],
 });
 
-function installFakeRegistry(window: Page): Promise<void> {
+function installFakeRegistry(window: Page): Promise<void>
+{
   return window.evaluate((graph) => {
     (window as unknown as { __todlBridge: unknown }).__todlBridge = {
       connections: {
@@ -60,12 +61,15 @@ function installFakeRegistry(window: Page): Promise<void> {
   }, GRAPH);
 }
 
-async function clickRailCapability(window: Page, index: number): Promise<void> {
+async function clickRailCapability(window: Page, index: number): Promise<void>
+{
   const cells = await window.evaluate(() => {
     const byY = new Map<number, { x: number; y: number; w: number; h: number }>();
-    for (const el of Array.from(document.querySelectorAll("#app rect"))) {
+    for (const el of Array.from(document.querySelectorAll("#app rect")))
+    {
       const r = (el as Element).getBoundingClientRect();
-      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48) {
+      if (r.left < 4 && Math.round(r.width) === 48 && Math.round(r.height) === 48)
+      {
         byY.set(Math.round(r.y), { x: r.x, y: r.y, w: r.width, h: r.height });
       }
     }
@@ -77,8 +81,10 @@ async function clickRailCapability(window: Page, index: number): Promise<void> {
 
 // Robustly activate a capability — a fresh-startup first rail click is sometimes
 // swallowed, so retry until the panel responds.
-async function activateCapability(window: Page, index: number, expectText: string): Promise<void> {
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+async function activateCapability(window: Page, index: number, expectText: string): Promise<void>
+{
+  for (let attempt = 0; attempt < 4; attempt += 1)
+  {
     await clickRailCapability(window, index);
     const landed = await hasText(window, expectText)
       .then((v) => v || new Promise<boolean>((r) => setTimeout(() => r(hasText(window, expectText)), 1200)));
@@ -87,7 +93,8 @@ async function activateCapability(window: Page, index: number, expectText: strin
   throw new Error(`capability ${index} did not activate (no "${expectText}")`);
 }
 
-function hasText(window: Page, text: string): Promise<boolean> {
+function hasText(window: Page, text: string): Promise<boolean>
+{
   return window.evaluate(
     (t) =>
       Array.from(document.querySelectorAll("#app text, #app tspan"))
@@ -97,10 +104,13 @@ function hasText(window: Page, text: string): Promise<boolean> {
   );
 }
 
-function labelBox(window: Page, label: string): Promise<{ x: number; y: number; w: number; h: number } | null> {
+function labelBox(window: Page, label: string): Promise<{ x: number; y: number; w: number; h: number } | null>
+{
   return window.evaluate((t) => {
-    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan"))) {
-      if ((el.textContent ?? "").trim() === t) {
+    for (const el of Array.from(document.querySelectorAll("#app text, #app tspan")))
+    {
+      if ((el.textContent ?? "").trim() === t)
+      {
         const r = (el as Element).getBoundingClientRect();
         if (r.left < 360) return { x: r.x, y: r.y, w: r.width, h: r.height };
       }
@@ -109,24 +119,28 @@ function labelBox(window: Page, label: string): Promise<{ x: number; y: number; 
   }, label);
 }
 
-async function expandRow(window: Page, label: string): Promise<void> {
+async function expandRow(window: Page, label: string): Promise<void>
+{
   const b = await labelBox(window, label);
   if (b === null) throw new Error(`tree row "${label}" not found`);
   await window.mouse.click(b.x - 14, b.y + b.h / 2);
 }
 
-async function selectRow(window: Page, label: string): Promise<void> {
+async function selectRow(window: Page, label: string): Promise<void>
+{
   const b = await labelBox(window, label);
   if (b === null) throw new Error(`tree row "${label}" not found`);
   await window.mouse.click(b.x + b.w / 2, b.y + b.h / 2);
 }
 
 // Constructor histogram across the rendered mural visual tree.
-function ctorHisto(window: Page): Promise<Record<string, number>> {
+function ctorHisto(window: Page): Promise<Record<string, number>>
+{
   return window.evaluate(() => {
     const S = Symbol.for("mural:visual-backref");
     const h: Record<string, number> = {};
-    for (const el of Array.from(document.querySelectorAll("*"))) {
+    for (const el of Array.from(document.querySelectorAll("*")))
+    {
       const v = (el as unknown as Record<symbol, { constructor?: { name?: string } }>)[S];
       const n = v?.constructor?.name;
       if (n) h[n] = (h[n] ?? 0) + 1;

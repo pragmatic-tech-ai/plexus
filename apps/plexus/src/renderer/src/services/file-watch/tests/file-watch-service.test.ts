@@ -5,7 +5,8 @@ import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/
 
 // Minimal fakes: a fake preload bridge and a fake explorer exposing an OpenProjects
 // collection with a Subscribe(cb) + ToArray().
-function makeBridge() {
+function makeBridge()
+{
   let changedCb: ((e: FileChangeEvent) => void) | undefined
   const watch = vi.fn(async () => {})
   const unwatch = vi.fn(async () => {})
@@ -16,7 +17,8 @@ function makeBridge() {
   return { api, watch, unwatch, fire: (e: FileChangeEvent) => changedCb?.(e) }
 }
 
-function makeExplorer(folders: string[]) {
+function makeExplorer(folders: string[])
+{
   let subCb: (() => void) | undefined
   const items = folders.map((f) => ({ Folder: f }))
   const OpenProjects = {
@@ -27,7 +29,8 @@ function makeExplorer(folders: string[]) {
   return { OpenProjects }
 }
 
-function makeProvider(explorer: unknown) {
+function makeProvider(explorer: unknown)
+{
   return {
     getRequired: (key: unknown) => {
       if (key === ProjectExplorerService.Key) return explorer

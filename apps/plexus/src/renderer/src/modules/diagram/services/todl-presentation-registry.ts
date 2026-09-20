@@ -70,13 +70,15 @@ export class TodlPresentationRegistry extends ServiceBase
         const nextIndex = new Map<string, string>()
 
         let assetCount = 0
-        for (const source of this.sources.values()) {
+        for (const source of this.sources.values())
+        {
             const { assets, iconKeys } = await source.load()
             for (const [k, v] of assets.Entries()) { next.Set(k, v); assetCount++ }
             for (const [k, v] of iconKeys) nextIndex.set(k, v)
         }
 
-        if (assetCount > 0 || this.merged !== undefined) {
+        if (assetCount > 0 || this.merged !== undefined)
+        {
             Application.current?.Resources.ReplaceMergedDictionary(this.merged, next)
             this.merged = next
         }
@@ -96,7 +98,8 @@ export class TodlPresentationRegistry extends ServiceBase
 
         // Notify subscribers so live presenters re-resolve their icon — only for
         // the keys whose mapping changed this discover.
-        for (const key of changed) {
+        for (const key of changed)
+        {
             for (const cb of [...this.listeners]) cb(key)
         }
     }

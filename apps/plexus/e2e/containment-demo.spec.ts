@@ -16,18 +16,21 @@ const shot = (l: Launched, name: string) =>
 
 // Every realized arch node: its id, concept, the ctor of its realized Figure
 // (ContentContainerFigure for containers), and its container-parent id (nesting).
-async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; figure: string; parent: string | undefined }>> {
+async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; figure: string; parent: string | undefined }>>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         if (!diagram) return []
         const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
         const out: Array<{ id: string; concept: string; figure: string; parent: string | undefined }> = []
-        for (const vm of arr) {
+        for (const vm of arr)
+        {
             const fig = vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
             out.push({
                 id: vm?.Id ?? fig?.Id,
@@ -64,13 +67,15 @@ test.describe.serial('DEMO: model-backed containment', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 20; i++)
+        {
             if (await l.win.getByText('containment-demo.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
-        for (let attempt = 0; attempt < 3 && (await nodes(l)).length === 0; attempt++) {
+        for (let attempt = 0; attempt < 3 && (await nodes(l)).length === 0; attempt++)
+        {
             const dd = l.win.getByText('containment-demo.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

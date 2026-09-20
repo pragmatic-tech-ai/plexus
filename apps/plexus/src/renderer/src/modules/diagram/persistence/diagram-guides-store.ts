@@ -8,13 +8,15 @@ export const DIAGRAM_GUIDES_KEY = 'guides'
 
 export interface DiagramGuidesState { readonly guides: readonly PersistentGuide[] }
 
-function isGuide(v: unknown): v is PersistentGuide {
+function isGuide(v: unknown): v is PersistentGuide
+{
     if (typeof v !== 'object' || v === null) return false
     const r = v as Record<string, unknown>
     return (r.axis === 'x' || r.axis === 'y') && typeof r.position === 'number' && Array.isArray(r.glued)
 }
 
-function isState(v: unknown): v is DiagramGuidesState {
+function isState(v: unknown): v is DiagramGuidesState
+{
     if (typeof v !== 'object' || v === null) return false
     const g = (v as Record<string, unknown>).guides
     return Array.isArray(g) && g.every(isGuide)
@@ -22,7 +24,8 @@ function isState(v: unknown): v is DiagramGuidesState {
 
 // The guides recorded on the document, or undefined when none is set (or the
 // stored value is malformed). Undefined lets the caller keep the empty default.
-export function readGuides(doc: DiagramDocument): DiagramGuidesState | undefined {
+export function readGuides(doc: DiagramDocument): DiagramGuidesState | undefined
+{
     const raw = doc.Metadata[DIAGRAM_GUIDES_KEY]
     if (!isState(raw)) return undefined
     return {
@@ -34,6 +37,7 @@ export function readGuides(doc: DiagramDocument): DiagramGuidesState | undefined
 
 // Merge the guides into the document metadata, preserving any other keys. The
 // caller persists by saving the document.
-export function writeGuides(doc: DiagramDocument, state: DiagramGuidesState): void {
+export function writeGuides(doc: DiagramDocument, state: DiagramGuidesState): void
+{
     doc.Metadata = { ...doc.Metadata, [DIAGRAM_GUIDES_KEY]: { guides: state.guides } }
 }

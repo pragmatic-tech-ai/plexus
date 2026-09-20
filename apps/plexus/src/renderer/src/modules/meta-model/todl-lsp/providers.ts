@@ -19,20 +19,23 @@ export interface LocationResult { uri: string; range: MonacoRange }
 export interface CompletionItemResult { label: string; kind?: number; insertText: string; detail?: string; documentation?: string }
 export interface CompletionResult { suggestions: CompletionItemResult[] }
 
-function textDocumentParams(model: ModelLike, position: MonacoPosition): unknown {
+function textDocumentParams(model: ModelLike, position: MonacoPosition): unknown
+{
   return { textDocument: { uri: model.uri.toString() }, position: monacoToLspPosition(position) }
 }
 
 type LspMarkup = string | { value: string }
 interface LspHover { contents: LspMarkup | LspMarkup[]; range?: LspRange }
 
-function hoverText(contents: LspHover['contents']): string {
+function hoverText(contents: LspHover['contents']): string
+{
   if (typeof contents === 'string') return contents
   if (Array.isArray(contents)) return contents.map((c) => (typeof c === 'string' ? c : c.value)).join('\n')
   return contents.value
 }
 
-export async function provideHover(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<HoverResult | null> {
+export async function provideHover(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<HoverResult | null>
+{
   const res = (await req.sendRequest('textDocument/hover', textDocumentParams(model, position))) as LspHover | null
   if (res == null) return null
   const out: HoverResult = { contents: [{ value: hoverText(res.contents) }] }
@@ -42,16 +45,19 @@ export async function provideHover(req: LspRequester, model: ModelLike, position
 
 interface LspLocation { uri: string; range: LspRange }
 
-function toLocations(res: LspLocation | LspLocation[] | null): LocationResult[] {
+function toLocations(res: LspLocation | LspLocation[] | null): LocationResult[]
+{
   const list = res == null ? [] : Array.isArray(res) ? res : [res]
   return list.map((l) => ({ uri: l.uri, range: lspToMonacoRange(l.range) }))
 }
 
-export async function provideDefinition(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<LocationResult[]> {
+export async function provideDefinition(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<LocationResult[]>
+{
   return toLocations((await req.sendRequest('textDocument/definition', textDocumentParams(model, position))) as LspLocation | LspLocation[] | null)
 }
 
-export async function provideReferences(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<LocationResult[]> {
+export async function provideReferences(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<LocationResult[]>
+{
   const params = { ...(textDocumentParams(model, position) as object), context: { includeDeclaration: true } }
   return toLocations((await req.sendRequest('textDocument/references', params)) as LspLocation | LspLocation[] | null)
 }
@@ -59,7 +65,8 @@ export async function provideReferences(req: LspRequester, model: ModelLike, pos
 interface LspCompletionItem { label: string; kind?: number; insertText?: string; detail?: string; documentation?: string | { value: string } }
 type LspCompletionResponse = LspCompletionItem[] | { items: LspCompletionItem[] } | null
 
-export async function provideCompletion(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<CompletionResult> {
+export async function provideCompletion(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<CompletionResult>
+{
   const res = (await req.sendRequest('textDocument/completion', textDocumentParams(model, position))) as LspCompletionResponse
   const items = res == null ? [] : Array.isArray(res) ? res : res.items
   return {
@@ -76,7 +83,8 @@ export async function provideCompletion(req: LspRequester, model: ModelLike, pos
 
 export interface FoldingRangeResult { start: number; end: number; kind?: string }
 
-export async function provideFoldingRanges(req: LspRequester, model: ModelLike): Promise<FoldingRangeResult[]> {
+export async function provideFoldingRanges(req: LspRequester, model: ModelLike): Promise<FoldingRangeResult[]>
+{
   const res = (await req.sendRequest('textDocument/foldingRange', { textDocument: { uri: model.uri.toString() } })) as Array<{ startLine: number; endLine: number; kind?: string }> | null
   return (res ?? []).map((r) => {
     const out: FoldingRangeResult = { start: r.startLine + 1, end: r.endLine + 1 }
@@ -85,7 +93,8 @@ export async function provideFoldingRanges(req: LspRequester, model: ModelLike):
   })
 }
 
-export interface SymbolResult {
+export interface SymbolResult
+{
   name: string
   detail: string
   kind: number
@@ -94,7 +103,8 @@ export interface SymbolResult {
   children: SymbolResult[]
 }
 
-interface LspDocumentSymbol {
+interface LspDocumentSymbol
+{
   name: string
   detail?: string
   kind: number
@@ -103,7 +113,8 @@ interface LspDocumentSymbol {
   children?: LspDocumentSymbol[]
 }
 
-function toSymbol(s: LspDocumentSymbol): SymbolResult {
+function toSymbol(s: LspDocumentSymbol): SymbolResult
+{
   return {
     name: s.name,
     detail: s.detail ?? '',
@@ -114,32 +125,37 @@ function toSymbol(s: LspDocumentSymbol): SymbolResult {
   }
 }
 
-export async function provideDocumentSymbols(req: LspRequester, model: ModelLike): Promise<SymbolResult[]> {
+export async function provideDocumentSymbols(req: LspRequester, model: ModelLike): Promise<SymbolResult[]>
+{
   const res = (await req.sendRequest('textDocument/documentSymbol', { textDocument: { uri: model.uri.toString() } })) as LspDocumentSymbol[] | null
   return (res ?? []).map(toSymbol)
 }
 
 export interface SemanticTokensResult { data: number[] }
 
-export async function provideDocumentSemanticTokens(req: LspRequester, model: ModelLike): Promise<SemanticTokensResult> {
+export async function provideDocumentSemanticTokens(req: LspRequester, model: ModelLike): Promise<SemanticTokensResult>
+{
   const res = (await req.sendRequest('textDocument/semanticTokens/full', { textDocument: { uri: model.uri.toString() } })) as { data: number[] } | null
   return { data: res?.data ?? [] }
 }
 
-export interface SignatureHelpResult {
+export interface SignatureHelpResult
+{
   signatures: Array<{ label: string; documentation?: string; parameters: Array<{ label: string }> }>
   activeSignature: number
   activeParameter: number
 }
 
-interface LspSignatureHelp {
+interface LspSignatureHelp
+{
   signatures: Array<{ label: string; documentation?: string | { value: string }; parameters?: Array<{ label: string | [number, number] }> }>
   activeSignature?: number
   activeParameter?: number
 }
 
 // The write-path adapters need to both request and apply edits.
-export interface LspEditClient extends LspRequester {
+export interface LspEditClient extends LspRequester
+{
   applyWorkspaceEdit(edit: { changes?: Record<string, LspTextEdit[]> }): Promise<void>
 }
 
@@ -147,7 +163,8 @@ export interface LspTextEdit { range: LspRange; newText: string }
 
 export interface PrepareRenameResult { range: MonacoRange; text: string }
 
-export async function providePrepareRename(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<PrepareRenameResult | null> {
+export async function providePrepareRename(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<PrepareRenameResult | null>
+{
   const res = (await req.sendRequest('textDocument/prepareRename', textDocumentParams(model, position))) as
     { range: LspRange; placeholder?: string } | LspRange | null
   if (res == null) return null
@@ -159,7 +176,8 @@ export async function providePrepareRename(req: LspRequester, model: ModelLike, 
 // Delegate the rename WorkspaceEdit to the client's unified apply path, and
 // return an empty Monaco edit so Monaco applies nothing itself (it would drop
 // closed-file edits). Loses Monaco's native rename preview (flagged, v1).
-export async function provideRenameEdits(client: LspEditClient, model: ModelLike, position: MonacoPosition, newName: string): Promise<{ edits: [] }> {
+export async function provideRenameEdits(client: LspEditClient, model: ModelLike, position: MonacoPosition, newName: string): Promise<{ edits: [] }>
+{
   const params = { ...(textDocumentParams(model, position) as object), newName }
   const edit = (await client.sendRequest('textDocument/rename', params)) as { changes?: Record<string, LspTextEdit[]> } | null
   if (edit !== null && edit.changes !== undefined) await client.applyWorkspaceEdit(edit)
@@ -170,12 +188,14 @@ export interface CodeActionResult { title: string; kind?: string; edits: Array<{
 
 interface LspCodeAction { title: string; kind?: string; edit?: { changes?: Record<string, LspTextEdit[]> } }
 
-export async function provideCodeActions(req: LspRequester, model: ModelLike, range: MonacoRange, diagnostics: unknown[]): Promise<CodeActionResult[]> {
+export async function provideCodeActions(req: LspRequester, model: ModelLike, range: MonacoRange, diagnostics: unknown[]): Promise<CodeActionResult[]>
+{
   const params = { textDocument: { uri: model.uri.toString() }, range: monacoToLspRange(range), context: { diagnostics } }
   const res = (await req.sendRequest('textDocument/codeAction', params)) as LspCodeAction[] | null
   return (res ?? []).map((a) => {
     const edits: Array<{ uri: string; range: MonacoRange; text: string }> = []
-    for (const [uri, textEdits] of Object.entries(a.edit?.changes ?? {})) {
+    for (const [uri, textEdits] of Object.entries(a.edit?.changes ?? {}))
+    {
       for (const e of textEdits) edits.push({ uri, range: lspToMonacoRange(e.range), text: e.newText })
     }
     const out: CodeActionResult = { title: a.title, edits }
@@ -184,14 +204,16 @@ export async function provideCodeActions(req: LspRequester, model: ModelLike, ra
   })
 }
 
-export async function provideFormattingEdits(req: LspRequester, model: ModelLike): Promise<Array<{ range: MonacoRange; text: string }>> {
+export async function provideFormattingEdits(req: LspRequester, model: ModelLike): Promise<Array<{ range: MonacoRange; text: string }>>
+{
   const res = (await req.sendRequest('textDocument/formatting', {
     textDocument: { uri: model.uri.toString() }, options: { tabSize: 2, insertSpaces: true },
   })) as LspTextEdit[] | null
   return (res ?? []).map((e) => ({ range: lspToMonacoRange(e.range), text: e.newText }))
 }
 
-export async function provideSignatureHelp(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<SignatureHelpResult | null> {
+export async function provideSignatureHelp(req: LspRequester, model: ModelLike, position: MonacoPosition): Promise<SignatureHelpResult | null>
+{
   const res = (await req.sendRequest('textDocument/signatureHelp', textDocumentParams(model, position))) as LspSignatureHelp | null
   if (res == null) return null
   return {

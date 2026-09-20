@@ -3,7 +3,8 @@ import { DiagramDocument, ConnectorEndpoint, flowDocumentToPlainText, type Conne
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ConnectorLabelText } from '../connector-label-text.js'
 
-function makeConnector(): Connector {
+function makeConnector(): Connector
+{
     const doc = new DiagramDocument()
     const a = new ArchNodeVM(); a.Id = 'A'
     const b = new ArchNodeVM(); b.Id = 'B'

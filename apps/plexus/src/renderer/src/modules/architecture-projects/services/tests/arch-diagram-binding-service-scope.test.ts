@@ -20,13 +20,15 @@ const MM = `namespace archmm {
   viewpoint ComponentView : frames component
   viewpoint DeploymentView : frames component
 }`
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
-async function scenario(seedScope?: string[]) {
+async function scenario(seedScope?: string[])
+{
     const storage = new FakeStorage('fake://Acme')
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
         type: 'architecture', name: 'Acme', version: 1,

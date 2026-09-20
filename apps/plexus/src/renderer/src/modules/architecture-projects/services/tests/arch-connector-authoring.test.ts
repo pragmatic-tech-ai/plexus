@@ -17,7 +17,8 @@ const MM = `namespace archmm {
   viewpoint V : frames component, technology, host
 }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
@@ -27,7 +28,8 @@ function buildModel(): ArchModel {
 }
 
 // Place a source + target entity as nodes, attach a binding with a stub chooser.
-function setup(model: ArchModel, srcConcept: string, tgtConcept: string) {
+function setup(model: ArchModel, srcConcept: string, tgtConcept: string)
+{
     const src = model.createInViewpoint(srcConcept, 'V')
     const tgt = model.createInViewpoint(tgtConcept, 'V')
     const doc = new DiagramDocument()

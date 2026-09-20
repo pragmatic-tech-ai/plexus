@@ -76,10 +76,13 @@ export async function resolveImageUri(src: string, ctx: MarkdownImageContext): P
     if (isRemoteUri(src)) return src
     if (ctx.storage === undefined) return undefined
     const path = resolveLocalPath(ctx.baseDir, src)
-    try {
+    try
+    {
         const bytes = await ctx.storage.ReadBytes(path)
         return bytesToDataUri(bytes, mimeForPath(path))
-    } catch {
+    }
+    catch
+    {
         return undefined
     }
 }
@@ -100,7 +103,8 @@ export function resolveLocalPath(baseDir: string, src: string): string
     const base = rootRelative ? [] : baseDir.replace(/\\/g, '/').split('/').filter((s) => s.length > 0)
     const parts = clean.split('/').filter((s) => s.length > 0)
     const out = base.slice()
-    for (const part of parts) {
+    for (const part of parts)
+    {
         if (part === '.') continue
         if (part === '..') { out.pop(); continue }
         out.push(part)
@@ -112,7 +116,8 @@ export function resolveLocalPath(baseDir: string, src: string): string
 export function mimeForPath(path: string): string
 {
     const ext = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-    switch (ext) {
+    switch (ext)
+    {
         case 'jpg': case 'jpeg': return 'image/jpeg'
         case 'gif':              return 'image/gif'
         case 'svg':              return 'image/svg+xml'

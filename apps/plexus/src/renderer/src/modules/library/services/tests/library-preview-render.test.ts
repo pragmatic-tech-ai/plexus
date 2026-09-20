@@ -19,7 +19,8 @@ const noIconReg = { iconKeyFor: () => undefined, onChanged: () => () => {} } as 
 
 let priorApp: Application | null = null
 
-function withApp(): Application {
+function withApp(): Application
+{
     priorApp = Application.current
     const app = new Application()
     Application.current = app
@@ -38,15 +39,18 @@ function withApp(): Application {
 
 afterEach(() => { Application.current = priorApp })
 
-function find(root: Visual, pred: (v: Visual) => boolean): Visual | undefined {
+function find(root: Visual, pred: (v: Visual) => boolean): Visual | undefined
+{
     if (pred(root)) return root
     for (const c of root.visualChildren) { const r = find(c, pred); if (r !== undefined) return r }
     return undefined
 }
-function findText(root: Visual, text: string): boolean {
+function findText(root: Visual, text: string): boolean
+{
     return find(root, (v) => v instanceof TextBlock && v.Text === text) !== undefined
 }
-function classLeaf(display: string, concept: string): LibraryTreeNode {
+function classLeaf(display: string, concept: string): LibraryTreeNode
+{
     return LibraryTreeNode.leaf({ display, label: display, localId: display, termId: `t.${display}`, concept }, noIconReg)
 }
 

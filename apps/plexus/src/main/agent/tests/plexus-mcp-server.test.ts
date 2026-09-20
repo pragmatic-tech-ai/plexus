@@ -10,7 +10,8 @@ import {
 } from '../../../shared/agent-api.js'
 import { RuleStore } from '../tool-approval-rules.js'
 
-function memStore(): RuleStore {
+function memStore(): RuleStore
+{
     const io = new Map<string, string>()
     return new RuleStore({ read: (p) => io.get(p), write: (p, s) => { io.set(p, s) } }, 'x.json')
 }

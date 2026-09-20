@@ -129,7 +129,8 @@ export class ChatSessionsService extends ServiceBase
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         host?.OpenDocuments.Subscribe((change) => {
             if (change.kind !== 'removed') return
-            for (const doc of change.items) {
+            for (const doc of change.items)
+            {
                 const chat = this.Open.ToArray().find((c) => c.Id === (doc as { Id: string }).Id)
                 if (chat !== undefined) this.cleanupSession(chat)
             }
@@ -314,7 +315,8 @@ export class ChatSessionsService extends ServiceBase
     }
 
     // The preload skill-context bridge (absent outside the desktop host).
-    private skillContextBridge(): ISkillContextApi | undefined {
+    private skillContextBridge(): ISkillContextApi | undefined
+    {
         return (globalThis as unknown as { api?: { skillContext?: ISkillContextApi } }).api?.skillContext
     }
 
@@ -528,7 +530,8 @@ export class ChatSessionsService extends ServiceBase
         const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
         const card = new NewProjectCard(req.id)
         const close = (result?: NewProjectResult): void => {
-            if (result === undefined) {
+            if (result === undefined)
+            {
                 card.showCancelled()
                 void this.agent.createProjectResult({ id: req.id, created: false, cancelled: true })
                 reducer.releasePending(req.id)

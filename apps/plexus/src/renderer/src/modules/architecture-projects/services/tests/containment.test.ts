@@ -26,7 +26,8 @@ const file = { uri: 'model.todl', text: `namespace archmm {
   model Arch : archmm conforms V { location loc {} component comp { in = loc; } }
 }` }
 
-function build(): ArchModel {
+function build(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
@@ -78,7 +79,8 @@ const nestFile = { uri: 'nest.todl', text: `namespace archmm {
   }
 }` }
 
-function buildNest(): ArchModel {
+function buildNest(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: NEST_MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [nestFile], { namespace: 'archmm' })
@@ -133,7 +135,8 @@ const blockFile = { uri: 'block.todl', text: `namespace archmm {
   }
 }` }
 
-function buildBlocks(): ArchModel {
+function buildBlocks(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: BLOCK_MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [blockFile], { namespace: 'archmm' })

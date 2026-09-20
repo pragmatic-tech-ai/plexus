@@ -14,7 +14,8 @@ const MM = `namespace archmm {
   viewpoint ComponentView : frames Component
 }`
 
-function fakeOpenProject(storage: FakeStorage): OpenProject {
+function fakeOpenProject(storage: FakeStorage): OpenProject
+{
     const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     return { Project: project, Storage: storage } as unknown as OpenProject
 }

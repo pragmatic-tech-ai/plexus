@@ -3,7 +3,8 @@ import { Observable, RelayCommand, type ICommand } from "@pragmatic-tech-ai/mura
 // Handlers the compiler's header buttons invoke — supplied by the service, which
 // owns the open/compile/publish flow. Passing callbacks (rather than the service
 // itself) keeps this VM free of a back-reference to the service type.
-export interface PackageCompilerHandlers {
+export interface PackageCompilerHandlers
+{
   open(): void;
   compile(): void;
   publish(): void;
@@ -18,7 +19,8 @@ export interface PackageCompilerHandlers {
 // Open/Compile/Publish are always shown; Bump/Delete are the 409-conflict
 // recovery choices, revealed (via ConflictVisible) only after a publish hits an
 // existing version and hidden again once a publish succeeds.
-export class PackageCompilerHeaderVM extends Observable {
+export class PackageCompilerHeaderVM extends Observable
+{
   readonly Open: ICommand;
   readonly Compile: ICommand;
   readonly Publish: ICommand;
@@ -29,14 +31,16 @@ export class PackageCompilerHeaderVM extends Observable {
   // the service as publishes conflict / succeed.
   private _conflictVisible = false;
   get ConflictVisible(): boolean { return this._conflictVisible; }
-  set ConflictVisible(v: boolean) {
+  set ConflictVisible(v: boolean)
+  {
     if (v === this._conflictVisible) return;
     const old = this._conflictVisible;
     this._conflictVisible = v;
     this.RaisePropertyChanged("ConflictVisible", old, v);
   }
 
-  constructor(handlers: PackageCompilerHandlers) {
+  constructor(handlers: PackageCompilerHandlers)
+  {
     super();
     this.Open = new RelayCommand(() => handlers.open(), undefined, {
       Text: "Open", Description: "Open a project directory to compile.",

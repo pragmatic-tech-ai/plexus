@@ -19,12 +19,14 @@ export const CONNECTOR_DEFAULT_TYPE = 'calls'
 export const CONNECTOR_DRAW_MEMBER = '__connector_draw__'
 
 // True when an entity is (or subtypes) the `connector` concept.
-export function isConnectorEntity(repo: Repository, entity: Entity): boolean {
+export function isConnectorEntity(repo: Repository, entity: Entity): boolean
+{
     return acceptSet(repo, entity.concept).has(CONNECTOR_CONCEPT)
 }
 
 // A connector entity's type term (e.g. 'calls'), or the default when unset.
-export function connectorTypeOf(entity: Entity): string {
+export function connectorTypeOf(entity: Entity): string
+{
     const t = entity.field(CONNECTOR_TYPE_FIELD)
     return typeof t === 'string' && t.length > 0 ? t : CONNECTOR_DEFAULT_TYPE
 }
@@ -32,7 +34,8 @@ export function connectorTypeOf(entity: Entity): string {
 // True when the meta-model's `connector` `from`/`to` accept the (src → tgt) pair
 // (subtype-aware) — i.e. drawing a line between two nodes of these concepts can
 // mint a connector entity. False when the meta-model has no `connector` concept.
-export function canDrawConnectorEntity(repo: Repository, srcConcept: string, tgtConcept: string): boolean {
+export function canDrawConnectorEntity(repo: Repository, srcConcept: string, tgtConcept: string): boolean
+{
     if (repo.resolve(CONNECTOR_CONCEPT) === undefined) return false
     const rels = repo.effectiveSchema(CONNECTOR_CONCEPT).relationships
     const fromRel = rels.find((r) => r.name === CONNECTOR_FROM_MEMBER)
@@ -48,7 +51,8 @@ export function canDrawConnectorEntity(repo: Repository, srcConcept: string, tgt
 // Mint a `connector` entity linking `fromId → toId` with the given type term.
 // Routes it to the `from` endpoint's home file so it round-trips to real source.
 // Returns the new entity id. Does NOT save — the caller saves once.
-export function mintConnectorEntity(model: ArchModel, fromId: string, toId: string, type: string): string {
+export function mintConnectorEntity(model: ArchModel, fromId: string, toId: string, type: string): string
+{
     const id = model.uniqueId(CONNECTOR_CONCEPT)
     model.create(CONNECTOR_CONCEPT, id, model.homeOf(fromId))
     model.addRef(id, CONNECTOR_FROM_MEMBER, fromId)

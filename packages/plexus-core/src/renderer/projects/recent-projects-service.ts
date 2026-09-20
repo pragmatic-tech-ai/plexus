@@ -5,7 +5,8 @@ import { EnvironmentService } from '../environment/environment-service.js';
 import { FileSystemService } from '../modules/storage/index.js';
 
 // One entry in the recent-projects list (an MRU of opened/created projects).
-export interface RecentProject {
+export interface RecentProject
+{
     name: string;
     path: string;
     type: string;
@@ -17,57 +18,70 @@ export interface RecentProject {
 // FileSystemService (no new IPC bridge). It is kept OFF the settings store on
 // purpose: ApplicationSettings.persist() rewrites the whole settings record
 // from its typed keys, so a shared key there would be clobbered.
-export class RecentProjectsService extends ServiceBase {
+export class RecentProjectsService extends ServiceBase
+{
     public static readonly Key = new ServiceKey<RecentProjectsService>('RecentProjectsService');
     public static readonly MaxEntries = 10;
     private static readonly FileName = 'recent-projects.json';
 
-    constructor(provider: IServiceProvider) {
+    constructor(provider: IServiceProvider)
+    {
         super(provider);
     }
 
-    private get fs(): FileSystemService {
+    private get fs(): FileSystemService
+    {
         return this.Provider.getRequired(FileSystemService.Key);
     }
-    private get env(): IEnvironment {
+    private get env(): IEnvironment
+    {
         return this.Provider.getRequired(EnvironmentService.Key);
     }
 
-    private get filePath(): string {
+    private get filePath(): string
+    {
         return join(this.env.UserDataDirectory, RecentProjectsService.FileName);
     }
 
     // The stored list, most-recent first. Tolerates a missing/corrupt file → [].
-    public async List(): Promise<readonly RecentProject[]> {
-        try {
+    public async List(): Promise<readonly RecentProject[]>
+    {
+        try
+        {
             if (!(await this.fs.Exists(this.filePath))) return [];
             const parsed = JSON.parse(await this.fs.ReadText(this.filePath));
             return Array.isArray(parsed) ? (parsed as RecentProject[]) : [];
-        } catch {
+        }
+        catch
+        {
             return [];
         }
     }
 
     // Insert (or move) an entry to the front; dedupe by path; cap at MaxEntries.
-    public async Add(entry: RecentProject): Promise<void> {
+    public async Add(entry: RecentProject): Promise<void>
+    {
         const rest = (await this.List()).filter((e) => e.path !== entry.path);
         const next = [entry, ...rest].slice(0, RecentProjectsService.MaxEntries);
         await this.write(next);
     }
 
-    public async Remove(path: string): Promise<void> {
+    public async Remove(path: string): Promise<void>
+    {
         const next = (await this.List()).filter((e) => e.path !== path);
         await this.write(next);
     }
 
-    private write(list: readonly RecentProject[]): Promise<void> {
+    private write(list: readonly RecentProject[]): Promise<void>
+    {
         return this.fs.WriteText(this.filePath, JSON.stringify(list, null, 2));
     }
 }
 
 // Join a directory and a file name using the directory's own separator (no
 // node:path in the renderer).
-function join(dir: string, name: string): string {
+function join(dir: string, name: string): string
+{
     const sep = dir.includes('\\') && !dir.includes('/') ? '\\' : '/';
     return dir.endsWith(sep) ? dir + name : dir + sep + name;
 }

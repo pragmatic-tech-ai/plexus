@@ -45,7 +45,8 @@ export class DropCandidateChooserService extends ServiceBase
     {
         const rows = this.Rows
         rows.Clear()
-        for (const action of candidates) {
+        for (const action of candidates)
+        {
             const row = new ChooserRow(action.label, new RelayCommand(() => { this.close(); onPick(action) }))
             rows.Add(row)
         }

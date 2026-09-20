@@ -20,7 +20,8 @@ import { TITLE_BAR_HEIGHT } from "@pragmatic-tech-ai/plexus-core/shared/window-a
 // renderer's theme hook (attachTitleBar) re-tints on first paint + every swap.
 const INITIAL_OVERLAY = { color: "#1C1B1F", symbolColor: "#CAC4D0" };
 
-function createWindow(): void {
+function createWindow(): void
+{
   const window = new BrowserWindow({
     width: 1280,
     height: 860,
@@ -44,9 +45,12 @@ function createWindow(): void {
 
   window.on("ready-to-show", () => window.show());
 
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"] !== undefined) {
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"] !== undefined)
+  {
     void window.loadURL(process.env["ELECTRON_RENDERER_URL"]);
-  } else {
+  }
+  else
+  {
     void window.loadFile(join(__dirname, "../renderer/index.html"));
   }
 }

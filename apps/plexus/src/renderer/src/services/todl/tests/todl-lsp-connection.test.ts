@@ -4,7 +4,8 @@ import type { ITodlLspApi } from '../../../../../shared/todl-lsp-api.js'
 
 // Two bridges cross-wired: whatever A sends, B's onMessage subscribers receive,
 // and vice-versa — a stand-in for the main-process relay between two peers.
-function loopback(): [ITodlLspApi, ITodlLspApi] {
+function loopback(): [ITodlLspApi, ITodlLspApi]
+{
   const cbs: Array<Array<(m: unknown) => void>> = [[], []]
   const make = (self: 0 | 1): ITodlLspApi => ({
     send: (m) => { for (const cb of cbs[1 - self]!) cb(m) },

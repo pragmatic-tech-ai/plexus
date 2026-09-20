@@ -10,7 +10,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 
 /** The encryption seam. `available()` gates writing to disk. */
-export interface Encryptor {
+export interface Encryptor
+{
   available(): boolean;
   encrypt(plain: string): Buffer;
   decrypt(cipher: Buffer): string;
@@ -18,29 +19,35 @@ export interface Encryptor {
 
 const TOKEN_FILE = "registry-token.bin";
 
-export class TokenStore {
+export class TokenStore
+{
   private readonly path: string;
   private memoryToken = "";
 
   constructor(
     private readonly userDataDir: string,
     private readonly encryptor: Encryptor,
-  ) {
+  )
+  {
     this.path = join(userDataDir, TOKEN_FILE);
   }
 
-  hasToken(): boolean {
+  hasToken(): boolean
+  {
     return this.getToken().length > 0;
   }
 
-  getToken(): string {
+  getToken(): string
+  {
     if (this.memoryToken.length > 0) return this.memoryToken;
     if (!existsSync(this.path)) return "";
     return this.encryptor.decrypt(readFileSync(this.path));
   }
 
-  setToken(token: string): void {
-    if (!this.encryptor.available()) {
+  setToken(token: string): void
+  {
+    if (!this.encryptor.available())
+    {
       this.memoryToken = token; // session-only fallback; never write plaintext
       return;
     }
@@ -49,7 +56,8 @@ export class TokenStore {
     this.memoryToken = "";
   }
 
-  clear(): void {
+  clear(): void
+  {
     this.memoryToken = "";
     if (existsSync(this.path)) rmSync(this.path);
   }

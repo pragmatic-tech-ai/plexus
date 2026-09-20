@@ -11,7 +11,8 @@ import { ConnectionTokenStore } from "../connection-token-store.js";
 import { PackageRegistryManager } from "../package-registry-manager.js";
 import { LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
 
-class PlainEncryptor implements Encryptor {
+class PlainEncryptor implements Encryptor
+{
   available() { return true; }
   encrypt(p: string) { return Buffer.from(p, "utf8"); }
   decrypt(c: Buffer) { return c.toString("utf8"); }
@@ -19,7 +20,8 @@ class PlainEncryptor implements Encryptor {
 const freshDir = () => mkdtempSync(join(tmpdir(), "todl-bridge-"));
 
 /** A structural stand-in for PackageManager with per-method overrides. */
-class FakeManager implements PackageManagerLike {
+class FakeManager implements PackageManagerLike
+{
   constructor(private readonly over: Partial<PackageManagerLike> = {}) {}
   list() { return this.over.list?.() ?? Promise.resolve([] as string[]); }
   versions(n: string) { return this.over.versions?.(n) ?? Promise.resolve({ versions: ["0.1.0"], distTags: { latest: "0.1.0" } }); }
@@ -41,7 +43,8 @@ function makeBridge(
   onConfig?: (config: any) => void,
   compile?: (directory: string, options?: { scope?: string; outDir?: string }) => Promise<any>,
   store: LocalPackageStore = new LocalPackageStore(),
-) {
+)
+{
   const dir = freshDir();
   // The manager seeds one "GitHub Packages" connection (migrateIfNeeded) from the
   // legacy defaults, so every bridge starts with a default connection.

@@ -38,7 +38,8 @@ export class HelpDocumentStore extends ServiceBase
         const flush = (): void => {
             if (anchor !== undefined) this.sections.set(`${docId}#${anchor}`, buf.join('\n'))
         }
-        for (const line of lines) {
+        for (const line of lines)
+        {
             const m = /^##\s+(.+?)\s*$/.exec(line)
             if (m !== null) { flush(); anchor = HelpDocumentStore.slug(m[1]); buf = [line] }
             else if (anchor !== undefined) buf.push(line)

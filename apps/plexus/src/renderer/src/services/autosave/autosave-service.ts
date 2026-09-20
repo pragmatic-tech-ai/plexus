@@ -14,7 +14,8 @@ export function saveDirtyDocuments(
     host: { OpenDocuments: { ToArray(): IDocument[] }; Save(doc: IDocument): void | Promise<void> },
 ): void
 {
-    for (const doc of host.OpenDocuments.ToArray()) {
+    for (const doc of host.OpenDocuments.ToArray())
+    {
         if (!doc.IsDirty) continue
         try { void host.Save(doc) }
         catch { /* transient write failure — keep sweeping, retry next tick */ }
@@ -57,10 +58,12 @@ export class AutosaveService extends ServiceBase
     {
         if (this.ticking) return
         this.ticking = true
-        try {
+        try
+        {
             const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
             if (host !== undefined) saveDirtyDocuments(host)
-        } finally { this.ticking = false }
+        }
+        finally { this.ticking = false }
     }
 }
 

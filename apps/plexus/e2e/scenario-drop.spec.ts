@@ -14,12 +14,14 @@ const ART = path.join(__dirname, '.artifacts')
 
 // Every realized node with geometry + nesting + whether its figure sits inside
 // its container's diagram-space rect.
-async function probe(l: Launched) {
+async function probe(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
         const elByVisual = new Map<any, Element>()
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v) continue
             if (!elByVisual.has(v)) elByVisual.set(v, el)
@@ -29,7 +31,8 @@ async function probe(l: Launched) {
         const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
         const figOf = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm))
         const rows: any[] = []
-        for (const vm of arr) {
+        for (const vm of arr)
+        {
             const fig = figOf(vm)
             const parent = fig?.ContainerParent
             const el = fig ? elByVisual.get(fig) : undefined
@@ -38,7 +41,8 @@ async function probe(l: Launched) {
             // container's box (viewport coords), and a DOM descendant of it?
             let insideParentRect: boolean | undefined
             let domNested: boolean | undefined
-            if (parent && el && pel) {
+            if (parent && el && pel)
+            {
                 const r = el.getBoundingClientRect(); const p = pel.getBoundingClientRect()
                 insideParentRect = r.left >= p.left - 1 && r.top >= p.top - 1 && r.right <= p.right + 1 && r.bottom <= p.bottom + 1
                 domNested = pel !== el && pel.contains(el)
@@ -60,12 +64,14 @@ async function probe(l: Launched) {
 
 // Fire a scenario toolbox drop at (x,y). Returns whether the diagram + fire method
 // were found (the router resolves the item/factory itself).
-async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: number): Promise<{ fired: boolean; itemFound: boolean }> {
+async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: number): Promise<{ fired: boolean; itemFound: boolean }>
+{
     return l.win.evaluate(({ scenarioId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
         let root: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (!v) continue
             if (!root && v.Services) root = v
@@ -85,7 +91,8 @@ async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: n
 // components fresh — so `m365_copilot_chat` (in_block = chat_surface) is a genuine
 // new node that the factory must position INSIDE the existing chat_surface.
 const FIXTURE = 'a-scenario-drop-demo.diagram'   // sorts to the top of the project files
-function writeScenarioDropFixture(archDir: string): void {
+function writeScenarioDropFixture(archDir: string): void
+{
     const diagram = {
         version: 3,
         nodes: [
@@ -101,10 +108,12 @@ function writeScenarioDropFixture(archDir: string): void {
 }
 
 // Whether a Diagram visual is currently mounted in the canvas.
-async function diagramOpen(l: Launched): Promise<boolean> {
+async function diagramOpen(l: Launched): Promise<boolean>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') return true
         }
@@ -113,24 +122,29 @@ async function diagramOpen(l: Launched): Promise<boolean> {
 }
 
 // Scroll the project tree to `name`, open it, and wait for a Diagram to mount.
-async function openByName(l: Launched, name: string): Promise<boolean> {
+async function openByName(l: Launched, name: string): Promise<boolean>
+{
     const { rectsForCtor, clickCenter } = await import('./plexus-app')
     const navs = await rectsForCtor(l.win, 'NavigationItem')
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1200)
     const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-    for (let attempt = 0; attempt < 4; attempt++) {
-        for (let i = 0; i < 60; i++) {
+    for (let attempt = 0; attempt < 4; attempt++)
+    {
+        for (let i = 0; i < 60; i++)
+        {
             if (await l.win.getByText(name, { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 300)
             await l.win.waitForTimeout(150)
         }
         const dd = l.win.getByText(name, { exact: true }).first()
-        if (await dd.count()) {
+        if (await dd.count())
+        {
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            for (let w = 0; w < 16; w++) {
+            for (let w = 0; w < 16; w++)
+            {
                 await l.win.waitForTimeout(700)
                 if (await diagramOpen(l)) return true
             }
@@ -208,7 +222,8 @@ test.describe.serial('scenario drop onto a diagram with block containers', () =>
 // Empty diagram: the container (chat_surface) is added by the SAME scenario drop
 // as its child (m365_copilot_chat). The child must still end up positioned inside
 // the container — not scattered in the free flow and then reparented far away.
-function writeEmptyFixture(archDir: string): void {
+function writeEmptyFixture(archDir: string): void
+{
     fs.writeFileSync(path.join(archDir, 'a-scenario-empty-demo.diagram'), JSON.stringify({ version: 3, nodes: [], visuals: {} }, null, 1))
 }
 

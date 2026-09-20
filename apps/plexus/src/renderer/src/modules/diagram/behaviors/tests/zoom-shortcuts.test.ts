@@ -3,7 +3,8 @@ import { Diagram, DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { attachZoomShortcuts } from '../zoom-shortcuts.js'
 
 // A fake window capturing the single keydown listener.
-function fakeTarget() {
+function fakeTarget()
+{
     let handler: ((e: KeyboardEvent) => void) | undefined
     return {
         addEventListener: (_t: string, h: EventListenerOrEventListenerObject) => { handler = h as (e: KeyboardEvent) => void },
@@ -15,7 +16,8 @@ function fakeTarget() {
 // A real DiagramDocument (so the behavior's `instanceof` guard is exercised) whose
 // ActiveView is a real Diagram (so the document's view-mirror wires up) with its
 // zoom methods spied.
-function hostWithView() {
+function hostWithView()
+{
     const canvas = new Diagram()
     const view = {
         ZoomIn: vi.spyOn(canvas, 'ZoomIn').mockImplementation(() => {}),

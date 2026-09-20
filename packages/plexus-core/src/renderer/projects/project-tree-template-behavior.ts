@@ -101,7 +101,8 @@ export class ProjectTreeTemplateBehavior extends Behavior
     private serviceOf(from: Visual): IProjectTreeHost | undefined
     {
         let cur: Visual | undefined = from
-        while (cur !== undefined) {
+        while (cur !== undefined)
+        {
             if (isProjectTreeHost(cur.DataContext)) return cur.DataContext
             cur = cur.GetVisualParent()
         }

@@ -15,7 +15,8 @@ const MM = `namespace t {
   viewpoint V : frames component, lonely
 }`
 
-function repoWith(icons: string[], model: string): { repo: Repository; entity: (id: string) => Entity } {
+function repoWith(icons: string[], model: string): { repo: Repository; entity: (id: string) => Entity }
+{
     const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)
     for (const target of icons)
         mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))
@@ -74,7 +75,8 @@ const DIR_MM = `namespace t {
   viewpoint V : frames component
 }`
 
-function dirRepoWith(icons: string[]): { repo: Repository; entity: (id: string) => Entity } {
+function dirRepoWith(icons: string[]): { repo: Repository; entity: (id: string) => Entity }
+{
     const mmDoc = toJSON(load([{ uri: 'dir.todl', text: DIR_MM }]).model)
     for (const target of icons)
         mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))

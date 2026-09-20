@@ -30,7 +30,8 @@ export class TreeSelectionBehavior extends Behavior
 
     public override OnDetached(_visual: Visual): void
     {
-        if (this.selector !== undefined && this.listener !== undefined) {
+        if (this.selector !== undefined && this.listener !== undefined)
+        {
             this.selector.RemoveSelectionChangedListener(this.listener)
         }
         this.selector = undefined

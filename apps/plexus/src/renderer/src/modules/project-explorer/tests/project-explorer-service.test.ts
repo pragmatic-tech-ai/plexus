@@ -82,7 +82,8 @@ function scanningFactory(): IProjectFactory
     const scan = async (storage: FakeStorage): Promise<Project> => {
         const root = dnode('proj', '', 'folder')
         const populate = async (node: DataProjectNode): Promise<void> => {
-            for (const e of await storage.List(node.Path)) {
+            for (const e of await storage.List(node.Path))
+            {
                 if (node.Path === '' && e.Name === PROJECT_MANIFEST_FILENAME) continue
                 const childPath = node.Path === '' ? e.Name : `${node.Path}/${e.Name}`
                 const child = dnode(e.Name, childPath, e.IsDirectory ? 'folder' : (e.Name.endsWith('.todl') ? 'todl' : 'file'))
@@ -145,7 +146,8 @@ function fakeFs(openFiles: Picked[] | null = null, os: FakeOsTree = { pickedFold
         ListDirectory: (dir: string) => {
             const prefix = dir.replace(/[\\/]+$/, '') + '/'
             const names = new Map<string, boolean>()   // name → isDirectory
-            for (const key of osFiles.keys()) {
+            for (const key of osFiles.keys())
+            {
                 if (!key.startsWith(prefix)) continue
                 const rest = key.slice(prefix.length)
                 const slash = rest.indexOf('/')
@@ -307,7 +309,8 @@ test('RefreshProjects rescans each named project and refreshes its bases; unknow
     expect(calls).toEqual(['resync', 'refresh']) // rescan resyncs the doc set, then bases refresh
 })
 
-function formWith(types: string[]): NewProjectDialogModel {
+function formWith(types: string[]): NewProjectDialogModel
+{
     const choices = types.map((t) => new ProjectTypeChoice(t, t, `${t} project`))
     // fs/validate/close are unused by applyPrefill; pass inert stubs.
     return new NewProjectDialogModel(choices, {} as never, async () => null, () => {})
@@ -330,7 +333,8 @@ test('applyPrefill ignores an unknown type and missing fields', () => {
 
 // A form whose architecture type requires a meta-model + offers libraries, with a
 // published meta-model and two libraries available to the pickers.
-function archForm(): NewProjectDialogModel {
+function archForm(): NewProjectDialogModel
+{
     const choices = [new ProjectTypeChoice('architecture', 'Architecture', 'arch project', true, true)]
     const metaModels = [{ id: 'tech-architecture', version: '0.1.0' }]
     const libraries = [{ id: 'microsoft', version: '0.1.0' }, { id: 'aws', version: '0.2.0' }]
@@ -414,7 +418,8 @@ test('Publish is disabled for a non-publishable project', async () => {
 })
 
 // A publishable factory whose publish returns a preset result.
-function factoryReturning(result: { ok: boolean; message: string }): IProjectFactory & IPublishableProjectFactory {
+function factoryReturning(result: { ok: boolean; message: string }): IProjectFactory & IPublishableProjectFactory
+{
     return { ...fakeProjectFactory(true), publish: async () => result } as IProjectFactory & IPublishableProjectFactory
 }
 interface PublishPrivates { publishProject(op: OpenProject): Promise<void>; generatePresentation(op: OpenProject, colored: boolean): Promise<void> }
@@ -1115,7 +1120,8 @@ test('moveNodesAcross skips a target collision, leaving source intact', async ()
 // Build a small tree: root / [ src(folder)/[a.todl], m.todl ] on FakeStorage. Returns
 // the DATA project + storage; a test opens it and fetches the VM nodes it needs from
 // op.Root by name (the explorer projects the data tree into the VM tree — see `vm`).
-async function projectTree(folder: string): Promise<{ project: Project; storage: FakeStorage }> {
+async function projectTree(folder: string): Promise<{ project: Project; storage: FakeStorage }>
+{
     const storage = new FakeStorage(folder)
     await storage.WriteText('src/a.todl', 'a')
     await storage.WriteText('m.todl', 'm')
@@ -1128,7 +1134,8 @@ async function projectTree(folder: string): Promise<{ project: Project; storage:
 
 // Fetch a VM node from an open project's tree by project-relative path (the VM tree
 // the explorer projected from the data scan). Depth-first; throws if absent.
-function vm(op: OpenProject, path: string): ProjectNode {
+function vm(op: OpenProject, path: string): ProjectNode
+{
     const find = (n: ProjectNode): ProjectNode | undefined => {
         if (n.Path === path) return n
         for (const c of n.Children.ToArray()) { const hit = find(c); if (hit !== undefined) return hit }

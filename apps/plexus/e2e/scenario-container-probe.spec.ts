@@ -12,18 +12,21 @@ import { launchPlexus, seedSession, corpusAvailable, appErrors, cloneCorpus, typ
 
 const ART = path.join(__dirname, '.artifacts')
 
-async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; figure: string; parent: string | undefined }>> {
+async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; figure: string; parent: string | undefined }>>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
         if (!diagram) return []
         const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
         const out: Array<{ id: string; concept: string; figure: string; parent: string | undefined }> = []
-        for (const vm of arr) {
+        for (const vm of arr)
+        {
             const fig = vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
             out.push({
                 id: vm?.Id ?? fig?.Id,
@@ -41,23 +44,27 @@ const sig = (ns: Array<{ id: string }>) => ns.map((n) => n.id).sort().join(',')
 // Open `name` and wait until the canvas node-set actually CHANGES from `prevSig`
 // (an already-open diagram never re-empties the canvas, so a nodes==0 gate would
 // silently keep the prior diagram — the bug this replaces). Returns the new sig.
-async function openDiagram(l: Launched, name: string, prevSig: string): Promise<string> {
+async function openDiagram(l: Launched, name: string, prevSig: string): Promise<string>
+{
     const { rectsForCtor, clickCenter } = await import('./plexus-app')
     const navs = await rectsForCtor(l.win, 'NavigationItem')
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1000)
     const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-    for (let i = 0; i < 24; i++) {
+    for (let i = 0; i < 24; i++)
+    {
         if (await l.win.getByText(name, { exact: true }).count()) break
         await l.win.mouse.move(scrollX, 300)
         await l.win.mouse.wheel(0, 400)
         await l.win.waitForTimeout(250)
     }
-    for (let attempt = 0; attempt < 4; attempt++) {
+    for (let attempt = 0; attempt < 4; attempt++)
+    {
         const dd = l.win.getByText(name, { exact: true }).first()
         await dd.scrollIntoViewIfNeeded().catch(() => {})
         await dd.dblclick({ timeout: 4000 }).catch(() => {})
-        for (let w = 0; w < 12; w++) {
+        for (let w = 0; w < 12; w++)
+        {
             await l.win.waitForTimeout(700)
             const cur = sig(await nodes(l))
             if (cur !== prevSig && cur !== '') return cur
@@ -90,7 +97,8 @@ test.describe.serial('block-as-container + in_block nesting on real diagrams', (
     })
 
     let prevSig = ''
-    for (const name of DIAGRAMS) {
+    for (const name of DIAGRAMS)
+    {
         test(`open ${name}: dump nesting + surface app errors`, async () => {
             const before = l.errors.length
             prevSig = await openDiagram(l, name, prevSig)

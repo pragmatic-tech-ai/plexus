@@ -87,10 +87,12 @@ export function extract(
         graph.AddNode(gid)
     })
 
-    for (const conn of connectors) {
+    for (const conn of connectors)
+    {
         const from = conn.Source?.Node ? idOf.get(conn.Source.Node as object) : undefined
         const to   = conn.Target?.Node ? idOf.get(conn.Target.Node as object) : undefined
-        if (from !== undefined && to !== undefined) {
+        if (from !== undefined && to !== undefined)
+        {
             graph.AddEdge(from, to)
             connectorEdges.push({ connector: conn, from, to })
         }
@@ -117,7 +119,8 @@ export function applySides(
 ): number
 {
     let assigned = 0
-    for (const ce of connectorEdges) {
+    for (const ce of connectorEdges)
+    {
         const sides = sidesByPair.get(`${ce.from}|${ce.to}`)
         if (sides === undefined) continue
         if (ce.connector.Source) ce.connector.Source.PortSide = sides.source
@@ -143,7 +146,8 @@ export interface SizedLike
 // back to a measured RenderSize, then to `fallback`.
 export function nodeSize(fig: SizedLike, fallback: NodeSize): NodeSize
 {
-    if (typeof fig.Width === 'number' && typeof fig.Height === 'number' && fig.Width > 0 && fig.Height > 0) {
+    if (typeof fig.Width === 'number' && typeof fig.Height === 'number' && fig.Width > 0 && fig.Height > 0)
+    {
         return { width: fig.Width, height: fig.Height }
     }
     const rs = fig.RenderSize
@@ -179,7 +183,8 @@ export function computeOutcome(
     const surviving = new Set(transformed.nodes.map((n) => n.Id))
 
     const setPositions: PositionSet[] = []
-    for (const [id, pt] of positions) {
+    for (const [id, pt] of positions)
+    {
         const fig = index.get(id)
         if (!fig) continue
         const { width, height } = sizeOf(fig)

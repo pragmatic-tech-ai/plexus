@@ -52,11 +52,13 @@ test('the composer renders a SubmitsOnEnter multiline TextBox with a placeholder
         const S = Symbol.for('mural:visual-backref')
         let composer: { placeholder: string } | undefined
         let combo = false
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as unknown as Record<symbol, { constructor?: { name?: string }; SubmitsOnEnter?: boolean; Placeholder?: string; DataContext?: { constructor?: { name?: string } } }>)[S]
             if (!v) continue
             const name = v.constructor?.name
-            if (name === 'TextBox' && v.SubmitsOnEnter === true && (v.Placeholder ?? '') !== '') {
+            if (name === 'TextBox' && v.SubmitsOnEnter === true && (v.Placeholder ?? '') !== '')
+            {
                 composer = { placeholder: v.Placeholder as string }
             }
             if (name === 'ComboBox' && v.DataContext?.constructor?.name === 'ChatSession') combo = true

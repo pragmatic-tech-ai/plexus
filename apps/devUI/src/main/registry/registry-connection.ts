@@ -8,12 +8,14 @@
 /** Where a connection's auth token comes from. The canonical home for this enum
  *  (pure — no node:fs), so both main and the renderer VMs can import it without
  *  dragging the file-backed stores into the renderer bundle. */
-export enum TokenSource {
+export enum TokenSource
+{
   Stored = "stored",
   Env = "env",
 }
 
-export interface RegistryConnection {
+export interface RegistryConnection
+{
   /** Stable slug identity (derived from the name at creation, de-duplicated). */
   id: string;
   /** Display name shown in the Connections manager + as a tree root. */
@@ -29,7 +31,8 @@ export interface RegistryConnection {
 
 /** What crosses the bridge to the renderer — a connection plus a `hasToken`
  *  flag, but never the token value itself (security §7). */
-export interface ConnectionView {
+export interface ConnectionView
+{
   id: string;
   name: string;
   registry: string;
@@ -43,7 +46,8 @@ export interface ConnectionView {
 }
 
 /** The fields a caller supplies to create or edit a connection (no id/token). */
-export interface ConnectionInput {
+export interface ConnectionInput
+{
   name: string;
   registry: string;
   scope: string;
@@ -54,7 +58,8 @@ export interface ConnectionInput {
 }
 
 /** The result of testing a connection against its registry. */
-export interface ConnectionTestResult {
+export interface ConnectionTestResult
+{
   ok: boolean;
   /** Package count on success. */
   count?: number;

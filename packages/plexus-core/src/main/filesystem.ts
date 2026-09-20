@@ -19,16 +19,19 @@ import { noteInternalWrite } from './file-watcher-core.js'
 
 // The window to parent dialogs on — the focused one, falling back to the
 // first (there's a single window today, but this stays correct if more open).
-function focusedWindow(): BrowserWindow | undefined {
+function focusedWindow(): BrowserWindow | undefined
+{
   return BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
 }
 
 // Map our PascalCase FileFilter to Electron's dialog filter shape.
-function toDialogFilters(filters?: readonly FileFilter[]): Electron.FileFilter[] | undefined {
+function toDialogFilters(filters?: readonly FileFilter[]): Electron.FileFilter[] | undefined
+{
   return filters?.map((f) => ({ name: f.Name, extensions: [...f.Extensions] }))
 }
 
-export function registerFileSystemHandlers(): void {
+export function registerFileSystemHandlers(): void
+{
   ipcMain.handle(
     FileSystemChannel.OpenFile,
     async (_e, options?: OpenFileOptions): Promise<OpenFileResult | null> => {
@@ -130,10 +133,13 @@ export function registerFileSystemHandlers(): void {
   )
 
   ipcMain.handle(FileSystemChannel.Exists, async (_e, path: string): Promise<boolean> => {
-    try {
+    try
+    {
       await access(path)
       return true
-    } catch {
+    }
+    catch
+    {
       return false
     }
   })
@@ -157,10 +163,13 @@ export function registerFileSystemHandlers(): void {
   ipcMain.handle(
     FileSystemChannel.ListDirectory,
     async (_e, path: string): Promise<FileEntry[]> => {
-      try {
+      try
+      {
         const entries = await readdir(path, { withFileTypes: true })
         return entries.map((d) => ({ Name: d.name, IsDirectory: d.isDirectory() }))
-      } catch (err) {
+      }
+      catch (err)
+      {
         // A missing directory lists as empty — the convention every caller
         // already assumes (e.g. the layout-preset stores read `.plexus/…` before
         // it's ever created). Swallowing ENOENT here also silences the

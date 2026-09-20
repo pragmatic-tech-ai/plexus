@@ -8,7 +8,8 @@ import { ArchModel } from '../arch-model.js'
 const SRC = `namespace mm { concept service { annotate wiki { path = "wiki/service.md"; } } }`
 const storage = { Root: '/proj' } as unknown as IStorage
 
-function model(originOf: Map<string, WikiOrigin>): ArchModel {
+function model(originOf: Map<string, WikiOrigin>): ArchModel
+{
     const draft = ModelDraft.fromSources([], [{ uri: 'm.todl', text: SRC }], { namespace: 'mm' })
     return new ArchModel(draft, storage, 'mm', undefined, originOf)
 }

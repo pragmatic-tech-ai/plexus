@@ -10,19 +10,22 @@ import type { ConnectionInput } from "./registry-connection.js";
 // One entry in a directory listing (design: the compiler side-pane folder tree).
 // `path` is the absolute child path (joined main-side) so the renderer never
 // composes paths; `isDirectory` drives lazy branch vs. leaf.
-export interface DirEntry {
+export interface DirEntry
+{
   name: string;
   path: string;
   isDirectory: boolean;
 }
 
-export class RegistryIpc {
+export class RegistryIpc
+{
   static register(
     ipcMain: IpcMain,
     bridge: RegistryBridge,
     pickDirectory: () => Promise<string>,
     readDir: (path: string) => Promise<DirEntry[]>,
-  ): void {
+  ): void
+  {
     ipcMain.handle("registry:list", (_e, connectionId?: string) => bridge.list(connectionId));
     ipcMain.handle("registry:versions", (_e, name: string) => bridge.versions(name));
     ipcMain.handle("registry:getContent", (_e, ref) => bridge.getContent(ref));

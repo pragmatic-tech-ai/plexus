@@ -11,7 +11,8 @@ import type { Entity } from '@pragmatic-tech-ai/todl'
 export const ArchScenarioDropFactoryKey = new ServiceKey<IToolboxDropFactory>('ArchScenarioDropFactory')
 
 // Scenario-page items are keyed `scenario:<entityId>`; recover the entity id.
-export function scenarioIdOf(itemId: string): string | undefined {
+export function scenarioIdOf(itemId: string): string | undefined
+{
   return itemId.startsWith('scenario:') ? itemId.slice('scenario:'.length) : undefined
 }
 
@@ -24,10 +25,12 @@ export function scenarioIdOf(itemId: string): string | undefined {
 // the next rescan. Pure visualization — no create/addRef; the binding's rescan
 // derives each node's label/icon; addScenario persists the shown-scenario id.
 // Meant for a Scenarios-viewpoint diagram, where structural edges are out of scope.
-export class ArchScenarioDropFactory implements IToolboxDropFactory {
+export class ArchScenarioDropFactory implements IToolboxDropFactory
+{
   public constructor(private readonly provider: IServiceProvider) {}
 
-  public CreateDropped(context: ToolboxDropContext): unknown | null {
+  public CreateDropped(context: ToolboxDropContext): unknown | null
+  {
     const doc = context.Mutator as unknown as DiagramDocument
     const bindingSvc = this.provider.get(ArchDiagramBindingService.Key)
     const model = bindingSvc?.modelForDocument(doc as unknown as IDocument)
@@ -52,7 +55,8 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory {
     const layout = this.buildContainmentLayout(model as unknown as ArchModel, doc, placedBefore)
     const plan = planScenarioDrop(scenario, placedBefore, { x: context.Position.X, y: context.Position.Y }, undefined, layout)
     const placedNow = new Set(placedBefore)
-    for (const nd of plan.nodes) {
+    for (const nd of plan.nodes)
+    {
       if (!nd.isNew) continue
       const vm = new ArchNodeVM()
       vm.Id = nd.id
@@ -86,7 +90,8 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory {
     scenario: FlowEntity,
     placedBefore: ReadonlySet<string>,
     placedNow: Set<string>,
-  ): void {
+  ): void
+  {
     if (typeof model.repository !== 'function') return
     const repo = model.repository()
     const entityById = (id: string): Entity | undefined => model.entities().find((e) => e.id === id)
@@ -97,7 +102,8 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory {
       .map(entityById)
       .filter((e): e is Entity => e !== undefined && isContainer(e))
     const expanded = new Set<string>()
-    while (queue.length > 0) {
+    while (queue.length > 0)
+    {
       const container = queue.shift()!
       if (expanded.has(container.id)) continue
       expanded.add(container.id)
@@ -106,11 +112,14 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory {
       const members = membershipChildrenOf(repo, container)
       // Append after any members already sitting in the container before this drop.
       let slot = members.filter((m) => placedBefore.has(m.id)).length
-      for (const member of members) {
-        if (!placedBefore.has(member.id)) {
+      for (const member of members)
+      {
+        if (!placedBefore.has(member.id))
+        {
           const pos = containerChildSlot({ left: base.left, top: base.top }, slot)
           slot++
-          if (!placedNow.has(member.id)) {
+          if (!placedNow.has(member.id))
+          {
             const vm = new ArchNodeVM()
             vm.Id = member.id
             mutator.AddNode(vm)
@@ -130,7 +139,8 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory {
   // AND a container concept) so a node is positioned inside precisely the
   // container the binding will nest it into. `placedBefore` excludes the nodes
   // this drop is about to add.
-  private buildContainmentLayout(model: ArchModel, doc: DiagramDocument, placedBefore: ReadonlySet<string>): ContainmentLayout | undefined {
+  private buildContainmentLayout(model: ArchModel, doc: DiagramDocument, placedBefore: ReadonlySet<string>): ContainmentLayout | undefined
+  {
     if (typeof model.repository !== 'function') return undefined
     const repo = model.repository()
     const entityById = (id: string): ReturnType<ArchModel['entities']>[number] | undefined =>
@@ -144,7 +154,8 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory {
     }
     // Existing children per container: already-placed nodes that nest in it.
     const existing = new Map<string, number>()
-    for (const id of placedBefore) {
+    for (const id of placedBefore)
+    {
       const cid = containerOf(id)
       if (cid !== undefined) existing.set(cid, (existing.get(cid) ?? 0) + 1)
     }

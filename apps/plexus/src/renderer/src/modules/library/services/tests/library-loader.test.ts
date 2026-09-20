@@ -3,7 +3,8 @@ import { test, expect } from 'vitest'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { discoverLibraries, loadLibrary } from '../library-loader.js'
 
-function manifest(id: string): string {
+function manifest(id: string): string
+{
     return JSON.stringify({
         id, version: '0.1.0', name: id, metaModel: { id: 'ea', version: '5' },
         classes: [{ id: `${id}.azure`, localId: 'azure', label: 'Azure', concept: 'location', template: `visuals/${id}.azure.mural` }],

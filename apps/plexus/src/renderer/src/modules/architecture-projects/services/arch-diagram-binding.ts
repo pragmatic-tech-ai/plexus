@@ -101,7 +101,8 @@ export class ArchDiagramBinding
         const repo = this.model.repository()
         if (repo !== this.wikiRepo) { this.wikiRepo = repo; this.wikiByConcept.clear() }
         let present = this.wikiByConcept.get(concept)
-        if (present === undefined) {
+        if (present === undefined)
+        {
             present = this.wiki.hasWikiIn(repo, concept)
             this.wikiByConcept.set(concept, present)
         }
@@ -142,7 +143,8 @@ export class ArchDiagramBinding
         // listener runs first; it hit-tests the node under the cursor and publishes
         // it as doc.ContextTargetNode. (window is renderer-global; the per-doc
         // guard below scopes each binding to its own nodes.)
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined')
+        {
             window.addEventListener('pointerdown', this.onPointerDownCapture, true)
         }
         // Owner-driven icon reactivity: one registry subscription refreshes every
@@ -163,7 +165,8 @@ export class ArchDiagramBinding
     private registryCached: TodlPresentationRegistry | undefined
     private iconRegistry(): TodlPresentationRegistry | undefined
     {
-        if (this.registryCached === undefined) {
+        if (this.registryCached === undefined)
+        {
             this.registryCached = this.registry ?? Application.current?.Services.get(TodlPresentationRegistry.Key)
         }
         return this.registryCached
@@ -176,7 +179,8 @@ export class ArchDiagramBinding
     {
         if (this.registryOff !== undefined) return
         this.registryOff = registry.onChanged(() => {
-            for (const node of this.bound.values()) {
+            for (const node of this.bound.values())
+            {
                 if (node instanceof ArchNodeVM) node.Icon?.refresh()
             }
         })
@@ -195,10 +199,12 @@ export class ArchDiagramBinding
 
     // The innermost arch node whose rendered tile contains the viewport point, from
     // THIS doc's bound nodes; undefined when the point is over none.
-    private archNodeAtViewportPoint(x: number, y: number): ArchNodeVM | undefined {
+    private archNodeAtViewportPoint(x: number, y: number): ArchNodeVM | undefined
+    {
         const backref = Symbol.for('mural:visual-backref')
         let best: { node: ArchNodeVM; area: number } | undefined
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const dc = (el as unknown as Record<symbol, { DataContext?: unknown } | undefined>)[backref]?.DataContext
             if (!(dc instanceof ArchNodeVM)) continue
             const id = dc.EntityId
@@ -247,11 +253,13 @@ export class ArchDiagramBinding
     {
         if (!shift) return
         let removed = false
-        for (const it of items) {
+        for (const it of items)
+        {
             const id = (it as { Id?: string } | undefined)?.Id
             if (id !== undefined && this.bound.has(id)) { this.model.remove(id); removed = true }
         }
-        for (const c of connectors) {
+        for (const c of connectors)
+        {
             const entityId = this.connectorEntityIdFor(c)
             if (entityId !== undefined) { this.model.remove(entityId); removed = true }
         }
@@ -283,10 +291,13 @@ export class ArchDiagramBinding
             const ent = this.model.repository().entity(entityId)
             if (ent !== undefined && next === connectorTypeOf(ent)) return   // unchanged / cancelled
             this.doc.History.Begin('Rename connector')
-            try {
+            try
+            {
                 this.model.setField(entityId, CONNECTOR_TYPE_FIELD, next)
                 void this.model.save()
-            } finally {
+            }
+            finally
+            {
                 this.doc.History.Commit()
             }
         }
@@ -317,12 +328,14 @@ export class ArchDiagramBinding
         const applyByMember = new Map<string, () => void>()
 
         // Concept-relationship outcomes: write the ref on the source.
-        for (const a of resolveConnectorActions(repo, srcConcept, tgtConcept, this.scopeSet())) {
+        for (const a of resolveConnectorActions(repo, srcConcept, tgtConcept, this.scopeSet()))
+        {
             actions.push(a)
             applyByMember.set(a.member, () => { this.model.addRef(fromId, a.member, toId); void this.model.save() })
         }
         // Connector-entity outcome: mint a typed `connector` entity (default calls).
-        if (canDrawConnectorEntity(repo, srcConcept, tgtConcept)) {
+        if (canDrawConnectorEntity(repo, srcConcept, tgtConcept))
+        {
             actions.push({ member: CONNECTOR_DRAW_MEMBER, label: `connect (${CONNECTOR_DEFAULT_TYPE})` })
             applyByMember.set(CONNECTOR_DRAW_MEMBER, () => {
                 mintConnectorEntity(this.model, fromId, toId, CONNECTOR_DEFAULT_TYPE); void this.model.save()
@@ -387,14 +400,17 @@ export class ArchDiagramBinding
         // and (for container concepts) nest exactly like an own arch node. Read-only:
         // write-back (handleReparent) still guards against mutating library entities.
         const repo = this.model.repository()
-        for (const node of this.doc.Nodes.ToArray()) {
+        for (const node of this.doc.Nodes.ToArray())
+        {
             const id = (node as { Id?: string }).Id
             if (id === undefined || byId.has(id)) continue
             if (repo.has(id)) { const e = repo.entity(id); if (e !== undefined) byId.set(id, e) }
         }
         // Bind + derive label/icon for every node that maps to a live entity.
-        for (const node of this.doc.Nodes.ToArray()) {
-            if (node instanceof ArchNodeVM) {
+        for (const node of this.doc.Nodes.ToArray())
+        {
+            if (node instanceof ArchNodeVM)
+            {
                 const id = node.Id
                 if (id === undefined) continue
                 const entity = byId.get(id)
@@ -405,17 +421,21 @@ export class ArchDiagramBinding
                 // field (subscribe once per node; the WeakSet guards re-scans).
                 // setField fires onChanged → rescan re-derives the same Label,
                 // and save() writes it to the entity's home .todl file.
-                if (!this.titleWired.has(node)) {
+                if (!this.titleWired.has(node))
+                {
                     this.titleWired.add(node)
                     const entityId = id
                     this.titleUnsubs.push(node.AddLabelCommittedListener((title) => {
                         // Rename is not a Diagram mutating event → bracket it here so
                         // it is one undo step (the model layer captures the label change).
                         this.doc.History.Begin('Rename')
-                        try {
+                        try
+                        {
                             this.model.setField(entityId, 'label', title)
                             void this.model.save()
-                        } finally {
+                        }
+                        finally
+                        {
                             this.doc.History.Commit()
                         }
                     }))
@@ -431,7 +451,8 @@ export class ArchDiagramBinding
                 // rescan may not set Icon yet; a later rescan (model change / discovery)
                 // does, and wires reactivity then.
                 const iconRegistry = this.iconRegistry()
-                if (iconRegistry !== undefined) {
+                if (iconRegistry !== undefined)
+                {
                     node.Icon = new EntityIconVM(iconRegistry, key)
                     this.ensureIconReactivity(iconRegistry)
                 }
@@ -448,13 +469,16 @@ export class ArchDiagramBinding
                 // navigable relations (component / technology / category) and hand
                 // the node its bindable, adaptive targets + a router that opens the
                 // source or reveals the published term.
-                if (this.nav !== undefined && this.projectId !== undefined) {
+                if (this.nav !== undefined && this.projectId !== undefined)
+                {
                     const nav = this.nav
                     const projectId = this.projectId
                     const targets = nav.resolveTargets(this.model, id)
                     node.ApplyNavTargets(targets, (t) => void nav.navigateTo(this.model, projectId, t))
                 }
-            } else if (node instanceof Figure) {
+            }
+            else if (node instanceof Figure)
+            {
                 // Back-compat for any freeform Figure with a matching entity id.
                 const id = node.Id
                 if (id === undefined) continue
@@ -465,8 +489,10 @@ export class ArchDiagramBinding
             }
         }
         // Remove tracked nodes whose entity is gone.
-        for (const [id, node] of [...this.bound]) {
-            if (!byId.has(id)) {
+        for (const [id, node] of [...this.bound])
+        {
+            if (!byId.has(id))
+            {
                 this.doc.DeleteNodes([node])
                 this.bound.delete(id)
             }
@@ -492,7 +518,8 @@ export class ArchDiagramBinding
         const view = this.doc.ActiveView
         if (view === undefined) return
         const stale: Array<{ vm: ArchNodeVM; index: number }> = []
-        for (const [, node] of this.bound) {
+        for (const [, node] of this.bound)
+        {
             if (!(node instanceof ArchNodeVM) || !node.IsContainer) continue
             const fig = view.Generator.ContainerFromItem(node)
             if (fig instanceof ContentContainerFigure) continue   // already the right container
@@ -501,12 +528,16 @@ export class ArchDiagramBinding
         }
         if (stale.length === 0) return
         this._writingBack = true   // suppress NodeReparented echoes during the churn
-        try {
-            for (const { vm, index } of stale) {
+        try
+        {
+            for (const { vm, index } of stale)
+            {
                 this.doc.Nodes.Remove(vm)
                 this.doc.Nodes.Insert(index, vm)   // re-mints the container as a ContentContainerFigure (mural styles its default box)
             }
-        } finally {
+        }
+        finally
+        {
             this._writingBack = false
         }
     }
@@ -530,9 +561,11 @@ export class ArchDiagramBinding
         const repo = this.model.repository()
         const placement = view.ContainerPlacement
         this._writingBack = true
-        try {
+        try
+        {
             placement.placeAll()   // register realized containers + restore saved nesting
-            for (const [id, node] of this.bound) {
+            for (const [id, node] of this.bound)
+            {
                 if (!(node instanceof ArchNodeVM)) continue
                 const entity = byId.get(id)
                 if (entity === undefined) continue
@@ -544,7 +577,9 @@ export class ArchDiagramBinding
                 if ((fig.ContainerParent?.Id) === targetId) continue   // already nested correctly
                 placement.reparent(fig, targetId)
             }
-        } finally {
+        }
+        finally
+        {
             this._writingBack = false
         }
     }
@@ -564,11 +599,13 @@ export class ArchDiagramBinding
         if (child === undefined) return                   // visual-only node (no model backing)
         const repo = this.model.repository()
 
-        if (args.NewParentId === undefined) {
+        if (args.NewParentId === undefined)
+        {
             // Un-nest: sever every containment tie to the old parent (own OR library
             // entity) — both the child's up-ref and the parent's membership list.
             const oldId = args.OldParentId
-            if (oldId !== undefined && this.resolveEntity(oldId) !== undefined) {
+            if (oldId !== undefined && this.resolveEntity(oldId) !== undefined)
+            {
                 this.severContainment(childId, child, oldId)
                 void this.model.save()
             }
@@ -588,7 +625,8 @@ export class ArchDiagramBinding
         // Nest into a MODEL-backed parent: the meta-model must permit
         // child --containment--> parent; otherwise reject (modal + snap back, no write).
         const member = containmentMemberFor(repo, child.concept, parent.concept)
-        if (member === undefined) {
+        if (member === undefined)
+        {
             this._writingBack = true
             try { this.doc.ActiveView?.ContainerPlacement.reparent(args.Node as unknown as Figure, undefined) }
             finally { this._writingBack = false }
@@ -663,9 +701,11 @@ export class ArchDiagramBinding
         const type = c.LabelText !== undefined && c.LabelText !== '' ? c.LabelText : CONNECTOR_DEFAULT_TYPE
         const metaKey = connectorVisualKey(key, type)
         const saved = readConnectorVisuals(this.doc)[metaKey]
-        if (saved !== undefined) {
+        if (saved !== undefined)
+        {
             this._applyingConnectorVisual = true
-            try { applyConnectorVisual(c, saved) } finally { this._applyingConnectorVisual = false }
+            try { applyConnectorVisual(c, saved) }
+            finally { this._applyingConnectorVisual = false }
         }
         const onVisualEdit = (): void => {
             if (this._applyingConnectorVisual) return
@@ -705,7 +745,8 @@ export class ArchDiagramBinding
     private projectEdges(byId: ReadonlyMap<string, Entity>): void
     {
         const placed = new Map<string, Entity>()
-        for (const id of this.bound.keys()) {
+        for (const id of this.bound.keys())
+        {
             const e = byId.get(id)
             if (e !== undefined) placed.set(id, e)
         }
@@ -716,7 +757,8 @@ export class ArchDiagramBinding
         // between placed participants. These are model-derived (the steps live in
         // the model), so they are "ours" — the sweep below keeps them and a reload
         // re-projects them from the persisted scenario ids.
-        if (this.scenarios.length > 0) {
+        if (this.scenarios.length > 0)
+        {
             const scEnts = this.scenarios
                 .map((id) => byId.get(id))
                 .filter((e): e is Entity => e !== undefined) as unknown as FlowEntity[]
@@ -735,7 +777,8 @@ export class ArchDiagramBinding
         // (_hostEndpoint); one that isn't stays a VM ref and is re-pointed onto its
         // container when it later binds (ContainerBound → _repointEndpointsToContainer)
         // — the same recovery a reopen relies on.
-        for (const key of desired) {
+        for (const key of desired)
+        {
             if (this.boundEdges.has(key)) continue
             const [fromId, , toId] = key.split('|')
             const src = this.bound.get(fromId)
@@ -745,7 +788,8 @@ export class ArchDiagramBinding
                 new ConnectorEndpoint({ Node: src }),
                 new ConnectorEndpoint({ Node: tgt }),
             )
-            if (c !== null) {
+            if (c !== null)
+            {
                 // Projected connectors are model-derived — re-projected on every
                 // reconcile — so they must not persist to the .diagram file nor
                 // enter the undo-history snapshot (else their create/delete/re-route
@@ -770,8 +814,10 @@ export class ArchDiagramBinding
             }
         }
         // Remove projected connectors no longer desired.
-        for (const [key, c] of [...this.boundEdges]) {
-            if (!desired.has(key)) {
+        for (const [key, c] of [...this.boundEdges])
+        {
+            if (!desired.has(key))
+            {
                 this.connectorVisualTeardown.get(key)?.()
                 this.connectorVisualTeardown.delete(key)
                 this.connectorLabelUnsubs.get(key)?.()
@@ -791,7 +837,8 @@ export class ArchDiagramBinding
         const boundIds = new Set<string>(this.bound.keys())
         const endpointId = (ep: ConnectorEndpoint | undefined): string | undefined =>
             (ep?.Node as { Id?: string } | undefined)?.Id ?? ep?.UnresolvedNodeId
-        for (const c of this.doc.Connectors.ToArray()) {
+        for (const c of this.doc.Connectors.ToArray())
+        {
             if (ours.has(c)) continue
             const s = endpointId(c.Source)
             const t = endpointId(c.Target)
@@ -863,7 +910,8 @@ export class ArchDiagramBinding
         for (const un of this.connectorLabelUnsubs.values()) un()
         this.connectorLabelUnsubs.clear()
         for (const un of this.titleUnsubs.splice(0)) un()
-        if (typeof window !== 'undefined') {
+        if (typeof window !== 'undefined')
+        {
             window.removeEventListener('pointerdown', this.onPointerDownCapture, true)
         }
     }

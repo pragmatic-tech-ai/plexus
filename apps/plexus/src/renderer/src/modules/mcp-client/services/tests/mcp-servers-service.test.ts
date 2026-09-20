@@ -4,7 +4,8 @@ import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/proje
 import { McpGatingMode, McpScope, McpTransportKind, type IMcpClientApi, type McpServerEntry } from '../../../../../../shared/mcp-client-api.js'
 import { McpServersService } from '../mcp-servers-service.js'
 
-function entry(key: string): McpServerEntry {
+function entry(key: string): McpServerEntry
+{
     return {
         key, label: key, enabled: true,
         transport: { kind: McpTransportKind.Stdio, command: 'x', args: [], env: {} },
@@ -12,7 +13,8 @@ function entry(key: string): McpServerEntry {
     }
 }
 
-function fakeApi() {
+function fakeApi()
+{
     const global: McpServerEntry[] = []
     const projects = new Map<string, McpServerEntry[]>()
     const api: IMcpClientApi = {
@@ -27,7 +29,8 @@ function fakeApi() {
     return { api, global, projects }
 }
 
-function fakeStore(initial: string[] = []) {
+function fakeStore(initial: string[] = [])
+{
     let folders = [...initial]
     const listeners = new Set<(f: readonly string[]) => void>()
     return {
@@ -41,7 +44,8 @@ let bridge: ReturnType<typeof fakeApi>
 beforeEach(() => { bridge = fakeApi(); (globalThis as unknown as { api: unknown }).api = { mcp: bridge.api } })
 afterEach(() => { delete (globalThis as unknown as { api?: unknown }).api })
 
-function make(store = fakeStore([])) {
+function make(store = fakeStore([]))
+{
     const provider = new ServiceProvider()
     provider.registerInstance(OpenProjectsStore.Key, store as unknown as OpenProjectsStore)
     return new McpServersService(provider)

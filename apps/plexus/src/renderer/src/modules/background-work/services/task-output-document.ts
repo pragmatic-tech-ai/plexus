@@ -6,7 +6,8 @@ import type { TaskHandle } from './task-handle.js'
 // (in background-work.resources.mu) binds $Handle.Output / $Handle.Status. Id is
 // derived from the task id so re-opening re-activates the existing tab rather than
 // stacking duplicates (DocumentsContentHostService dedupes by Id).
-export class TaskOutputDocument implements IDocument {
+export class TaskOutputDocument implements IDocument
+{
     public readonly Handle: TaskHandle
     public readonly Id: string
     public readonly Title: string

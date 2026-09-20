@@ -6,7 +6,8 @@ import { TITLE_BAR_HEIGHT, WindowChannel, type OverlayColors } from '../shared/w
 // buttons. Only Windows/Linux draw an overlay — on macOS setTitleBarOverlay
 // throws (traffic lights aren't customised this way), so guard the call.
 // Register once from app.whenReady().
-export function registerWindowHandlers(): void {
+export function registerWindowHandlers(): void
+{
   ipcMain.on(WindowChannel.SetOverlay, (event, colors: OverlayColors) => {
     if (process.platform === 'darwin') return
     const win = BrowserWindow.fromWebContents(event.sender)

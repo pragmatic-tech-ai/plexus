@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { TaskExecutorRegistry, TaskKind, type ITaskExecutor } from '../task-executor.js'
 
-function stub(kind: string): ITaskExecutor {
+function stub(kind: string): ITaskExecutor
+{
     return { kind, capacity: 1, run: async () => undefined }
 }
 

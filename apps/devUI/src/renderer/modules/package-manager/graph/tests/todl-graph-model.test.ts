@@ -2,7 +2,8 @@ import { test } from "vitest";
 import assert from "node:assert/strict";
 import { TodlGraphModel, GraphTier } from "../todl-graph-model.js";
 
-function sampleDoc(): unknown {
+function sampleDoc(): unknown
+{
   return {
     nodes: [
       { id: "#c0", tier: "Ontology", typeOf: "concept", attrs: { name: "Person" } },

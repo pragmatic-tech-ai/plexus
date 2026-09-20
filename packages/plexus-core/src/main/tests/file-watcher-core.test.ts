@@ -8,12 +8,14 @@ import { FileChangeKind, type FileChangeEvent } from '../../shared/file-watch-ap
 
 // chokidar ignores files that appear during its initial scan (ignoreInitial),
 // so tests must wait for `ready` before writing, or the event never fires.
-function onceReady(w: FSWatcher): Promise<void> {
+function onceReady(w: FSWatcher): Promise<void>
+{
   return new Promise((res) => { w.on('ready', () => res()) })
 }
 
 // chokidar's awaitWriteFinish means events land shortly after a write settles.
-function waitFor(pred: () => boolean, ms = 3000): Promise<void> {
+function waitFor(pred: () => boolean, ms = 3000): Promise<void>
+{
   return new Promise((resolve, reject) => {
     const started = Date.now()
     const tick = (): void => {

@@ -3,7 +3,8 @@ import { ArchNodeVM } from '../arch-node-vm.js'
 import { NavTargetKind, type NavTarget, type NavTargets } from '../arch-navigation-service.js'
 
 // Build a NavTarget quickly.
-function target(kind: NavTargetKind, id: string, label: string): NavTarget {
+function target(kind: NavTargetKind, id: string, label: string): NavTarget
+{
   return { kind, id, concept: kind, label }
 }
 
@@ -13,7 +14,8 @@ const NODE = target(NavTargetKind.Technology, 'tech.node', 'Node.js')
 const BACKEND = target(NavTargetKind.Category, 'categories.backend', 'Backend')
 const DATA = target(NavTargetKind.Category, 'categories.data', 'Data')
 
-function targets(over: Partial<NavTargets> = {}): NavTargets {
+function targets(over: Partial<NavTargets> = {}): NavTargets
+{
   return { technologies: [], categories: [], scenarios: [], ...over }
 }
 

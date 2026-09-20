@@ -5,7 +5,8 @@ import { CodeDocument } from '../../../modules/code-editor/code-document.js'
 import { StorageCodeFile } from '../../../modules/code-editor/code-file.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
-function fakeConn() {
+function fakeConn()
+{
   const notes: Array<{ method: string; params: unknown }> = []
   return {
     conn: {
@@ -18,7 +19,8 @@ function fakeConn() {
   }
 }
 
-async function attachedDoc() {
+async function attachedDoc()
+{
   const storage = new FakeStorage('proj')
   await storage.WriteText('a.todl', 'namespace demo {\n}')
   const client = new TodlLanguageClient(providerWithFakeResolver())

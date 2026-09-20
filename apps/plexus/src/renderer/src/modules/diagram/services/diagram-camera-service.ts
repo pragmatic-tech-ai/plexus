@@ -31,7 +31,8 @@ export class DiagramCameraService extends ServiceBase
     private sync(host: DocumentsContentHostService): void
     {
         const current = new Set(host.OpenDocuments.ToArray())
-        for (const [doc, detach] of [...this.bindings]) {
+        for (const [doc, detach] of [...this.bindings])
+        {
             if (!current.has(doc)) { detach(); this.bindings.delete(doc) }
         }
         for (const doc of current) this.attach(doc)
@@ -72,9 +73,11 @@ export class DiagramCameraService extends ServiceBase
             if (view === undefined) return
             // Hydrate: apply the persisted camera without triggering a persist.
             const saved = readCamera(doc)
-            if (saved !== undefined) {
+            if (saved !== undefined)
+            {
                 hydrating = true
-                try { view.SetCamera(saved) } finally { hydrating = false }
+                try { view.SetCamera(saved) }
+                finally { hydrating = false }
             }
             // Zoom lives on the Diagram (LayoutTransform scale); pan is the
             // ScrollViewer's scroll offset. Watch both so a scroll-only change

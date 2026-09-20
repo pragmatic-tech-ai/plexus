@@ -74,7 +74,8 @@ export class LibraryTreeNode extends MuralBase
     public get Display(): string { return this.get_property_value(LibraryTreeNode.DisplayKey) }
     public get Label(): string { return this.get_property_value(LibraryTreeNode.LabelKey) }
     public get LocalId(): string { return this.get_property_value(LibraryTreeNode.LocalIdKey) }
-    public get BeginDragData(): (() => { data: DataObject; effects: DragDropEffects }) | undefined {
+    public get BeginDragData(): (() => { data: DataObject; effects: DragDropEffects }) | undefined
+    {
         return this.get_property_value(LibraryTreeNode.BeginDragDataKey)
     }
     public get Icon(): EntityIconVM | undefined { return this.get_property_value(LibraryTreeNode.IconKey) }

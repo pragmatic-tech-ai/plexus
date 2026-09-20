@@ -51,7 +51,8 @@ export class DiagnosticsService extends ServiceBase
     public ClearProject(projectId: string): void
     {
         let changed = false
-        for (const key of [...this.slices.keys()]) {
+        for (const key of [...this.slices.keys()])
+        {
             if (key.endsWith(` ${projectId}`)) { this.slices.delete(key); changed = true }
         }
         if (changed) this.rebuild()
@@ -86,7 +87,8 @@ export class DiagnosticsService extends ServiceBase
     {
         this.all.Clear()
         for (const list of this.slices.values()) for (const d of list) this.all.Add(d)
-        for (const [uri, set] of this.uriListeners) {
+        for (const [uri, set] of this.uriListeners)
+        {
             const snapshot = this.ForUri(uri)
             for (const l of set) l(snapshot)
         }

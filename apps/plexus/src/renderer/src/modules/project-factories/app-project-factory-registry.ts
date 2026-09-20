@@ -17,8 +17,10 @@ import {
 // The factories are resolved by their static `.Key`, not the bare class: the
 // container does no class→Key normalization on get(), and each factory registers
 // under `tokenFor(Class)` = its `.Key`.
-export class AppProjectFactoryRegistry extends ProjectFactoryRegistry {
-  constructor(provider: IServiceProvider) {
+export class AppProjectFactoryRegistry extends ProjectFactoryRegistry
+{
+  constructor(provider: IServiceProvider)
+  {
     super([
       provider.getRequired(MetaModelProjectFactory.Key),
       provider.getRequired(LibraryProjectFactory.Key),

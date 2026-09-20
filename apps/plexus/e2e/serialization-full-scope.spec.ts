@@ -24,7 +24,8 @@ const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1H
 
 // Rewrite the clone diagram so its shapes + arch container card carry the full
 // brush wire format. Returns the arch node id used for the write-path test.
-function injectFullScope(archDir: string): void {
+function injectFullScope(archDir: string): void
+{
     const file = path.join(archDir, 'diagram.diagram')
     const doc = JSON.parse(fs.readFileSync(file, 'utf8')) as {
         nodes: Array<{ id: string; type: string; data: Record<string, unknown> }>
@@ -50,18 +51,21 @@ function injectFullScope(archDir: string): void {
     fs.writeFileSync(file, JSON.stringify(doc))
 }
 
-async function canvasFigs(l: Launched) {
+async function canvasFigs(l: Launched)
+{
     return (await rectsForCtor(l.win, 'Figure')).filter((f) => f.w > 60).sort((a, b) => a.y - b.y || a.x - b.x)
 }
 
 // Read back the live brush kinds the app deserialised for each seeded node.
-function readLiveBrushes(l: Launched) {
+function readLiveBrushes(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
         let host: any
-        for (let p = root?.Services; p && !host; p = p._parent) {
+        for (let p = root?.Services; p && !host; p = p._parent)
+        {
             for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break } }
         }
         const doc = host?.ActiveDocument
@@ -93,13 +97,15 @@ function readLiveBrushes(l: Launched) {
 // Style the first arch node: label font size + a semi-transparent card fill,
 // through the real Format channels, then fire the dirty-gated save. Returns the
 // node's id so the disk assertion targets the exact node styled.
-function styleArchAndSave(l: Launched) {
+function styleArchAndSave(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
         let host: any
-        for (let p = root?.Services; p && !host; p = p._parent) {
+        for (let p = root?.Services; p && !host; p = p._parent)
+        {
             for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break } }
         }
         const doc = host?.ActiveDocument
@@ -109,7 +115,8 @@ function styleArchAndSave(l: Launched) {
         // Pick an arch node whose card is a SOLID brush (on_premises has an
         // injected gradient, so its Fill has no .Color to harvest ctors from).
         let vm: any, container: any
-        for (const i of items) {
+        for (const i of items)
+        {
             if (i?.constructor?.name !== 'ArchNodeVM') continue
             const c = view.Generator?.ContainerFromItem(i)
             if (c?.Fill?.Color?.constructor) { vm = i; container = c; break }
@@ -153,12 +160,14 @@ test.describe.serial('full-scope serialization survives the real app', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 22; i++) {
+        for (let i = 0; i < 22; i++)
+        {
             if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(300)
         }
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
-        for (let a = 0; a < 5 && figs.length === 0; a++) {
+        for (let a = 0; a < 5 && figs.length === 0; a++)
+        {
             const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

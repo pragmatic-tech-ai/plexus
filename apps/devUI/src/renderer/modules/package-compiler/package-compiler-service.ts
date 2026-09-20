@@ -23,19 +23,23 @@ import { PackageCompilerHeaderVM } from './package-compiler-header-vm.js';
 // into this service. Open/Compile/Publish are always shown; Bump/Delete appear
 // (via the header's ConflictVisible) only after a 409. Publish is
 // outward-facing, so it prompts a modal Mural confirmation dialog first.
-export class PackageCompilerService extends ServiceBase implements IActivatable {
+export class PackageCompilerService extends ServiceBase implements IActivatable
+{
     private _status = 'Click “Open” to begin.';
     private _commands: PackageCompilerHeaderVM = undefined as unknown as PackageCompilerHeaderVM;
     // The opened folder's contents, as a lazy tree shown in the side pane.
     private readonly _tree = new ObservableCollection<FolderNodeVM>();
 
-    get Status(): string {
+    get Status(): string
+    {
         return this._status;
     }
-    get Commands(): PackageCompilerHeaderVM {
+    get Commands(): PackageCompilerHeaderVM
+    {
         return this._commands;
     }
-    get Tree(): ObservableCollection<FolderNodeVM> {
+    get Tree(): ObservableCollection<FolderNodeVM>
+    {
         return this._tree;
     }
 
@@ -49,7 +53,8 @@ export class PackageCompilerService extends ServiceBase implements IActivatable 
     private lastName: string | undefined; // compiled package identity, for conflict reactions
     private lastVersion: string | undefined;
 
-    constructor(provider: IServiceProvider) {
+    constructor(provider: IServiceProvider)
+    {
         super(provider);
         this.registry = provider.getRequired(RegistryClient);
         this.contentHost = provider.getRequired(ContentHostService.Key);
@@ -68,17 +73,20 @@ export class PackageCompilerService extends ServiceBase implements IActivatable 
 
     // IActivatable — re-present this capability's last compile result into the
     // shared content host (which may hold another capability's content).
-    OnActivated(): void {
+    OnActivated(): void
+    {
         this.contentHost.View(this.resultView);
     }
 
-    private setStatus(v: string): void {
+    private setStatus(v: string): void
+    {
         const old = this._status;
         this._status = v;
         this.RaisePropertyChanged('Status', old, v);
     }
 
-    private async openDirectory(): Promise<void> {
+    private async openDirectory(): Promise<void>
+    {
         const dir = await this.registry.pickDirectory();
         if (dir.length === 0) return; // canceled
         this.dir = dir;
@@ -91,19 +99,24 @@ export class PackageCompilerService extends ServiceBase implements IActivatable 
 
     // Fill the side-pane tree with the opened folder's top-level entries (folders
     // expand lazily via FolderNodeVM.OnExpand → loadDir).
-    private async populateTree(dir: string): Promise<void> {
+    private async populateTree(dir: string): Promise<void>
+    {
         const tree = this.Tree;
         tree.Clear();
-        try {
+        try
+        {
             for (const node of await this.loadDir(dir)) tree.Add(node);
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.setStatus('Could not read folder: ' + (e as Error).message);
         }
     }
 
     // Read one directory into folder/file nodes (dirs first, then files — the main
     // process sorts). Directories carry a loader that reads their own children.
-    private async loadDir(path: string): Promise<FolderNodeVM[]> {
+    private async loadDir(path: string): Promise<FolderNodeVM[]>
+    {
         const entries = await this.registry.readDir(path);
         return entries.map((e) =>
             e.isDirectory
@@ -112,34 +125,44 @@ export class PackageCompilerService extends ServiceBase implements IActivatable 
         );
     }
 
-    private async compile(): Promise<void> {
-        if (this.dir === undefined) {
+    private async compile(): Promise<void>
+    {
+        if (this.dir === undefined)
+        {
             this.setStatus('Open a directory first.');
             return;
         }
         this.outDir = undefined;
         this.setStatus('Compiling…');
-        try {
+        try
+        {
             const result = await this.registry.compileDir(this.dir);
             this.resultView = new CompileResultVM(result);
             this.contentHost.View(this.resultView);
-            if (result.ok) {
+            if (result.ok)
+            {
                 this.outDir = result.outDir;
                 this.lastName = result.name;
                 this.lastVersion = result.version;
                 this.setStatus('Compiled. Click “Publish” when ready.');
-            } else {
+            }
+            else
+            {
                 this.setStatus(`Compile failed — ${result.diagnostics.length} diagnostic(s).`);
             }
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.setStatus('Compile error: ' + (e as Error).message);
         }
     }
 
     // Publishing is outward-facing, so it prompts a modal Mural confirmation
     // dialog before the compiled output directory is pushed to the registry.
-    private async publish(): Promise<void> {
-        if (this.outDir === undefined) {
+    private async publish(): Promise<void>
+    {
+        if (this.outDir === undefined)
+        {
             this.setStatus('Nothing to publish — compile first.');
             return;
         }
@@ -149,28 +172,36 @@ export class PackageCompilerService extends ServiceBase implements IActivatable 
             Message: `Publish ${id} to the registry? This uploads the compiled package to the configured registry.`,
             ConfirmLabel: 'Publish',
         });
-        if (!ok) {
+        if (!ok)
+        {
             this.setStatus('Publish canceled.');
             return;
         }
         void this.doPublish(this.outDir);
     }
 
-    private async doPublish(outDir: string): Promise<void> {
+    private async doPublish(outDir: string): Promise<void>
+    {
         this.setStatus('Publishing…');
-        try {
+        try
+        {
             await this.registry.publishDir(outDir);
             this.clearConflictActions();
             this.setStatus('Published.');
-        } catch (e) {
+        }
+        catch (e)
+        {
             const message = (e as Error).message;
-            if (PackageCompilerService.isVersionConflict(message)) {
+            if (PackageCompilerService.isVersionConflict(message))
+            {
                 this.offerConflictActions();
                 this.setStatus(
                     `Version ${this.lastVersion ?? ''} is already published. Use the toolbar’s ` +
                         `overflow (⌄) → “Bump version” or “Delete version”.`,
                 );
-            } else {
+            }
+            else
+            {
                 this.setStatus('Publish failed: ' + message);
             }
         }
@@ -178,54 +209,67 @@ export class PackageCompilerService extends ServiceBase implements IActivatable 
 
     // A registry 409 — the version already exists (npm/GitHub Packages reject a
     // republish over an existing version).
-    private static isVersionConflict(message: string): boolean {
+    private static isVersionConflict(message: string): boolean
+    {
         return message.includes('HTTP 409') || message.includes('existing version');
     }
 
     // Reaction A: bump the project to the next unused version, recompile, republish.
-    private async bumpAndRepublish(): Promise<void> {
-        if (this.dir === undefined) {
+    private async bumpAndRepublish(): Promise<void>
+    {
+        if (this.dir === undefined)
+        {
             this.setStatus('Open a directory first.');
             return;
         }
         this.setStatus('Bumping version…');
-        try {
+        try
+        {
             const version = await this.registry.bumpVersion(this.dir);
             await this.compile(); // recompiles from the bumped manifest (updates outDir + identity)
             if (this.outDir === undefined) return; // compile surfaced its own error
             this.setStatus(`Bumped to ${version}. Publishing…`);
             await this.doPublish(this.outDir);
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.setStatus('Bump failed: ' + (e as Error).message);
         }
     }
 
     // Reaction B: delete the conflicting published version, then republish it.
-    private async deleteAndRepublish(): Promise<void> {
+    private async deleteAndRepublish(): Promise<void>
+    {
         if (
             this.outDir === undefined ||
             this.lastName === undefined ||
             this.lastVersion === undefined
-        ) {
+        )
+        {
             this.setStatus('Compile first.');
             return;
         }
         this.setStatus(`Deleting ${this.lastName}@${this.lastVersion}…`);
-        try {
+        try
+        {
             await this.registry.deleteVersion(this.lastName, this.lastVersion);
             await this.doPublish(this.outDir);
-        } catch (e) {
+        }
+        catch (e)
+        {
             this.setStatus('Delete failed: ' + (e as Error).message);
         }
     }
 
     // Reveal the two conflict-recovery buttons in the header (idempotent).
-    private offerConflictActions(): void {
+    private offerConflictActions(): void
+    {
         this.header.ConflictVisible = true;
     }
 
     // Hide the conflict-recovery buttons once a publish succeeds.
-    private clearConflictActions(): void {
+    private clearConflictActions(): void
+    {
         this.header.ConflictVisible = false;
     }
 }

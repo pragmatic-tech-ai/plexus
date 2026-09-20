@@ -14,7 +14,8 @@ const MM = `namespace archmm {
   viewpoint LogicalView : frames service
   viewpoint DataView : frames store
 }`
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const storage = new FakeStorage('fake://Acme')
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')

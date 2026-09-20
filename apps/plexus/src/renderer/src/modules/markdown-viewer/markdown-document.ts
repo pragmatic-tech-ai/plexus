@@ -76,7 +76,8 @@ function dirName(path: string): string
 // renderer window; in the renderer the browser routes it to the OS default.
 function openExternal(uri: string): void
 {
-    if (typeof window !== 'undefined' && typeof window.open === 'function') {
+    if (typeof window !== 'undefined' && typeof window.open === 'function')
+    {
         window.open(uri, '_blank', 'noopener')
     }
 }

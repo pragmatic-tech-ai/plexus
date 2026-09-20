@@ -3,7 +3,8 @@ import { AdornerDecorator } from '@pragmatic-tech-ai/mural/visual-engine'
 import { Border, FlowDocument, Paragraph, Run } from '@pragmatic-tech-ai/mural/basic'
 import { HelpFlyoutAdorner } from '../help-flyout-adorner.js'
 
-function doc(): FlowDocument {
+function doc(): FlowDocument
+{
     const d = new FlowDocument()
     const p = new Paragraph()
     p.AddChild(new Run('hello'))

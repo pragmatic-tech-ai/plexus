@@ -23,7 +23,8 @@ import type { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 
 let priorApp: Application | null = null
 
-function withApp(): Application {
+function withApp(): Application
+{
     priorApp = Application.current
     const app = new Application()
     Application.current = app
@@ -40,7 +41,8 @@ function withApp(): Application {
 
 afterEach(() => { Application.current = priorApp; setIconResourceResolver(undefined) })
 
-function find(root: Visual, pred: (v: Visual) => boolean): Visual | undefined {
+function find(root: Visual, pred: (v: Visual) => boolean): Visual | undefined
+{
     if (pred(root)) return root
     for (const c of root.visualChildren) { const r = find(c, pred); if (r !== undefined) return r }
     return undefined
@@ -96,7 +98,8 @@ test('the compiled @TodlIconTile/@TodlIconFigure templates apply an Image + Icon
     const app = withApp()
     const vm = new EntityIconVM(fakeRegistry({ svc: 'icon-svc' }), 'svc')
 
-    for (const key of ['TodlIconTileTemplate', 'TodlIconFigureTemplate']) {
+    for (const key of ['TodlIconTileTemplate', 'TodlIconFigureTemplate'])
+    {
         const tmpl = app.Resources.Resolve(key) as DataTemplate
         expect(tmpl).toBeInstanceOf(DataTemplate)
         let root: Visual | undefined

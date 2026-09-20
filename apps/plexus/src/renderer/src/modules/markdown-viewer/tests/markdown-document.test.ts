@@ -5,7 +5,8 @@ import { MarkdownDocument } from '../markdown-document.js'
 import { MarkdownDocumentFactory } from '../markdown-document-factory.js'
 
 // In-memory storage with the text ops the factory uses.
-function memStorage(files: Record<string, string> = {}): IStorage {
+function memStorage(files: Record<string, string> = {}): IStorage
+{
     return {
         Root: '/mem',
         ReadText: async (p: string) => {

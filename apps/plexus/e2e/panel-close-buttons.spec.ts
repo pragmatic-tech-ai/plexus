@@ -24,13 +24,16 @@ test.afterAll(async () => {
 
 // Read + drive a Visual found by its ctor name (first match). `op` runs in the
 // renderer against the live Visual and returns a JSON-serialisable result.
-async function onVisual<T>(ctor: string, op: (v: any) => T): Promise<T> {
+async function onVisual<T>(ctor: string, op: (v: any) => T): Promise<T>
+{
     return L.win.evaluate(
         ({ ctor, opSrc }) => {
             const S = Symbol.for('mural:visual-backref')
-            for (const el of document.querySelectorAll('*')) {
+            for (const el of document.querySelectorAll('*'))
+            {
                 const v = (el as any)[S]
-                if (v && v.constructor?.name === ctor) {
+                if (v && v.constructor?.name === ctor)
+                {
                     // eslint-disable-next-line no-new-func
                     return new Function('v', `return (${opSrc})(v)`)(v)
                 }
@@ -42,14 +45,17 @@ async function onVisual<T>(ctor: string, op: (v: any) => T): Promise<T> {
 }
 
 // Find a live service instance by scanning DataContexts for its ctor name.
-async function onService<T>(ctor: string, op: (s: any) => T): Promise<T> {
+async function onService<T>(ctor: string, op: (s: any) => T): Promise<T>
+{
     return L.win.evaluate(
         ({ ctor, opSrc }) => {
             const S = Symbol.for('mural:visual-backref')
-            for (const el of document.querySelectorAll('*')) {
+            for (const el of document.querySelectorAll('*'))
+            {
                 const v = (el as any)[S]
                 const dc = v?.DataContext
-                if (dc && dc.constructor?.name === ctor) {
+                if (dc && dc.constructor?.name === ctor)
+                {
                     // eslint-disable-next-line no-new-func
                     return new Function('s', `return (${opSrc})(s)`)(dc)
                 }
@@ -66,7 +72,8 @@ test('boots without app errors', async () => {
 })
 
 // Rendered width of the first ShellSideContentPane (0 when collapsed).
-async function paneWidth(): Promise<number> {
+async function paneWidth(): Promise<number>
+{
     const rects = await rectsForCtor(L.win, 'ShellSideContentPane')
     return rects[0]?.w ?? 0
 }

@@ -14,7 +14,8 @@ function factory(): LibraryProjectFactory { return new LibraryProjectFactory(new
 // A meta-model with the concepts a library references, published to a fake
 // meta-models backend; plus a fake libraries backend to receive the publish.
 const META = 'namespace ea { concept Location { label : string; } concept Technology { label : string; } }'
-function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage } {
+function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage }
+{
   const provider = new ServiceProvider()
   const registry = new StorageService(provider)
   const meta = new FakeStorage('fake://meta-models')
@@ -24,7 +25,8 @@ function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: Fak
   provider.registerInstance(StorageService.Key, registry)
   return { provider, meta, libs }
 }
-async function seedMeta(meta: FakeStorage): Promise<void> {
+async function seedMeta(meta: FakeStorage): Promise<void>
+{
   await meta.WriteText('ea/5/model.json', JSON.stringify(toJSON(check([{ uri: 'm.todl', text: META }]).model)))
 }
 
@@ -270,7 +272,8 @@ test('publish bakes presentation.compiled.json into the bundle and refreshes the
 // A meta-model whose `location` concept declares an `icon` field, so a taxonomy
 // term can carry an icon path — used to exercise the missing-icon publish block.
 const META_ICON = 'namespace ea { concept location { label : string; icon : string; } concept technology { label : string; } }'
-async function seedMetaIcon(meta: FakeStorage): Promise<void> {
+async function seedMetaIcon(meta: FakeStorage): Promise<void>
+{
   await meta.WriteText('ea/5/model.json', JSON.stringify(toJSON(check([{ uri: 'm.todl', text: META_ICON }]).model)))
 }
 

@@ -18,7 +18,8 @@ const DOC: TodlDocument = {
 } as unknown as TodlDocument
 
 // Wire a provider whose meta-models backend is the given FakeStorage.
-function envWith(backend: FakeStorage): ServiceProvider {
+function envWith(backend: FakeStorage): ServiceProvider
+{
     const provider = new ServiceProvider()
     const storageRegistry = new StorageService(provider)
     storageRegistry.Register(META_MODELS_BACKEND_ID, () => backend)
@@ -27,7 +28,8 @@ function envWith(backend: FakeStorage): ServiceProvider {
 }
 
 // Bake a real compiled presentation for DOC into `backend` under `<id>/<version>/…`.
-async function bakePresentation(backend: FakeStorage, id: string, version: string): Promise<void> {
+async function bakePresentation(backend: FakeStorage, id: string, version: string): Promise<void>
+{
     const project = new FakeStorage('fake://proj')
     await project.WriteText('resources/app.svg', SVG)
     const { publishPresentation } = await import('../presentation-publisher.js')

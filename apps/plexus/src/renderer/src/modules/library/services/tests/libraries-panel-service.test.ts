@@ -10,7 +10,8 @@ import { LibraryNodeKind, LibraryTreeNode } from '../library-tree-node.js'
 import { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 
 // Synchronous seed (see the registry test) so all files exist before Reload lists.
-function providerWith(seed: (b: FakeStorage) => void): ServiceProvider {
+function providerWith(seed: (b: FakeStorage) => void): ServiceProvider
+{
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
     const backend = new FakeStorage('fake://libraries')
@@ -21,7 +22,8 @@ function providerWith(seed: (b: FakeStorage) => void): ServiceProvider {
     return provider
 }
 
-function leaves(root: LibraryTreeNode): LibraryTreeNode[] {
+function leaves(root: LibraryTreeNode): LibraryTreeNode[]
+{
     const out: LibraryTreeNode[] = []
     for (const concept of root.Children.ToArray())
         for (const cls of concept.Children.ToArray()) out.push(cls)
@@ -193,7 +195,8 @@ test('a Library node carries a Delete command that uninstalls it; Concept/Class 
 
 // ── RevealTerm ─────────────────────────────────────────────────────────────
 // Seed a library > concept > leaf(term) tree directly, then reveal by term id.
-function seedTree(svc: LibrariesPanelService, termId: string): { lib: LibraryTreeNode; grp: LibraryTreeNode; leaf: LibraryTreeNode } {
+function seedTree(svc: LibrariesPanelService, termId: string): { lib: LibraryTreeNode; grp: LibraryTreeNode; leaf: LibraryTreeNode }
+{
     svc.Roots.Clear()
     const lib = LibraryTreeNode.library('Tech · 1.0', 'tech', '1.0')
     const grp = LibraryTreeNode.group('technology', LibraryNodeKind.Concept)

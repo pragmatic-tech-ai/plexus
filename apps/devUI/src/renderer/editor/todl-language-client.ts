@@ -15,20 +15,23 @@ const MARKER_OWNER = "todl";
 /** Owns the TODL language-server Web Worker and the JSON-RPC connection, mirrors
  *  the editor into the server (didOpen/didChange), turns publishDiagnostics into
  *  Monaco markers, and exposes request() for hover/completion providers. */
-export class TodlLanguageClient {
+export class TodlLanguageClient
+{
   private readonly worker: Worker;
   private readonly conn: MessageConnection;
   private version = 0;
   private ready: Promise<void>;
 
-  constructor() {
+  constructor()
+  {
     this.worker = new Worker(new URL("./todl-lsp.worker.ts", import.meta.url), { type: "module" });
     this.conn = createMessageConnection(new BrowserMessageReader(this.worker), new BrowserMessageWriter(this.worker));
     this.conn.listen();
     this.ready = this.init();
   }
 
-  private async init(): Promise<void> {
+  private async init(): Promise<void>
+  {
     await this.conn.sendRequest("initialize", {
       processId: null, rootUri: null, capabilities: {}, initializationOptions: { mode: "pushed" },
     });
@@ -43,14 +46,18 @@ export class TodlLanguageClient {
   }
 
   /** Push the current editor text to the server (didOpen first, then didChange). */
-  async openOrUpdate(text: string): Promise<void> {
+  async openOrUpdate(text: string): Promise<void>
+  {
     await this.ready;
-    if (this.version === 0) {
+    if (this.version === 0)
+    {
       this.version = 1;
       this.conn.sendNotification("textDocument/didOpen", {
         textDocument: { uri: PLAYGROUND_URI, languageId: "todl", version: this.version, text },
       });
-    } else {
+    }
+    else
+    {
       this.version += 1;
       this.conn.sendNotification("textDocument/didChange", {
         textDocument: { uri: PLAYGROUND_URI, version: this.version },
@@ -60,7 +67,8 @@ export class TodlLanguageClient {
   }
 
   /** Send an LSP request for the playground document at a position. */
-  async request<T>(method: string, position?: LspPosition): Promise<T | null> {
+  async request<T>(method: string, position?: LspPosition): Promise<T | null>
+  {
     await this.ready;
     return (await this.conn.sendRequest(method, {
       textDocument: { uri: PLAYGROUND_URI }, ...(position ? { position } : {}),
@@ -68,7 +76,8 @@ export class TodlLanguageClient {
   }
 
   /** Register Monaco hover + completion providers backed by LSP requests. Idempotent. */
-  registerProviders(): void {
+  registerProviders(): void
+  {
     if (TodlLanguageClient.providersRegistered) return;
     TodlLanguageClient.providersRegistered = true;
 

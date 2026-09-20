@@ -6,7 +6,8 @@ function fakeSplash(): {
     doc: SplashDocument
     removed: () => boolean
     fireTransitionEnd: () => void
-} {
+}
+{
     let removed = false
     let transitionEndCb: (() => void) | undefined
     const el: SplashElement = {

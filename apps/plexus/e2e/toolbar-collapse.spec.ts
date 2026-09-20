@@ -11,13 +11,16 @@ import { launchPlexus, appErrors, type Launched } from './plexus-app'
 
 test('command toolbar is collapsed when no document is active', async () => {
     const L: Launched = await launchPlexus()
-    try {
+    try
+    {
         await L.win.waitForTimeout(900)
         const hostHeight = await L.win.evaluate(() => {
             const S = Symbol.for('mural:visual-backref')
-            for (const el of document.querySelectorAll('*')) {
+            for (const el of document.querySelectorAll('*'))
+            {
                 const v = (el as { [k: symbol]: { Name?: string } })[S]
-                if (v && v.Name === 'PART_CommandHost') {
+                if (v && v.Name === 'PART_CommandHost')
+                {
                     return (el as Element).getBoundingClientRect().height
                 }
             }
@@ -25,7 +28,9 @@ test('command toolbar is collapsed when no document is active', async () => {
         })
         expect(hostHeight === null || hostHeight === 0).toBe(true)
         expect(appErrors(L.errors), appErrors(L.errors).join('\n')).toEqual([])
-    } finally {
+    }
+    finally
+    {
         await L.app.close()
     }
 })

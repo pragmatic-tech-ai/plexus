@@ -11,8 +11,10 @@ export async function readIconIndex(storage: IStorage, base: string): Promise<Ma
     let raw: string
     try { raw = await storage.ReadText(`${base}/${ICON_INDEX}`) }
     catch { return new Map() }
-    try {
+    try
+    {
         const obj = JSON.parse(raw) as Record<string, string>
         return new Map(Object.entries(obj))
-    } catch { return new Map() }
+    }
+    catch { return new Map() }
 }

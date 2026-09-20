@@ -40,11 +40,13 @@ export class DiagramHeadlessRenderer extends ServiceBase
     if (!(doc instanceof DiagramDocument)) return undefined
 
     let binding: { dispose(): void } | undefined
-    if (op.Project.Type === 'architecture') {
+    if (op.Project.Type === 'architecture')
+    {
       binding = await this.Provider.get(ArchDiagramBindingService.Key)?.bindForRender(op, doc)
     }
 
-    try {
+    try
+    {
       const diagram = new Diagram()
       diagram.ItemsPanel = new ItemsPanelTemplate(() => new PaginatedCanvas())
       diagram.ItemsSource = doc.Nodes
@@ -67,7 +69,8 @@ export class DiagramHeadlessRenderer extends ServiceBase
       if (rendered.width <= 1 && rendered.height <= 1) return undefined
       return rendered
     }
-    finally {
+    finally
+    {
       binding?.dispose()
     }
   }

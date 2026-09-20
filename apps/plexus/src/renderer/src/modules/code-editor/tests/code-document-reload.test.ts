@@ -2,7 +2,8 @@ import { describe, expect, test } from 'vitest'
 import { CodeDocument } from '../code-document.js'
 import { type ICodeFile } from '../code-file.js'
 
-class FakeFile implements ICodeFile {
+class FakeFile implements ICodeFile
+{
   constructor(public id: string, public text: string) {}
   read(): Promise<string> { return Promise.resolve(this.text) }
   write(text: string): Promise<void> { this.text = text; return Promise.resolve() }

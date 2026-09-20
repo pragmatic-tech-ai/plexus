@@ -20,7 +20,8 @@ import { ConnectionVM, type ConnectionHost } from "./connection-vm.js";
 // SELECTED connection's editor is pushed into the central content host
 // (ContentHostService) and rendered there by DataTemplate[ConnectionVM]. A
 // lightweight Observable (the app's VM root), not MuralBase.
-export class ConnectionsManagerVM extends Observable implements IActivatable, ConnectionHost {
+export class ConnectionsManagerVM extends Observable implements IActivatable, ConnectionHost
+{
   readonly Connections = new ObservableCollection<ConnectionVM>();
   readonly New: ICommand;
 
@@ -29,7 +30,8 @@ export class ConnectionsManagerVM extends Observable implements IActivatable, Co
   private readonly client: RegistryClient;
   private readonly contentHost: ContentHostService;
 
-  constructor(provider: IServiceProvider) {
+  constructor(provider: IServiceProvider)
+  {
     super();
     this.client = provider.getRequired(RegistryClient);
     this.contentHost = provider.getRequired(ContentHostService.Key);
@@ -41,7 +43,8 @@ export class ConnectionsManagerVM extends Observable implements IActivatable, Co
   get Title(): string { return "Registry connections"; }
 
   get Selected(): ConnectionVM | undefined { return this._selected; }
-  set Selected(v: ConnectionVM | undefined) {
+  set Selected(v: ConnectionVM | undefined)
+  {
     const old = this._selected;
     if (old === v) return;
     this._selected = v;
@@ -53,13 +56,15 @@ export class ConnectionsManagerVM extends Observable implements IActivatable, Co
 
   // Re-present the selected connection's editor into the content host, which may
   // hold another capability's content after a rail switch.
-  OnActivated(): void {
+  OnActivated(): void
+  {
     this.showSelected();
     void this.refresh();
   }
 
   // ConnectionHost — reload the list from main, preserving the selected id.
-  async refresh(): Promise<void> {
+  async refresh(): Promise<void>
+  {
     const selectedId = this._selected?.Id;
     const [views, envVars] = await Promise.all([this.client.listConnections(), this.client.listEnvVars()]);
     this.Connections.Clear();
@@ -71,17 +76,20 @@ export class ConnectionsManagerVM extends Observable implements IActivatable, Co
   }
 
   // Route the selected connection (or nothing) into the central content view.
-  private showSelected(): void {
+  private showSelected(): void
+  {
     this.contentHost.View(this._selected);
   }
 
-  async removeConnection(id: string): Promise<void> {
+  async removeConnection(id: string): Promise<void>
+  {
     await this.client.removeConnection(id);
     if (this._selected?.Id === id) this.Selected = undefined;
     await this.refresh();
   }
 
-  private async newConnection(): Promise<void> {
+  private async newConnection(): Promise<void>
+  {
     const created = await this.client.addConnection({
       name: "New connection",
       registry: "https://npm.pkg.github.com",
@@ -95,7 +103,8 @@ export class ConnectionsManagerVM extends Observable implements IActivatable, Co
     this.Selected = this.Connections.ToArray().find((c) => c.Id === created.id) ?? this._selected;
   }
 
-  private setStatus(v: string): void {
+  private setStatus(v: string): void
+  {
     const old = this._status;
     if (old === v) return;
     this._status = v;

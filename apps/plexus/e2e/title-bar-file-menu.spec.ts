@@ -16,10 +16,12 @@ import { launchPlexus, appErrors, clickCenter, MAIN, ELECTRON_EXE, type Launched
 type Rect = { x: number; y: number; w: number; h: number }
 
 // First on-screen rect of a Visual whose ctor name and Header both match.
-async function rectByHeader(win: Page, ctor: string, header: string): Promise<Rect | null> {
+async function rectByHeader(win: Page, ctor: string, header: string): Promise<Rect | null>
+{
   return win.evaluate(({ ctor, header }) => {
     const S = Symbol.for('mural:visual-backref')
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const v = (el as any)[S]
       if (!v || v.constructor?.name !== ctor || v.Header !== header) continue
       const r = (el as Element).getBoundingClientRect()
@@ -31,10 +33,12 @@ async function rectByHeader(win: Page, ctor: string, header: string): Promise<Re
 }
 
 // The rendered chevron text + on-screen width of the MenuItem with this Header.
-async function menuItemChevronAndWidth(win: Page, header: string): Promise<{ chevron: string; width: number } | null> {
+async function menuItemChevronAndWidth(win: Page, header: string): Promise<{ chevron: string; width: number } | null>
+{
   return win.evaluate((header) => {
     const S = Symbol.for('mural:visual-backref')
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const v = (el as any)[S]
       if (v?.constructor?.name !== 'MenuItem' || v.Header !== header) continue
       const r = (el as Element).getBoundingClientRect()
@@ -46,11 +50,13 @@ async function menuItemChevronAndWidth(win: Page, header: string): Promise<{ che
 }
 
 // Count visible Visuals matching ctor name + Header.
-async function countByHeader(win: Page, ctor: string, header: string): Promise<number> {
+async function countByHeader(win: Page, ctor: string, header: string): Promise<number>
+{
   return win.evaluate(({ ctor, header }) => {
     const S = Symbol.for('mural:visual-backref')
     let n = 0
-    for (const el of document.querySelectorAll('*')) {
+    for (const el of document.querySelectorAll('*'))
+    {
       const v = (el as any)[S]
       if (v && v.constructor?.name === ctor && v.Header === header) n++
     }

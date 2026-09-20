@@ -6,17 +6,20 @@ import { DialogPromptService } from "../dialog-prompt-service.js";
 // A DialogService stand-in: records the options it was shown and resolves a
 // scripted result (true / false / undefined) — the three ways the real dialog
 // closes (confirm / cancel / scrim dismiss).
-class ScriptedDialogs {
+class ScriptedDialogs
+{
   public shown: { Title?: string; Actions?: { Label?: string }[] } | undefined;
   constructor(private readonly resolved: boolean | undefined) {}
-  Show<T>(options: unknown): Promise<T | undefined> {
+  Show<T>(options: unknown): Promise<T | undefined>
+  {
     this.shown = options as { Title?: string; Actions?: { Label?: string }[] };
     return Promise.resolve(this.resolved as T);
   }
   Close(): void {}
 }
 
-function service(resolved: boolean | undefined): { svc: DialogPromptService; dialogs: ScriptedDialogs } {
+function service(resolved: boolean | undefined): { svc: DialogPromptService; dialogs: ScriptedDialogs }
+{
   const dialogs = new ScriptedDialogs(resolved);
   return { svc: new DialogPromptService(dialogs as unknown as DialogService), dialogs };
 }

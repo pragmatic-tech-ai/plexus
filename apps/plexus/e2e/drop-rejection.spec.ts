@@ -10,11 +10,13 @@ import { launchPlexus, seedSession, corpusAvailable, cloneCorpus, type Launched 
 
 const ART = path.join(__dirname, '.artifacts')
 
-async function nodeCount(l: Launched): Promise<number> {
+async function nodeCount(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
@@ -23,11 +25,13 @@ async function nodeCount(l: Launched): Promise<number> {
 }
 
 // Fire a toolbox drop of `termId` at (x,y) through the real drop pipeline.
-async function fireTermDrop(l: Launched, termId: string, x: number, y: number): Promise<boolean> {
+async function fireTermDrop(l: Launched, termId: string, x: number, y: number): Promise<boolean>
+{
     return l.win.evaluate(({ termId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
@@ -40,7 +44,8 @@ async function fireTermDrop(l: Launched, termId: string, x: number, y: number): 
 }
 
 // The visible modal title text, if a dialog is open.
-async function dialogText(l: Launched): Promise<string> {
+async function dialogText(l: Launched): Promise<string>
+{
     return l.win.evaluate(() => (document.body.innerText || '').replace(/\s+/g, ' ').trim())
 }
 
@@ -63,11 +68,13 @@ test.describe.serial('dropping a location on a Scenarios diagram is interrupted'
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 30; i++) {
+        for (let i = 0; i < 30; i++)
+        {
             if (await l.win.getByText('diagram-3.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 300); await l.win.waitForTimeout(150)
         }
-        for (let a = 0; a < 4 && (await nodeCount(l)) <= 0; a++) {
+        for (let a = 0; a < 4 && (await nodeCount(l)) <= 0; a++)
+        {
             const dd = l.win.getByText('diagram-3.diagram', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)

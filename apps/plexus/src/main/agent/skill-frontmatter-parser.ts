@@ -14,18 +14,24 @@ interface ParseContext { kind: AgentSkillKind; fallbackName: string; scope: Skil
 // optional x-plexus superset block — into a SkillDescriptor. Never throws: every
 // failure becomes a SkillProblem on an otherwise-valid base descriptor, so one
 // bad file never breaks the scan (spec §5.4, CLI-parity constraint).
-export class SkillFrontmatterParser {
-    parse(text: string, ctx: ParseContext): SkillDescriptor {
+export class SkillFrontmatterParser
+{
+    parse(text: string, ctx: ParseContext): SkillDescriptor
+    {
         const base = SkillDescriptorFactory.claudeCode(ctx.kind, ctx.fallbackName, '', ctx.scope, ctx.folderPath)
         const fence = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)
-        if (fence === null) {
+        if (fence === null)
+        {
             base.problems.push({ message: 'No YAML frontmatter fence found; using defaults.', severity: SkillProblemSeverity.Warning })
             return base
         }
         let doc: Record<string, unknown>
-        try {
+        try
+        {
             doc = (parseYaml(fence[1]) ?? {}) as Record<string, unknown>
-        } catch (e) {
+        }
+        catch (e)
+        {
             base.problems.push({ message: `Malformed frontmatter YAML: ${(e as Error).message}`, severity: SkillProblemSeverity.Error })
             return base
         }
@@ -38,14 +44,17 @@ export class SkillFrontmatterParser {
         return base
     }
 
-    private applyExtension(d: SkillDescriptor, raw: unknown): void {
-        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) {
+    private applyExtension(d: SkillDescriptor, raw: unknown): void
+    {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
+        {
             d.problems.push({ message: 'x-plexus is not an object; ignored.', severity: SkillProblemSeverity.Warning })
             return
         }
         const x = raw as Record<string, unknown>
         const version = typeof x.version === 'number' ? x.version : 0
-        if (version !== SUPPORTED_VERSION) {
+        if (version !== SUPPORTED_VERSION)
+        {
             d.problems.push({ message: `Unsupported x-plexus.version ${String(x.version)}; expected ${SUPPORTED_VERSION}. Degrading to base behavior.`, severity: SkillProblemSeverity.Warning })
             return
         }
@@ -63,24 +72,29 @@ export class SkillFrontmatterParser {
         d.outputs = this.outputs(x.outputs, d)
     }
 
-    private stringArray(v: unknown): string[] {
+    private stringArray(v: unknown): string[]
+    {
         return Array.isArray(v) ? v.filter((e): e is string => typeof e === 'string') : []
     }
 
     // Map author-written PascalCase members (e.g. "Architecture") to enum values.
-    private enumMember<T extends Record<string, string>>(token: unknown, e: T): T[keyof T] | undefined {
+    private enumMember<T extends Record<string, string>>(token: unknown, e: T): T[keyof T] | undefined
+    {
         if (typeof token !== 'string') return undefined
-        for (const key of Object.keys(e)) {
+        for (const key of Object.keys(e))
+        {
             const value = (e as Record<string, string>)[key]
             if (key === token || value === token) return value as T[keyof T]
         }
         return undefined
     }
 
-    private enumArray<T extends Record<string, string>>(v: unknown, e: T, field: string, d: SkillDescriptor): Array<T[keyof T]> {
+    private enumArray<T extends Record<string, string>>(v: unknown, e: T, field: string, d: SkillDescriptor): Array<T[keyof T]>
+    {
         if (!Array.isArray(v)) return []
         const out: Array<T[keyof T]> = []
-        for (const token of v) {
+        for (const token of v)
+        {
             const m = this.enumMember(token, e)
             if (m === undefined) d.problems.push({ message: `Unknown ${field} value "${String(token)}".`, severity: SkillProblemSeverity.Warning })
             else out.push(m)
@@ -88,20 +102,24 @@ export class SkillFrontmatterParser {
         return out
     }
 
-    private deprecation(v: unknown): SkillDescriptor['deprecation'] {
+    private deprecation(v: unknown): SkillDescriptor['deprecation']
+    {
         if (typeof v !== 'object' || v === null) return undefined
         const o = v as Record<string, unknown>
         return { replacedBy: typeof o.replacedBy === 'string' ? o.replacedBy : undefined, note: typeof o.note === 'string' ? o.note : undefined }
     }
 
-    private inputs(v: unknown, d: SkillDescriptor): SkillInput[] {
+    private inputs(v: unknown, d: SkillDescriptor): SkillInput[]
+    {
         if (!Array.isArray(v)) return []
         const out: SkillInput[] = []
-        for (const raw of v) {
+        for (const raw of v)
+        {
             if (typeof raw !== 'object' || raw === null) continue
             const o = raw as Record<string, unknown>
             const type = this.enumMember(o.type, InputKind)
-            if (typeof o.key !== 'string' || type === undefined) {
+            if (typeof o.key !== 'string' || type === undefined)
+            {
                 d.problems.push({ message: `Skipping input with missing key or unknown type "${String(o.type)}".`, severity: SkillProblemSeverity.Warning })
                 continue
             }
@@ -114,10 +132,12 @@ export class SkillFrontmatterParser {
         return out
     }
 
-    private bindings(v: unknown, d: SkillDescriptor): SkillBinding[] {
+    private bindings(v: unknown, d: SkillDescriptor): SkillBinding[]
+    {
         if (!Array.isArray(v)) return []
         const out: SkillBinding[] = []
-        for (const raw of v) {
+        for (const raw of v)
+        {
             if (typeof raw !== 'object' || raw === null) continue
             const o = raw as Record<string, unknown>
             const source = this.enumMember(o.source, BindingSource)
@@ -127,10 +147,12 @@ export class SkillFrontmatterParser {
         return out
     }
 
-    private outputs(v: unknown, d: SkillDescriptor): SkillOutput[] {
+    private outputs(v: unknown, d: SkillDescriptor): SkillOutput[]
+    {
         if (!Array.isArray(v)) return []
         const out: SkillOutput[] = []
-        for (const raw of v) {
+        for (const raw of v)
+        {
             if (typeof raw !== 'object' || raw === null) continue
             const o = raw as Record<string, unknown>
             const kind = this.enumMember(o.kind, OutputKind)

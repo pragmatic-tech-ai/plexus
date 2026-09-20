@@ -3,7 +3,8 @@ import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 // "Has an icon": the `<id>@icon` annotation node the meta-model/library SOURCE
 // declares (`annotate icon { path = … }`) — keyed on the annotation's presence, not
 // its publish-time `key` attr, because arch projects load their bases from source.
-function hasIcon(repo: Repository, id: string): boolean {
+function hasIcon(repo: Repository, id: string): boolean
+{
     const path = repo.resolve(`${id}@icon`)?.attrs.get('path')
     return typeof path === 'string' && path.length > 0
 }
@@ -32,14 +33,16 @@ export function iconEntityKey(repo: Repository, entity: Entity): string | undefi
 
     const sources: { member: string; order: number; index: number }[] = []
     let index = 0
-    for (const rel of entity.schema().relationships) {
+    for (const rel of entity.schema().relationships)
+    {
         const raw = repo.resolve(`${entity.concept}.${rel.name}@iconSource`)?.attrs.get('order')
         const order = raw === undefined || raw === null ? NaN : Number(raw)
         if (Number.isFinite(order)) sources.push({ member: rel.name, order, index })
         index++
     }
 
-    if (sources.length > 0) {
+    if (sources.length > 0)
+    {
         const own = entity.type()?.id ?? entity.concept
         if (hasIcon(repo, own)) return own
         sources.sort((a, b) => a.order - b.order || a.index - b.index)
@@ -64,7 +67,8 @@ function legacyIconEntityKey(repo: Repository, entity: Entity): string | undefin
         for (const target of entity.refs(rel.name))
             if (hasIcon(repo, target.id)) candidates.push(target.id)
 
-    if (candidates.length === 0) {
+    if (candidates.length === 0)
+    {
         const own = entity.type()?.id ?? entity.concept
         return hasIcon(repo, own) ? own : undefined
     }
@@ -87,7 +91,8 @@ function legacyIconEntityKey(repo: Repository, entity: Entity): string | undefin
     // Highest out-degree (most "source") wins; ties keep schema order (first seen).
     let winner = candidates[0]
     let best = outDegree(winner)
-    for (const term of candidates.slice(1)) {
+    for (const term of candidates.slice(1))
+    {
         const d = outDegree(term)
         if (d > best) { winner = term; best = d }
     }

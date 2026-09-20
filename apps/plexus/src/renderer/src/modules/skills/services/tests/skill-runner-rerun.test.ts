@@ -6,7 +6,8 @@ import { SkillScope, SkillSourceKind, InputKind, type SkillDescriptor } from '..
 import type { BindingContextSources } from '../binding-resolver.js'
 import type { ResolvedInput } from '../../../../../../shared/skill-context-api.js'
 
-function skill(): Skill {
+function skill(): Skill
+{
     const d: SkillDescriptor = {
         kind: AgentSkillKind.Skill, name: 'gen', title: 'gen', description: '', scope: SkillScope.Project,
         sourceKind: SkillSourceKind.PlexusSuperset, tags: [], requiresProjectType: [], allowedTools: [],

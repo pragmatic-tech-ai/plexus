@@ -3,7 +3,8 @@ import { SkillScaffolder, SkillTemplateKind } from '../skill-scaffolder.js'
 import { SkillFileCodec } from '../skill-file-codec.js'
 import { SkillScope } from '../../../../../../shared/skill-api.js'
 
-class FakeFs {
+class FakeFs
+{
     files = new Map<string, string>(); dirs = new Set<string>()
     async exists(p: string): Promise<boolean> { return this.files.has(p) || this.dirs.has(p) }
     async createDirectory(p: string): Promise<void> { this.dirs.add(p) }

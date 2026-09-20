@@ -62,15 +62,18 @@ function parseAttrs(s: string): Record<string, string>
 // LineBreak, handled by the caller; non-whitelisted tags are stripped).
 export function openTagInline(tag: HtmlTag, openLink: (uri: string) => void): Span | undefined
 {
-    switch (tag.name) {
+    switch (tag.name)
+    {
         case 'b': case 'strong': return new Bold()
         case 'i': case 'em':     return new Italic()
-        case 'code': {
+        case 'code':
+        {
             const s = new Span()
             s.FontFamily = MONO
             return s
         }
-        case 'a': {
+        case 'a':
+        {
             const link = new Hyperlink()
             const uri = tag.attrs['href'] ?? ''
             link.NavigateUri = uri
@@ -94,23 +97,30 @@ export function htmlFragmentToInlines(html: string, openLink: (uri: string) => v
     ]
     const top = (): (typeof stack)[number] => stack[stack.length - 1]!
 
-    for (const piece of tokenizeFragment(html)) {
-        if (piece.tag === undefined) {
+    for (const piece of tokenizeFragment(html))
+    {
+        if (piece.tag === undefined)
+        {
             const text = decodeEntities(piece.text)
             if (text.length > 0) top().add(new Run(text))
             continue
         }
         const tag = piece.tag
-        if (tag.kind === HtmlTagKind.Void) {
+        if (tag.kind === HtmlTagKind.Void)
+        {
             if (tag.name === 'br') top().add(new LineBreak())
             continue
         }
-        if (tag.kind === HtmlTagKind.Open) {
+        if (tag.kind === HtmlTagKind.Open)
+        {
             const span = openTagInline(tag, openLink)
-            if (span !== undefined) {
+            if (span !== undefined)
+            {
                 top().add(span)
                 stack.push({ tagName: tag.name, sink: [], add: (i) => span.AddChild(i) })
-            } else {
+            }
+            else
+            {
                 // Stripped tag — keep a frame so its close pops cleanly, but its
                 // children flow into the current sink.
                 const parent = top()
@@ -119,7 +129,8 @@ export function htmlFragmentToInlines(html: string, openLink: (uri: string) => v
             continue
         }
         // Close — pop to the matching open (tolerant of mismatched nesting).
-        for (let k = stack.length - 1; k > 0; k -= 1) {
+        for (let k = stack.length - 1; k > 0; k -= 1)
+        {
             if (stack[k]!.tagName === tag.name) { stack.length = k; break }
         }
     }
@@ -133,7 +144,8 @@ function tokenizeFragment(html: string): { text: string; tag?: HtmlTag }[]
     const re = /<[^>]+>/g
     let last = 0
     let m: RegExpExecArray | null
-    while ((m = re.exec(html)) !== null) {
+    while ((m = re.exec(html)) !== null)
+    {
         if (m.index > last) out.push({ text: html.slice(last, m.index) })
         const tag = parseTag(m[0])
         if (tag !== undefined) out.push({ text: m[0], tag })

@@ -30,7 +30,8 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         const doc = context.Mutator as unknown as IDocument
         const bindingSvc = this.provider.get(ArchDiagramBindingService.Key)
         const model = bindingSvc?.modelForDocument(doc)
-        if (model === undefined) {
+        if (model === undefined)
+        {
             // Standalone diagram: keep the old generic behavior.
             return context.Mutator.CreateNode(context.Descriptor.Key, context.Position.X, context.Position.Y) ?? null
         }
@@ -43,7 +44,8 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         // A rejected drop can't be honored here (a container concept the diagram's
         // viewpoint doesn't frame). Interrupt with a comprehensive modal explaining
         // the problem instead of silently minting the wrong node.
-        if (actions.length === 1 && actions[0].kind === DropActionKind.Rejected) {
+        if (actions.length === 1 && actions[0].kind === DropActionKind.Rejected)
+        {
             const termId = actions[0].term ?? context.Descriptor.Key
             showDropRejected(this.provider.get(DialogService.Key), model.repository(), termId, scope)
             return null
@@ -64,7 +66,8 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         // library location) as a node — no new instance, no model mutation. The
         // binding renders it as a container and projects its children from the
         // model. Skipped if it is already on this diagram (no duplicate).
-        if (action.kind === DropActionKind.Place) {
+        if (action.kind === DropActionKind.Place)
+        {
             const entityId = action.term
             if (entityId === undefined) return null
             const doc = context.Mutator as unknown as DiagramDocument
@@ -90,11 +93,14 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         let nestMember: string | undefined
         let nestTarget: string | undefined
         const target = context.TargetContainer
-        if (target?.Id !== undefined && repo.has(target.Id)) {
+        if (target?.Id !== undefined && repo.has(target.Id))
+        {
             const containerEntity = repo.entity(target.Id)
-            if (containerEntity !== undefined && isContainerConcept(repo, containerEntity.concept)) {
+            if (containerEntity !== undefined && isContainerConcept(repo, containerEntity.concept))
+            {
                 const member = containmentMemberFor(repo, action.concept, containerEntity.concept)
-                if (member === undefined) {
+                if (member === undefined)
+                {
                     const parentLabel = String(containerEntity.field('label') ?? containerEntity.id)
                     showContainmentRejected(this.provider.get(DialogService.Key), defaultLabel(repo, action), parentLabel)
                     return null
@@ -108,7 +114,8 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         const schema = model.repository().effectiveSchema(action.concept)
         if (schema.fields.some((f) => f.name === 'label'))
             model.setField(entity.id, 'label', defaultLabel(model.repository(), action))
-        if (action.kind === DropActionKind.Reference && action.member !== undefined && action.term !== undefined) {
+        if (action.kind === DropActionKind.Reference && action.member !== undefined && action.term !== undefined)
+        {
             model.addRef(entity.id, action.member, action.term)
             // Propagate the dropped term's own references onto the instance's other
             // empty members (technology → its category, etc.). Gated by the effective

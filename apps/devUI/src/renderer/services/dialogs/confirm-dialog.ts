@@ -2,7 +2,8 @@ import { RelayCommand } from "@pragmatic-tech-ai/mural/runtime";
 import { DialogService, DialogAction, ButtonVariant } from "@pragmatic-tech-ai/mural/framework";
 import { TextBlock, TextWrapping } from "@pragmatic-tech-ai/mural/basic";
 
-export interface ConfirmRequest {
+export interface ConfirmRequest
+{
   readonly title: string;
   readonly message: string;
   readonly confirmLabel?: string;
@@ -13,8 +14,10 @@ export interface ConfirmRequest {
 // in-app dialog on the shell's overlay layer, not a native OS message box).
 // Resolves true when the confirming action is chosen, false on cancel or a
 // scrim / Escape dismissal.
-export class ConfirmDialog {
-  static async show(dialogs: DialogService, request: ConfirmRequest): Promise<boolean> {
+export class ConfirmDialog
+{
+  static async show(dialogs: DialogService, request: ConfirmRequest): Promise<boolean>
+  {
     const body = new TextBlock();
     body.Text = request.message;
     body.TextWrapping = TextWrapping.Wrap;

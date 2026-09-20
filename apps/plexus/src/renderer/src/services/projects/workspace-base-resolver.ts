@@ -94,13 +94,16 @@ export class WorkspaceBaseResolver extends ServiceBase
         const backend = kind === ProducerKind.MetaModel
             ? ensureMetaModelsBackend(this.Provider)
             : ensureLibrariesBackend(this.Provider)
-        try {
+        try
+        {
             const doc = JSON.parse(await backend.ReadText(`${ref.id}/${ref.version}/model.json`)) as PackageDocument
-            for (const dep of doc.dependencies ?? []) {
+            for (const dep of doc.dependencies ?? [])
+            {
                 const depKind = dep.kind === PackageKind.Library ? ProducerKind.Library : ProducerKind.MetaModel
                 await this.collectPublishedRef({ id: dep.id, version: dep.version }, depKind, out)
             }
-        } catch { /* unpublished / absent — its own key is recorded; deps unreachable */ }
+        }
+        catch { /* unpublished / absent — its own key is recorded; deps unreachable */ }
     }
 
     // The producer id this storage publishes, or undefined if it is not a producer.
@@ -211,7 +214,8 @@ export class WorkspaceBaseResolver extends ServiceBase
         const backend = kind === ProducerKind.MetaModel
             ? ensureMetaModelsBackend(this.Provider)
             : ensureLibrariesBackend(this.Provider)
-        try {
+        try
+        {
             const doc = JSON.parse(await backend.ReadText(`${ref.id}/${ref.version}/model.json`)) as PackageDocument
             bases.push({ nodes: doc.nodes, edges: doc.edges })
             // Published package → its concepts' pages ship at <backend>/<id>/<ver>/.
@@ -221,7 +225,9 @@ export class WorkspaceBaseResolver extends ServiceBase
                 const depKind = dep.kind === PackageKind.Library ? ProducerKind.Library : ProducerKind.MetaModel
                 await this.resolvePublishedTransitive({ id: dep.id, version: dep.version }, depKind, bases, problems, originOf, seenPub)
             }
-        } catch {
+        }
+        catch
+        {
             problems.push(`${kind} "${ref.id}@${ref.version}" is not published`)
         }
     }
@@ -278,13 +284,16 @@ export class WorkspaceBaseResolver extends ServiceBase
 
     private async readManifest(storage: IStorage): Promise<ProjManifest | undefined>
     {
-        try {
+        try
+        {
             const m = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)) as {
                 type: string; id?: string; modelVersion?: string; libVersion?: string
                 metaModel?: BaseRef; libraries?: readonly BaseRef[]
             }
             return { type: m.type, id: m.id, version: m.modelVersion ?? m.libVersion, metaModel: m.metaModel, libraries: m.libraries }
-        } catch {
+        }
+        catch
+        {
             return undefined
         }
     }

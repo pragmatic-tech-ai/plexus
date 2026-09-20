@@ -40,10 +40,12 @@ export function classEntities(model: TodlDocument): JsonNode[]
 export function distinctIcons(model: TodlDocument): string[]
 {
     const set = new Set<string>()
-    for (const n of model.nodes) {
+    for (const n of model.nodes)
+    {
         // Annotation-sourced icon: a `<x>@icon` application node (its `type` is
         // the annotation name 'icon') carries the path on its `path` attr.
-        if (n.type === 'icon') {
+        if (n.type === 'icon')
+        {
             const path = n.attrs['path']
             if (typeof path === 'string' && path.length > 0) set.add(path)
         }
@@ -117,7 +119,8 @@ export function assignResourceKeys(doc: TodlDocument): Map<string, string>
 {
     const out = new Map<string, string>()
     const used = new Map<string, number>()
-    for (const path of distinctIcons(doc)) {
+    for (const path of distinctIcons(doc))
+    {
         const base = iconKey(path)
         const n = used.get(base) ?? 0
         used.set(base, n + 1)
@@ -141,7 +144,8 @@ export function resourceKeyFor(doc: TodlDocument, path: string): string
 export function stampResourceKeys(doc: TodlDocument): void
 {
     const keys = assignResourceKeys(doc)
-    for (const n of doc.nodes) {
+    for (const n of doc.nodes)
+    {
         if (n.type !== 'icon') continue
         const attrs = n.attrs as Record<string, unknown>
         const path = attrs['path']
@@ -168,7 +172,8 @@ export function humanize(id: string): string
 export function buildIconIndex(doc: TodlDocument, prefix: string): Map<string, string>
 {
     const out = new Map<string, string>()
-    for (const n of [...ontologyEntities(doc), ...classEntities(doc)]) {
+    for (const n of [...ontologyEntities(doc), ...classEntities(doc)])
+    {
         const { icon } = resolveFacets(n, projectAnnotations(doc, n.id))
         // Both SVG (baked to a colored IconDefinition, drawn by the default template's
         // Icon) and raster (baked to a BitmapImage, drawn by its Image element) are

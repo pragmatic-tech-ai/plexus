@@ -5,7 +5,8 @@ import { MCP_SERVER_KEY } from './agent-api.js'
 // user previews + Accept/Reject; on Accept Plexus validates against the meta-model
 // and applies undoably. See skills-subproject-4-spec.md §5.1.
 
-export enum PatchOpKind {
+export enum PatchOpKind
+{
     CreateEntity = 'createEntity',
     SetField = 'setField',
     AddRef = 'addRef',

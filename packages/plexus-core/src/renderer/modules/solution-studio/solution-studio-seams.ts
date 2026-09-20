@@ -13,8 +13,10 @@ import { DialogPromptService } from "./dialog-prompt-service.js";
 // the engine module. The presentation (panel + Capability) is SolutionStudioModule
 // (.mu); the app-specific seams (workspace host, package source, project factory)
 // stay with the app.
-export class SolutionStudioSeams {
-  public static Register(services: IServiceContainer): void {
+export class SolutionStudioSeams
+{
+  public static Register(services: IServiceContainer): void
+  {
     services.register(
       SolutionManagerService.PromptServiceKey,
       (p: IServiceProvider): IPromptService => new DialogPromptService(p.getRequired(DialogService.Key)),

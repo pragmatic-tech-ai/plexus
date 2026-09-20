@@ -12,13 +12,16 @@ import type { ArchModelHandle, IArchModelGateway } from './model-patch-applier.j
 // Production IArchModelGateway: resolves the open architecture project containing a
 // path and adapts its ArchModel to the applier's handle. The op→mutator dispatch is
 // a pure static (unit-tested directly); model resolution is integration.
-export class ArchModelGateway implements IArchModelGateway {
+export class ArchModelGateway implements IArchModelGateway
+{
     private readonly provider: IServiceProvider
     constructor(provider: IServiceProvider) { this.provider = provider }
 
     // Map one structured op to the matching ArchModel mutator.
-    static applyOpTo(model: ArchModel, op: PatchOp): void {
-        switch (op.kind) {
+    static applyOpTo(model: ArchModel, op: PatchOp): void
+    {
+        switch (op.kind)
+        {
             case PatchOpKind.CreateEntity: model.create(op.concept, op.id, op.homeUri); break
             case PatchOpKind.SetField: model.setField(op.id, op.field, op.value); break
             case PatchOpKind.AddRef: model.addRef(op.from, op.member, op.to); break
@@ -27,7 +30,8 @@ export class ArchModelGateway implements IArchModelGateway {
         }
     }
 
-    async resolve(projectPath: string): Promise<ArchModelHandle | undefined> {
+    async resolve(projectPath: string): Promise<ArchModelHandle | undefined>
+    {
         const explorer = this.provider.get(ProjectExplorerService.Key)
         if (explorer === undefined) return undefined
         const op = explorer.OpenProjects.ToArray().find(p => ArchModelGateway.pathInProject(projectPath, p.Folder))
@@ -45,7 +49,8 @@ export class ArchModelGateway implements IArchModelGateway {
 
     // Validate the model's own instances against its resolved bases (meta-model +
     // libraries) — the same composition modelFor uses, but returning diagnostics.
-    private async validate(op: OpenProject, model: ArchModel): Promise<SkillProblem[]> {
+    private async validate(op: OpenProject, model: ArchModel): Promise<SkillProblem[]>
+    {
         const { bases } = await this.provider.getRequired(WorkspaceBaseResolver.Key).ResolveForStorage(op.Storage)
         const sources: SourceFile[] = [...model.toTodlByFile()].map(([uri, text]) => ({ uri, text }))
         return checkAgainst(bases, sources).diagnostics.map((d) => ({
@@ -55,7 +60,8 @@ export class ArchModelGateway implements IArchModelGateway {
     }
 
     // True when `path` is the project folder itself or lives under it (separator-agnostic).
-    private static pathInProject(path: string, folder: string): boolean {
+    private static pathInProject(path: string, folder: string): boolean
+    {
         const p = path.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '')
         const f = folder.replace(/\\/g, '/').toLowerCase().replace(/\/+$/, '')
         return p === f || p.startsWith(`${f}/`)

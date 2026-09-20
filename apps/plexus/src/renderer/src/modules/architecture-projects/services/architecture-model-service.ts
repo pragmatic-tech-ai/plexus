@@ -52,9 +52,11 @@ export class ArchitectureModelService extends ServiceBase
         if (!e.path.toLowerCase().endsWith('.todl')) return
         const ci = this.Provider.getRequired(EnvironmentService.Key).IsWindows
         const target = normalizePath(e.path, ci)
-        for (const [rootPath, model] of this.models) {
+        for (const [rootPath, model] of this.models)
+        {
             const root = normalizePath(rootPath, ci)
-            if (target === root || target.startsWith(root + '/')) {
+            if (target === root || target.startsWith(root + '/'))
+            {
                 const existing = this.reloadPending.get(rootPath)
                 if (existing !== undefined) clearTimeout(existing)
                 this.reloadPending.set(rootPath, setTimeout(() => {
@@ -73,10 +75,12 @@ export class ArchitectureModelService extends ServiceBase
     private async reloadModel(rootPath: string, model: ArchModel): Promise<void>
     {
         if (this.models.get(rootPath) !== model) return   // closed / replaced meanwhile
-        try {
+        try
+        {
             const sources = await collectTodlSources(model.Storage)
             model.reloadFromDisk(sources)
-        } catch { /* keep the last good model; diagnostics come from the LSP */ }
+        }
+        catch { /* keep the last good model; diagnostics come from the LSP */ }
     }
 
     // Lazy build + cache. Idempotent: a second call returns the cached model.

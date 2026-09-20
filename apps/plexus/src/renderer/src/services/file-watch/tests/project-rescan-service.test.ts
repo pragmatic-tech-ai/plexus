@@ -5,7 +5,8 @@ import { FileWatchService } from '../file-watch-service.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
-function harness(folders: string[]) {
+function harness(folders: string[])
+{
   let changedCb: ((e: FileChangeEvent) => void) | undefined
   const fileWatch = { Subscribe: (cb: (e: FileChangeEvent) => void) => { changedCb = cb; return () => {} } }
   const RefreshProjects = vi.fn(async () => {})

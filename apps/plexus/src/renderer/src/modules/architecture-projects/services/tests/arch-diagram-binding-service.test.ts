@@ -26,13 +26,15 @@ const fileB = { uri: 'model-b.todl', text: `namespace archmm {
   model Arch : archmm conforms DeploymentView { Node host {} }
 }` }
 
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(mmDoc))], [fileA, fileB], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
-function diagramFor(projStorage: FakeStorage): DiagramDocument {
+function diagramFor(projStorage: FakeStorage): DiagramDocument
+{
     const store = new FileDiagramStorage('view.diagram', projStorage, null)
     const doc = new DiagramDocument(store)
     const f = new ArchNodeVM()
@@ -43,7 +45,8 @@ function diagramFor(projStorage: FakeStorage): DiagramDocument {
 
 // A ServiceProvider wired with a fake host, explorer (one architecture project),
 // and a prebuilt ArchModel. `type` selects the project type.
-function wire(projStorage: FakeStorage, model: ArchModel, type = 'architecture') {
+function wire(projStorage: FakeStorage, model: ArchModel, type = 'architecture')
+{
     const open = new ObservableCollection<IDocument>()
     const host = { OpenDocuments: open } as unknown as DocumentsContentHostService
     const project = new Project(type, 'Acme', projStorage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))

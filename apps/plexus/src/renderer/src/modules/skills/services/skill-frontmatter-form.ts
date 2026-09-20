@@ -9,13 +9,15 @@ import { XPlexuses, type XPlexus } from './skill-file-codec.js'
 // single TextBox for v1; DefaultText holds the default as text (SkillInput.default
 // accepts a string). Each setter raises INPC and calls back so the session
 // re-serializes + re-validates.
-export class SkillInputRowVm extends Observable {
+export class SkillInputRowVm extends Observable
+{
     private _key: string; private _label: string; private _type: InputKind
     private _optionsText: string; private _required: boolean; private _defaultText: string
     private readonly onChange: () => void
     private readonly _remove: RelayCommand
 
-    constructor(seed: SkillInput, onChange: () => void, onRemove: (r: SkillInputRowVm) => void) {
+    constructor(seed: SkillInput, onChange: () => void, onRemove: (r: SkillInputRowVm) => void)
+    {
         super()
         this._key = seed.key; this._label = seed.label; this._type = seed.type
         this._optionsText = (seed.options ?? []).join(', '); this._required = seed.required === true
@@ -39,7 +41,8 @@ export class SkillInputRowVm extends Observable {
     set DefaultText(v: string) { if (v === this._defaultText) return; this._defaultText = v; this.changed('DefaultText') }
     get RemoveCommand(): ICommand { return this._remove }
 
-    toInput(): SkillInput {
+    toInput(): SkillInput
+    {
         const options = this._optionsText.split(',').map(s => s.trim()).filter(s => s !== '')
         return { key: this._key.trim(), label: this._label.trim(), type: this._type,
             options, required: this._required, default: this._defaultText === '' ? undefined : this._defaultText }
@@ -49,12 +52,14 @@ export class SkillInputRowVm extends Observable {
 }
 
 // One editable binding row.
-export class SkillBindingRowVm extends Observable {
+export class SkillBindingRowVm extends Observable
+{
     private _source: BindingSource; private _as: string
     private readonly onChange: () => void
     private readonly _remove: RelayCommand
 
-    constructor(seed: SkillBinding, onChange: () => void, onRemove: (r: SkillBindingRowVm) => void) {
+    constructor(seed: SkillBinding, onChange: () => void, onRemove: (r: SkillBindingRowVm) => void)
+    {
         super()
         this._source = seed.source; this._as = seed.as ?? ''
         this.onChange = onChange
@@ -74,12 +79,14 @@ export class SkillBindingRowVm extends Observable {
 }
 
 // One editable output row.
-export class SkillOutputRowVm extends Observable {
+export class SkillOutputRowVm extends Observable
+{
     private _kind: OutputKind; private _target: string
     private readonly onChange: () => void
     private readonly _remove: RelayCommand
 
-    constructor(seed: SkillOutput, onChange: () => void, onRemove: (r: SkillOutputRowVm) => void) {
+    constructor(seed: SkillOutput, onChange: () => void, onRemove: (r: SkillOutputRowVm) => void)
+    {
         super()
         this._kind = seed.kind; this._target = seed.target ?? ''
         this.onChange = onChange
@@ -103,7 +110,8 @@ export class SkillOutputRowVm extends Observable {
 // inputs/bindings/outputs are add/removeable row collections. Every edit calls
 // onChange so the owning session re-serializes the shared buffer + re-validates.
 // Read-only (packaged scope) makes every setter and Add command a no-op.
-export class SkillFrontmatterFormVm extends Observable {
+export class SkillFrontmatterFormVm extends Observable
+{
     public readonly Inputs = new ObservableCollection<SkillInputRowVm>()
     public readonly Bindings = new ObservableCollection<SkillBindingRowVm>()
     public readonly Outputs = new ObservableCollection<SkillOutputRowVm>()
@@ -121,7 +129,8 @@ export class SkillFrontmatterFormVm extends Observable {
     private readonly _addBinding: RelayCommand
     private readonly _addOutput: RelayCommand
 
-    constructor(ext: XPlexus, readOnly: boolean, onChange: () => void) {
+    constructor(ext: XPlexus, readOnly: boolean, onChange: () => void)
+    {
         super()
         this._readOnly = readOnly
         this.onChange = onChange
@@ -177,7 +186,8 @@ export class SkillFrontmatterFormVm extends Observable {
 
     // Collect the current form state back into a structured x-plexus object. version
     // defaults to 1 for a known/blank block; an unknown version is preserved as-is.
-    toExtension(): XPlexus {
+    toExtension(): XPlexus
+    {
         const ext = XPlexuses.empty()
         ext.version = this._unknownVersion ? this._version : 1
         ext.unknownVersion = this._unknownVersion
@@ -197,7 +207,8 @@ export class SkillFrontmatterFormVm extends Observable {
         return ext
     }
 
-    private setScalar(name: string, v: string, assign: () => void, current: string): void {
+    private setScalar(name: string, v: string, assign: () => void, current: string): void
+    {
         if (this._readOnly || v === current) return
         assign()
         this.RaisePropertyChanged(name, undefined, v)
@@ -214,8 +225,10 @@ export class SkillFrontmatterFormVm extends Observable {
 
     private trimmed(v: string): string | undefined { const t = v.trim(); return t === '' ? undefined : t }
     private csv(v: string): string[] { return v.split(',').map(s => s.trim()).filter(s => s !== '') }
-    private projectType(token: string): ProjectType | undefined {
-        for (const key of Object.keys(ProjectType)) {
+    private projectType(token: string): ProjectType | undefined
+    {
+        for (const key of Object.keys(ProjectType))
+        {
             const value = (ProjectType as Record<string, string>)[key]
             if (key === token || value === token) return value as ProjectType
         }

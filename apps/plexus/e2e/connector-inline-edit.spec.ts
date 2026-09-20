@@ -18,9 +18,11 @@ const PROJECT_RELS = [
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
-function walkTodl(dir: string): string[] {
+function walkTodl(dir: string): string[]
+{
     const out: string[] = []
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }))
+    {
         const p = path.join(dir, e.name)
         if (e.isDirectory()) out.push(...walkTodl(p))
         else if (e.name.endsWith('.todl')) out.push(p)
@@ -31,14 +33,16 @@ function walkTodl(dir: string): string[] {
 // distinctive token absent from the seed corpus, so its presence anywhere under
 // the arch project is a reliable signal the edit was saved (the exact emitted
 // form — connector{} block vs `a --> b` operator + attr — doesn't matter here).
-function typeRecorded(copyRoot: string, _a: string, _b: string, type: string): boolean {
+function typeRecorded(copyRoot: string, _a: string, _b: string, type: string): boolean
+{
     const archDir = path.join(copyRoot, 'architecures/test_architecture')
     const hits = walkTodl(archDir).filter((f) => fs.readFileSync(f, 'utf8').includes(type))
     if (hits.length > 0) console.log('type token found in:', hits.map((f) => path.basename(f)).join(', '))
     return hits.length > 0
 }
 
-async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: boolean; reason?: string }> {
+async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: boolean; reason?: string }>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -56,7 +60,8 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: bo
     }, { fromId, toId })
 }
 
-async function hasNodes(l: Launched): Promise<boolean> {
+async function hasNodes(l: Launched): Promise<boolean>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0 }
@@ -67,7 +72,8 @@ async function hasNodes(l: Launched): Promise<boolean> {
 // Number of projected connectors (draw() borrows the ConnectorEndpoint class
 // from one, so the test waits until the model's relationship/scenario edges
 // have projected before drawing).
-async function connectorCount(l: Launched): Promise<number> {
+async function connectorCount(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') return v.Connectors?.ToArray?.().length ?? 0 }
@@ -75,13 +81,15 @@ async function connectorCount(l: Launched): Promise<number> {
     })
 }
 
-async function labelBetween(l: Launched, fromId: string, toId: string): Promise<string | undefined> {
+async function labelBetween(l: Launched, fromId: string, toId: string): Promise<string | undefined>
+{
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        for (const c of diagram.Connectors?.ToArray?.() ?? []) {
+        for (const c of diagram.Connectors?.ToArray?.() ?? [])
+        {
             const s = idOf(c.Source), t = idOf(c.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) return c.LabelText
         }
@@ -90,11 +98,13 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
 }
 
 // Count VISIBLE RichTextBox editors on screen (non-zero rect).
-async function visibleEditors(l: Launched): Promise<number> {
+async function visibleEditors(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let n = 0
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'RichTextBox') { const r = el.getBoundingClientRect(); if (r.width > 0 && r.height > 0) n++ }
         }
@@ -103,7 +113,8 @@ async function visibleEditors(l: Launched): Promise<number> {
 }
 
 // Screen midpoint of an EMPTY-label connector's route (index-selected).
-async function emptyRoutePoint(l: Launched): Promise<any> {
+async function emptyRoutePoint(l: Launched): Promise<any>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
@@ -128,14 +139,16 @@ async function emptyRoutePoint(l: Launched): Promise<any> {
 
 // Simulate a committed label edit on the A↔B connector (mirrors CommitEdit's
 // order: set Content, then end editing → the binding's write-back listener fires).
-async function editLabel(l: Launched, fromId: string, toId: string, text: string): Promise<string | undefined> {
+async function editLabel(l: Launched, fromId: string, toId: string, text: string): Promise<string | undefined>
+{
     return l.win.evaluate(({ fromId, toId, text }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
         let c: any
-        for (const x of diagram.Connectors?.ToArray?.() ?? []) {
+        for (const x of diagram.Connectors?.ToArray?.() ?? [])
+        {
             const s = idOf(x.Source), t = idOf(x.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) { c = x; break }
         }
@@ -156,7 +169,8 @@ test.describe.serial('connector inline edit', () => {
         test.skip(!corpusAvailable(), 'built app (out/) or test corpus not available')
         copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-conn-edit-'))
         const projects: string[] = []
-        for (const rel of PROJECT_RELS) {
+        for (const rel of PROJECT_RELS)
+        {
             const dst = path.join(copyRoot, rel)
             fs.cpSync(path.join(CORPUS, rel), dst, { recursive: true })
             projects.push(dst)
@@ -169,11 +183,13 @@ test.describe.serial('connector inline edit', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 25; i++) {
+        for (let i = 0; i < 25; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(150)
         }
-        for (let attempt = 0; attempt < 3 && !(await hasNodes(l)); attempt++) {
+        for (let attempt = 0; attempt < 3 && !(await hasNodes(l)); attempt++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
@@ -188,14 +204,16 @@ test.describe.serial('connector inline edit', () => {
 
     // The A↔B connector's on-screen state: its label rect, route midpoint, and
     // its OWN Text.IsEditing (not a global editor count — avoids false positives).
-    async function abState(): Promise<any> {
+    async function abState(): Promise<any>
+    {
         return l.win.evaluate(({ fromId, toId }) => {
             const S = Symbol.for('mural:visual-backref')
             let diagram: any
             for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
             const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
             let c: any, cEl: Element | undefined
-            for (const el of document.querySelectorAll('*')) {
+            for (const el of document.querySelectorAll('*'))
+            {
                 const v = (el as any)[S]
                 if (v?.constructor?.name !== 'Connector') continue
                 const s = idOf(v.Source), t = idOf(v.Target)

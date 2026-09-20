@@ -1,7 +1,8 @@
 import type { ICommand } from '@pragmatic-tech-ai/mural/runtime'
 
 // The bits of the document host the shortcuts drive.
-interface SaveCommands {
+interface SaveCommands
+{
     readonly SaveActiveCommand: ICommand
     readonly SaveAllCommand: ICommand
     // Closes the active document THROUGH the close guard (prompts if dirty). Bound
@@ -20,12 +21,14 @@ interface SaveCommands {
 export function attachSaveShortcuts(
     host: SaveCommands,
     target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window,
-): () => void {
+): () => void
+{
     const onKeyDown = (e: KeyboardEvent): void => {
         const mod = e.ctrlKey || e.metaKey
         if (!mod) return
         const key = e.key.toLowerCase()
-        if (key === 'w') {
+        if (key === 'w')
+        {
             if (!host.CloseActiveCommand.CanExecute(undefined)) return
             e.preventDefault()
             e.stopPropagation()

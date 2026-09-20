@@ -11,7 +11,8 @@ import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node
 import { join } from "node:path";
 import type { Encryptor } from "./token-store.js";
 
-export class ConnectionTokenStore {
+export class ConnectionTokenStore
+{
   private readonly memory = new Map<string, string>();
 
   constructor(
@@ -19,11 +20,13 @@ export class ConnectionTokenStore {
     private readonly encryptor: Encryptor,
   ) {}
 
-  hasToken(id: string): boolean {
+  hasToken(id: string): boolean
+  {
     return this.getToken(id).length > 0;
   }
 
-  getToken(id: string): string {
+  getToken(id: string): string
+  {
     const inMemory = this.memory.get(id);
     if (inMemory !== undefined && inMemory.length > 0) return inMemory;
     const path = this.pathFor(id);
@@ -31,8 +34,10 @@ export class ConnectionTokenStore {
     return this.encryptor.decrypt(readFileSync(path));
   }
 
-  setToken(id: string, token: string): void {
-    if (!this.encryptor.available()) {
+  setToken(id: string, token: string): void
+  {
+    if (!this.encryptor.available())
+    {
       this.memory.set(id, token); // session-only fallback; never write plaintext
       return;
     }
@@ -41,13 +46,15 @@ export class ConnectionTokenStore {
     this.memory.delete(id);
   }
 
-  clear(id: string): void {
+  clear(id: string): void
+  {
     this.memory.delete(id);
     const path = this.pathFor(id);
     if (existsSync(path)) rmSync(path);
   }
 
-  private pathFor(id: string): string {
+  private pathFor(id: string): string
+  {
     return join(this.userDataDir, `conn-token-${id}.bin`);
   }
 }

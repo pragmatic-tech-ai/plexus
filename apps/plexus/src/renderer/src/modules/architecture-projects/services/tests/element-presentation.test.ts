@@ -12,7 +12,8 @@ const MM = `namespace t {
 }`
 const MODEL = `namespace t { model M : t conforms V { component c1 { categorisedAs = Cats.ai; } component c2 {} } }`
 
-function setup() {
+function setup()
+{
   // Seed a source `<term>@icon` node so iconEntityKey treats Cats.ai as
   // icon-bearing (mirrors arch-icon.test's base shape).
   const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)

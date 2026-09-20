@@ -6,7 +6,8 @@ import { ArchNodeVM } from './arch-node-vm.js'
 // page). Each DP is undefined until touched, so an unstyled node serializes to a
 // bare `{}` exactly as before — only styled labels carry a `labelStyle` block. The
 // DP↔JSON mapping is shared with connector labels via LabelStyleCodec.
-function serializeLabelStyle(vm: ArchNodeVM): Record<string, unknown> | undefined {
+function serializeLabelStyle(vm: ArchNodeVM): Record<string, unknown> | undefined
+{
     return LabelStyleCodec.Serialize({
         fontFamily: vm.LabelFontFamily,
         fontSize: vm.LabelFontSize,
@@ -20,7 +21,8 @@ function serializeLabelStyle(vm: ArchNodeVM): Record<string, unknown> | undefine
 
 // Restore the persisted overrides onto the node's Label* DPs (only the fields the
 // block actually carried; an absent field leaves the DP untouched at its default).
-function applyLabelStyle(vm: ArchNodeVM, data: unknown): void {
+function applyLabelStyle(vm: ArchNodeVM, data: unknown): void
+{
     const s = LabelStyleCodec.Deserialize(data)
     if (s.fontFamily !== undefined) vm.LabelFontFamily = s.fontFamily
     if (s.fontSize !== undefined) vm.LabelFontSize = s.fontSize
@@ -32,7 +34,8 @@ function applyLabelStyle(vm: ArchNodeVM, data: unknown): void {
 }
 
 // Idempotent — safe to call more than once (production wiring + tests).
-export function registerArchNodeSerializer(): void {
+export function registerArchNodeSerializer(): void
+{
     if (serializerByType('arch') !== undefined) return
     registerNodeSerializer({
         type: 'arch',

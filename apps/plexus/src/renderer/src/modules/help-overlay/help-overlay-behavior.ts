@@ -61,7 +61,8 @@ export class HelpOverlayController
     private isWithin(v: Visual | undefined, type: new (...args: never[]) => object): boolean
     {
         let cur: Visual | undefined = v
-        while (cur !== undefined) {
+        while (cur !== undefined)
+        {
             if (cur instanceof type) return true
             cur = cur.GetVisualParent()
         }
@@ -73,9 +74,11 @@ export class HelpOverlayController
     private findTarget(from: Visual): Visual | undefined
     {
         let cur: Visual | undefined = from
-        while (cur !== undefined) {
+        while (cur !== undefined)
+        {
             const topic = Help.GetTopic(cur)
-            if (topic !== '') {
+            if (topic !== '')
+            {
                 const parts = Help.ParseTopic(topic)
                 if (parts !== undefined && this.store.hasScenario(parts.docId, parts.anchor)) return cur
             }

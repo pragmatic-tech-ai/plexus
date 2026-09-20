@@ -33,7 +33,8 @@ if (is.dev) app.commandLine.appendSwitch('disable-http-cache')
 // consumed in the renderer through an INJECTED mural service (the same seam
 // the demo's DiagramStorageKey uses), so no view / view-model code ever
 // imports electron directly.
-function createWindow(): void {
+function createWindow(): void
+{
   const mainWindow = new BrowserWindow({
     width: 1280,
     height: 800,
@@ -102,9 +103,12 @@ function createWindow(): void {
 
   // electron-vite serves the renderer over HTTP in dev (HMR) and emits a
   // static index.html for the packaged build.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+  if (is.dev && process.env['ELECTRON_RENDERER_URL'])
+  {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
+  }
+  else
+  {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }

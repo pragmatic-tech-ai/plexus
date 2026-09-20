@@ -46,9 +46,11 @@ test.describe.serial('arch-node-context-menu', () => {
   test('right-click node shows the full diagram menu + gated Open Wiki', async () => {
     const node = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const dc = (el as any)[S]?.DataContext
-        if (dc?.constructor?.name === 'ArchNodeVM') {
+        if (dc?.constructor?.name === 'ArchNodeVM')
+        {
           const r = (el as Element).getBoundingClientRect()
           if (r.width > 4 && r.height > 4) return { x: r.x, y: r.y, w: r.width, h: r.height, hasWiki: !!dc.HasWiki, hasHostDoc: !!dc.HostDocument }
         }
@@ -67,7 +69,8 @@ test.describe.serial('arch-node-context-menu', () => {
       // pre-instantiated template plus the visible shown one), so OR visibility
       // and hasCmd across all instances of each header.
       const items: Record<string, { visible: boolean; hasCmd: boolean }> = {}
-      for (const el of document.querySelectorAll('*')) {
+      for (const el of document.querySelectorAll('*'))
+      {
         const v = (el as any)[S]
         if (v?.constructor?.name !== 'MenuItem') continue
         const r = (el as Element).getBoundingClientRect()

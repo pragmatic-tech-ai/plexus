@@ -20,13 +20,15 @@ const fileA = { uri: 'model-a.todl', text: `namespace archmm {
   model Arch : archmm conforms ComponentView { Component web {} }
 }` }
 
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(mmDoc))], [fileA], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
-function diagramFor(projStorage: FakeStorage): DiagramDocument {
+function diagramFor(projStorage: FakeStorage): DiagramDocument
+{
     const store = new FileDiagramStorage('view.diagram', projStorage, null)
     return new DiagramDocument(store)
 }
@@ -36,7 +38,8 @@ function diagramFor(projStorage: FakeStorage): DiagramDocument {
 // awaits the model load), then sets ActiveDocument (→ the toolbox contributor calls
 // ensureBound). `modelFor` is gated so the first attach is still in flight when
 // ensureBound is called — reproducing the first-open race.
-function wireGated(projStorage: FakeStorage, model: ArchModel): { provider: ServiceProvider; open: ObservableCollection<IDocument>; release: () => void } {
+function wireGated(projStorage: FakeStorage, model: ArchModel): { provider: ServiceProvider; open: ObservableCollection<IDocument>; release: () => void }
+{
     const open = new ObservableCollection<IDocument>()
     const host = { OpenDocuments: open } as unknown as DocumentsContentHostService
     const project = new Project('architecture', 'Acme', projStorage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))

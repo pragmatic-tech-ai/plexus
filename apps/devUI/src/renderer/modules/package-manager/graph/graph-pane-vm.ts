@@ -10,7 +10,8 @@ import { GraphProjection } from "./graph-projection.js";
 // toggles) and a "Text" tab (the raw JSON in a read-only Monaco). Reused across
 // selections — `show(text)` re-parses and re-projects. Presented via
 // DataTemplate[GraphPaneVM] (see package-manager.resources.mu).
-export class GraphPaneVM extends Observable {
+export class GraphPaneVM extends Observable
+{
   private readonly editor = new MonacoEditorHost();
   private readonly _nodes = new ObservableCollection<Figure>();
   private readonly _connectors = new ObservableCollection<Connector>();
@@ -20,7 +21,8 @@ export class GraphPaneVM extends Observable {
   private _showOntology = true;
   private _showInstance = true;
 
-  constructor() {
+  constructor()
+  {
     super();
     this.editor.Language = EditorLanguage.Json;
     this.editor.ReadOnly = true;
@@ -40,7 +42,8 @@ export class GraphPaneVM extends Observable {
   get ShowVisual(): boolean { return !this._showText; }
   set ShowVisual(v: boolean) { this.ShowText = !v; }
   get ShowText(): boolean { return this._showText; }
-  set ShowText(v: boolean) {
+  set ShowText(v: boolean)
+  {
     if (this._showText === v) return;
     this._showText = v;
     this.RaisePropertyChanged("ShowText", !v, v);
@@ -56,19 +59,25 @@ export class GraphPaneVM extends Observable {
 
   /** Whether `text` parses as a compiled TodlDocument graph (has nodes) — the
    *  gate the package manager uses to route a JSON leaf here vs. the plain editor. */
-  static looksLikeGraph(text: string): boolean {
-    try { return new TodlGraphModel(text).Nodes.length > 0; } catch { return false; }
+  static looksLikeGraph(text: string): boolean
+  {
+    try { return new TodlGraphModel(text).Nodes.length > 0; }
+    catch { return false; }
   }
 
   /** Show `text`: seed the editor buffer and re-project the graph. */
-  show(text: string): void {
+  show(text: string): void
+  {
     this.editor.Text = text;
-    try { this._model = new TodlGraphModel(text); } catch { this._model = undefined; }
+    try { this._model = new TodlGraphModel(text); }
+    catch { this._model = undefined; }
     this.rebuild();
   }
 
-  private rebuild(): void {
-    if (this._model === undefined) {
+  private rebuild(): void
+  {
+    if (this._model === undefined)
+    {
       this._nodes.Batch(() => this._nodes.Clear());
       this._connectors.Batch(() => this._connectors.Clear());
       return;

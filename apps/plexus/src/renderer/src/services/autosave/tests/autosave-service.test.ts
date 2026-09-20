@@ -1,10 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { saveDirtyDocuments } from '../autosave-service.js'
 
-function doc(id: string, dirty: boolean) {
+function doc(id: string, dirty: boolean)
+{
     return { Id: id, Title: id, IsDirty: dirty, Save: vi.fn() }
 }
-function hostWith(docs: ReturnType<typeof doc>[]) {
+function hostWith(docs: ReturnType<typeof doc>[])
+{
     return { OpenDocuments: { ToArray: () => docs }, Save: vi.fn((d) => d.Save()) }
 }
 

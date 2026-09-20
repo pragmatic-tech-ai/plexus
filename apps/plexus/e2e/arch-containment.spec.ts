@@ -37,11 +37,13 @@ async function containmentState(l: Launched): Promise<{
     componentId?: string
     locationId?: string
     nested?: boolean
-}> {
+}>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
@@ -50,7 +52,8 @@ async function containmentState(l: Launched): Promise<{
         const arr: any[] = items?.ToArray ? items.ToArray() : []
         const figFor = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm))
         let comp: any, loc: any
-        for (const vm of arr) {
+        for (const vm of arr)
+        {
             const concept = vm?.Concept
             if (concept === 'component' && !comp) comp = vm
             else if (concept === 'location' && !loc) loc = vm
@@ -68,11 +71,13 @@ async function containmentState(l: Launched): Promise<{
 
 // Drive the real nest: reparent the component's realized Figure into the location
 // container via ContainerPlacement (fires NodeReparented → write-back → save).
-async function nestComponentInLocation(l: Launched, locationId: string): Promise<void> {
+async function nestComponentInLocation(l: Launched, locationId: string): Promise<void>
+{
     await l.win.evaluate((locationId) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'Diagram') { diagram = v; break }
         }
@@ -85,9 +90,11 @@ async function nestComponentInLocation(l: Launched, locationId: string): Promise
 
 // The component's home .todl in the copy, and whether it records an `in` ref to
 // the location (`in = <locationId>` or `in <locationId>` — the emitter's form).
-function todlRecordsIn(copyRoot: string, componentId: string, locationId: string): boolean {
+function todlRecordsIn(copyRoot: string, componentId: string, locationId: string): boolean
+{
     const archDir = path.join(copyRoot, 'architecures/test_architecture')
-    for (const file of walkTodl(archDir)) {
+    for (const file of walkTodl(archDir))
+    {
         const text = fs.readFileSync(file, 'utf8')
         // Look inside the component's record for an `in` member naming the location.
         const re = new RegExp(`\\b${componentId}\\b[\\s\\S]*?\\bin\\b\\s*[=:]?\\s*${locationId}\\b`)
@@ -96,9 +103,11 @@ function todlRecordsIn(copyRoot: string, componentId: string, locationId: string
     return false
 }
 
-function walkTodl(dir: string): string[] {
+function walkTodl(dir: string): string[]
+{
     const out: string[] = []
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true }))
+    {
         const p = path.join(dir, e.name)
         if (e.isDirectory()) out.push(...walkTodl(p))
         else if (e.name.endsWith('.todl')) out.push(p)
@@ -117,7 +126,8 @@ test.describe.serial('arch model-backed containment', () => {
         // write-back never touches the real corpus.
         copyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-containment-'))
         const projects: string[] = []
-        for (const rel of PROJECT_RELS) {
+        for (const rel of PROJECT_RELS)
+        {
             const dst = path.join(copyRoot, rel)
             fs.cpSync(path.join(CORPUS, rel), dst, { recursive: true })
             projects.push(dst)
@@ -137,13 +147,15 @@ test.describe.serial('arch model-backed containment', () => {
         // Open a diagram that has both a component and a location. The explorer flow
         // mirrors f2-title-edit; scan a few diagrams for the pair.
         let state = await containmentState(l)
-        if (!state.hasPair) {
+        if (!state.hasPair)
+        {
             // Try opening diagrams from the explorer until a component+location pair shows.
             const { rectsForCtor, clickCenter } = await import('./plexus-app')
             const navs = await rectsForCtor(l.win, 'NavigationItem')
             if (navs[1]) await clickCenter(l.win, navs[1])
             await l.win.waitForTimeout(1500)
-            for (let i = 0; i < 20 && !(state = await containmentState(l)).hasPair; i++) {
+            for (let i = 0; i < 20 && !(state = await containmentState(l)).hasPair; i++)
+            {
                 const diagrams = l.win.getByText(/\.diagram$/)
                 const n = await diagrams.count()
                 if (i < n) await diagrams.nth(i).dblclick({ timeout: 3000 }).catch(() => {})

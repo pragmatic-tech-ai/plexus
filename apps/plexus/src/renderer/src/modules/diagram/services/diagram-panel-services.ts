@@ -127,7 +127,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
 
         const apply = (): void => applyToolboxItemSize(settings, app.Resources)
         apply()
-        for (const key of [ITEM_WIDTH_SETTING, ITEM_HEIGHT_SETTING]) {
+        for (const key of [ITEM_WIDTH_SETTING, ITEM_HEIGHT_SETTING])
+        {
             settings.GetSetting(key)?.PropertyChanged(Setting.ValueKey).subscribe(apply)
         }
     }
@@ -179,7 +180,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         // Gather everything async FIRST, then mutate synchronously under a seq guard
         // — so two overlapping syncPageSet calls (e.g. ctor + a trigger) can't
         // interleave their reconciles on the shared repo.Pages.
-        if (services.get(StorageService.Key) !== undefined) {
+        if (services.get(StorageService.Key) !== undefined)
+        {
             await services.get(TodlPresentationRegistry.Key)?.discover()
         }
         const taxonomies = await this.collectTaxonomies()
@@ -198,10 +200,12 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         // contributes its own; reconcile-by-key collapses a genuinely shared term).
         const termsByPage = new Map<LibraryToolboxPage, Array<{ id: string; label: string }>>()
         const builtTax = new Map<string, LibraryToolboxPage>()   // by page id, across this pass
-        for (const { tax, isLibrary, sourceRef } of taxonomies) {
+        for (const { tax, isLibrary, sourceRef } of taxonomies)
+        {
             const id = 'tax:' + tax.id
             let page = builtTax.get(id)
-            if (page === undefined) {
+            if (page === undefined)
+            {
                 const existing = byId.get(id)
                 page = existing instanceof LibraryToolboxPage
                     ? existing
@@ -215,7 +219,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         }
 
         // Model + Scenarios page per open architecture project (context = its model).
-        for (const { model, namespace } of archModels) {
+        for (const { model, namespace } of archModels)
+        {
             const mid = 'arch:model:' + namespace
             const sid = 'arch:scenarios:' + namespace
             const mExisting = byId.get(mid)
@@ -244,11 +249,13 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     {
         const pages = this.Repository.Pages
         const desiredIds = new Set(desired.map((p) => p.Id))
-        for (let i = pages.Count - 1; i >= 0; i--) {
+        for (let i = pages.Count - 1; i >= 0; i--)
+        {
             const p = pages.Get(i)!
             if (!desiredIds.has(p.Id)) { p.detach(); pages.RemoveAt(i) }
         }
-        for (let target = 0; target < desired.length; target++) {
+        for (let target = 0; target < desired.length; target++)
+        {
             const next = desired[target]!
             let live = -1
             for (let i = 0; i < pages.Count; i++) if (pages.Get(i)!.Id === next.Id) { live = i; break }
@@ -287,7 +294,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         const modelSvc = this.services().get(ArchitectureModelService.Key)
         if (explorer === undefined || modelSvc === undefined) return []
         const out: Array<{ model: ArchModel; namespace: string }> = []
-        for (const op of explorer.OpenProjects.ToArray()) {
+        for (const op of explorer.OpenProjects.ToArray())
+        {
             if (op.Project.Type !== 'architecture') continue
             try { const model = await modelSvc.modelFor(op); out.push({ model, namespace: model.namespace }) }
             catch { /* project not loadable yet — skip */ }
@@ -323,10 +331,13 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     protected async collectTaxonomies(): Promise<Array<{ tax: ToolboxTaxonomy; isLibrary: boolean; sourceRef: string }>>
     {
         const out: Array<{ tax: ToolboxTaxonomy; isLibrary: boolean; sourceRef: string }> = []
-        for (const { backend, isLibrary } of this.sourceBackends()) {
+        for (const { backend, isLibrary } of this.sourceBackends())
+        {
             const models = await scanPublishedModels(backend)
-            for (const { id, versions } of models) {
-                for (const version of versions) {
+            for (const { id, versions } of models)
+            {
+                for (const version of versions)
+                {
                     const doc = await this.readModel(backend, `${id}/${version}`)
                     if (doc === undefined) continue
                     const sourceRef = `${id}@${version}`
@@ -349,8 +360,10 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     {
         if (this.Provider.get(StorageService.Key) === undefined) return []
         const out: Array<{ backend: IStorage; isLibrary: boolean }> = []
-        try { out.push({ backend: ensureMetaModelsBackend(this.Provider), isLibrary: false }) } catch { /* no meta-models backend */ }
-        try { out.push({ backend: ensureLibrariesBackend(this.Provider), isLibrary: true }) } catch { /* no libraries backend */ }
+        try { out.push({ backend: ensureMetaModelsBackend(this.Provider), isLibrary: false }) }
+        catch { /* no meta-models backend */ }
+        try { out.push({ backend: ensureLibrariesBackend(this.Provider), isLibrary: true }) }
+        catch { /* no libraries backend */ }
         return out
     }
 

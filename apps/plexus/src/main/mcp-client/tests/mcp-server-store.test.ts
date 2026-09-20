@@ -2,7 +2,8 @@ import { describe, test, expect } from 'vitest'
 import { McpServerStore, type McpStoreIo } from '../mcp-server-store.js'
 import { McpGatingMode, McpTransportKind, type McpServerEntry } from '../../../shared/mcp-client-api.js'
 
-function memIo(seed?: string): McpStoreIo {
+function memIo(seed?: string): McpStoreIo
+{
     const box: { last?: string } = { last: seed }
     return { read: () => box.last, write: (_p, c) => { box.last = c } }
 }

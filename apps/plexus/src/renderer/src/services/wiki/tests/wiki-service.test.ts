@@ -10,7 +10,8 @@ function svc(opts: {
     resolve?: { root: string; relPath: string }
     exists?: boolean
     text?: string
-}): { wiki: WikiService; opened: unknown[] } {
+}): { wiki: WikiService; opened: unknown[] }
+{
     const opened: unknown[] = []
     const provider = new ServiceProvider()
     provider.registerInstance(FileSystemService.Key, {

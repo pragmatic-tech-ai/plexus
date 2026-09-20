@@ -96,7 +96,8 @@ export class ArchNavigationService extends ServiceBase
     private scenarioTargets(model: ArchModel, entityId: string): NavTarget[]
     {
         const out: NavTarget[] = []
-        for (const entity of model.entities()) {
+        for (const entity of model.entities())
+        {
             if (entity.concept !== SCENARIO_CONCEPT) continue
             const { participants } = collectScenarioFlow(entity as unknown as FlowEntity)
             if (!participants.includes(entityId)) continue
@@ -130,7 +131,8 @@ export class ArchNavigationService extends ServiceBase
     public async navigateTo(model: ArchModel, projectId: string, target: NavTarget): Promise<void>
     {
         const origin = model.wikiOriginOf(target.id)
-        if (origin?.kind === WikiOriginKind.Package) {
+        if (origin?.kind === WikiOriginKind.Package)
+        {
             this.activateLibraries()
             this.resolveLibraries()?.RevealTerm(target.id)
             return
@@ -176,9 +178,11 @@ export class ArchNavigationService extends ServiceBase
     {
         const nav = this.provider.get(NavigationService.Key)
         if (nav === undefined) return
-        for (const item of nav.Items) {
+        for (const item of nav.Items)
+        {
             const dest = item as NavigationDestination
-            if (dest.Capability?.ServiceKey === LibrariesPanelService.Key) {
+            if (dest.Capability?.ServiceKey === LibrariesPanelService.Key)
+            {
                 nav.SidePaneVisible = true
                 dest.ActivateCommand?.Execute(undefined)
                 return

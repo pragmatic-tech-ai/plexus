@@ -17,7 +17,8 @@ beforeAll(() => {
 })
 
 // Helper: build a FileDiagramStorage backed by an in-memory FakeStorage.
-function makeStorage(): { diagStore: FileDiagramStorage; raw: FakeStorage } {
+function makeStorage(): { diagStore: FileDiagramStorage; raw: FakeStorage }
+{
     const raw = new FakeStorage()
     const diagStore = new FileDiagramStorage('test.diagram', raw, null)
     return { diagStore, raw }

@@ -16,19 +16,22 @@ const MM = `namespace archmm {
 }`
 
 // A fake OpenProject: only .Project + .Storage are read by the service.
-function fakeOpenProject(storage: FakeStorage): OpenProject {
+function fakeOpenProject(storage: FakeStorage): OpenProject
+{
     const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
     return { Project: project, Storage: storage } as unknown as OpenProject
 }
 
 // A provider whose WorkspaceBaseResolver returns the meta-model as the base doc.
-function providerWithBase(baseDoc: TodlDocument): ServiceProvider {
+function providerWithBase(baseDoc: TodlDocument): ServiceProvider
+{
     return providerWithBases([baseDoc])
 }
 
 // A provider returning several bases — the shape ResolveForStorage yields for a
 // published meta-model + libraries (each an OWN-ONLY document).
-function providerWithBases(bases: TodlDocument[]): ServiceProvider {
+function providerWithBases(bases: TodlDocument[]): ServiceProvider
+{
     const provider = new ServiceProvider()
     provider.registerInstance(WorkspaceBaseResolver.Key, {
         ResolveForStorage: async () => ({ bases, problems: [] }),
@@ -40,7 +43,8 @@ function providerWithBases(bases: TodlDocument[]): ServiceProvider {
 // meta-model whose concept dangles to the prelude `Element`, and a library whose
 // taxonomy dangles to the meta-model concept. Neither is a self-contained graph
 // on its own — they only cohere when merged together with the prelude.
-function ownOnlyBases(): TodlDocument[] {
+function ownOnlyBases(): TodlDocument[]
+{
     const META = `namespace mm { concept Component {} viewpoint CV : frames Component }`
     const LIB = `namespace lib { import mm; taxonomy T : represents Component { Component widget {} } }`
     const meta = compilePackage([], [{ uri: 'mm.todl', text: META }], { id: 'mm', version: '1' })
@@ -49,20 +53,23 @@ function ownOnlyBases(): TodlDocument[] {
     return [metaOwn, lib.package!.document]
 }
 
-async function ownOnlySeededStorage(): Promise<FakeStorage> {
+async function ownOnlySeededStorage(): Promise<FakeStorage>
+{
     const storage = new FakeStorage('fake://Acme')
     await storage.WriteText('model.todl', `namespace arch {\n  import mm; import lib;\n  model M : mm conforms CV { Component web {} }\n}`)
     return storage
 }
 
-async function seededStorage(): Promise<FakeStorage> {
+async function seededStorage(): Promise<FakeStorage>
+{
     const storage = new FakeStorage('fake://Acme')
     await storage.WriteText('model-a.todl', `namespace archmm {\n  model Arch : archmm conforms ComponentView { Component web {} }\n}`)
     await storage.WriteText('model-b.todl', `namespace archmm {\n  model Arch : archmm conforms DeploymentView { Node host {} }\n}`)
     return storage
 }
 
-function baseDoc(): TodlDocument {
+function baseDoc(): TodlDocument
+{
     return toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
 }
 

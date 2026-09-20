@@ -34,14 +34,18 @@ export class WikiLocator
     {
         const explorer = this.provider.get(ProjectExplorerService.Key)
         if (explorer === undefined) return undefined
-        for (const op of explorer.OpenProjects.ToArray()) {
+        for (const op of explorer.OpenProjects.ToArray())
+        {
             let relPath: string | undefined
-            try {
+            try
+            {
                 const sources = await collectTodlSources(op.Storage)
                 const repo = ModelDraft.fromSources([], sources, { namespace: namespaceOf(sources, op.Project.Name) }).model
                 const v = repo.resolve(`${concept}@wiki`)?.attrs.get('path')
                 relPath = typeof v === 'string' && v.length > 0 ? v : undefined
-            } catch {
+            }
+            catch
+            {
                 relPath = undefined   // a source that won't parse in isolation → not this project
             }
             if (relPath !== undefined) return { root: op.Project.RootPath, relPath }
@@ -56,5 +60,6 @@ function namespaceOf(sources: readonly SourceFile[], fallback: string): string
 {
     const first = sources[0]
     if (first === undefined) return fallback
-    try { return parse(first.text, first.uri).namespace.path || fallback } catch { return fallback }
+    try { return parse(first.text, first.uri).namespace.path || fallback }
+    catch { return fallback }
 }

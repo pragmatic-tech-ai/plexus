@@ -14,7 +14,8 @@ function make(
     metaModels: readonly BaseRef[],
     libraries: readonly BaseRef[],
     offersLibraries: boolean,
-): { vm: ManageReferencesDialogModel; closed: () => BaseBindings | undefined | 'pending' } {
+): { vm: ManageReferencesDialogModel; closed: () => BaseBindings | undefined | 'pending' }
+{
     let result: BaseBindings | undefined | 'pending' = 'pending'
     const vm = new ManageReferencesDialogModel(current, metaModels, libraries, offersLibraries, (r) => { result = r })
     return { vm, closed: () => result }

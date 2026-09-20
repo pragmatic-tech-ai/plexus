@@ -6,7 +6,8 @@ import { AgentEventKind, type AgentEvent } from '../../../shared/agent-api.js'
 
 // A provider that records each started session so the test can drive events and
 // observe routing.
-function recordingProvider() {
+function recordingProvider()
+{
     const started: Array<{
         sessionId: string; cwd: string; addDirs: string[]; resumeToken: string | undefined; model: string | undefined
         onEvent: (e: AgentEvent) => void; sent: string[]; disposed: boolean; aborted: boolean
@@ -30,7 +31,8 @@ function recordingProvider() {
     return { provider, started }
 }
 
-function serviceWith(provider: IAiProvider): AiProviderService {
+function serviceWith(provider: IAiProvider): AiProviderService
+{
     const svc = new AiProviderService(); svc.register(provider); return svc
 }
 

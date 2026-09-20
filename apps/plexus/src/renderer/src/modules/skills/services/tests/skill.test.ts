@@ -3,7 +3,8 @@ import { Skill } from '../skill.js'
 import { AgentSkillKind } from '../../../../../../shared/agent-api.js'
 import { SkillScope, SkillSourceKind, ProjectType, SkillProblemSeverity, type SkillDescriptor } from '../../../../../../shared/skill-api.js'
 
-function desc(over: Partial<SkillDescriptor> = {}): SkillDescriptor {
+function desc(over: Partial<SkillDescriptor> = {}): SkillDescriptor
+{
     return {
         kind: AgentSkillKind.Skill, name: 'n', title: 'Title', description: 'd',
         scope: SkillScope.Project, sourceKind: SkillSourceKind.PlexusSuperset,

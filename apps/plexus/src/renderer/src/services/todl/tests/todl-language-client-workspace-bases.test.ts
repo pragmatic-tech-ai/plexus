@@ -6,7 +6,8 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { WorkspaceBaseResolver } from '../../projects/workspace-base-resolver.js'
 import { TodlLanguageClient } from '../todl-language-client.js'
 
-function fakeConn() {
+function fakeConn()
+{
   const notes: Array<{ method: string; params: unknown }> = []
   return {
     conn: {

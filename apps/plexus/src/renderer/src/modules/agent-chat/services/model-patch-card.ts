@@ -7,7 +7,8 @@ import { ApplyOutcome, type ApplyResult } from '../../architecture-projects/serv
 // (via onDecision) and the card flips to Applied (Undo enabled) or, when the patch is
 // invalid, stays pending and surfaces the validation problems. Every view-bound
 // property is a registered DP.
-export class ModelPatchCard extends MuralBase {
+export class ModelPatchCard extends MuralBase
+{
     public static readonly SummaryKey     = MuralBase.RegisterProperty<string>(ModelPatchCard, 'Summary', '', MetaData.None)
     public static readonly OpLinesKey     = MuralBase.RegisterProperty<string[]>(ModelPatchCard, 'OpLines', [], MetaData.None)
     // The op lines joined for a single bound TextBlock (the template renders this).
@@ -29,7 +30,8 @@ export class ModelPatchCard extends MuralBase {
         request: ProposedModelPatchRequest,
         onDecision: (d: ModelPatchDecision) => Promise<ApplyResult | undefined>,
         onUndo?: () => void,
-    ) {
+    )
+    {
         super()
         this.onDecision = onDecision
         this.onUndo = onUndo
@@ -57,24 +59,31 @@ export class ModelPatchCard extends MuralBase {
     // Run the applier via the host. Applied → flip to applied (Undo enabled). Invalid
     // → stay pending, show problems (the user can still Reject). NoModel / undefined →
     // treat as settled (nothing to apply).
-    public async accept(): Promise<void> {
+    public async accept(): Promise<void>
+    {
         if (this.settled) return
         const result = await this.onDecision(ModelPatchDecision.Accept)
-        if (result?.outcome === ApplyOutcome.Applied) {
+        if (result?.outcome === ApplyOutcome.Applied)
+        {
             this.settled = true
             this.set_property_value(ModelPatchCard.IsAppliedKey, true)
             this.set_property_value(ModelPatchCard.IsPendingKey, false)
-        } else if (result?.outcome === ApplyOutcome.Invalid) {
+        }
+        else if (result?.outcome === ApplyOutcome.Invalid)
+        {
             this.set_property_value(ModelPatchCard.ProblemTextKey, result.problems.map(p => p.message).join('\n'))
             this.set_property_value(ModelPatchCard.HasProblemsKey, true)
-        } else {
+        }
+        else
+        {
             // NoModel / no result — nothing was applied; close the card out.
             this.settled = true
             this.set_property_value(ModelPatchCard.IsPendingKey, false)
         }
     }
 
-    public async reject(): Promise<void> {
+    public async reject(): Promise<void>
+    {
         if (this.settled) return
         this.settled = true
         await this.onDecision(ModelPatchDecision.Reject)
@@ -82,8 +91,10 @@ export class ModelPatchCard extends MuralBase {
         this.set_property_value(ModelPatchCard.IsPendingKey, false)
     }
 
-    private static describe(op: PatchOp): string {
-        switch (op.kind) {
+    private static describe(op: PatchOp): string
+    {
+        switch (op.kind)
+        {
             case PatchOpKind.CreateEntity: return `+ create ${op.concept} #${op.id}`
             case PatchOpKind.SetField: return `→ set #${op.id}.${op.field} = ${op.value}`
             case PatchOpKind.AddRef: return `⇄ ${op.from}.${op.member} → ${op.to}`

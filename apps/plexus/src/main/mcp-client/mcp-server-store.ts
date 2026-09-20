@@ -13,7 +13,8 @@ export class McpServerStore
     {
         const raw = io.read(path)
         let parsed: { servers?: McpServerEntry[] } = {}
-        if (raw !== undefined) { try { parsed = JSON.parse(raw) as { servers?: McpServerEntry[] } } catch { parsed = {} } }
+        if (raw !== undefined) { try { parsed = JSON.parse(raw) as { servers?: McpServerEntry[] } }
+        catch { parsed = {} } }
         this.servers = parsed.servers ?? []
     }
 

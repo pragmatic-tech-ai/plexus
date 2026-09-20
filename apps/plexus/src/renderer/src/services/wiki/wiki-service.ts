@@ -93,7 +93,8 @@ export class WikiService extends ServiceBase
     // Open a fully-resolved target: read from its storage, dedup by id, host it.
     private async openTarget(target: WikiTarget): Promise<void>
     {
-        if (!(await this.exists(target.storage, target.path))) {
+        if (!(await this.exists(target.storage, target.path)))
+        {
             this.Status = `Wiki file not found: ${target.path}`
             return
         }
@@ -107,13 +108,15 @@ export class WikiService extends ServiceBase
     private async openLegacy(concept: string): Promise<void>
     {
         const hit = await this.locator.resolveWiki(concept)
-        if (hit === undefined) {
+        if (hit === undefined)
+        {
             this.Status = `Open the project that declares "${concept}" to view its wiki.`
             return
         }
         const abs = join(hit.root, hit.relPath)
         const fs = this.Provider.getRequired(FileSystemService.Key)
-        if (!(await fs.Exists(abs))) {
+        if (!(await fs.Exists(abs)))
+        {
             this.Status = `Wiki file not found: ${hit.relPath}`
             return
         }
@@ -134,12 +137,14 @@ export class WikiService extends ServiceBase
 
     private async exists(storage: IStorage, path: string): Promise<boolean>
     {
-        try { return await storage.Exists(path) } catch { return false }
+        try { return await storage.Exists(path) }
+        catch { return false }
     }
 
     private async readStorage(storage: IStorage, path: string): Promise<string>
     {
-        try { return await storage.ReadText(path) } catch { return '' }
+        try { return await storage.ReadText(path) }
+        catch { return '' }
     }
 
     // Read via the absolute-path filesystem (legacy path), degrading a read error
@@ -147,7 +152,8 @@ export class WikiService extends ServiceBase
     private async readFs(path: string): Promise<string>
     {
         const fs = this.Provider.getRequired(FileSystemService.Key)
-        try { return await fs.ReadText(path) } catch { return '' }
+        try { return await fs.ReadText(path) }
+        catch { return '' }
     }
 }
 

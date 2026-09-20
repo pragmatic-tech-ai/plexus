@@ -6,7 +6,8 @@ interface ZoomHost { readonly ActiveDocument: IDocument | undefined }
 // The live diagram view of the active document, if the active document is a
 // diagram whose canvas has mounted (published its ActiveView). Undefined
 // otherwise → the chord is ignored (nothing swallowed).
-function activeView(host: ZoomHost): Diagram | undefined {
+function activeView(host: ZoomHost): Diagram | undefined
+{
     const doc = host.ActiveDocument
     return doc instanceof DiagramDocument ? doc.ActiveView : undefined
 }
@@ -18,7 +19,8 @@ function activeView(host: ZoomHost): Diagram | undefined {
 export function attachZoomShortcuts(
     host: ZoomHost,
     target: Pick<Window, 'addEventListener' | 'removeEventListener'> = window,
-): () => void {
+): () => void
+{
     const onKeyDown = (e: KeyboardEvent): void => {
         const mod = e.ctrlKey || e.metaKey
         if (!mod) return

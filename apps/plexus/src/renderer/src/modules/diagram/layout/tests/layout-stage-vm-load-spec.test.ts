@@ -13,7 +13,8 @@ const STRATEGIES = [
 ] as unknown as CatalogStrategy[]
 
 // Build a stage capturing the last spec it emitted into the config.
-function stage(): { vm: LayoutStageVM; last: () => LayoutStageSpec | undefined } {
+function stage(): { vm: LayoutStageVM; last: () => LayoutStageSpec | undefined }
+{
     let last: LayoutStageSpec | undefined
     const vm = new LayoutStageVM('Layer Assigner', STRATEGIES, (spec) => { last = spec })
     return { vm, last: () => last }

@@ -15,14 +15,17 @@ const ART = path.join(__dirname, '.artifacts')
 
 // Reach the root-registered LayoutPipelineService + the active diagram view, run
 // one op, and report the resulting preview state.
-function layoutOp(l: Launched, op: 'preview' | 'apply' | 'cancel') {
+function layoutOp(l: Launched, op: 'preview' | 'apply' | 'cancel')
+{
     return l.win.evaluate(({ op }) => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
         let host: any, svc: any
-        for (let p = root?.Services; p && (!host || !svc); p = p._parent) {
-            for (const [, e] of (p._cache ?? new Map())) {
+        for (let p = root?.Services; p && (!host || !svc); p = p._parent)
+        {
+            for (const [, e] of (p._cache ?? new Map()))
+            {
                 const n = (e as any)?.constructor?.name
                 if (n === 'DocumentsContentHostService') host = e
                 if (n === 'LayoutPipelineService') svc = e
@@ -51,11 +54,13 @@ function layoutOp(l: Launched, op: 'preview' | 'apply' | 'cancel') {
 // adorner self-paints (no child visuals), so we check: it's present, its
 // RenderSize covers the canvas, and its SVG group contains the drawn primitives
 // (backdrop rect + node blocks + edge lines).
-function overlayPaint(l: Launched) {
+function overlayPaint(l: Launched)
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let el0: Element | undefined
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v?.constructor?.name === 'LayoutPreviewAdorner') { el0 = el; break }
         }
@@ -70,11 +75,13 @@ function overlayPaint(l: Launched) {
     })
 }
 
-async function archNodeCount(l: Launched): Promise<number> {
+async function archNodeCount(l: Launched): Promise<number>
+{
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let n = 0
-        for (const el of document.querySelectorAll('*')) {
+        for (const el of document.querySelectorAll('*'))
+        {
             const v = (el as any)[S]
             if (v && v.constructor?.name === 'Figure' && v.Tag?.constructor?.name === 'ArchNodeVM') n++
         }
@@ -96,13 +103,15 @@ test.describe.serial('layout preview overlay (live)', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 16; i++) {
+        for (let i = 0; i < 16; i++)
+        {
             if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
-        for (let attempt = 0; attempt < 3 && (await archNodeCount(l)) === 0; attempt++) {
+        for (let attempt = 0; attempt < 3 && (await archNodeCount(l)) === 0; attempt++)
+        {
             const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})

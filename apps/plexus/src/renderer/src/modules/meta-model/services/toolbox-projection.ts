@@ -35,12 +35,14 @@ function conceptOf(t: JsonNode): string
 export function projectToolbox(doc: TodlDocument): ToolboxTaxonomy[]
 {
     const out: ToolboxTaxonomy[] = []
-    for (const n of doc.nodes) {
+    for (const n of doc.nodes)
+    {
         if (n.tier !== 'Ontology' || n.metaKind !== 'taxonomy') continue
         if (toolboxVisible(doc, n.id) !== true) continue                   // taxonomy: opt-in
         const facets = resolveFacets(n, projectAnnotations(doc, n.id))
         const terms: ToolboxTermRef[] = []
-        for (const t of termsOf(doc, n.id)) {
+        for (const t of termsOf(doc, n.id))
+        {
             if (toolboxVisible(doc, t.id) === false) continue              // term: opt-out
             const f = resolveFacets(t, projectAnnotations(doc, t.id))
             terms.push({ id: t.id, label: f.label, icon: f.icon, concept: conceptOf(t) })

@@ -11,14 +11,16 @@ const MM = `namespace archmm {
   viewpoint V : frames component, service
 }`
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const draft = ModelDraft.fromSources(
         [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
-function placedMap(model: ArchModel, ids: string[]): Map<string, Entity> {
+function placedMap(model: ArchModel, ids: string[]): Map<string, Entity>
+{
     const byId = new Map(model.entities().map((e) => [e.id, e]))
     return new Map(ids.map((id) => [id, byId.get(id)!]))
 }

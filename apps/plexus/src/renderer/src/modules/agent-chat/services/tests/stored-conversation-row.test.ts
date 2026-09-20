@@ -5,7 +5,8 @@ import type { StoredConversation } from '../chat-store.js'
 
 const record: StoredConversation = { Id: 's1', Title: 'Old title', ResumeToken: 't', Cwd: '/proj', UpdatedAt: 5000, Transcript: [] }
 
-function makeRow(over: Partial<StoredConversation> = {}) {
+function makeRow(over: Partial<StoredConversation> = {})
+{
     const calls = { opened: [] as string[], renamed: [] as Array<{ id: string; title: string }>, deleted: [] as string[] }
     const cb: ConversationRowCallbacks = {
         open: (id) => calls.opened.push(id),

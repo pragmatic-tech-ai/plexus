@@ -35,10 +35,12 @@ export function writeViewpoints(doc: DiagramDocument, ids: string[]): void
 export async function writeViewpointsToFile(storage: IStorage, path: string, ids: string[]): Promise<void>
 {
     let base: Record<string, unknown> = {}
-    try {
+    try
+    {
         const text = await storage.ReadText(path)
         if (text.trim() !== '') base = JSON.parse(text) as Record<string, unknown>
-    } catch { /* missing/empty file → start from an empty object */ }
+    }
+    catch { /* missing/empty file → start from an empty object */ }
     const metadata = { ...((base.metadata as Record<string, unknown> | undefined) ?? {}), [ARCH_VIEWPOINTS_KEY]: [...ids] }
     await storage.WriteText(path, JSON.stringify({ ...base, metadata }))
 }

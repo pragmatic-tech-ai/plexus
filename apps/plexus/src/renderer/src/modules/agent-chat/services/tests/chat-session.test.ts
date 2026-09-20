@@ -6,7 +6,8 @@ import { UserMessage, AssistantMessage } from '../transcript.js'
 import { SessionRecoveryCard } from '../session-recovery-card.js'
 import { AgentModel } from '../agent-model.js'
 
-function fakeCallbacks() {
+function fakeCallbacks()
+{
     const calls = {
         sent: [] as Array<{ id: string; text: string }>, created: [] as string[],
         renamed: [] as Array<{ id: string; title: string }>, closed: [] as string[], revealed: [] as string[],

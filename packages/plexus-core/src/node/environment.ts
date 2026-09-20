@@ -12,7 +12,8 @@ import { OperatingSystem, type EnvironmentInfo } from '../shared/environment-api
 // come back empty: ElectronVersion and ChromeVersion. Everything else — and in
 // particular every directory — resolves from Node.
 
-export interface NodeEnvironmentOptions {
+export interface NodeEnvironmentOptions
+{
     // The application name — the leaf of UserDataDirectory (Electron uses the
     // app name the same way). Defaults to 'plexus'.
     readonly appName?: string;
@@ -25,14 +26,16 @@ export interface NodeEnvironmentOptions {
     readonly isPackaged?: boolean;
 }
 
-export class NodeEnvironment {
+export class NodeEnvironment
+{
     private readonly appName: string;
     private readonly appVersion: string;
     private readonly isDevelopment: boolean;
     private readonly isPackaged: boolean;
     private readonly home: string;
 
-    constructor(options: NodeEnvironmentOptions = {}) {
+    constructor(options: NodeEnvironmentOptions = {})
+    {
         this.appName = options.appName ?? 'plexus';
         this.appVersion = options.appVersion ?? '';
         this.isDevelopment = options.isDevelopment ?? process.env.NODE_ENV !== 'production';
@@ -42,7 +45,8 @@ export class NodeEnvironment {
 
     // Build the frozen snapshot — the same shape the renderer's EnvironmentService
     // consumes, so a Node host can feed it wherever an EnvironmentInfo is expected.
-    public Build(): EnvironmentInfo {
+    public Build(): EnvironmentInfo
+    {
         return {
             CurrentDirectory: process.cwd(),
             HomeDirectory: this.home,
@@ -72,12 +76,15 @@ export class NodeEnvironment {
     //   • Windows — %APPDATA%            (…\AppData\Roaming)
     //   • macOS   — ~/Library/Application Support
     //   • Linux   — $XDG_CONFIG_HOME     (~/.config)
-    private UserDataDirectory(): string {
+    private UserDataDirectory(): string
+    {
         return join(this.ConfigRoot(), this.appName);
     }
 
-    private ConfigRoot(): string {
-        switch (process.platform) {
+    private ConfigRoot(): string
+    {
+        switch (process.platform)
+        {
             case 'win32':
                 return process.env.APPDATA ?? join(this.home, 'AppData', 'Roaming');
             case 'darwin':
@@ -91,8 +98,10 @@ export class NodeEnvironment {
     // localized on Windows or redirected via XDG on Linux); without native APIs we
     // honor the XDG override when the host exports it (Linux), otherwise fall back
     // to ~/<Name>. On Windows/macOS the default location is ~/<Name>.
-    private UserDir(name: string, xdgEnv: string): string {
-        if (process.platform === 'linux') {
+    private UserDir(name: string, xdgEnv: string): string
+    {
+        if (process.platform === 'linux')
+        {
             const fromEnv = this.envDir(xdgEnv);
             if (fromEnv !== undefined) return fromEnv;
         }
@@ -100,13 +109,16 @@ export class NodeEnvironment {
     }
 
     // Read a directory-valued env var, treating an empty string as unset.
-    private envDir(name: string): string | undefined {
+    private envDir(name: string): string | undefined
+    {
         const value = process.env[name];
         return value !== undefined && value !== '' ? value : undefined;
     }
 
-    private static ToOperatingSystem(platform: NodeJS.Platform): OperatingSystem {
-        switch (platform) {
+    private static ToOperatingSystem(platform: NodeJS.Platform): OperatingSystem
+    {
+        switch (platform)
+        {
             case 'win32':
                 return OperatingSystem.Windows;
             case 'darwin':

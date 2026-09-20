@@ -14,7 +14,8 @@ import { TabControl } from '@pragmatic-tech-ai/mural/framework'
 // so the class carries only the style hook — no new state or DPs.
 export class ExtendedTabControl extends TabControl
 {
-    static {
+    static
+    {
         MuralBase.OverrideMetadata(
             ExtendedTabControl, Element.DefaultStyleKeyKey,
             { default_value: ExtendedTabControl })

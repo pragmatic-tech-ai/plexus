@@ -33,7 +33,8 @@ test('prefers the CLI result text over the subtype code when the result is prese
     expect((events[0] as { Message: string }).Message).toBe('Rate limit reached')
 })
 
-function parseFixture(name: string): AgentEvent[] {
+function parseFixture(name: string): AgentEvent[]
+{
     const text = readFileSync(join(__dirname, 'fixtures', name), 'utf8')
     const parser = new StreamJsonParser()
     return text.split('\n').flatMap((line) => parser.push(line))

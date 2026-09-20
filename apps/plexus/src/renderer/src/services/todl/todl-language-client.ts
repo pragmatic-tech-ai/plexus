@@ -16,7 +16,8 @@ interface WorkspaceEditLike { changes?: Record<string, LspTextEdit[]> }
 interface EditableModel { applyEdits(edits: Array<{ range: MonacoRange; text: string }>): void }
 
 // Absolute offset of a 0-based (line, character) position in text.
-function offsetAt(text: string, line: number, character: number): number {
+function offsetAt(text: string, line: number, character: number): number
+{
   let i = 0
   let curLine = 0
   while (i < text.length && curLine < line) { if (text[i] === '\n') curLine++; i++ }
@@ -25,7 +26,8 @@ function offsetAt(text: string, line: number, character: number): number {
 
 // Apply LSP TextEdits to a string, offset-descending so earlier edits don't
 // shift later offsets. Pure — the closed-file write path and its test rely on it.
-export function applyTextEdits(text: string, edits: readonly LspTextEdit[]): string {
+export function applyTextEdits(text: string, edits: readonly LspTextEdit[]): string
+{
   const resolved = edits
     .map((e) => ({
       start: offsetAt(text, e.range.start.line, e.range.start.character),
@@ -57,7 +59,8 @@ const LSP_SEVERITY: Record<number, DiagnosticSeverity> = {
 // Project.RootPath), display name, and the storage its sources live in. Keyed in
 // the registry by projectKey = encodeURIComponent(projectId), which is also the
 // authority segment of every todl:// URI for the project.
-interface RegisteredProject {
+interface RegisteredProject
+{
   projectId: string
   projectName: string
   storage: IStorage
@@ -70,7 +73,8 @@ interface RegisteredProject {
 //
 // This file grows in layers: registry (here) → source/base feed → document sync
 // → diagnostics routing → WorkspaceEdit application.
-export class TodlLanguageClient extends ServiceBase {
+export class TodlLanguageClient extends ServiceBase
+{
   public static readonly Key = new ServiceKey<TodlLanguageClient>('TodlLanguageClient')
 
   private connection: MessageConnection | undefined
@@ -96,16 +100,19 @@ export class TodlLanguageClient extends ServiceBase {
 
   constructor(provider: IServiceProvider) { super(provider) }
 
-  private get diagnostics(): DiagnosticsService | undefined {
+  private get diagnostics(): DiagnosticsService | undefined
+  {
     return this.Provider.get(DiagnosticsService.Key)
   }
 
-  private async notify(method: string, params: unknown): Promise<void> {
+  private async notify(method: string, params: unknown): Promise<void>
+  {
     await this.connection?.sendNotification(method, params)
   }
 
   // Issue an LSP request to the server. Used by the Monaco provider adapters.
-  public sendRequest<R>(method: string, params: unknown): Promise<R> {
+  public sendRequest<R>(method: string, params: unknown): Promise<R>
+  {
     if (this.connection === undefined) return Promise.reject(new Error('TODL language client not initialized'))
     return this.connection.sendRequest(method, params) as Promise<R>
   }
@@ -119,10 +126,13 @@ export class TodlLanguageClient extends ServiceBase {
   // (preserving dirty tracking + undo), closed files via storage. Rename and
   // quick-fixes delegate here rather than letting Monaco apply (which would drop
   // closed-file edits).
-  public async applyWorkspaceEdit(edit: WorkspaceEditLike): Promise<void> {
-    for (const [uri, edits] of Object.entries(edit.changes ?? {})) {
+  public async applyWorkspaceEdit(edit: WorkspaceEditLike): Promise<void>
+  {
+    for (const [uri, edits] of Object.entries(edit.changes ?? {}))
+    {
       const model = this.findModel?.(uri) ?? null
-      if (model !== null) {
+      if (model !== null)
+      {
         model.applyEdits(edits.map((e) => ({ range: lspToMonacoRange(e.range), text: e.newText })))
         continue
       }
@@ -133,7 +143,8 @@ export class TodlLanguageClient extends ServiceBase {
     }
   }
 
-  private nextVersion(uri: string): number {
+  private nextVersion(uri: string): number
+  {
     const v = (this.versions.get(uri) ?? 0) + 1
     this.versions.set(uri, v)
     return v
@@ -141,14 +152,16 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Establish the handshake over an already-listening connection. The publish-
   // diagnostics handler is registered in the diagnostics-routing layer.
-  public async Initialize(connection: MessageConnection): Promise<void> {
+  public async Initialize(connection: MessageConnection): Promise<void>
+  {
     this.connection = connection
     connection.onNotification('textDocument/publishDiagnostics', (p) =>
       this.onPublishDiagnostics(p as PublishDiagnosticsParams))
     await this.handshake()
   }
 
-  private async handshake(): Promise<void> {
+  private async handshake(): Promise<void>
+  {
     const res = (await this.connection?.sendRequest('initialize', {
       processId: null, rootUri: null, capabilities: {}, initializationOptions: { mode: 'pushed' },
     })) as { capabilities?: { semanticTokensProvider?: { legend?: SemanticLegend } } } | null
@@ -158,19 +171,23 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Recover after a server restart: re-handshake and re-push every project's
   // bases + open documents to the fresh child.
-  public async Reinitialize(): Promise<void> {
+  public async Reinitialize(): Promise<void>
+  {
     await this.handshake()
     await this.ResyncAll()
     this.fireSemanticStale()
   }
 
   // Re-push bases + all sources for every registered project (server restart).
-  public async ResyncAll(): Promise<void> {
-    for (const project of [...this.projects.values()]) {
+  public async ResyncAll(): Promise<void>
+  {
+    for (const project of [...this.projects.values()])
+    {
       const { bases } = await this.basesFor(project.storage)
       await this.notify('todl/setBases', { rootUri: this.uriFor(project.projectId, ''), bases })
       const opened = new Set<string>()
-      for (const s of await collectTodlSources(project.storage)) {
+      for (const s of await collectTodlSources(project.storage))
+      {
         const uri = this.uriFor(project.projectId, s.uri)
         opened.add(uri)
         await this.notify('textDocument/didOpen', {
@@ -184,19 +201,22 @@ export class TodlLanguageClient extends ServiceBase {
   // The semantic-tokens legend advertised to the Monaco provider. The server's
   // concept-bearing types (`type`/`class`) are renamed to TODL-only scopes so a
   // blue theme rule targets .todl without colliding with the mural grammar.
-  public SemanticLegend(): SemanticLegend {
+  public SemanticLegend(): SemanticLegend
+  {
     return editorSemanticLegend(this.semanticLegend ?? { tokenTypes: [], tokenModifiers: [] })
   }
 
   // Subscribe to semantic-token staleness. The Monaco semantic-tokens provider
   // forwards this to its onDidChange so open documents re-fetch — this is how a
   // newly added meta-model concept recolors live, without a document edit.
-  public onSemanticTokensStale(cb: () => void): () => void {
+  public onSemanticTokensStale(cb: () => void): () => void
+  {
     this.semanticStaleSubs.add(cb)
     return () => { this.semanticStaleSubs.delete(cb) }
   }
 
-  private fireSemanticStale(): void {
+  private fireSemanticStale(): void
+  {
     for (const cb of [...this.semanticStaleSubs]) cb()
   }
 
@@ -206,7 +226,8 @@ export class TodlLanguageClient extends ServiceBase {
   // requests must equal the string we didOpen. encodeURIComponent(RootPath)
   // fails this (its `%3A`/`:` get mangled) — hex round-trips identically. The
   // registry maps the key back to the project, so it needn't be human-readable.
-  public projectKeyFor(projectId: string): string {
+  public projectKeyFor(projectId: string): string
+  {
     let hex = ''
     for (let i = 0; i < projectId.length; i++) hex += projectId.charCodeAt(i).toString(16).padStart(2, '0')
     return hex
@@ -214,18 +235,21 @@ export class TodlLanguageClient extends ServiceBase {
 
   // A document URI: todl://<projectKey>/<relpath>. An empty relpath yields the
   // project rootUri (the server partitions projects by this prefix).
-  public uriFor(projectId: string, relpath: string): string {
+  public uriFor(projectId: string, relpath: string): string
+  {
     return `todl://${this.projectKeyFor(projectId)}/${relpath}`
   }
 
   // Record a project so its URIs resolve back to (project, storage, relpath).
-  public registerProject(projectId: string, projectName: string, storage: IStorage): void {
+  public registerProject(projectId: string, projectName: string, storage: IStorage): void
+  {
     this.projects.set(this.projectKeyFor(projectId), { projectId, projectName, storage })
   }
 
   // Reverse a todl:// URI to its project + storage + project-relative path, or
   // null when the project is unknown (e.g. after close).
-  public resolveUri(uri: string): { projectId: string; storage: IStorage; relpath: string } | null {
+  public resolveUri(uri: string): { projectId: string; storage: IStorage; relpath: string } | null
+  {
     const rest = uri.startsWith('todl://') ? uri.slice('todl://'.length) : ''
     const slash = rest.indexOf('/')
     if (slash < 0) return null
@@ -239,7 +263,8 @@ export class TodlLanguageClient extends ServiceBase {
   // Resolve (and cache) a project's declared bases, preferring an open sibling
   // producer's live source over the published artifact (WorkspaceBaseResolver).
   // Cache is per-storage; RefreshBases drops it to pick up producer edits.
-  private async basesFor(storage: IStorage): Promise<{ bases: TodlDocument[]; problems: string[] }> {
+  private async basesFor(storage: IStorage): Promise<{ bases: TodlDocument[]; problems: string[] }>
+  {
     const cached = this.baseCache.get(storage)
     if (cached !== undefined) return cached
     const resolved = await this.Provider.getRequired(WorkspaceBaseResolver.Key).ResolveForStorage(storage)
@@ -247,7 +272,8 @@ export class TodlLanguageClient extends ServiceBase {
     return resolved
   }
 
-  private projectByStorage(storage: IStorage): { key: string; project: RegisteredProject } | null {
+  private projectByStorage(storage: IStorage): { key: string; project: RegisteredProject } | null
+  {
     for (const [key, project] of this.projects) if (project.storage === storage) return { key, project }
     return null
   }
@@ -255,12 +281,14 @@ export class TodlLanguageClient extends ServiceBase {
   // Register a project, push its resolved bases, and didOpen every project .todl
   // (the whole set — not just the visible tab — so the server can analyze the
   // project as a whole).
-  public async AttachProject(projectId: string, projectName: string, storage: IStorage): Promise<void> {
+  public async AttachProject(projectId: string, projectName: string, storage: IStorage): Promise<void>
+  {
     this.registerProject(projectId, projectName, storage)
     const { bases } = await this.basesFor(storage)
     await this.notify('todl/setBases', { rootUri: this.uriFor(projectId, ''), bases })
     const opened = new Set<string>()
-    for (const s of await collectTodlSources(storage)) {
+    for (const s of await collectTodlSources(storage))
+    {
       const uri = this.uriFor(projectId, s.uri)
       opened.add(uri)
       await this.notify('textDocument/didOpen', {
@@ -272,7 +300,8 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Unregister a project on close: didClose its docs, drop registry + caches.
   // (Diagnostics clearing is added in the diagnostics-routing layer.)
-  public DetachProject(storage: IStorage): void {
+  public DetachProject(storage: IStorage): void
+  {
     const found = this.projectByStorage(storage)
     if (found === null) return
     const opened = this.openDocs.get(found.key) ?? new Set<string>()
@@ -286,7 +315,8 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Re-resolve a project's bases after a (re)publish and push them to the server,
   // which drops the old set and re-analyzes.
-  public async RefreshBases(storage: IStorage): Promise<void> {
+  public async RefreshBases(storage: IStorage): Promise<void>
+  {
     const found = this.projectByStorage(storage)
     if (found === null) return
     this.baseCache.delete(storage)
@@ -297,12 +327,14 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Record a document's URI and publish it on the document so the editor keys its
   // Monaco model on it.
-  private assignUri(doc: CodeDocument, uri: string): void {
+  private assignUri(doc: CodeDocument, uri: string): void
+  {
     this.docUris.set(doc, uri)
     doc.Uri = uri
   }
 
-  private sendDidChange(uri: string, text: string): void {
+  private sendDidChange(uri: string, text: string): void
+  {
     void this.notify('textDocument/didChange', {
       textDocument: { uri, version: this.nextVersion(uri) },
       contentChanges: [{ text }],
@@ -312,14 +344,16 @@ export class TodlLanguageClient extends ServiceBase {
   // Wire an open editor document to the server: assign its URI, ensure the server
   // has it open, and forward every Content edit as a full-text didChange (the
   // server's incremental sync accepts a range-less full replace). Idempotent.
-  public AttachDocument(doc: CodeDocument, storage: IStorage): void {
+  public AttachDocument(doc: CodeDocument, storage: IStorage): void
+  {
     if (this.docListeners.has(doc)) return
     const found = this.projectByStorage(storage)
     if (found === null) return
     const uri = this.uriFor(found.project.projectId, doc.Id)
     this.assignUri(doc, uri)
     const opened = this.openDocs.get(found.key)
-    if (opened !== undefined && !opened.has(uri)) {
+    if (opened !== undefined && !opened.has(uri))
+    {
       opened.add(uri)
       void this.notify('textDocument/didOpen', {
         textDocument: { uri, languageId: 'todl', version: this.nextVersion(uri), text: doc.Content },
@@ -334,9 +368,11 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Move a document to (storage, relpath): close the old server doc, open the new
   // one. The Content listener reads the live URI, so it follows automatically.
-  private moveDoc(doc: CodeDocument, storage: IStorage, relpath: string): void {
+  private moveDoc(doc: CodeDocument, storage: IStorage, relpath: string): void
+  {
     const old = this.docUris.get(doc)
-    if (old !== undefined) {
+    if (old !== undefined)
+    {
       void this.notify('textDocument/didClose', { textDocument: { uri: old } })
       for (const set of this.openDocs.values()) set.delete(old)
     }
@@ -352,7 +388,8 @@ export class TodlLanguageClient extends ServiceBase {
 
   // In-place rename within the same project; the storage is derived from the
   // document's current URI.
-  public RelocateDocument(doc: CodeDocument, newPath: string): void {
+  public RelocateDocument(doc: CodeDocument, newPath: string): void
+  {
     const old = this.docUris.get(doc)
     const resolved = old !== undefined ? this.resolveUri(old) : null
     if (resolved === null) return
@@ -360,23 +397,29 @@ export class TodlLanguageClient extends ServiceBase {
   }
 
   // Cross-project move (doc.Id already points at the new path).
-  public ReattachDocument(doc: CodeDocument, storage: IStorage): void {
+  public ReattachDocument(doc: CodeDocument, storage: IStorage): void
+  {
     this.moveDoc(doc, storage, doc.Id)
   }
 
   // Reconcile the server's open set for a project with what is on disk now —
   // didOpen new files, didChange still-present ones, didClose removed ones.
   // Covers explorer create/delete/rename with no editor open.
-  public async ResyncProject(projectId: string, storage: IStorage): Promise<void> {
+  public async ResyncProject(projectId: string, storage: IStorage): Promise<void>
+  {
     const key = this.projectKeyFor(projectId)
     const prev = this.openDocs.get(key) ?? new Set<string>()
     const next = new Set<string>()
-    for (const s of await collectTodlSources(storage)) {
+    for (const s of await collectTodlSources(storage))
+    {
       const uri = this.uriFor(projectId, s.uri)
       next.add(uri)
-      if (prev.has(uri)) {
+      if (prev.has(uri))
+      {
         this.sendDidChange(uri, s.text)
-      } else {
+      }
+      else
+      {
         void this.notify('textDocument/didOpen', {
           textDocument: { uri, languageId: 'todl', version: this.nextVersion(uri), text: s.text },
         })
@@ -388,7 +431,8 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Route a server publishDiagnostics into the canonical store. The store wants
   // the whole project slice at once, so accumulate per-URI then flatten.
-  private onPublishDiagnostics(params: PublishDiagnosticsParams): void {
+  private onPublishDiagnostics(params: PublishDiagnosticsParams): void
+  {
     const key = params.uri.startsWith('todl://') ? params.uri.slice('todl://'.length).split('/')[0] : undefined
     const entry = key !== undefined ? this.projects.get(key) : undefined
     const resolved = this.resolveUri(params.uri)
@@ -410,14 +454,17 @@ export class TodlLanguageClient extends ServiceBase {
 
   // Flatten a project's per-URI diagnostics (plus any unresolved-base problems)
   // and replace its slice in the store.
-  private publishProject(projectId: string): void {
+  private publishProject(projectId: string): void
+  {
     const byUri = this.diagsByProject.get(projectId) ?? new Map<string, Diagnostic[]>()
     const flat: Diagnostic[] = []
     for (const list of byUri.values()) flat.push(...list)
     const project = [...this.projects.values()].find((p) => p.projectId === projectId)
-    if (project !== undefined) {
+    if (project !== undefined)
+    {
       const problems = this.baseCache.get(project.storage)?.problems ?? []
-      if (problems.length > 0) {
+      if (problems.length > 0)
+      {
         flat.push({
           owner: 'todl', projectId, projectName: project.projectName, uri: null,
           message: `Unresolved base: ${problems.join('; ')}.`,

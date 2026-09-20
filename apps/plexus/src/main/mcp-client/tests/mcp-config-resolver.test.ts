@@ -4,7 +4,8 @@ import { McpServerStore } from '../mcp-server-store.js'
 import { ValueSourceResolver } from '../value-source.js'
 import { McpGatingMode, McpTransportKind, ValueSourceKind, type McpServerEntry } from '../../../shared/mcp-client-api.js'
 
-function store(entries: McpServerEntry[]): McpServerStore {
+function store(entries: McpServerEntry[]): McpServerStore
+{
     const s = new McpServerStore({ read: () => undefined, write: () => {} }, 'x')
     for (const e of entries) s.upsert(e)
     return s

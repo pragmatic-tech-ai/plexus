@@ -12,7 +12,8 @@ function fakeVisual(
   rect: { X: number; Y: number; Width?: number; Height?: number },
   children: unknown[] = [],
   opts: { visible?: boolean; render?: () => void } = {},
-): unknown {
+): unknown
+{
   return {
     Visibility: opts.visible === false ? Visibility.Collapsed : Visibility.Visible,
     ArrangedRect: { X: rect.X, Y: rect.Y, Width: rect.Width ?? 0, Height: rect.Height ?? 0 },
@@ -105,7 +106,8 @@ test('renderDocument uses selection bounds when items are selected', () => {
   expect(height).toBe(30)
 })
 
-function opts(over: Partial<ExportOptions> = {}): ExportOptions {
+function opts(over: Partial<ExportOptions> = {}): ExportOptions
+{
   return {
     format: ExportFormat.Svg, useSelection: false,
     background: ExportBackground.Transparent, showPageBreaks: false, scale: 2, ...over,
@@ -115,7 +117,8 @@ function opts(over: Partial<ExportOptions> = {}): ExportOptions {
 // A fake PaginatedCanvas: the render-time overrides set these plain props, and the
 // Render spy captures PageBorderThickness AT PAINT TIME so we can prove it was
 // forced to 0 during the walk and restored afterward.
-function fakePaginated(children: unknown[], captured: { thickness?: number }): any {
+function fakePaginated(children: unknown[], captured: { thickness?: number }): any
+{
   const panel: any = {
     PageBorderThickness: 1, PaperBrush: 'ORIGINAL_PAPER', Fill: 'ORIGINAL_FILL',
     Visibility: Visibility.Visible,

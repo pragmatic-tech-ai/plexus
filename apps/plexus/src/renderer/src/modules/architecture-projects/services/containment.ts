@@ -54,7 +54,8 @@ export function isContainerConcept(repo: Repository, concept: string): boolean
 // containment relationship. undefined when it has no containment ref (top level).
 export function containmentParentOf(repo: Repository, entity: Entity): Entity | undefined
 {
-    for (const rel of entity.schema().relationships) {
+    for (const rel of entity.schema().relationships)
+    {
         if (!isContainmentRelationship(repo, entity.concept, rel.name)) continue
         const targets = entity.refs(rel.name)
         if (targets.length > 0) return targets[0]
@@ -126,7 +127,8 @@ export function containmentMemberOf(repo: Repository, concept: string): string
 export function containmentMemberFor(repo: Repository, childConcept: string, parentConcept: string): string | undefined
 {
     const parentTypes = new Set<string>([parentConcept, ...repo.supertypesOf(parentConcept)])
-    for (const rel of repo.effectiveSchema(childConcept).relationships) {
+    for (const rel of repo.effectiveSchema(childConcept).relationships)
+    {
         if (!isContainmentRelationship(repo, childConcept, rel.name)) continue
         if (rel.targets.some((t) => parentTypes.has(t))) return rel.name
     }

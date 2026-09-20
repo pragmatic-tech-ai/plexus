@@ -12,12 +12,14 @@ const rendererSrc = resolve(here, "src/renderer");
 // then the workspace root.
 const workspaceRoot = resolve(here, "../..");
 
-function depFile(rel: string): string {
+function depFile(rel: string): string
+{
   const hit = [
     resolve(here, "node_modules", rel),
     resolve(workspaceRoot, "node_modules", rel),
   ].find(existsSync);
-  if (hit === undefined) {
+  if (hit === undefined)
+  {
     throw new Error(`cannot resolve ${rel} in app or workspace-root node_modules`);
   }
   return hit;

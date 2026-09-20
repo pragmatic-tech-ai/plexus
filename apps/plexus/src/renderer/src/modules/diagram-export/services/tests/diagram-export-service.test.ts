@@ -13,7 +13,8 @@ vi.mock('../svg-raster.js', () => ({
 }))
 
 // A minimal fake content host exposing just ActiveDocument.
-function providerWith(activeDoc: unknown) {
+function providerWith(activeDoc: unknown)
+{
   const provider = new ServiceProvider()
   provider.registerInstance(ContentHostService.Key, { ActiveDocument: activeDoc } as never)
   return provider

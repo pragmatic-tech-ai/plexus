@@ -102,7 +102,8 @@ export class McpServerEditor extends Observable
         const o = this._isValid; this._isValid = ok; this.RaisePropertyChanged('IsValid', o, ok)
     }
 
-    private isParsableUrl(): boolean { try { return new URL(this._url).protocol.length > 0 } catch { return false } }
+    private isParsableUrl(): boolean { try { return new URL(this._url).protocol.length > 0 }
+    catch { return false } }
 
     // Build a persisted entry from the current form state.
     public toEntry(): McpServerEntry

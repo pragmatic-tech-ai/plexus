@@ -11,7 +11,8 @@ import { LibraryRegistry } from '../library-registry.js'
 // Seed is SYNCHRONOUS: FakeStorage.WriteText sets its map synchronously, so every
 // file is present before discover() lists the backend (an async seed with awaits
 // would race the first List). Matches the meta-models-service test pattern.
-function envWith(backend: FakeStorage): { provider: ServiceProvider; diagnostics: DiagnosticsService } {
+function envWith(backend: FakeStorage): { provider: ServiceProvider; diagnostics: DiagnosticsService }
+{
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
     registry.Register(LIBRARIES_BACKEND_ID, () => backend)
@@ -21,13 +22,15 @@ function envWith(backend: FakeStorage): { provider: ServiceProvider; diagnostics
     return { provider, diagnostics }
 }
 
-function env(seed: (b: FakeStorage) => void): { provider: ServiceProvider; diagnostics: DiagnosticsService } {
+function env(seed: (b: FakeStorage) => void): { provider: ServiceProvider; diagnostics: DiagnosticsService }
+{
     const backend = new FakeStorage('fake://libraries')
     seed(backend)
     return envWith(backend)
 }
 
-function manifest(id: string, template = `visuals/${id}.azure.mural`): string {
+function manifest(id: string, template = `visuals/${id}.azure.mural`): string
+{
     return JSON.stringify({
         id, version: '0.1.0', name: id, metaModel: { id: 'ea', version: '5' },
         classes: [{ id: `${id}.azure`, localId: 'azure', label: 'Azure', concept: 'location', template }],

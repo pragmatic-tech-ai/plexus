@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { pasteItemsFromClipboard } from '../media-drop-handler'
 
-function clipboardWith(file: File): DataTransfer {
+function clipboardWith(file: File): DataTransfer
+{
     return {
         items: [{ kind: 'file', type: file.type, getAsFile: () => file }],
     } as unknown as DataTransfer

@@ -11,7 +11,8 @@ import { TodlLspChannel } from '../../shared/todl-lsp-api.js'
 // is the same long-lived-stdio-child pattern the Claude CLI provider uses;
 // stderr inherits to the main-process log. Events are pushed to whichever window
 // is focused (single window today).
-export function registerTodlServerHandlers(): void {
+export function registerTodlServerHandlers(): void
+{
   const emit = (channel: string, msg?: unknown): void => {
     const win = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
     win?.webContents.send(channel, msg)

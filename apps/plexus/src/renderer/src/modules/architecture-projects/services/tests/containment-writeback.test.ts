@@ -22,20 +22,23 @@ const file = { uri: 'model.todl', text: `namespace archmm {
   model Arch : archmm conforms V { location loc {} component comp {} technology tech {} }
 }` }
 
-function buildModel(): ArchModel {
+function buildModel(): ArchModel
+{
     const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
-class TestDoc extends DiagramDocument {
+class TestDoc extends DiagramDocument
+{
     public fakeView: Diagram | undefined
     public override get ActiveView(): Diagram | undefined { return this.fakeView }
     public override set ActiveView(_v: Diagram | undefined) { /* driven via fakeView */ }
 }
 
-function fakeView(): { view: Diagram; fire: (a: ReparentArgs) => void; snapBacks: string[] } {
+function fakeView(): { view: Diagram; fire: (a: ReparentArgs) => void; snapBacks: string[] }
+{
     const figs = new Map<string, Figure>()
     const figFor = (id: string): Figure => {
         let f = figs.get(id)
@@ -67,13 +70,15 @@ function fakeView(): { view: Diagram; fire: (a: ReparentArgs) => void; snapBacks
 }
 
 // A spy DialogService: records each Show() so tests can assert the rejection modal.
-function fakeDialogs(): { dialogs: unknown; shows: Array<{ Title?: string }> } {
+function fakeDialogs(): { dialogs: unknown; shows: Array<{ Title?: string }> }
+{
     const shows: Array<{ Title?: string }> = []
     const dialogs = { Show: (o: { Title?: string }) => { shows.push(o); return Promise.resolve(undefined) }, Close: () => {} }
     return { dialogs, shows }
 }
 
-function setup(): { model: ArchModel; doc: TestDoc; fire: (a: ReparentArgs) => void; snapBacks: string[]; shows: Array<{ Title?: string }>; refsIn: (id: string) => string[] } {
+function setup(): { model: ArchModel; doc: TestDoc; fire: (a: ReparentArgs) => void; snapBacks: string[]; shows: Array<{ Title?: string }>; refsIn: (id: string) => string[] }
+{
     const model = buildModel()
     const doc = new TestDoc()
     for (const id of ['loc', 'comp', 'tech']) { const vm = new ArchNodeVM(); vm.Id = id; doc.Nodes.Add(vm) }

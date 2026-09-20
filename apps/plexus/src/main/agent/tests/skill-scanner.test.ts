@@ -7,7 +7,8 @@ import { SkillScope } from '../../../shared/skill-api.js'
 import type { CatalogIo } from '../claude-catalog.js'
 
 // Fake fs: dirs maps a path to its entries; files maps a path to contents.
-function fakeIo(dirs: Record<string, string[]>, files: Record<string, string>): CatalogIo {
+function fakeIo(dirs: Record<string, string[]>, files: Record<string, string>): CatalogIo
+{
     return {
         exists: (p) => Promise.resolve(p in dirs || p in files),
         readDir: (p) => Promise.resolve(dirs[p] ?? []),

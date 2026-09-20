@@ -9,7 +9,8 @@ import { ChatStore } from '../chat-store.js'
 import { ChatSessionsService, seedInvocation } from '../chat-sessions-service.js'
 import { AgentModel } from '../agent-model.js'
 
-function fakeAgent() {
+function fakeAgent()
+{
     const turns: Array<{ sessionId: string; text: string }> = []
     const sends: Array<{ id: string; cwd: string; dirs: string[]; text: string; model: string }> = []
     const started: string[] = []
@@ -40,7 +41,8 @@ function fakeAgent() {
     return { api, turns, sends, started, starts, emit: (m: TaggedAgentEvent) => push?.(m) }
 }
 
-function fakeStore(initial: string[] = []) {
+function fakeStore(initial: string[] = [])
+{
     let folders = [...initial]
     const listeners = new Set<(f: readonly string[]) => void>()
     return {
@@ -54,7 +56,8 @@ let bridge: ReturnType<typeof fakeAgent>
 beforeEach(() => { bridge = fakeAgent(); (globalThis as unknown as { api: unknown }).api = { agent: bridge.api } })
 afterEach(() => { delete (globalThis as unknown as { api?: unknown }).api })
 
-function makeService(store = fakeStore(['/A']), stored: Array<{ Id: string; Title: string; Cwd?: string }> = []) {
+function makeService(store = fakeStore(['/A']), stored: Array<{ Id: string; Title: string; Cwd?: string }> = [])
+{
     const provider = new ServiceProvider()
     provider.registerInstance(OpenProjectsStore.Key, store as unknown as OpenProjectsStore)
     provider.registerInstance(EnvironmentService.Key, { CurrentDirectory: '/fallback' } as EnvironmentService)

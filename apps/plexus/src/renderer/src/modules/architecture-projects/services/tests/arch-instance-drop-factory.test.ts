@@ -15,13 +15,15 @@ const MM = `namespace archmm {
   viewpoint ComponentView : frames component
   taxonomy Stack : represents technology { term azure {} }
 }`
-function buildModel(storage: FakeStorage): ArchModel {
+function buildModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
 // A provider whose ArchDiagramBindingService maps `doc` → `model`.
-function wire(doc: DiagramDocument, model: ArchModel | undefined) {
+function wire(doc: DiagramDocument, model: ArchModel | undefined)
+{
     const provider = new ServiceProvider()
     provider.registerInstance(ArchDiagramBindingService.Key, {
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
@@ -31,7 +33,8 @@ function wire(doc: DiagramDocument, model: ArchModel | undefined) {
     return provider
 }
 
-function ctx(doc: DiagramDocument, key: string): ToolboxDropContext {
+function ctx(doc: DiagramDocument, key: string): ToolboxDropContext
+{
     return { Descriptor: { Key: key }, Position: { X: 5, Y: 6 }, Diagram: {}, Mutator: doc } as unknown as ToolboxDropContext
 }
 
@@ -89,7 +92,8 @@ const PROP_MM = `namespace archmm {
   taxonomy Stack : represents technology { term azure { applicableTo = Cats.ai; } }
 }`
 
-function buildPropModel(storage: FakeStorage): ArchModel {
+function buildPropModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: PROP_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
@@ -127,18 +131,21 @@ const CONTAIN_MM = `namespace archmm {
   viewpoint V : frames component, location, zone
   taxonomy Stack : represents technology { term azure {} }
 }`
-function buildContainModel(storage: FakeStorage): ArchModel {
+function buildContainModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: CONTAIN_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 // A provider that also carries a spy DialogService, so the reject modal is observable.
-function wireWithDialogs(doc: DiagramDocument, model: ArchModel): { provider: ServiceProvider; shows: Array<{ Title?: string }> } {
+function wireWithDialogs(doc: DiagramDocument, model: ArchModel): { provider: ServiceProvider; shows: Array<{ Title?: string }> }
+{
     const provider = wire(doc, model)
     const shows: Array<{ Title?: string }> = []
     provider.registerInstance(DialogService.Key, { Show: (o: { Title?: string }) => { shows.push(o); return Promise.resolve(undefined) }, Close: () => {} } as unknown as DialogService)
     return { provider, shows }
 }
-function ctxInto(doc: DiagramDocument, key: string, targetId: string): ToolboxDropContext {
+function ctxInto(doc: DiagramDocument, key: string, targetId: string): ToolboxDropContext
+{
     return { Descriptor: { Key: key }, Position: { X: 5, Y: 6 }, Diagram: {}, Mutator: doc, TargetContainer: { Id: targetId } } as unknown as ToolboxDropContext
 }
 
@@ -168,7 +175,8 @@ const PLACE_MM = `namespace archmm {
   viewpoint V : frames component, location
   taxonomy Regions : represents location { term azure {} }
 }`
-function buildPlaceModel(storage: FakeStorage): ArchModel {
+function buildPlaceModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: PLACE_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
@@ -203,7 +211,8 @@ const REJECT_MM = `namespace archmm {
   viewpoint Scenarios : frames component
   taxonomy Regions : represents location { term azure {} }
 }`
-function buildRejectModel(storage: FakeStorage): ArchModel {
+function buildRejectModel(storage: FakeStorage): ArchModel
+{
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: REJECT_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }

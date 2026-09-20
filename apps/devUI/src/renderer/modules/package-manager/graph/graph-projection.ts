@@ -7,13 +7,15 @@ import { type GraphViewNode, type GraphViewSlice } from "./todl-graph-model.js";
 // Turns a filtered graph slice into laid-out mural Figures + Connectors. Layout is
 // the dependency-free GraphLayout; this class owns the mapping of a graph node → a
 // labelled, tier-coloured tile and an edge → a captioned connector between tiles.
-export class GraphProjection {
+export class GraphProjection
+{
   private static readonly TILE_W = 150;
   private static readonly TILE_H = 56;
 
   constructor(private readonly slice: GraphViewSlice) {}
 
-  materialize(): { figures: Figure[]; connectors: Connector[] } {
+  materialize(): { figures: Figure[]; connectors: Connector[] }
+  {
     const pos = new GraphLayout(
       this.slice.nodes.map((n) => n.id),
       this.slice.edges,
@@ -36,7 +38,8 @@ export class GraphProjection {
     });
 
     const connectors: Connector[] = [];
-    for (const e of this.slice.edges) {
+    for (const e of this.slice.edges)
+    {
       const source = byId.get(e.from);
       const target = byId.get(e.to);
       if (source === undefined || target === undefined) continue;
@@ -50,7 +53,8 @@ export class GraphProjection {
   }
 
   // Two-line tile caption: the node's label over its typeOf subtitle.
-  private static captionOf(node: GraphViewNode): string {
+  private static captionOf(node: GraphViewNode): string
+  {
     return node.subtitle.length > 0 ? `${node.label}\n${node.subtitle}` : node.label;
   }
 
@@ -58,7 +62,8 @@ export class GraphProjection {
   // "MaterialLight" / "MaterialDark"); matches case-insensitively on "dark" so an
   // internal prefix (e.g. "_MaterialDark") still resolves. Defaults to light when
   // no scheme is active (headless/tests before a theme mounts).
-  private static activeSchemeIsDark(): boolean {
+  private static activeSchemeIsDark(): boolean
+  {
     const name = ThemeManager.ActiveScheme?.name ?? "";
     return name.toLowerCase().includes("dark");
   }

@@ -50,7 +50,8 @@ export function registerElementViewModel(concept: string, ctor: ElementViewModel
 function generatedClassFor(concept: string): ElementViewModelCtor
 {
     let ctor = generated.get(concept)
-    if (ctor === undefined) {
+    if (ctor === undefined)
+    {
         ctor = { [concept]: class extends ElementViewModel {} }[concept] as ElementViewModelCtor
         generated.set(concept, ctor)
     }

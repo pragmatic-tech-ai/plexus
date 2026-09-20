@@ -25,7 +25,8 @@ import { SkillGroupVm } from './skill-group.js';
 
 // Collaborators the authoring service needs, injected for testing; production is
 // built from the provider in buildDeps.
-export interface AuthoringDeps {
+export interface AuthoringDeps
+{
     skills(): readonly Skill[];
     openProjectDirs(): readonly string[];
     discover(): Promise<void>;
@@ -38,7 +39,8 @@ export interface AuthoringDeps {
 // The "Skills" capability nav service. Lists the catalog (search-filtered), opens a
 // SkillEditSession for the selected skill (form ⇄ the same Monaco buffer), and
 // scaffolds new skills via ＋New. Save persists the shared buffer.
-export class SkillAuthoringService extends ServiceBase {
+export class SkillAuthoringService extends ServiceBase
+{
     public static readonly Key = new ServiceKey<SkillAuthoringService>('SkillAuthoringService');
 
     private readonly deps: AuthoringDeps;
@@ -52,7 +54,8 @@ export class SkillAuthoringService extends ServiceBase {
     private readonly _refresh: RelayCommand;
     private readonly _run: RelayCommand;
 
-    constructor(provider: IServiceProvider, deps?: AuthoringDeps) {
+    constructor(provider: IServiceProvider, deps?: AuthoringDeps)
+    {
         super(provider);
         this.deps = deps ?? this.buildDeps();
         this._new = new RelayCommand(() => {
@@ -82,7 +85,8 @@ export class SkillAuthoringService extends ServiceBase {
     }
 
     // The catalog, filtered by the current search text (name/title/description).
-    get Skills(): readonly Skill[] {
+    get Skills(): readonly Skill[]
+    {
         const q = this._search.trim().toLowerCase();
         const all = this.deps.skills();
         if (q === '') return all;
@@ -94,10 +98,12 @@ export class SkillAuthoringService extends ServiceBase {
     // The panel binds Groups: one section per open project (in open order, headed by
     // the folder name), then Global, then Packaged. Search filters within groups;
     // empty groups are omitted. Project-scoped skills sort under their origin project.
-    get Groups(): SkillGroupVm[] {
+    get Groups(): SkillGroupVm[]
+    {
         const skills = this.Skills;
         const groups: SkillGroupVm[] = [];
-        for (const dir of this.deps.openProjectDirs()) {
+        for (const dir of this.deps.openProjectDirs())
+        {
             const items = this.rowsFor(
                 skills.filter((s) => s.IsProjectScoped && s.OriginProjectPath === dir),
             );
@@ -110,51 +116,63 @@ export class SkillAuthoringService extends ServiceBase {
         return groups;
     }
 
-    get IsEmpty(): boolean {
+    get IsEmpty(): boolean
+    {
         return this.Skills.length === 0;
     }
 
-    private rowsFor(skills: readonly Skill[]): SkillListItemVm[] {
+    private rowsFor(skills: readonly Skill[]): SkillListItemVm[]
+    {
         return skills.map((s) => new SkillListItemVm(s, (sk) => this.Select(sk)));
     }
 
     // Last path segment for a group header, tolerant of either separator.
-    private basename(path: string): string {
+    private basename(path: string): string
+    {
         const trimmed = path.replace(/[/\\]+$/, '');
         const cut = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
         return cut >= 0 ? trimmed.slice(cut + 1) : trimmed;
     }
 
-    get SearchText(): string {
+    get SearchText(): string
+    {
         return this._search;
     }
-    set SearchText(v: string) {
+    set SearchText(v: string)
+    {
         if (v === this._search) return;
         this._search = v;
         this.notifyList();
     }
 
-    get Session(): SkillEditSession | undefined {
+    get Session(): SkillEditSession | undefined
+    {
         return this._session;
     }
-    get HasSession(): boolean {
+    get HasSession(): boolean
+    {
         return this._session !== undefined;
     }
-    get NewCommand(): ICommand {
+    get NewCommand(): ICommand
+    {
         return this._new;
     }
-    get SaveCommand(): ICommand {
+    get SaveCommand(): ICommand
+    {
         return this._save;
     }
-    get RefreshCommand(): ICommand {
+    get RefreshCommand(): ICommand
+    {
         return this._refresh;
     }
-    get RunCommand(): ICommand {
+    get RunCommand(): ICommand
+    {
         return this._run;
     }
 
     // Open the selected skill: bind the frontmatter form to its (shared) SKILL.md buffer.
-    Select(skill: Skill): void {
+    Select(skill: Skill): void
+    {
         const buffer = this.deps.openBuffer(this.skillMdPath(skill));
         const prev = this._session;
         this._session = new SkillEditSession(skill, buffer, this.codec, this.validator);
@@ -168,7 +186,8 @@ export class SkillAuthoringService extends ServiceBase {
     // Run the selected skill (public so it is awaitable; RunCommand delegates here).
     // A project skill runs against its origin project; global/packaged skills run
     // against the active (first open) project. No target ⇒ no-op.
-    async Run(): Promise<void> {
+    async Run(): Promise<void>
+    {
         const skill = this._selected;
         if (skill === undefined) return;
         const dir = this.runTargetDir(skill);
@@ -176,18 +195,21 @@ export class SkillAuthoringService extends ServiceBase {
         await this.deps.run(skill, dir, this.basename(dir));
     }
 
-    Refresh(): Promise<void> {
+    Refresh(): Promise<void>
+    {
         return this.deps.discover().then(() => this.notifyList());
     }
 
-    private notifyList(): void {
+    private notifyList(): void
+    {
         this.RaisePropertyChanged('Skills', undefined, this.Skills);
         this.RaisePropertyChanged('Groups', undefined, this.Groups);
         this.RaisePropertyChanged('IsEmpty', undefined, this.IsEmpty);
     }
 
     // The ＋New flow (public so it is awaitable; the NewCommand delegates here).
-    async New(): Promise<void> {
+    async New(): Promise<void>
+    {
         const req = await this.deps.presentNewSkillDialog(SkillScope.Project);
         if (req === undefined) return;
         const folder = await this.deps.scaffold(req);
@@ -197,28 +219,33 @@ export class SkillAuthoringService extends ServiceBase {
         if (created !== undefined) this.Select(created);
     }
 
-    private canSave(): boolean {
+    private canSave(): boolean
+    {
         return this._session !== undefined && !this._session.IsReadOnly;
     }
 
     // Run is enabled once a skill is selected and a target project can be resolved
     // (its origin, or an open project for global/packaged skills).
-    private canRun(): boolean {
+    private canRun(): boolean
+    {
         return this._selected !== undefined && this.runTargetDir(this._selected) !== undefined;
     }
 
     // A project skill's own project; otherwise the active (first open) project.
-    private runTargetDir(skill: Skill): string | undefined {
+    private runTargetDir(skill: Skill): string | undefined
+    {
         return skill.OriginProjectPath ?? this.deps.openProjectDirs()[0];
     }
 
-    private skillMdPath(skill: Skill): string {
+    private skillMdPath(skill: Skill): string
+    {
         const dir = skill.Descriptor.folderPath;
         return dir.endsWith('/') || dir.endsWith('\\') ? `${dir}SKILL.md` : `${dir}/SKILL.md`;
     }
 
     // ── Production wiring ───────────────────────────────────────────────
-    private buildDeps(): AuthoringDeps {
+    private buildDeps(): AuthoringDeps
+    {
         return {
             skills: () => this.catalog().All,
             openProjectDirs: () => this.openProjectDirs(),
@@ -234,7 +261,8 @@ export class SkillAuthoringService extends ServiceBase {
         };
     }
 
-    private async presentNewDialog(defaultScope: SkillScope): Promise<NewSkillRequest | undefined> {
+    private async presentNewDialog(defaultScope: SkillScope): Promise<NewSkillRequest | undefined>
+    {
         const dialogs = this.Provider.get(DialogService.Key);
         if (dialogs === undefined) return undefined;
         const choices = this.openProjectDirs().map((d) => new ProjectChoice(this.basename(d), d));
@@ -251,18 +279,21 @@ export class SkillAuthoringService extends ServiceBase {
     // The open projects the panel groups and scaffolds into. Empty when no project
     // is open — grouping shows only Global/Packaged, and discovery/scaffold fall back
     // to the app cwd (projectDirs()).
-    private openProjectDirs(): readonly string[] {
+    private openProjectDirs(): readonly string[]
+    {
         return this.Provider.get(OpenProjectsStore.Key)?.Current() ?? [];
     }
 
     // The dirs to scan/scaffold: every open project, or the app cwd as a single
     // fallback so global + packaged still surface with no project open.
-    private projectDirs(): string[] {
+    private projectDirs(): string[]
+    {
         const open = this.openProjectDirs();
         return open.length > 0 ? [...open] : [this.env().CurrentDirectory];
     }
 
-    private scaffoldFs(): ScaffoldFs {
+    private scaffoldFs(): ScaffoldFs
+    {
         const fs = this.fs();
         return {
             exists: (p) => fs.Exists(p),
@@ -271,19 +302,24 @@ export class SkillAuthoringService extends ServiceBase {
         };
     }
 
-    private catalog(): SkillCatalog {
+    private catalog(): SkillCatalog
+    {
         return this.Provider.getRequired(SkillCatalog.Key);
     }
-    private runner(): SkillRunner {
+    private runner(): SkillRunner
+    {
         return this.Provider.getRequired(SkillRunner.Key);
     }
-    private editor(): CodeEditorService {
+    private editor(): CodeEditorService
+    {
         return this.Provider.getRequired(CodeEditorService.Key);
     }
-    private env(): IEnvironment {
+    private env(): IEnvironment
+    {
         return this.Provider.getRequired(EnvironmentService.Key);
     }
-    private fs(): FileSystemService {
+    private fs(): FileSystemService
+    {
         return this.Provider.getRequired(FileSystemService.Key);
     }
 }

@@ -7,15 +7,19 @@ import { ConnectionTokenStore } from "../connection-token-store.js";
 import type { Encryptor } from "../token-store.js";
 
 /** Reversible non-identity fake: XOR-with-0x5A then base64 (encrypt-at-rest). */
-class FakeEncryptor implements Encryptor {
-  available(): boolean {
+class FakeEncryptor implements Encryptor
+{
+  available(): boolean
+  {
     return true;
   }
-  encrypt(plain: string): Buffer {
+  encrypt(plain: string): Buffer
+  {
     const raw = Buffer.from(plain, "utf8").map((b) => b ^ 0x5a);
     return Buffer.from(raw.toString("base64"), "utf8");
   }
-  decrypt(cipher: Buffer): string {
+  decrypt(cipher: Buffer): string
+  {
     const raw = Buffer.from(cipher.toString("utf8"), "base64").map((b) => b ^ 0x5a);
     return raw.toString("utf8");
   }
@@ -57,8 +61,10 @@ test("clear removes only that connection's token", () => {
 });
 
 test("when encryption is unavailable, tokens stay in memory and are not written", () => {
-  class Unavailable extends FakeEncryptor {
-    available(): boolean {
+  class Unavailable extends FakeEncryptor
+  {
+    available(): boolean
+    {
       return false;
     }
   }

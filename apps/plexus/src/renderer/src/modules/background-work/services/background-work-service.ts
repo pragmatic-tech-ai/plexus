@@ -21,7 +21,8 @@ interface QueuedItem { handle: TaskHandle; payload: unknown }
 // registered for its kind, admits up to that executor's capacity at once, and
 // owns the observable task list + status-bar summary. Root-registered so any
 // service can resolve it and submit. Mirrors ProblemsService's shape.
-export class BackgroundWorkService extends ServiceBase {
+export class BackgroundWorkService extends ServiceBase
+{
     public static readonly Key = BackgroundWorkServiceKey
 
     private readonly _tasks = new ObservableCollection<TaskHandle>()
@@ -86,7 +87,8 @@ export class BackgroundWorkService extends ServiceBase {
         const executor = this.registry.get(kind)
         const q = this.queues.get(kind)
         if (executor === undefined || q === undefined) return
-        while (q.length > 0 && (this.running.get(kind) ?? 0) < executor.capacity) {
+        while (q.length > 0 && (this.running.get(kind) ?? 0) < executor.capacity)
+        {
             const item = q.shift() as QueuedItem
             if (item.handle.IsDone) continue          // cancelled while queued — skip
             this.startOne(kind, executor, item)

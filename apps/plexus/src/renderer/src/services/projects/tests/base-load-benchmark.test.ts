@@ -26,20 +26,23 @@ const META = `namespace ea {
 }`
 
 // A library = one taxonomy of N `technology` terms under `stack`.
-function librarySource(n: number): string {
+function librarySource(n: number): string
+{
     const terms: string[] = []
     for (let i = 0; i < n; i++) terms.push(`  technology t${i} { label = "Tech ${i}"; }`)
     return `namespace ms { taxonomy Stack : represents Technology {\n${terms.join('\n')}\n} }`
 }
 
 // An architecture project referencing a spread of the library's terms.
-function instanceSource(n: number): string {
+function instanceSource(n: number): string
+{
     const comps: string[] = []
     for (let i = 0; i < n; i++) comps.push(`  component c${i} { label = "C${i}"; realisedBy = stack.t${i % Math.max(1, n)}; }`)
     return `namespace app {\n${comps.join('\n')}\n}`
 }
 
-function ms(fn: () => void): number {
+function ms(fn: () => void): number
+{
     const t0 = performance.now()
     fn()
     return performance.now() - t0
@@ -50,7 +53,8 @@ test.skipIf(!RUN)('base-load CPU profile across library sizes', () => {
     const sizes = [100, 500, 1000, 2000]
     const rows: Array<Record<string, string>> = []
 
-    for (const n of sizes) {
+    for (const n of sizes)
+    {
         const libSrc = librarySource(n)
         const instSrc = instanceSource(Math.min(n, 200))   // realistic project: ~200 components
 

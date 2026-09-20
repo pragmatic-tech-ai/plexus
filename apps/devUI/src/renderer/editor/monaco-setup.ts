@@ -19,7 +19,8 @@ monaco.languages.json.jsonDefaults.setDiagnosticsOptions({ validate: false, sche
 export const TODL_DARK_THEME = "todl-dark";
 
 let themeDefined = false;
-export function registerTodlDarkTheme(): void {
+export function registerTodlDarkTheme(): void
+{
   if (themeDefined) return;
   themeDefined = true;
   monaco.editor.defineTheme(TODL_DARK_THEME, {

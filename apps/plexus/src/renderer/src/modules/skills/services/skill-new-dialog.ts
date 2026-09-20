@@ -5,7 +5,8 @@ import { SkillTemplateKind, type NewSkillRequest } from './skill-scaffolder.js'
 // One open project offered as a scaffold target in the New Skill dialog. `Label`
 // (the folder name) drives the ComboBox display via toString, matching the
 // MetaModelChoice/LibraryChoice convention used elsewhere.
-export class ProjectChoice extends Observable {
+export class ProjectChoice extends Observable
+{
     private readonly _label: string
     private readonly _path: string
     constructor(label: string, path: string) { super(); this._label = label; this._path = path }
@@ -18,7 +19,8 @@ export class ProjectChoice extends Observable {
 // closes the dialog with the collected request (or undefined on cancel). Name is
 // required — Create is gated on it. Scope/Template are chosen from the enum lists.
 // Projects (the open workspace) is the target picker, relevant only for Project scope.
-export class SkillNewFormVm extends Observable {
+export class SkillNewFormVm extends Observable
+{
     private _name = ''
     private _description = ''
     private _scope: SkillScope
@@ -29,7 +31,8 @@ export class SkillNewFormVm extends Observable {
     private readonly _confirm: RelayCommand
     private readonly _cancel: RelayCommand
 
-    constructor(defaultScope: SkillScope, projects: ProjectChoice[], onDone: (result: NewSkillRequest | undefined) => void) {
+    constructor(defaultScope: SkillScope, projects: ProjectChoice[], onDone: (result: NewSkillRequest | undefined) => void)
+    {
         super()
         this._scope = defaultScope
         this._projects = projects
@@ -63,7 +66,8 @@ export class SkillNewFormVm extends Observable {
     get ConfirmCommand(): ICommand { return this._confirm }
     get CancelCommand(): ICommand { return this._cancel }
 
-    private confirm(): void {
+    private confirm(): void
+    {
         if (this._name.trim() === '') return
         const projectDir = this._scope === SkillScope.Project ? this._selectedProject?.Path : undefined
         this.onDone({ name: this._name.trim(), description: this._description.trim(), scope: this._scope, template: this._template, projectDir })
@@ -73,7 +77,8 @@ export class SkillNewFormVm extends Observable {
 // MuralBase host for the new-skill form — DialogService.Content requires a
 // MuralBase, so this thin wrapper adapts the reusable Observable form. The modal
 // template (DataType = SkillNewDialogVm) binds $Form's fields and the commands.
-export class SkillNewDialogVm extends MuralBase {
+export class SkillNewDialogVm extends MuralBase
+{
     private readonly _form: SkillNewFormVm
     constructor(form: SkillNewFormVm) { super(); this._form = form }
     get Form(): SkillNewFormVm { return this._form }

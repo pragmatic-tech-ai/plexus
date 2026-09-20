@@ -30,7 +30,8 @@ export interface RunPlan
 
 export function planForMode(mode: RunMode, outcome: LayoutOutcome): RunPlan
 {
-    switch (mode) {
+    switch (mode)
+    {
         case RunMode.Positions:
             return { previewOnly: false, mutation: { setPositions: outcome.setPositions } }
         case RunMode.Preview:
