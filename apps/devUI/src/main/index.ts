@@ -2,12 +2,15 @@ import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { electronApp, is } from "@electron-toolkit/utils";
-import { PackageManager, PackageCompiler, LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
+import { PackageCompiler, LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
 import { TokenStore } from "./registry/token-store.js";
 import { SettingsStore } from "./registry/settings-store.js";
-import { ConnectionStore } from "./registry/connection-store.js";
 import { ConnectionTokenStore } from "./registry/connection-token-store.js";
-import { PackageRegistryManager } from "./registry/package-registry-manager.js";
+import { FileConnectionStore } from "./registry/engine/file-connection-store.js";
+import { EncryptedSecretStore } from "./registry/engine/encrypted-secret-store.js";
+import { ProcessEnvironmentVariables } from "./registry/engine/process-environment-variables.js";
+import { PackageEngine } from "./registry/engine/package-engine.js";
+import { LegacyRegistryMigration } from "./registry/engine/legacy-registry-migration.js";
 import { RegistryBridge } from "./registry/registry-bridge.js";
 import { RegistryIpc } from "./registry/register-ipc.js";
 import { SafeStorageEncryptor } from "./registry/safe-storage-encryptor.js";
@@ -55,28 +58,31 @@ function createWindow(): void
   }
 }
 
-void app.whenReady().then(() => {
+void app.whenReady().then(async () => {
   electronApp.setAppUserModelId("com.pragmatic-tech-ai.devui");
 
   const userData = app.getPath("userData");
   // One shared local compiled-package store: compileDir registers into it and
-  // every per-call PackageManager resolves against it (local-first).
+  // every per-connection PackageRegistryClient resolves against it (local-first).
   const localStore = new LocalPackageStore();
   const encryptor = new SafeStorageEncryptor();
-  // The registry connections manager owns the connection list + per-connection
-  // tokens; on first run it migrates the legacy single registry-settings.json +
-  // registry-token.bin into one "GitHub Packages" connection so nothing breaks.
-  const registryManager = new PackageRegistryManager({
-    connectionStore: new ConnectionStore(userData),
-    tokenStore: new ConnectionTokenStore(userData, encryptor),
-    env: process.env,
+  // The TODL package engine is the connection authority. devUI supplies the three
+  // host seams: connections persisted to connections.json, tokens encrypted per
+  // connection, and the process environment for env-sourced tokens.
+  const connectionStore = new FileConnectionStore(userData);
+  const secretStore = new EncryptedSecretStore(new ConnectionTokenStore(userData, encryptor));
+  const environment = new ProcessEnvironmentVariables(process.env);
+  // On first run, migrate the legacy single registry-settings.json + registry-token.bin
+  // into one "GitHub Packages" connection so existing installs keep working.
+  await new LegacyRegistryMigration({
+    connectionStore,
+    secretStore,
     legacySettings: new SettingsStore(userData),
     legacyToken: new TokenStore(userData, encryptor),
-  });
-  registryManager.migrateIfNeeded();
+  }).MigrateIfNeeded();
+  const engine = new PackageEngine({ connectionStore, secretStore, environment });
   const bridge = new RegistryBridge({
-    manager: registryManager,
-    createManager: (config) => new PackageManager(config, localStore),
+    service: engine.Service,
     createCompiler: () => new PackageCompiler(),
     localStore,
   });

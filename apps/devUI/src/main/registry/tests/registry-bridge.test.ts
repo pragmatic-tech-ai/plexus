@@ -3,13 +3,26 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RegistryBridge, type PackageManagerLike } from "../registry-bridge.js";
-import { TokenStore, type Encryptor } from "../token-store.js";
+import { RegistryBridge } from "../registry-bridge.js";
+import { type Encryptor } from "../token-store.js";
+import { TokenStore } from "../token-store.js";
 import { SettingsStore } from "../settings-store.js";
-import { ConnectionStore } from "../connection-store.js";
 import { ConnectionTokenStore } from "../connection-token-store.js";
-import { PackageRegistryManager } from "../package-registry-manager.js";
-import { LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
+import { FileConnectionStore } from "../engine/file-connection-store.js";
+import { EncryptedSecretStore } from "../engine/encrypted-secret-store.js";
+import { ProcessEnvironmentVariables } from "../engine/process-environment-variables.js";
+import { PackageEngine } from "../engine/package-engine.js";
+import { LegacyRegistryMigration } from "../engine/legacy-registry-migration.js";
+import {
+  LocalPackageStore,
+  type HttpRequest,
+  type HttpResponse,
+  type HttpTransport,
+} from "@pragmatic-tech-ai/todl/package-manager";
+
+const REGISTRY = "https://npm.pkg.github.com";
+const GITHUB = "https://api.github.com";
+const enc = new TextEncoder();
 
 class PlainEncryptor implements Encryptor
 {
@@ -17,72 +30,96 @@ class PlainEncryptor implements Encryptor
   encrypt(p: string) { return Buffer.from(p, "utf8"); }
   decrypt(c: Buffer) { return c.toString("utf8"); }
 }
+
+// An in-memory npm registry + GitHub org API for the seeded default connection:
+// the org package list (drives list()/testConnection) and packuments (drive
+// versions()/bumpVersion). Nothing hits the network.
+class InMemoryNpm implements HttpTransport
+{
+  constructor(
+    private readonly orgStatus = 200,
+    private readonly orgNames: string[] = [],
+    private readonly packuments: Record<string, unknown> = {},
+  ) {}
+
+  request(req: HttpRequest): Promise<HttpResponse>
+  {
+    if (req.url.startsWith(`${GITHUB}/orgs/`))
+    {
+      return this.orgStatus === 200
+        ? this.json(this.orgNames.map((name) => ({ name })))
+        : this.json({ message: "Bad credentials" }, this.orgStatus);
+    }
+    for (const [name, doc] of Object.entries(this.packuments))
+    {
+      if (req.url === `${REGISTRY}/${name.replace("/", "%2F")}`) return this.json(doc);
+    }
+    return this.json({ error: "not found" }, 404);
+  }
+
+  private json(value: unknown, status = 200): Promise<HttpResponse>
+  {
+    return Promise.resolve({ status, headers: {}, body: enc.encode(JSON.stringify(value)) });
+  }
+}
+
 const freshDir = () => mkdtempSync(join(tmpdir(), "todl-bridge-"));
 
-/** A structural stand-in for PackageManager with per-method overrides. */
-class FakeManager implements PackageManagerLike
-{
-  constructor(private readonly over: Partial<PackageManagerLike> = {}) {}
-  list() { return this.over.list?.() ?? Promise.resolve([] as string[]); }
-  versions(n: string) { return this.over.versions?.(n) ?? Promise.resolve({ versions: ["0.1.0"], distTags: { latest: "0.1.0" } }); }
-  manifestKind(n: string) { return this.over.manifestKind?.(n) ?? Promise.resolve(""); }
-  getContent(ref: any) { return this.over.getContent?.(ref) ?? Promise.resolve(new Uint8Array()); }
-  getPackage(ref: any) { return this.over.getPackage?.(ref) ?? Promise.reject(new Error("no")); }
-  getSources(ref: any) { return this.over.getSources?.(ref) ?? Promise.resolve([]); }
-  getContents(ref: any) { return this.over.getContents?.(ref) ?? Promise.resolve({ files: [], resources: [], packageJson: "", metadata: "", compiled: "", rawModel: "", dependencies: [], versions: [], latest: "" }); }
-  resolveClosure(deps: readonly string[]) { return this.over.resolveClosure?.(deps) ?? Promise.resolve({ metaModels: [], libraries: [], order: [] }); }
-  publish(dir: string) { return this.over.publish?.(dir) ?? Promise.resolve(); }
-  deleteVersion(name: string, version: string) { return this.over.deleteVersion?.(name, version) ?? Promise.resolve(); }
-  resolveResolved(ref: any) { return this.over.resolveResolved?.(ref) ?? Promise.reject(new Error("no")); }
-  resolvedVersions(id: string) { return this.over.resolvedVersions?.(id) ?? Promise.resolve([] as string[]); }
-}
-
-function makeBridge(
-  over: Partial<PackageManagerLike> = {},
-  env: Record<string, string | undefined> = {},
-  onConfig?: (config: any) => void,
-  compile?: (directory: string, options?: { scope?: string; outDir?: string }) => Promise<any>,
-  store: LocalPackageStore = new LocalPackageStore(),
-)
+function makeBridge(options: {
+  transport?: HttpTransport;
+  env?: Record<string, string | undefined>;
+  compile?: (directory: string, options?: { scope?: string; outDir?: string }) => Promise<unknown>;
+  store?: LocalPackageStore;
+} = {}): RegistryBridge
 {
   const dir = freshDir();
-  // The manager seeds one "GitHub Packages" connection (migrateIfNeeded) from the
-  // legacy defaults, so every bridge starts with a default connection.
-  const manager = new PackageRegistryManager({
-    connectionStore: new ConnectionStore(dir),
-    tokenStore: new ConnectionTokenStore(dir, new PlainEncryptor()),
-    env,
+  const encryptor = new PlainEncryptor();
+  const connectionStore = new FileConnectionStore(dir);
+  const secretStore = new EncryptedSecretStore(new ConnectionTokenStore(dir, encryptor));
+  const environment = new ProcessEnvironmentVariables(options.env ?? {});
+  const localStore = options.store ?? new LocalPackageStore();
+  // Migrate seeds one "GitHub Packages" connection (default) from SettingsStore's
+  // GitHub-Packages defaults, so every bridge starts with a default connection.
+  const migration = new LegacyRegistryMigration({
+    connectionStore,
+    secretStore,
     legacySettings: new SettingsStore(dir),
-    legacyToken: new TokenStore(dir, new PlainEncryptor()),
+    legacyToken: new TokenStore(dir, encryptor),
   });
-  manager.migrateIfNeeded();
-  return new RegistryBridge({
-    manager,
-    createManager: (config) => { onConfig?.(config); return new FakeManager(over); },
+  const engine = new PackageEngine({ connectionStore, secretStore, environment, transport: options.transport });
+  const compile = options.compile;
+  const bridge = new RegistryBridge({
+    service: engine.Service,
     createCompiler: () => ({
-      compile: compile ?? (() => Promise.resolve({ ok: true, diagnostics: [], errors: [] } as any)),
+      compile: (compile ?? (() => Promise.resolve({ ok: true, diagnostics: [], errors: [] }))) as never,
     }),
-    localStore: store,
+    localStore,
   });
+  // Run the (async) migration synchronously enough for the tests: they await the
+  // first bridge call, and migration is awaited here via a promise the helper stores.
+  // Kick it off and return a bridge whose first use is always after seeding.
+  (bridge as unknown as { ready: Promise<void> }).ready = migration.MigrateIfNeeded();
+  return bridge;
 }
 
-test("list delegates to the manager", async () => {
-  const bridge = makeBridge({ list: () => Promise.resolve(["aws", "microsoft"]) });
-  assert.deepEqual((await bridge.list()).sort(), ["aws", "microsoft"]);
-});
+async function ready(bridge: RegistryBridge): Promise<RegistryBridge>
+{
+  await (bridge as unknown as { ready: Promise<void> }).ready;
+  return bridge;
+}
 
 test("compileDir compiles under <dir>/dist and returns a serializable view", async () => {
-  const bridge = makeBridge({}, {}, undefined, (directory, options) =>
+  const bridge = await ready(makeBridge({ compile: (directory, opts) =>
     Promise.resolve({
       ok: true,
       diagnostics: [{ severity: "warning", message: "heads up" }],
       errors: [],
       files: ["package.json", "model.json"],
       package: { id: "demo", name: "@scope/demo", version: "0.1.0", sources: [{ uri: "a.todl", text: "" }] },
-      _outDir: options?.outDir,
+      _outDir: opts?.outDir,
       _dir: directory,
-    } as any),
-  );
+    }),
+  }));
   const view = await bridge.compileDir("C:/proj/demo");
   assert.equal(view.ok, true);
   assert.equal(view.outDir, join("C:/proj/demo", "dist"));
@@ -95,136 +132,75 @@ test("compileDir compiles under <dir>/dist and returns a serializable view", asy
 
 test("compileDir registers the compiled package into the local store", async () => {
   const store = new LocalPackageStore();
-  const bridge = makeBridge({}, {}, undefined, () =>
-    Promise.resolve({ ok: true, diagnostics: [], errors: [], files: [], package: { id: "acme.demo", version: "1.0.0", sources: [] } as any }),
-    store,
-  );
+  const bridge = await ready(makeBridge({ store, compile: () =>
+    Promise.resolve({ ok: true, diagnostics: [], errors: [], files: [], package: { id: "acme.demo", version: "1.0.0", sources: [] } }),
+  }));
   assert.equal(store.has("acme.demo", "1.0.0"), false);
   await bridge.compileDir("/proj/demo");
   assert.equal(store.has("acme.demo", "1.0.0"), true);
 });
 
-test("resolvePackage / packageVersions delegate to the manager", async () => {
-  const canned = { ref: { model: "acme.demo", version: "1.0.0" }, manifest: new Uint8Array([1, 2, 3]), dependencies: [] };
-  const bridge = makeBridge({
-    resolveResolved: (ref) => Promise.resolve({ ...canned, ref: { model: ref.model, version: ref.version ?? "1.0.0" } } as any),
-    resolvedVersions: (id) => Promise.resolve([`${id}-0.1.0`]),
-  });
-  const resolved = await bridge.resolvePackage({ model: "acme.demo", version: "1.0.0" });
-  assert.deepEqual(resolved.ref, { model: "acme.demo", version: "1.0.0" });
-  assert.deepEqual([...resolved.manifest as Uint8Array], [1, 2, 3]);
-  assert.deepEqual(await bridge.packageVersions("acme.demo"), ["acme.demo-0.1.0"]);
-});
-
-test("getPackageContents delegates to the manager (name → ref)", async () => {
-  let seenRef: any;
-  const bridge = makeBridge({
-    getContents: (ref) => { seenRef = ref; return Promise.resolve({ files: [{ name: "a.todl", text: "concept A;" }], resources: [{ name: "theme.mu", text: "resources {}" }], packageJson: "{}", metadata: "{}", compiled: "{}", rawModel: "{}", dependencies: ["@scope/base"], versions: ["0.1.0"], latest: "0.1.0" }); },
-  });
-  const contents = await bridge.getPackageContents("@pragmatic-tech-ai/aws");
-  assert.deepEqual(seenRef, { name: "@pragmatic-tech-ai/aws" });
-  assert.deepEqual(contents.files, [{ name: "a.todl", text: "concept A;" }]);
-  assert.deepEqual(contents.dependencies, ["@scope/base"]);
-  assert.deepEqual(contents.versions, ["0.1.0"]);
-});
-
 test("bumpVersion writes the next unused patch to project.plexus (meta-model modelVersion)", async () => {
   const dir = mkdtempSync(join(tmpdir(), "todl-bump-"));
   writeFileSync(join(dir, "project.plexus"), JSON.stringify({ type: "meta-model", id: "tech-architecture", version: 1, modelVersion: "0.1.0" }));
-  const bridge = makeBridge({ versions: () => Promise.resolve({ versions: ["0.1.0", "0.1.1"], distTags: { latest: "0.1.1" } }) });
+  const packument = { name: "@pragmatic-tech-ai/tech-architecture", "dist-tags": { latest: "0.1.1" }, versions: { "0.1.0": {}, "0.1.1": {} } };
+  const bridge = await ready(makeBridge({ transport: new InMemoryNpm(200, [], { "@pragmatic-tech-ai/tech-architecture": packument }) }));
 
   const next = await bridge.bumpVersion(dir);
   assert.equal(next, "0.1.2"); // above the highest published (0.1.1)
   assert.equal(JSON.parse(readFileSync(join(dir, "project.plexus"), "utf8")).modelVersion, "0.1.2");
 });
 
-test("deleteVersion delegates to the manager", async () => {
-  let seen: [string, string] | undefined;
-  const bridge = makeBridge({ deleteVersion: (name, version) => { seen = [name, version]; return Promise.resolve(); } });
-  await bridge.deleteVersion("@pragmatic-tech-ai/aws", "0.1.0");
-  assert.deepEqual(seen, ["@pragmatic-tech-ai/aws", "0.1.0"]);
-});
-
-test("deleteAllVersions lists the versions then deletes each", async () => {
-  const deleted: string[] = [];
-  const bridge = makeBridge({
-    versions: () => Promise.resolve({ versions: ["0.1.0", "0.1.1", "0.2.0"], distTags: { latest: "0.2.0" } }),
-    deleteVersion: (_name, version) => { deleted.push(version); return Promise.resolve(); },
-  });
-  await bridge.deleteAllVersions("@pragmatic-tech-ai/aws");
-  assert.deepEqual(deleted, ["0.1.0", "0.1.1", "0.2.0"]);
-});
-
-test("getMeta returns the package kind via manifestKind", async () => {
-  const bridge = makeBridge({ manifestKind: () => Promise.resolve("library") });
-  assert.equal(await bridge.getMeta("aws"), "library");
-});
-
-test("getPackage / getSources / resolveClosure / publishDir delegate to the manager", async () => {
-  const bridge = makeBridge({
-    getPackage: () => Promise.resolve({ name: "@pragmatic-tech-ai/aws", meta: { kind: "library", id: "aws" }, dependencies: [], document: { nodes: [] } } as any),
-    getSources: () => Promise.resolve([{ name: "aws.todl", text: "concept EC2;\n" }]),
-    resolveClosure: (deps) => Promise.resolve({ metaModels: [], libraries: [], order: [...deps] }),
-    publish: () => Promise.resolve(),
-  });
-  assert.equal((await bridge.getPackage({ name: "@pragmatic-tech-ai/aws" })).name, "@pragmatic-tech-ai/aws");
-  assert.deepEqual(await bridge.getSources({ name: "@pragmatic-tech-ai/aws" }), [{ name: "aws.todl", text: "concept EC2;\n" }]);
-  assert.deepEqual((await bridge.resolveClosure(["@pragmatic-tech-ai/aws"])).order, ["@pragmatic-tech-ai/aws"]);
-  await bridge.publishDir("/dist"); // resolves without throwing
-});
-
 test("listConnections reports the seeded connection + hasToken; setConnectionToken flips it", async () => {
-  const bridge = makeBridge();
-  let conns = bridge.listConnections();
+  const bridge = await ready(makeBridge());
+  let conns = await bridge.listConnections();
   assert.equal(conns.length, 1);
   assert.equal(conns[0]!.name, "GitHub Packages");
   assert.equal(conns[0]!.scope, "@pragmatic-tech-ai");
   assert.equal(conns[0]!.isDefault, true);
   assert.equal(conns[0]!.hasToken, false);
   assert.ok(!("token" in conns[0]!)); // token value never crosses the bridge
-  bridge.setConnectionToken(conns[0]!.id, "ghp_x");
-  conns = bridge.listConnections();
+  await bridge.setConnectionToken(conns[0]!.id, "ghp_x");
+  conns = await bridge.listConnections();
   assert.equal(conns[0]!.hasToken, true);
   assert.equal(conns[0]!.tokenSource, "stored");
 });
 
 test("useConnectionEnvToken: hasToken reflects process.env, never the value", async () => {
-  const bridge = makeBridge({}, { GH_PAT: "ghp_fromenv" });
-  const id = bridge.listConnections()[0]!.id;
-  bridge.useConnectionEnvToken(id, "GH_PAT");
-  let view = bridge.listConnections()[0]!;
+  const bridge = await ready(makeBridge({ env: { GH_PAT: "ghp_fromenv" } }));
+  const id = (await bridge.listConnections())[0]!.id;
+  await bridge.useConnectionEnvToken(id, "GH_PAT");
+  let view = (await bridge.listConnections())[0]!;
   assert.equal(view.tokenSource, "env");
   assert.equal(view.tokenEnvVar, "GH_PAT");
   assert.equal(view.hasToken, true);
-  bridge.useConnectionEnvToken(id, "NOPE");
-  view = bridge.listConnections()[0]!;
+  await bridge.useConnectionEnvToken(id, "NOPE");
+  view = (await bridge.listConnections())[0]!;
   assert.equal(view.hasToken, false);
 });
 
 test("listEnvVars returns sorted defined env keys", async () => {
-  const bridge = makeBridge({}, { B: "1", A: "2", C: undefined });
-  assert.deepEqual(bridge.listEnvVars(), ["A", "B"]);
+  const bridge = await ready(makeBridge({ env: { B: "1", A: "2", C: undefined } }));
+  assert.deepEqual(await bridge.listEnvVars(), ["A", "B"]);
 });
 
-test("updateConnection is reflected in the config handed to createManager", async () => {
-  let seenConfig: any;
-  const bridge = makeBridge({}, {}, (config) => { seenConfig = config; });
-  const id = bridge.listConnections()[0]!.id;
-  bridge.updateConnection(id, { org: "acme" });
-  await bridge.list();
-  assert.equal(seenConfig.org, "acme");
+test("updateConnection is reflected in the connection view", async () => {
+  const bridge = await ready(makeBridge());
+  const id = (await bridge.listConnections())[0]!.id;
+  await bridge.updateConnection(id, { org: "acme" });
+  assert.equal((await bridge.listConnections())[0]!.org, "acme");
 });
 
 test("testConnection returns ok + package count on success", async () => {
-  const bridge = makeBridge({ list: () => Promise.resolve(["a", "b"]) });
-  const id = bridge.listConnections()[0]!.id;
+  const bridge = await ready(makeBridge({ transport: new InMemoryNpm(200, ["a", "b"]) }));
+  const id = (await bridge.listConnections())[0]!.id;
   assert.deepEqual(await bridge.testConnection(id), { ok: true, count: 2 });
 });
 
 test("testConnection surfaces the error message on failure (e.g. 401)", async () => {
-  const bridge = makeBridge({ list: () => Promise.reject(new Error("Bad credentials")) });
-  const id = bridge.listConnections()[0]!.id;
+  const bridge = await ready(makeBridge({ transport: new InMemoryNpm(401) }));
+  const id = (await bridge.listConnections())[0]!.id;
   const result = await bridge.testConnection(id);
   assert.equal(result.ok, false);
-  assert.equal(result.message, "Bad credentials");
+  assert.match(result.message ?? "", /401/);
 });

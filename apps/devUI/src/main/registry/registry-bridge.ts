@@ -1,30 +1,35 @@
 /**
- * `RegistryBridge` — the logic behind the `registry:*` / `config:*` IPC channels
- * (design §5 + package-manager). It resolves the app's registry config from its
- * settings + effective token, then delegates every package operation to a
- * `PackageManager` built via the injected `createManager` factory. App-side
- * concerns (config, token source, env-var tokens) stay here. Package-manager
- * symbols are type-only imports, so the test runner needs no bundler alias;
- * only `main/index.ts` runtime-imports package-manager to supply createManager.
+ * `RegistryBridge` — the logic behind the `registry:*` / `connections:*` IPC
+ * channels (design §5 + package-registry subsystem). It drives the TODL engine's
+ * `PackageManagerService` as the connection authority: connection CRUD delegates to
+ * the service, and every package operation builds a per-connection
+ * `PackageRegistryClient` via `service.RegistryFor(id)` (local compiled store first).
+ * The renderer-facing `ConnectionView`/`ConnectionInput` shape is devUI's flat form;
+ * this bridge maps it to/from the engine's `ConnectionSpec`/`ConnectionView` at the
+ * boundary.
  */
-import type { PackageRegistryManager } from "./package-registry-manager.js";
-import type { ConnectionView, ConnectionInput, ConnectionTestResult } from "./registry-connection.js";
 import { join } from "node:path";
 import { readFileSync, writeFileSync } from "node:fs";
-import type {
-  NpmRegistryConfig,
-  PackageRef,
-  VersionList,
-  InstalledPackage,
-  ResolvedClosure,
-  PackageSource,
-  PackageContents,
-  CompileResult,
-  LocalPackageStore,
+import {
+  PackageRegistryClient,
+  TokenSource as EngineTokenSource,
+  type PackageManagerService,
+  type ConnectionView as EngineConnectionView,
+  type ConnectionSpec,
+  type PackageRef,
+  type VersionList,
+  type InstalledPackage,
+  type ResolvedClosure,
+  type PackageSource,
+  type PackageContents,
+  type CompileResult,
+  type LocalPackageStore,
 } from "@pragmatic-tech-ai/todl/package-manager";
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
+import { TokenSource, type ConnectionView, type ConnectionInput, type ConnectionTestResult } from "./registry-connection.js";
 
-/** The subset of `PackageManager` the bridge uses (structurally satisfied by it). */
+/** The subset of the per-connection client the bridge uses (satisfied by
+ *  PackageRegistryClient). */
 export interface PackageManagerLike
 {
   list(): Promise<string[]>;
@@ -41,23 +46,20 @@ export interface PackageManagerLike
   resolvedVersions(id: string): Promise<string[]>;
 }
 
-/** The subset of `PackageCompiler` the bridge uses (structurally satisfied by it).
- *  Compiling a directory is a Compiler concern — kept separate from the
- *  PackageManager, which only handles registry / compiled / published packages. */
+/** The subset of `PackageCompiler` the bridge uses. Compiling a directory is a
+ *  Compiler concern — kept separate from the registry client. */
 export interface PackageCompilerLike
 {
   compile(directory: string, options?: { scope?: string; outDir?: string }): Promise<CompileResult>;
 }
 
-/** A directory compile result, serialized for the renderer. The compiled output
- *  is written to `outDir`; on success that directory is what `publishDir` takes. */
+/** A directory compile result, serialized for the renderer. */
 export interface CompileResultView
 {
   ok: boolean;
   outDir: string;
   files: string[];
   diagnostics: { severity: string; message: string }[];
-  /** The TODL package id (the LocalPackageStore / Domain `model` key). */
   id?: string;
   name?: string;
   version?: string;
@@ -66,11 +68,8 @@ export interface CompileResultView
 
 export interface RegistryBridgeDeps
 {
-  /** The registry connections source of truth: the connection list + default, the
-   *  per-connection tokens, and the effective config for any connection id. */
-  manager: PackageRegistryManager;
-  /** Build a manager from a resolved config (prod: (c) => new PackageManager(c)). */
-  createManager(config: NpmRegistryConfig): PackageManagerLike;
+  /** The engine connection authority: connection CRUD + per-connection clients. */
+  service: PackageManagerService;
   /** Build the directory compiler (prod: () => new PackageCompiler()). */
   createCompiler(): PackageCompilerLike;
   /** The shared local compiled-package store — compileDir registers into it and
@@ -78,71 +77,66 @@ export interface RegistryBridgeDeps
   localStore: LocalPackageStore;
 }
 
+// The npm Settings keys the flat renderer fields map onto (mirrors NpmConnectionFactory).
+const REGISTRY_KEY = "registry";
+const SCOPE_KEY = "scope";
+const ORG_KEY = "org";
+const GITHUB_API_KEY = "githubApi";
+const NPM_TYPE = "npm";
+
 export class RegistryBridge
 {
   constructor(private readonly deps: RegistryBridgeDeps) {}
 
-  /** Package names in a connection's registry (defaults to the default connection
-   *  when `connectionId` is omitted — the Package Manager passes each connection's
-   *  id to build its tree root). */
   list(connectionId?: string): Promise<string[]>
   {
-    return this.managerFor(connectionId).list();
+    return this.managerFor(connectionId).then((m) => m.list());
   }
 
   versions(name: string): Promise<VersionList>
   {
-    return this.managerFor().versions(name);
+    return this.managerFor().then((m) => m.versions(name));
   }
 
   getContent(ref: PackageRef): Promise<Uint8Array>
   {
-    return this.managerFor().getContent(ref);
+    return this.managerFor().then((m) => m.getContent(ref));
   }
 
   getPackage(ref: PackageRef): Promise<InstalledPackage>
   {
-    return this.managerFor().getPackage(ref);
+    return this.managerFor().then((m) => m.getPackage(ref));
   }
 
   resolveClosure(rootDeps: readonly string[]): Promise<ResolvedClosure>
   {
-    return this.managerFor().resolveClosure(rootDeps);
+    return this.managerFor().then((m) => m.resolveClosure(rootDeps));
   }
 
   getMeta(name: string): Promise<string>
   {
-    return this.managerFor().manifestKind(name);
+    return this.managerFor().then((m) => m.manifestKind(name));
   }
 
   publishDir(dir: string): Promise<void>
   {
-    return this.managerFor().publish(dir);
+    return this.managerFor().then((m) => m.publish(dir));
   }
 
-  /** Delete a published version from a connection's registry (the republish-after-
-   *  409 flow, and the Package Manager's Delete command). `connectionId` omitted ⇒
-   *  the default connection (back-compat with the compiler's republish path). */
   deleteVersion(name: string, version: string, connectionId?: string): Promise<void>
   {
-    return this.managerFor(connectionId).deleteVersion(name, version);
+    return this.managerFor(connectionId).then((m) => m.deleteVersion(name, version));
   }
 
-  /** Delete every published version of a package from a connection's registry —
-   *  the Package Manager's "delete all versions" choice. Lists the versions, then
-   *  deletes each. (GitHub Packages may refuse to delete the *last* version of a
-   *  public package; private org packages delete cleanly.) */
   async deleteAllVersions(name: string, connectionId?: string): Promise<void>
   {
-    const mgr = this.managerFor(connectionId);
+    const mgr = await this.managerFor(connectionId);
     const { versions } = await mgr.versions(name);
     for (const version of versions) await mgr.deleteVersion(name, version);
   }
 
   /** Bump the opened project's version to the next unused patch and persist it to
-   *  `project.plexus`, returning the new version. The caller then recompiles +
-   *  republishes. The publishable version lives in `modelVersion` (a meta-model)
-   *  or `libVersion` (a library); `project.plexus` is plain JSON. */
+   *  `project.plexus`, returning the new version. */
   async bumpVersion(dir: string): Promise<string>
   {
     const manifestPath = join(dir, "project.plexus");
@@ -150,17 +144,16 @@ export class RegistryBridge
       { type?: string; id?: string; modelVersion?: string; libVersion?: string };
     const field = manifest.type === "meta-model" ? "modelVersion" : "libVersion";
     const current = manifest[field] ?? "0.0.0";
-    const scope = this.deps.manager.effectiveConfig().scope;
+    const scope = await this.defaultScope();
     const name = `${scope}/${manifest.id ?? ""}`;
-    const published = await this.managerFor().versions(name).then((v) => v.versions).catch(() => [] as string[]);
+    const published = await this.managerFor().then((m) => m.versions(name)).then((v) => v.versions).catch(() => [] as string[]);
     const next = RegistryBridge.nextUnusedPatch(current, published);
     manifest[field] = next;
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     return next;
   }
 
-  /** The next unused patch: patch+1 above the highest of `current` ∪ `published`,
-   *  skipping any already taken. Non-`major.minor.patch` inputs are ignored. */
+  /** The next unused patch above the highest of `current` ∪ `published`. */
   private static nextUnusedPatch(current: string, published: readonly string[]): string
   {
     const parse = (v: string): [number, number, number] | undefined => {
@@ -180,18 +173,12 @@ export class RegistryBridge
     return candidate.join(".");
   }
 
-  /** Compile a project directory into a package under `<dir>/dist`, returning a
-   *  serializable view (identity, files written, diagnostics). On success the
-   *  `outDir` is what `publishDir` publishes. Compilation throws for a non-
-   *  compilable manifest (e.g. an architecture) or an unresolvable dependency;
-   *  a failing compile (source errors) returns `ok: false` with diagnostics. */
+  /** Compile a project directory into a package under `<dir>/dist`. */
   async compileDir(dir: string): Promise<CompileResultView>
   {
     const outDir = join(dir, "dist");
     const result = await this.deps.createCompiler().compile(dir, { outDir });
     const pkg = result.package;
-    // Register the freshly-compiled package so the solution's Domain can resolve
-    // it locally (before any publish).
     if (result.ok && pkg !== undefined) this.deps.localStore.register(pkg);
     return {
       ok: result.ok,
@@ -205,86 +192,91 @@ export class RegistryBridge
     };
   }
 
-  /** Resolve a Domain ref to manifest bytes + deps + seed (local store first,
-   *  network fallback). Backs the renderer's IpcPackageSource for solution
-   *  composition. */
-  /** Resolve a package against a connection (defaults to the default connection).
-   *  A solution passes its assigned connection so Compose resolves members + deps
-   *  from that registry. */
+  /** Resolve a package against a connection (defaults to the default connection). */
   resolvePackage(ref: DomainPackageRef, connectionId?: string): Promise<ResolvedPackage>
   {
-    return this.managerFor(connectionId).resolveResolved(ref);
+    return this.managerFor(connectionId).then((m) => m.resolveResolved(ref));
   }
 
   /** Versions for a package id (local store unioned with a connection's registry). */
   packageVersions(model: string, connectionId?: string): Promise<string[]>
   {
-    return this.managerFor(connectionId).resolvedVersions(model);
+    return this.managerFor(connectionId).then((m) => m.resolvedVersions(model));
   }
 
   getSources(ref: PackageRef): Promise<PackageSource[]>
   {
-    return this.managerFor().getSources(ref);
+    return this.managerFor().then((m) => m.getSources(ref));
   }
 
-  /** Everything a package's tarball carries (sources, manifest, meta, compiled +
-   *  raw model, deps, versions) from one fetch — backs the content tree. The
-   *  Package Manager passes the owning connection's id (defaults to the default
-   *  connection). */
   getPackageContents(name: string, connectionId?: string): Promise<PackageContents>
   {
-    return this.managerFor(connectionId).getContents({ name });
+    return this.managerFor(connectionId).then((m) => m.getContents({ name }));
   }
 
-  // --- Connections management (config:* superseded) ---------------------------
+  // --- Connections management --------------------------------------------------
 
-  listConnections(): ConnectionView[]
+  async listConnections(): Promise<ConnectionView[]>
   {
-    return this.deps.manager.listViews();
+    return (await this.deps.service.ListViews()).map((v) => RegistryBridge.toDevView(v));
   }
 
-  addConnection(input: ConnectionInput): ConnectionView
+  async addConnection(input: ConnectionInput): Promise<ConnectionView>
   {
-    return this.deps.manager.add(input);
+    const taken = new Set((await this.deps.service.ListViews()).map((v) => v.Id));
+    const id = RegistryBridge.mintId(input.name, taken);
+    await this.deps.service.AddConnection(RegistryBridge.toSpec(id, input));
+    return this.viewOf(id);
   }
 
-  updateConnection(id: string, partial: Partial<ConnectionInput>): ConnectionView | undefined
+  async updateConnection(id: string, partial: Partial<ConnectionInput>): Promise<ConnectionView | undefined>
   {
-    return this.deps.manager.update(id, partial);
+    const current = (await this.deps.service.ListViews()).find((v) => v.Id === id);
+    if (current === undefined) return undefined;
+    const settings = { ...current.Settings };
+    if (partial.registry !== undefined) settings[REGISTRY_KEY] = partial.registry;
+    if (partial.scope !== undefined) settings[SCOPE_KEY] = partial.scope;
+    if (partial.org !== undefined) settings[ORG_KEY] = partial.org;
+    if (partial.githubApi !== undefined) settings[GITHUB_API_KEY] = partial.githubApi;
+    const specPartial: Partial<ConnectionSpec> = { Settings: settings };
+    if (partial.name !== undefined) specPartial.DisplayName = partial.name;
+    if (partial.tokenSource !== undefined) specPartial.TokenSource = RegistryBridge.toEngineSource(partial.tokenSource);
+    if (partial.tokenEnvVar !== undefined) specPartial.TokenEnvVar = partial.tokenEnvVar;
+    await this.deps.service.UpdateConnection(id, specPartial);
+    return this.viewOf(id);
   }
 
-  removeConnection(id: string): void
+  removeConnection(id: string): Promise<void>
   {
-    this.deps.manager.remove(id);
+    return this.deps.service.RemoveConnection(id);
   }
 
-  setConnectionToken(id: string, token: string): void
+  setConnectionToken(id: string, token: string): Promise<void>
   {
-    this.deps.manager.setToken(id, token);
+    return this.deps.service.SetToken(id, token);
   }
 
-  useConnectionEnvToken(id: string, varName: string): void
+  useConnectionEnvToken(id: string, varName: string): Promise<void>
   {
-    this.deps.manager.useEnvToken(id, varName);
+    return this.deps.service.UseEnvToken(id, varName);
   }
 
-  setDefaultConnection(id: string): void
+  setDefaultConnection(id: string): Promise<void>
   {
-    this.deps.manager.setDefault(id);
+    return this.deps.service.SetDefault(id);
   }
 
-  listEnvVars(): string[]
+  listEnvVars(): Promise<string[]>
   {
-    return this.deps.manager.listEnvVars();
+    return Promise.resolve(this.deps.service.ListEnvVars());
   }
 
-  /** Test a connection by listing its registry — surfaces the auth outcome (a 401
-   *  "Bad credentials", a package count on success) to the Connections manager. */
+  /** Test a connection by listing its registry — surfaces the auth outcome. */
   async testConnection(id: string): Promise<ConnectionTestResult>
   {
     try
     {
-      const names = await this.managerFor(id).list();
+      const names = await this.managerFor(id).then((m) => m.list());
       return { ok: true, count: names.length };
     }
     catch (e)
@@ -293,10 +285,75 @@ export class RegistryBridge
     }
   }
 
-  /** Build a PackageManager bound to a connection's effective config (its
-   *  non-secret fields + resolved token). `connectionId` omitted ⇒ the default. */
-  private managerFor(connectionId?: string): PackageManagerLike
+  /** Build a per-connection client from the engine (default connection when id is
+   *  omitted), backed by the shared local compiled-package store. */
+  private async managerFor(connectionId?: string): Promise<PackageManagerLike>
   {
-    return this.deps.createManager(this.deps.manager.effectiveConfig(connectionId));
+    const registry = await this.deps.service.RegistryFor(connectionId);
+    return new PackageRegistryClient(registry, this.deps.localStore);
+  }
+
+  private async viewOf(id: string): Promise<ConnectionView>
+  {
+    const view = (await this.deps.service.ListViews()).find((v) => v.Id === id);
+    if (view === undefined) throw new Error(`connection "${id}" not found after write`);
+    return RegistryBridge.toDevView(view);
+  }
+
+  private async defaultScope(): Promise<string>
+  {
+    const views = await this.deps.service.ListViews();
+    const target = views.find((v) => v.IsDefault) ?? views[0];
+    return target?.Settings[SCOPE_KEY] ?? "";
+  }
+
+  /** Engine connection view → devUI flat view. */
+  private static toDevView(v: EngineConnectionView): ConnectionView
+  {
+    return {
+      id: v.Id,
+      name: v.DisplayName,
+      registry: v.Settings[REGISTRY_KEY] ?? "",
+      scope: v.Settings[SCOPE_KEY] ?? "",
+      org: v.Settings[ORG_KEY] ?? "",
+      githubApi: v.Settings[GITHUB_API_KEY] ?? "",
+      tokenSource: v.TokenSource === EngineTokenSource.Env ? TokenSource.Env : TokenSource.Stored,
+      tokenEnvVar: v.TokenEnvVar,
+      hasToken: v.HasToken,
+      isDefault: v.IsDefault,
+    };
+  }
+
+  /** devUI flat input → engine connection spec. */
+  private static toSpec(id: string, input: ConnectionInput): ConnectionSpec
+  {
+    return {
+      Id: id,
+      DisplayName: input.name,
+      RegistryType: NPM_TYPE,
+      Settings: {
+        [REGISTRY_KEY]: input.registry,
+        [SCOPE_KEY]: input.scope,
+        [ORG_KEY]: input.org,
+        [GITHUB_API_KEY]: input.githubApi,
+      },
+      TokenSource: RegistryBridge.toEngineSource(input.tokenSource),
+      TokenEnvVar: input.tokenEnvVar,
+    };
+  }
+
+  private static toEngineSource(source: TokenSource): EngineTokenSource
+  {
+    return source === TokenSource.Env ? EngineTokenSource.Env : EngineTokenSource.Stored;
+  }
+
+  /** A URL-safe slug of `name`, de-duplicated against existing ids. */
+  private static mintId(name: string, taken: ReadonlySet<string>): string
+  {
+    const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "connection";
+    if (!taken.has(base)) return base;
+    let n = 2;
+    while (taken.has(`${base}-${n}`)) n += 1;
+    return `${base}-${n}`;
   }
 }
