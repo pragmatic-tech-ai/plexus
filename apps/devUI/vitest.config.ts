@@ -40,11 +40,11 @@ const ALIASES = [
   { find: /^@pragmatic-tech-ai\/mural\/(.*)$/, replacement: `${MURAL}/dist/$1` },
   { find: /^@pragmatic-tech-ai\/todl-runtime$/, replacement: `${TODL_RT}/dist/index.js` },
   { find: /^@pragmatic-tech-ai\/todl-runtime\/(.*)$/, replacement: `${TODL_RT}/dist/$1` },
-  // package-manager moved under dist/engine/ (the src/engine restructure); this
-  // specific rule must precede the generic todl/* map, which would otherwise point
-  // at the removed dist/package-manager.
-  { find: /^@pragmatic-tech-ai\/todl\/package-manager\/connections$/, replacement: `${TODL}/dist/engine/package-manager/engine/registry-connection.js` },
-  { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/engine/package-manager/index.js` },
+  // package-manager lives under dist/solution-services/ (the src/solution-services
+  // tree); this specific rule must precede the generic todl/* map, which would
+  // otherwise point at a non-existent dist/package-manager.
+  { find: /^@pragmatic-tech-ai\/todl\/package-manager\/connections$/, replacement: `${TODL}/dist/solution-services/package-manager/engine/registry-connection.js` },
+  { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/solution-services/package-manager/index.js` },
   { find: /^@pragmatic-tech-ai\/todl\/(.*)$/, replacement: `${TODL}/dist/$1` },
   { find: /^@pragmatic-tech-ai\/todl$/, replacement: `${TODL}/dist/index.js` },
 ];
