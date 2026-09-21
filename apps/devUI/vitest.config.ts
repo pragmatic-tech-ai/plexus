@@ -45,6 +45,8 @@ const ALIASES = [
   // otherwise point at a non-existent dist/package-manager.
   { find: /^@pragmatic-tech-ai\/todl\/package-manager\/connections$/, replacement: `${TODL}/dist/solution-services/package-manager/engine/registry-connection.js` },
   { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/solution-services/package-manager/index.js` },
+  // build-services also lives under dist/solution-services/; precede the generic map.
+  { find: /^@pragmatic-tech-ai\/todl\/build-services$/, replacement: `${TODL}/dist/solution-services/build-services/index.js` },
   { find: /^@pragmatic-tech-ai\/todl\/(.*)$/, replacement: `${TODL}/dist/$1` },
   { find: /^@pragmatic-tech-ai\/todl$/, replacement: `${TODL}/dist/index.js` },
 ];

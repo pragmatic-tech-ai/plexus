@@ -21,9 +21,9 @@ import {
   type ResolvedClosure,
   type PackageSource,
   type PackageContents,
-  type CompileResult,
   type LocalPackageStore,
 } from "@pragmatic-tech-ai/todl/package-manager";
+import type { CompiledPackage } from "@pragmatic-tech-ai/todl";
 import type { ResolvedPackage, PackageRef as DomainPackageRef } from "@pragmatic-tech-ai/todl/domain";
 import type { ConnectionTestResult } from "./registry-connection.js";
 
@@ -45,11 +45,23 @@ export interface PackageManagerLike
   resolvedVersions(id: string): Promise<string[]>;
 }
 
-/** The subset of `PackageCompiler` the bridge uses. Compiling a directory is a
- *  Compiler concern — kept separate from the registry client. */
+/** A directory compile/build result — the subset `compileDir` consumes. The
+ *  build-services pipeline (BuildManagerCompiler) produces this; diagnostics are the
+ *  build's own `{ severity, message }` shape, and `package` is the compiled artifact the
+ *  bridge registers into the local store. */
+export interface DirectoryCompileResult
+{
+  ok: boolean;
+  diagnostics: readonly { severity: unknown; message: string }[];
+  files?: readonly string[];
+  package?: CompiledPackage;
+}
+
+/** The directory compiler the bridge drives — building a project directory into a
+ *  package is a build concern, kept separate from the registry client. */
 export interface PackageCompilerLike
 {
-  compile(directory: string, options?: { scope?: string; outDir?: string }): Promise<CompileResult>;
+  compile(directory: string, options?: { scope?: string; outDir?: string }): Promise<DirectoryCompileResult>;
 }
 
 /** A directory compile result, serialized for the renderer. */
