@@ -24,8 +24,15 @@ export interface LoadedLibrary
     problems:  LoadProblem[]
 }
 
-// Every published <id>/<version> under the backend, loaded. Directory layout is
-// the Phase-1 publish layout: root dirs are ids, each id's dirs are versions.
+// The discriminator file a library package writes at `<id>/<version>/`: its
+// presence is what distinguishes a library from a meta-model under the single
+// shared packages root (a meta-model writes `manifest.json` instead).
+const LIBRARY_MANIFEST = 'library.json'
+
+// Every published LIBRARY under the backend, loaded. Directory layout is
+// `<id>/<version>/…`: root dirs are ids, each id's dirs are versions — but the root
+// now holds meta-models too, so only versions carrying a `library.json` (the library
+// discriminator) are loaded.
 export async function discoverLibraries(backend: IStorage): Promise<LoadedLibrary[]>
 {
     const out: LoadedLibrary[] = []
@@ -33,7 +40,10 @@ export async function discoverLibraries(backend: IStorage): Promise<LoadedLibrar
     for (const id of ids)
     {
         const versions = (await backend.List(id)).filter((e) => e.IsDirectory).map((e) => e.Name).sort()
-        for (const version of versions) out.push(await loadLibrary(backend, id, version))
+        for (const version of versions)
+        {
+            if (await backend.Exists(`${id}/${version}/${LIBRARY_MANIFEST}`)) out.push(await loadLibrary(backend, id, version))
+        }
     }
     return out
 }

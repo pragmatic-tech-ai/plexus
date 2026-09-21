@@ -5,7 +5,7 @@ import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
-import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { LibraryRegistry } from '../library-registry.js'
 
 // Seed is SYNCHRONOUS: FakeStorage.WriteText sets its map synchronously, so every
@@ -15,7 +15,7 @@ function envWith(backend: FakeStorage): { provider: ServiceProvider; diagnostics
 {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    registry.Register(LIBRARIES_BACKEND_ID, () => backend)
+    registry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, registry)
     const diagnostics = new DiagnosticsService(provider)
     provider.registerInstance(DiagnosticsService.Key, diagnostics)

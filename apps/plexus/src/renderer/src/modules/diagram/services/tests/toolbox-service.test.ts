@@ -6,8 +6,7 @@ import { ArchToolboxVisualKey } from '../arch-toolbox-item.js'
 import { ArchInstanceDropFactoryKey } from '../../../architecture-projects/services/arch-instance-drop-factory.js'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { META_MODELS_BACKEND_ID } from '../../../meta-model/services/meta-models-backend.js'
-import { LIBRARIES_BACKEND_ID } from '../../../library/services/libraries-backend.js'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 
 const MODEL = JSON.stringify({
   nodes: [
@@ -43,15 +42,45 @@ class TestToolbox extends ToolboxService
   protected async openArchModels(): Promise<Array<{ model: never; namespace: string }>> { return [] }
 }
 
-function provider(seed: (mm: FakeStorage, lib: FakeStorage) => void): ServiceProvider
+// A meta-model / library seeder over the SINGLE packages backend: each writes the
+// package's model.json plus the kind discriminator file the enumerate-by-kind paths
+// filter on (manifest.json for meta-models, library.json for libraries).
+interface KindSeeder { WriteText(path: string, text: string): void }
+
+function metaSeeder(backend: FakeStorage): KindSeeder
+{
+  return {
+    WriteText(path, text)
+    {
+      void backend.WriteText(path, text)
+      const base = path.slice(0, path.lastIndexOf('/'))
+      void backend.WriteText(`${base}/manifest.json`, '{}')
+    },
+  }
+}
+
+function librarySeeder(backend: FakeStorage): KindSeeder
+{
+  return {
+    WriteText(path, text)
+    {
+      void backend.WriteText(path, text)
+      const base = path.slice(0, path.lastIndexOf('/'))   // `<id>/<version>`
+      const [id, version] = base.split('/')
+      // discoverLibraries reads id/version from library.json, so give it real ones.
+      void backend.WriteText(`${base}/library.json`, JSON.stringify({ id, version, name: id, metaModel: { id: 'ea', version: '5' }, classes: [] }))
+    },
+  }
+}
+
+function provider(seed: (mm: KindSeeder, lib: KindSeeder) => void): ServiceProvider
 {
   const p = new ServiceProvider()
   const reg = new StorageService(p)
-  const mm = new FakeStorage('fake://meta-models'); const lib = new FakeStorage('fake://libraries')
-  reg.Register(META_MODELS_BACKEND_ID, () => mm)
-  reg.Register(LIBRARIES_BACKEND_ID, () => lib)
+  const packages = new FakeStorage('fake://packages')
+  reg.Register(PACKAGES_BACKEND_ID, () => packages)
   p.registerInstance(StorageService.Key, reg)
-  seed(mm, lib)
+  seed(metaSeeder(packages), librarySeeder(packages))
   return p
 }
 

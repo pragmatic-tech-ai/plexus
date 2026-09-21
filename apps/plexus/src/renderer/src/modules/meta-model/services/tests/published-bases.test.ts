@@ -1,34 +1,43 @@
 import { test, expect } from 'vitest'
-import { ServiceProvider, type IStorage } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
-import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
-import { LIBRARIES_BACKEND_ID } from '../../../library/services/libraries-backend.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { PublishedBases } from '../published-bases.js'
 
-// A backend whose List returns a fixed `<id>/<version>` directory tree.
-class FakeBackend
-{
-    constructor(private readonly tree: Record<string, string[]>) { }
-    async List(path: string): Promise<{ Name: string; IsDirectory: boolean }[]>
-    {
-        const names = path === '' ? Object.keys(this.tree) : (this.tree[path] ?? [])
-        return names.map((Name) => ({ Name, IsDirectory: true }))
-    }
-}
-
-function providerWith(mm: FakeBackend, lib: FakeBackend): ServiceProvider
+// Wire a provider around a single packages backend. Under one root a package's kind
+// is recovered from its discriminator file: meta-models carry manifest.json,
+// libraries carry library.json — the enumerate-by-kind paths filter on that.
+function providerWith(seed: (b: FakeStorage) => void): ServiceProvider
 {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    registry.Register(META_MODELS_BACKEND_ID, () => mm as unknown as IStorage)
-    registry.Register(LIBRARIES_BACKEND_ID, () => lib as unknown as IStorage)
+    const backend = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, registry)
+    seed(backend)
     return provider
 }
 
-test('ListMetaModels enumerates <id>/<version> BaseRefs from the meta-models backend', async () => {
-    const provider = providerWith(new FakeBackend({ ea: ['1.0.0', '1.1.0'] }), new FakeBackend({}))
+function seedMeta(b: FakeStorage, id: string, version: string): void
+{
+    void b.WriteText(`${id}/${version}/model.json`, '{"nodes":[],"edges":[]}')
+    void b.WriteText(`${id}/${version}/manifest.json`, '{}')
+}
+
+function seedLibrary(b: FakeStorage, id: string, version: string): void
+{
+    void b.WriteText(`${id}/${version}/model.json`, '{"nodes":[],"edges":[]}')
+    void b.WriteText(`${id}/${version}/library.json`, JSON.stringify({ id, version, name: id, metaModel: { id: 'ea', version: '5' }, classes: [] }))
+}
+
+test('ListMetaModels enumerates <id>/<version> BaseRefs for meta-model packages only', async () => {
+    const provider = providerWith((b) => {
+        seedMeta(b, 'ea', '1.0.0')
+        seedMeta(b, 'ea', '1.1.0')
+        seedLibrary(b, 'util', '2.0.0')   // a library — must NOT appear here
+    })
     const bases = new PublishedBases(provider)
     expect(await bases.ListMetaModels()).toEqual([
         { id: 'ea', version: '1.0.0' },
@@ -36,8 +45,11 @@ test('ListMetaModels enumerates <id>/<version> BaseRefs from the meta-models bac
     ])
 })
 
-test('ListLibraries enumerates from the libraries backend', async () => {
-    const provider = providerWith(new FakeBackend({}), new FakeBackend({ util: ['2.0.0'] }))
+test('ListLibraries enumerates library packages only', async () => {
+    const provider = providerWith((b) => {
+        seedMeta(b, 'ea', '1.0.0')        // a meta-model — must NOT appear here
+        seedLibrary(b, 'util', '2.0.0')
+    })
     const bases = new PublishedBases(provider)
     expect(await bases.ListLibraries()).toEqual([{ id: 'util', version: '2.0.0' }])
 })

@@ -1,7 +1,7 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import type { PresentationContribution, PresentationSource } from '../../diagram/services/todl-presentation-registry.js'
-import { ensureLibrariesBackend } from './libraries-backend.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import type { LoadedLibrary } from './library-loader.js'
 import { loadCompiledPresentation } from '../../meta-model/services/compiled-presentation.js'
 import { readIconIndex } from '../../meta-model/services/icon-index.js'
@@ -22,7 +22,7 @@ export class LibraryPresentationSource implements PresentationSource
 
     public async load(): Promise<PresentationContribution>
     {
-        const backend = ensureLibrariesBackend(this.provider)
+        const backend = ensurePackagesBackend(this.provider)
         const assets = new ResourceDictionary()
         const iconKeys = new Map<string, string>()
         for (const lib of await this.libraries())

@@ -19,10 +19,9 @@ import { DialogService, type IActivatable } from '@pragmatic-tech-ai/mural/frame
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
-import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import { discoverLibraries, type LoadedLibrary } from '../../library/services/library-loader.js'
 import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
-import { ensureMetaModelsBackend } from './meta-models-backend.js'
 import { buildCatalog, type DeleteTarget } from './meta-model-tree-builder.js'
 import { MetaModelNodeKind, type MetaModelTreeNode } from './meta-model-tree-node.js'
 import { WikiService } from '../../../services/wiki/wiki-service.js'
@@ -73,7 +72,7 @@ export class MetaModelsService extends ServiceBase implements IActivatable
     public async reload(): Promise<void>
     {
         const seq = ++this.reloadSeq
-        const backend = ensureMetaModelsBackend(this.Provider)
+        const backend = ensurePackagesBackend(this.Provider)
         const built = await buildCatalog(
             backend,
             () => {},
@@ -117,7 +116,7 @@ export class MetaModelsService extends ServiceBase implements IActivatable
     // reloads so the row disappears.
     public async deleteTarget(target: DeleteTarget): Promise<void>
     {
-        const backend = ensureMetaModelsBackend(this.Provider)
+        const backend = ensurePackagesBackend(this.Provider)
         const dialogs = this.Provider.get(DialogService.Key)
         if (dialogs !== undefined)
         {
@@ -144,7 +143,7 @@ export class MetaModelsService extends ServiceBase implements IActivatable
     {
         try
         {
-            const libs = await discoverLibraries(ensureLibrariesBackend(this.Provider))
+            const libs = await discoverLibraries(ensurePackagesBackend(this.Provider))
             return dependentLibraryNames(libs, id, version)
         }
         catch { return [] }

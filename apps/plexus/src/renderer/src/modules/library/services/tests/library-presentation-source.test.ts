@@ -3,17 +3,16 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
+import { PACKAGES_BACKEND_ID, ensurePackagesBackend } from '../../../../services/projects/packages-backend.js'
 import { discoverLibraries } from '../library-loader.js'
 import { LibraryPresentationSource } from '../library-presentation-source.js'
-import { ensureLibrariesBackend } from '../libraries-backend.js'
 
 // Wire a provider around a pre-populated backend.
 function envWith(backend: FakeStorage): ServiceProvider
 {
     const provider = new ServiceProvider()
     const storageRegistry = new StorageService(provider)
-    storageRegistry.Register(LIBRARIES_BACKEND_ID, () => backend)
+    storageRegistry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, storageRegistry)
     return provider
 }
@@ -48,7 +47,7 @@ async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
 
 function makeSource(provider: ServiceProvider): LibraryPresentationSource
 {
-    const backend = ensureLibrariesBackend(provider)
+    const backend = ensurePackagesBackend(provider)
     return new LibraryPresentationSource(provider, async () => discoverLibraries(backend))
 }
 

@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import { ensureLibrariesBackend } from './libraries-backend.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import { discoverLibraries, type LoadedLibrary, type LoadProblem } from './library-loader.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
@@ -30,7 +30,7 @@ export class LibraryRegistry extends ServiceBase
     public async discover(): Promise<LoadedLibrary[]>
     {
         this.slices.clear()
-        const backend = ensureLibrariesBackend(this.Provider)
+        const backend = ensurePackagesBackend(this.Provider)
         const libs = await discoverLibraries(backend)
         for (const lib of libs)
         {
@@ -47,7 +47,7 @@ export class LibraryRegistry extends ServiceBase
     // *project* on disk — only the installed copy in the local libraries store.
     public async delete(id: string, version: string): Promise<void>
     {
-        const backend = ensureLibrariesBackend(this.Provider)
+        const backend = ensurePackagesBackend(this.Provider)
         await backend.Delete(`${id}/${version}`)
         this.Provider.get(DiagnosticsService.Key)?.Publish(OWNER, `library:${id}@${version}`, [])
     }

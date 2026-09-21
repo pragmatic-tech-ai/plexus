@@ -2,9 +2,7 @@ import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { TodlDocument, PackageRef } from '@pragmatic-tech-ai/todl'
 import { PackageKind } from '@pragmatic-tech-ai/todl'
 
-import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ensureMetaModelsBackend } from '../../modules/meta-model/services/meta-models-backend.js'
-import { ensureLibrariesBackend } from '../../modules/library/services/libraries-backend.js'
+import { ensurePackagesBackend } from './packages-backend.js'
 import type { BaseBindings } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 
 // A published model.json read back: the graph plus any recorded base deps.
@@ -28,8 +26,9 @@ export async function resolveBases(
     const problems: string[] = []
     const visited = new Set<string>()
 
-    const backendFor = (kind: PackageKind): IStorage =>
-        kind === PackageKind.Library ? ensureLibrariesBackend(provider) : ensureMetaModelsBackend(provider)
+    // One unified package store: package ids are globally unique, so kind no longer
+    // routes storage — every base reads from the single packages backend.
+    const backend = ensurePackagesBackend(provider)
 
     // Seed the worklist with the project's direct bindings (meta-model first, then
     // libraries — a stable order).
@@ -47,7 +46,7 @@ export async function resolveBases(
         const path = `${ref.id}/${ref.version}/model.json`
         try
         {
-            const doc = JSON.parse(await backendFor(ref.kind).ReadText(path)) as PackageDocument
+            const doc = JSON.parse(await backend.ReadText(path)) as PackageDocument
             bases.push({ nodes: doc.nodes, edges: doc.edges })
             for (const dep of doc.dependencies ?? []) queue.push(dep)
         }

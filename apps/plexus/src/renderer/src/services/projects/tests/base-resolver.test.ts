@@ -4,24 +4,23 @@ import { check, toJSON } from '@pragmatic-tech-ai/todl'
 
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { META_MODELS_BACKEND_ID } from '../../../modules/meta-model/services/meta-models-backend.js'
-import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/libraries-backend.js'
+import { PACKAGES_BACKEND_ID } from '../packages-backend.js'
 import { resolveBases } from '../base-resolver.js'
 
 const CONCEPTS = 'namespace d { concept model { label : string; } concept location { label : string; } }'
 
-// A provider whose meta-models + libraries backends resolve to inspectable
-// FakeStorages (pre-registered so the ensure* Has-check finds them).
+// A provider whose single packages backend resolves to an inspectable FakeStorage
+// (pre-registered so ensurePackagesBackend's Has-check finds it). Under one root a
+// package's kind no longer routes storage — meta-models and libraries alike live
+// under `<id>/<version>/`, so `meta` and `libs` are the same backend here.
 function env(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage }
 {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    const meta = new FakeStorage('fake://meta-models')
-    const libs = new FakeStorage('fake://libraries')
-    registry.Register(META_MODELS_BACKEND_ID, () => meta)
-    registry.Register(LIBRARIES_BACKEND_ID, () => libs)
+    const packages = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => packages)
     provider.registerInstance(StorageService.Key, registry)
-    return { provider, meta, libs }
+    return { provider, meta: packages, libs: packages }
 }
 
 test('resolveBases reads a bound meta-model model.json', async () => {

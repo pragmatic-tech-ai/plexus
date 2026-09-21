@@ -4,7 +4,7 @@ import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { MetaModelPresentationSource } from '../meta-model-presentation-source.js'
 
 const SVG = '<svg viewBox="0 0 16 16"><path d="M2 2 L14 2 L14 14 Z"/></svg>'
@@ -22,7 +22,7 @@ function envWith(backend: FakeStorage): ServiceProvider
 {
     const provider = new ServiceProvider()
     const storageRegistry = new StorageService(provider)
-    storageRegistry.Register(META_MODELS_BACKEND_ID, () => backend)
+    storageRegistry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, storageRegistry)
     return provider
 }
@@ -35,6 +35,9 @@ async function bakePresentation(backend: FakeStorage, id: string, version: strin
     const { publishPresentation } = await import('../presentation-publisher.js')
     const res = await publishPresentation(project, backend, `${id}/${version}`, DOC)
     expect(res.ok).toBe(true)
+    // The meta-model discriminator: scanPublishedModels lists only versions carrying
+    // a manifest.json under the shared packages root.
+    await backend.WriteText(`${id}/${version}/manifest.json`, '{}')
 }
 
 // ── happy path ────────────────────────────────────────────────────────────────
@@ -51,8 +54,9 @@ test('load() contributes the baked icon asset + a mm: icon-key index for a baked
 // ── missing presentation artifact ────────────────────────────────────────────
 
 test('a published model dir with no presentation artifact contributes nothing (no throw)', async () => {
-    const backend = new FakeStorage('fake://meta-models')
+    const backend = new FakeStorage('fake://packages')
     await backend.WriteText('ea/1.0.0/model.json', JSON.stringify({ nodes: [], edges: [] }))
+    await backend.WriteText('ea/1.0.0/manifest.json', '{}')   // meta-model discriminator
     const source = new MetaModelPresentationSource(envWith(backend))
     const { assets, iconKeys } = await source.load()
     expect(assets.CanResolve('mm_icon_app')).toBe(false)

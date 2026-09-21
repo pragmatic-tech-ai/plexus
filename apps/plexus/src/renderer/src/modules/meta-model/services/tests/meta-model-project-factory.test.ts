@@ -4,8 +4,11 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { PackageStoreKey } from '@pragmatic-tech-ai/todl'
 import { MetaModelProjectFactory } from '../meta-model-project-factory.js'
-import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
+import { PlexusPackageStore } from '../../../../services/projects/storage-service-backends.js'
+import { MuralPresentationBaker } from '../../../../services/projects/mural-presentation-baker.js'
 import { loadMetaModelManifest } from '../meta-model-manifest-loader.js'
 
 function factory(): MetaModelProjectFactory
@@ -13,15 +16,19 @@ function factory(): MetaModelProjectFactory
     return new MetaModelProjectFactory(new ServiceProvider())
 }
 
-// A provider whose meta-models backend resolves to an inspectable FakeStorage
-// (pre-registered, so ensureMetaModelsBackend's Has-check finds it).
+// A provider whose single packages backend resolves to an inspectable FakeStorage
+// (pre-registered, so ensurePackagesBackend's Has-check finds it), with the app's
+// PlexusPackageStore registered under PackageStoreKey — the seam the todl factory
+// resolves `.Storage` from at publish time.
 function publishEnv(): { provider: ServiceProvider; dest: FakeStorage }
 {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    const dest = new FakeStorage('fake://meta-models')
-    registry.Register(META_MODELS_BACKEND_ID, () => dest)
+    const dest = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => dest)
     provider.registerInstance(StorageService.Key, registry)
+    provider.registerInstance(PackageStoreKey, new PlexusPackageStore(provider))
+    provider.registerInstance(MuralPresentationBaker.Key, new MuralPresentationBaker(provider))
     return { provider, dest }
 }
 

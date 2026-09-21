@@ -7,8 +7,7 @@ import { MetaModelsService, dependentLibraryNames } from '../meta-models-service
 import { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
-import { LIBRARIES_BACKEND_ID } from '../../../library/services/libraries-backend.js'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import type { LoadedLibrary } from '../../../library/services/library-loader.js'
 
 const NO_ACTIVATE = (): void => {}
@@ -17,8 +16,9 @@ const NO_DELETE = (): void => {}
 // The service's reload logic is `buildCatalog(backend)` → Nodes; exercise the
 // builder directly against a seeded backend to assert the shape the panel binds.
 test('buildCatalog produces the Model→Version node tree the service binds as Nodes', async () => {
-    const storage = new FakeStorage('fake://meta-models')
+    const storage = new FakeStorage('fake://packages')
     await storage.WriteText('tech/0.1.0/model.json', JSON.stringify({ nodes: [], edges: [] }))
+    await storage.WriteText('tech/0.1.0/manifest.json', '{}')   // meta-model discriminator
 
     const nodes = await buildCatalog(storage, NO_ACTIVATE, NO_DELETE)
 
@@ -35,8 +35,8 @@ test('buildCatalog on an empty backend yields no nodes (drives IsEmpty)', async 
 test('onMetaModelsChanged notifies subscribers after reload completes, and unsubscribes', async () => {
     const provider = new ServiceProvider()
     const reg = new StorageService(provider)
-    const backend = new FakeStorage('fake://meta-models')
-    reg.Register(META_MODELS_BACKEND_ID, () => backend)
+    const backend = new FakeStorage('fake://packages')
+    reg.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, reg)
     const svc = new MetaModelsService(provider)
     await svc.reload()                 // settle the constructor's reload first
@@ -67,9 +67,8 @@ function deleteEnv(seed: (mm: FakeStorage) => void): { provider: ServiceProvider
 {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    const mm = new FakeStorage('fake://meta-models')
-    registry.Register(META_MODELS_BACKEND_ID, () => mm)
-    registry.Register(LIBRARIES_BACKEND_ID, () => new FakeStorage('fake://libraries'))
+    const mm = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => mm)
     provider.registerInstance(StorageService.Key, registry)
     seed(mm)
     return { provider, mm }
@@ -78,7 +77,9 @@ function deleteEnv(seed: (mm: FakeStorage) => void): { provider: ServiceProvider
 test('deleteTarget removes one version and cleans an emptied id folder', async () => {
     const { provider, mm } = deleteEnv((s) => {
         void s.WriteText('a/1.0.0/model.json', '{"nodes":[],"edges":[]}')
+        void s.WriteText('a/1.0.0/manifest.json', '{}')
         void s.WriteText('a/1.1.0/model.json', '{"nodes":[],"edges":[]}')
+        void s.WriteText('a/1.1.0/manifest.json', '{}')
     })
     const svc = new MetaModelsService(provider)
     await svc.reload()
@@ -95,7 +96,9 @@ test('deleteTarget removes one version and cleans an emptied id folder', async (
 test('deleteTarget removes a whole model (all versions)', async () => {
     const { provider, mm } = deleteEnv((s) => {
         void s.WriteText('a/1.0.0/model.json', '{"nodes":[],"edges":[]}')
+        void s.WriteText('a/1.0.0/manifest.json', '{}')
         void s.WriteText('a/1.1.0/model.json', '{"nodes":[],"edges":[]}')
+        void s.WriteText('a/1.1.0/manifest.json', '{}')
     })
     const svc = new MetaModelsService(provider)
     await svc.reload()
@@ -112,8 +115,8 @@ test('deleteTarget removes a whole model (all versions)', async () => {
 test('reload() calls TodlPresentationRegistry.discover() when the registry is registered', async () => {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    const mm = new FakeStorage('fake://meta-models')
-    registry.Register(META_MODELS_BACKEND_ID, () => mm)
+    const mm = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => mm)
     provider.registerInstance(StorageService.Key, registry)
 
     let discoverCalled = false
@@ -132,8 +135,8 @@ test('reload() calls TodlPresentationRegistry.discover() when the registry is re
 test('reload() does not throw when TodlPresentationRegistry is absent', async () => {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    const mm = new FakeStorage('fake://meta-models')
-    registry.Register(META_MODELS_BACKEND_ID, () => mm)
+    const mm = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => mm)
     provider.registerInstance(StorageService.Key, registry)
     // No TodlPresentationRegistry registered — the ?.discover() guard must not throw.
 

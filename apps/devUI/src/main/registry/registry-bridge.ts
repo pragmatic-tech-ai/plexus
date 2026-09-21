@@ -70,7 +70,7 @@ export interface RegistryBridgeDeps
   /** The engine connection authority: connection CRUD + per-connection clients. */
   service: PackageManagerService;
   /** Build the directory compiler for a project directory — the compiler resolves
-   *  its bases from that directory's node_modules (prod: a NodeModulesProducerBackends). */
+   *  its bases from that directory's node_modules (prod: a NodeModulesPackageSource). */
   createCompiler(directory: string): PackageCompilerLike;
   /** The shared local compiled-package store — compileDir registers into it and
    *  resolvePackage reads from it (local-first). Owned by main/index.ts. */

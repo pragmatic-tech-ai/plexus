@@ -5,8 +5,10 @@ import { check, toJSON } from '@pragmatic-tech-ai/todl'
 import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { META_MODELS_BACKEND_ID } from '../../../meta-model/services/meta-models-backend.js'
-import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
+import { PackageStoreKey } from '@pragmatic-tech-ai/todl'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
+import { PlexusPackageStore } from '../../../../services/projects/storage-service-backends.js'
+import { MuralPresentationBaker } from '../../../../services/projects/mural-presentation-baker.js'
 import { LibraryProjectFactory } from '../library-project-factory.js'
 
 function factory(): LibraryProjectFactory { return new LibraryProjectFactory(new ServiceProvider()) }
@@ -18,12 +20,14 @@ function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: Fak
 {
   const provider = new ServiceProvider()
   const registry = new StorageService(provider)
-  const meta = new FakeStorage('fake://meta-models')
-  const libs = new FakeStorage('fake://libraries')
-  registry.Register(META_MODELS_BACKEND_ID, () => meta)
-  registry.Register(LIBRARIES_BACKEND_ID, () => libs)
+  // One unified packages backend: meta-model bases and the library publish target
+  // share the single root (kind no longer routes storage).
+  const packages = new FakeStorage('fake://packages')
+  registry.Register(PACKAGES_BACKEND_ID, () => packages)
   provider.registerInstance(StorageService.Key, registry)
-  return { provider, meta, libs }
+  provider.registerInstance(PackageStoreKey, new PlexusPackageStore(provider))
+  provider.registerInstance(MuralPresentationBaker.Key, new MuralPresentationBaker(provider))
+  return { provider, meta: packages, libs: packages }
 }
 async function seedMeta(meta: FakeStorage): Promise<void>
 {

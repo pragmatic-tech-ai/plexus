@@ -1,39 +1,35 @@
 import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { IPublishedBases } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
-import { ensureMetaModelsBackend } from './meta-models-backend.js'
-import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
+import { scanPublishedModels } from './meta-model-tree-builder.js'
+import { discoverLibraries } from '../../library/services/library-loader.js'
 
-// App-side IPublishedBases: enumerates the meta-models / libraries published to
-// the registry backends as BaseRefs (`<id>/<version>/`), offered by the New
-// Project pickers. Registered under PublishedBasesKey (see app.mu).
+// App-side IPublishedBases: enumerates the meta-models / libraries published to the
+// single shared packages backend as BaseRefs (`<id>/<version>/`), offered by the New
+// Project pickers. Under one root, kind is recovered from each package's recorded
+// discriminator file (manifest.json for meta-models, library.json for libraries) —
+// scanPublishedModels lists the former, discoverLibraries the latter. Registered
+// under PublishedBasesKey (see app.mu).
 export class PublishedBases extends ServiceBase implements IPublishedBases
 {
     public static readonly Key = new ServiceKey<PublishedBases>('PublishedBases')
 
-    public ListMetaModels(): Promise<BaseRef[]>
+    public async ListMetaModels(): Promise<BaseRef[]>
     {
-        return this.enumerate(ensureMetaModelsBackend(this.Provider))
-    }
-
-    public ListLibraries(): Promise<BaseRef[]>
-    {
-        return this.enumerate(ensureLibrariesBackend(this.Provider))
-    }
-
-    private async enumerate(backend: IStorage): Promise<BaseRef[]>
-    {
+        const backend = ensurePackagesBackend(this.Provider)
         const refs: BaseRef[] = []
-        for (const id of await backend.List(''))
+        for (const { id, versions } of await scanPublishedModels(backend))
         {
-            if (!id.IsDirectory) continue
-            for (const version of await backend.List(id.Name))
-            {
-                if (version.IsDirectory) refs.push({ id: id.Name, version: version.Name })
-            }
+            for (const version of versions) refs.push({ id, version })
         }
         return refs
+    }
+
+    public async ListLibraries(): Promise<BaseRef[]>
+    {
+        const backend = ensurePackagesBackend(this.Provider)
+        return (await discoverLibraries(backend)).map((lib) => ({ id: lib.id, version: lib.version }))
     }
 }
 

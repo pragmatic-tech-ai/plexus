@@ -35,6 +35,18 @@ test('discovers every published <id>/<version> and loads its classes', async () 
     expect(ms.problems).toEqual([])
 })
 
+test('discoverLibraries ignores meta-model packages (no library.json) under the shared root', async () => {
+    const b = new FakeStorage('fake://packages')
+    // A library: library.json present.
+    await b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft'))
+    // A meta-model under the same root: model.json + manifest.json, no library.json.
+    await b.WriteText('ea/5/model.json', '{"nodes":[],"edges":[]}')
+    await b.WriteText('ea/5/manifest.json', '{}')
+
+    const libs = await discoverLibraries(b)
+    expect(libs.map((l) => l.id)).toEqual(['microsoft'])
+})
+
 test('a malformed manifest yields one error problem and no classes, not a throw', async () => {
     const b = new FakeStorage('fake://libraries')
     await b.WriteText('broken/0.1.0/library.json', '{ not json')

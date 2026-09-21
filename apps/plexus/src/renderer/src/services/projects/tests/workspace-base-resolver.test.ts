@@ -5,8 +5,7 @@ import { check, toJSON, type TodlDocument } from '@pragmatic-tech-ai/todl'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { META_MODELS_BACKEND_ID } from '../../../modules/meta-model/services/meta-models-backend.js'
-import { LIBRARIES_BACKEND_ID } from '../../../modules/library/services/libraries-backend.js'
+import { PACKAGES_BACKEND_ID } from '../packages-backend.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { TodlLanguageClient } from '../../todl/todl-language-client.js'
 import { WikiOriginKind } from '../wiki-origin.js'
@@ -48,11 +47,12 @@ function env(open: OpenProject[]): { provider: ServiceProvider; meta: FakeStorag
 {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
-    const meta = new FakeStorage('fake://meta-models')
-    const libs = new FakeStorage('fake://libraries')
-    registry.Register(META_MODELS_BACKEND_ID, () => meta)
-    registry.Register(LIBRARIES_BACKEND_ID, () => libs)
+    // One unified packages backend: kind no longer routes storage.
+    const packages = new FakeStorage('fake://packages')
+    registry.Register(PACKAGES_BACKEND_ID, () => packages)
     provider.registerInstance(StorageService.Key, registry)
+    const meta = packages
+    const libs = packages
     const collection = new ObservableCollection<OpenProject>()
     for (const op of open) collection.Add(op)
     provider.registerInstance(ProjectExplorerService.Key, { OpenProjects: collection } as unknown as ProjectExplorerService)

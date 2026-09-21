@@ -4,7 +4,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
-import { ensureMetaModelsBackend, META_MODELS_BACKEND_ID } from '../meta-models-backend.js'
+import { ensurePackagesBackend, PACKAGES_BACKEND_ID } from '../packages-backend.js'
 
 function providerWith(): ServiceProvider
 {
@@ -18,7 +18,7 @@ function providerWith(): ServiceProvider
     return provider
 }
 
-test('registers the meta-models backend once and roots it under userData', () => {
+test('registers the packages backend once and roots it under userData', () => {
     const provider = providerWith()
     const registry = provider.getRequired(StorageService.Key)
 
@@ -26,11 +26,11 @@ test('registers the meta-models backend once and roots it under userData', () =>
     const realRegister = registry.Register.bind(registry)
     registry.Register = ((id: string, f) => { registrations++; return realRegister(id, f) }) as typeof registry.Register
 
-    const a = ensureMetaModelsBackend(provider)
-    const b = ensureMetaModelsBackend(provider)
+    const a = ensurePackagesBackend(provider)
+    const b = ensurePackagesBackend(provider)
 
     expect(registrations).toBe(1)                       // idempotent
-    expect(registry.Has(META_MODELS_BACKEND_ID)).toBe(true)
-    expect(a.Root).toBe('/data/meta-models')
+    expect(registry.Has(PACKAGES_BACKEND_ID)).toBe(true)
+    expect(a.Root).toBe('/data/packages')
     expect(b.Root).toBe(a.Root)
 })

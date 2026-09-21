@@ -44,9 +44,9 @@ import { ModelToolboxPage, ScenarioToolboxPage } from '../../architecture-projec
 import { modelPageItems, scenarioPageItems } from '../../architecture-projects/services/arch-model-toolbox-contributor.js'
 import { toolboxContextsOf } from '../../architecture-projects/services/toolbox-contexts.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ensureMetaModelsBackend } from '../../meta-model/services/meta-models-backend.js'
-import { ensureLibrariesBackend } from '../../library/services/libraries-backend.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import { scanPublishedModels } from '../../meta-model/services/meta-model-tree-builder.js'
+import { discoverLibraries } from '../../library/services/library-loader.js'
 import { projectToolbox, type ToolboxTaxonomy } from '../../meta-model/services/toolbox-projection.js'
 import { registerArchToolboxAdapters } from './register-arch-toolbox-adapters.js'
 import { TodlPresentationRegistry } from './todl-presentation-registry.js'
@@ -330,20 +330,29 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     // the active diagram's referenced bases (see activeScope).
     protected async collectTaxonomies(): Promise<Array<{ tax: ToolboxTaxonomy; isLibrary: boolean; sourceRef: string }>>
     {
+        const backend = this.packagesBackend()
+        if (backend === undefined) return []
         const out: Array<{ tax: ToolboxTaxonomy; isLibrary: boolean; sourceRef: string }> = []
-        for (const { backend, isLibrary } of this.sourceBackends())
+
+        // Meta-models (isLibrary=false → `mm:`-keyed terms): the versions carrying a
+        // manifest.json under the single packages root.
+        for (const { id, versions } of await scanPublishedModels(backend))
         {
-            const models = await scanPublishedModels(backend)
-            for (const { id, versions } of models)
+            for (const version of versions)
             {
-                for (const version of versions)
-                {
-                    const doc = await this.readModel(backend, `${id}/${version}`)
-                    if (doc === undefined) continue
-                    const sourceRef = `${id}@${version}`
-                    for (const tax of projectToolbox(doc)) out.push({ tax, isLibrary, sourceRef })
-                }
+                const doc = await this.readModel(backend, `${id}/${version}`)
+                if (doc === undefined) continue
+                for (const tax of projectToolbox(doc)) out.push({ tax, isLibrary: false, sourceRef: `${id}@${version}` })
             }
+        }
+
+        // Libraries (isLibrary=true → class-id-keyed terms): the versions carrying a
+        // library.json under the same root.
+        for (const lib of await discoverLibraries(backend))
+        {
+            const doc = await this.readModel(backend, `${lib.id}/${lib.version}`)
+            if (doc === undefined) continue
+            for (const tax of projectToolbox(doc)) out.push({ tax, isLibrary: true, sourceRef: `${lib.id}@${lib.version}` })
         }
         return out
     }
@@ -353,18 +362,14 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         return (Application.current?.Services ?? this.Provider) as ServiceProvider
     }
 
-    // The published-content backends to scan, each best-effort: a missing backend
+    // The single published-content backend to scan, best-effort: a missing backend
     // (headless, or storage not wired) contributes nothing rather than throwing.
-    // Meta-models → `mm:`-keyed terms; libraries → class-id-keyed terms.
-    private sourceBackends(): Array<{ backend: IStorage; isLibrary: boolean }>
+    // Meta-model vs library is discriminated per package (see collectTaxonomies).
+    private packagesBackend(): IStorage | undefined
     {
-        if (this.Provider.get(StorageService.Key) === undefined) return []
-        const out: Array<{ backend: IStorage; isLibrary: boolean }> = []
-        try { out.push({ backend: ensureMetaModelsBackend(this.Provider), isLibrary: false }) }
-        catch { /* no meta-models backend */ }
-        try { out.push({ backend: ensureLibrariesBackend(this.Provider), isLibrary: true }) }
-        catch { /* no libraries backend */ }
-        return out
+        if (this.Provider.get(StorageService.Key) === undefined) return undefined
+        try { return ensurePackagesBackend(this.Provider) }
+        catch { return undefined }
     }
 
     private async readModel(backend: IStorage, base: string): Promise<TodlDocument | undefined>

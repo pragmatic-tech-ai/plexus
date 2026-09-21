@@ -1,8 +1,7 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProducerKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
-import { ensureMetaModelsBackend } from '../../modules/meta-model/services/meta-models-backend.js'
-import { ensureLibrariesBackend } from '../../modules/library/services/libraries-backend.js'
+import { ensurePackagesBackend } from './packages-backend.js'
 
 // Where a concept's declaring artifact lives — the base a relative wiki `path`
 // resolves against. Produced by base resolution (which already decides, per base,
@@ -37,9 +36,9 @@ export function locateWikiFile(
 ): { storage: IStorage; path: string }
 {
     if (origin.kind === WikiOriginKind.OpenProject) return { storage: origin.storage, path: relPath }
-    const backend = origin.backend === ProducerKind.MetaModel
-        ? ensureMetaModelsBackend(provider)
-        : ensureLibrariesBackend(provider)
+    // Under the single packages root a package's kind no longer routes storage — the
+    // page ships at <packages>/<id>/<version>/ regardless of producer kind.
+    const backend = ensurePackagesBackend(provider)
     return { storage: backend, path: packageWikiPath(origin.id, origin.version, relPath) }
 }
 

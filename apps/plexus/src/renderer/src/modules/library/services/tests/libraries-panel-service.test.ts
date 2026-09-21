@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { LIBRARIES_BACKEND_ID } from '../libraries-backend.js'
+import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { LibraryRegistry } from '../library-registry.js'
 import { LibrariesPanelService } from '../libraries-panel-service.js'
 import { LibraryNodeKind, LibraryTreeNode } from '../library-tree-node.js'
@@ -15,7 +15,7 @@ function providerWith(seed: (b: FakeStorage) => void): ServiceProvider
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
     const backend = new FakeStorage('fake://libraries')
-    registry.Register(LIBRARIES_BACKEND_ID, () => backend)
+    registry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, registry)
     provider.registerInstance(LibraryRegistry.Key, new LibraryRegistry(provider))
     seed(backend)
@@ -129,7 +129,7 @@ test('Reload() calls TodlPresentationRegistry.discover() when storage is wired',
     const provider = new ServiceProvider()
     const storageRegistry = new StorageService(provider)
     const backend = new FakeStorage('fake://libraries')
-    storageRegistry.Register(LIBRARIES_BACKEND_ID, () => backend)
+    storageRegistry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, storageRegistry)
     provider.registerInstance(LibraryRegistry.Key, new LibraryRegistry(provider))
 

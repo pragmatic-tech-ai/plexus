@@ -2,7 +2,7 @@
 // the whole project/solution ecosystem). This module re-exports them so the many
 // plexus consumers keep importing from their established path while the single
 // source of truth is todl. The concrete factories are likewise todl's; the app
-// supplies only the mural/OS-coupled seams (IPresentationBaker, IProducerStorageBackends).
+// supplies only the mural/OS-coupled seams (IPresentationBaker, IPackageStore).
 export {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,

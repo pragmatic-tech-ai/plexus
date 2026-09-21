@@ -3,7 +3,7 @@ import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 import { electronApp, is } from "@electron-toolkit/utils";
 import { PackageCompiler, LocalPackageStore } from "@pragmatic-tech-ai/todl/package-manager";
-import { NodeModulesProducerBackends } from "./registry/node-modules-producer-backends.js";
+import { NodeModulesPackageSource } from "./registry/node-modules-package-source.js";
 import { TokenStore } from "./registry/token-store.js";
 import { SettingsStore } from "./registry/settings-store.js";
 import { ConnectionTokenStore } from "./registry/connection-token-store.js";
@@ -84,7 +84,7 @@ void app.whenReady().then(async () => {
   const engine = new PackageEngine({ connectionStore, secretStore, environment });
   const bridge = new RegistryBridge({
     service: engine.Service,
-    createCompiler: (dir) => new PackageCompiler(new NodeModulesProducerBackends(join(dir, "node_modules"))),
+    createCompiler: (dir) => new PackageCompiler(new NodeModulesPackageSource(join(dir, "node_modules"))),
     localStore,
   });
   RegistryIpc.register(

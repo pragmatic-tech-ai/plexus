@@ -16,7 +16,7 @@
 import MetaModelsService from "./services/meta-models-service.js"
 import TodlDocumentFactory from "./services/todl-document-factory.js"
 import MuralPresentationBaker from "../../services/projects/mural-presentation-baker.js"
-import StorageServiceBackends from "../../services/projects/storage-service-backends.js"
+import PlexusPackageStore from "../../services/projects/storage-service-backends.js"
 
 shell module MetaModelModule [ Name = "Meta-model" ] {
     .services: {
@@ -24,10 +24,10 @@ shell module MetaModelModule [ Name = "Meta-model" ] {
         TodlDocumentFactory
         // The producer seams the relocated (todl) meta-model + library factories
         // resolve at publish time — the mural-compiler presentation baker and the
-        // StorageService-backed producer backends. Registered here (app-global DI)
+        // single StorageService-backed package store. Registered here (app-global DI)
         // so both producer factories find them under todl's ServiceKeys.
         MuralPresentationBaker
-        StorageServiceBackends
+        PlexusPackageStore
     }
 
     Capability [ Name = "Meta-models", Icon = @MetaModels, ServiceKey = MetaModelsService ]

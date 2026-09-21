@@ -2,7 +2,7 @@ import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mu
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { PresentationContribution, PresentationSource } from '../../diagram/services/todl-presentation-registry.js'
-import { ensureMetaModelsBackend } from './meta-models-backend.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import { scanPublishedModels } from './meta-model-tree-builder.js'
 import { loadCompiledPresentation } from './compiled-presentation.js'
 import { readIconIndex } from './icon-index.js'
@@ -20,7 +20,7 @@ export class MetaModelPresentationSource implements PresentationSource
     public async load(): Promise<PresentationContribution>
     {
         let backend: IStorage
-        try { backend = ensureMetaModelsBackend(this.provider) }
+        try { backend = ensurePackagesBackend(this.provider) }
         catch { return { assets: new ResourceDictionary(), iconKeys: new Map() } }   // headless / not wired
 
         const assets = new ResourceDictionary()

@@ -3,8 +3,7 @@ import { PackageKind, type TodlDocument, type PackageRef } from '@pragmatic-tech
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import { ensureMetaModelsBackend } from '../../modules/meta-model/services/meta-models-backend.js'
-import { ensureLibrariesBackend } from '../../modules/library/services/libraries-backend.js'
+import { ensurePackagesBackend } from './packages-backend.js'
 import { TodlLanguageClient } from '../todl/todl-language-client.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
@@ -80,28 +79,26 @@ export class WorkspaceBaseResolver extends ServiceBase
         const manifest = await this.readManifest(storage)
         const out = new Set<string>()
         if (manifest?.metaModel !== undefined)
-            await this.collectPublishedRef(manifest.metaModel, ProducerKind.MetaModel, out)
+            await this.collectPublishedRef(manifest.metaModel, out)
         for (const lib of manifest?.libraries ?? [])
-            await this.collectPublishedRef(lib, ProducerKind.Library, out)
+            await this.collectPublishedRef(lib, out)
         return out
     }
 
-    private async collectPublishedRef(ref: BaseRef, kind: ProducerKind, out: Set<string>): Promise<void>
+    // Under the single packages root a package's kind no longer routes storage, so
+    // this reads every ref (meta-model or library) from the same backend and recurses
+    // its recorded dependencies by ref alone.
+    private async collectPublishedRef(ref: BaseRef, out: Set<string>): Promise<void>
     {
         const key = `${ref.id}@${ref.version}`
         if (out.has(key)) return
         out.add(key)
-        const backend = kind === ProducerKind.MetaModel
-            ? ensureMetaModelsBackend(this.Provider)
-            : ensureLibrariesBackend(this.Provider)
+        const backend = ensurePackagesBackend(this.Provider)
         try
         {
             const doc = JSON.parse(await backend.ReadText(`${ref.id}/${ref.version}/model.json`)) as PackageDocument
             for (const dep of doc.dependencies ?? [])
-            {
-                const depKind = dep.kind === PackageKind.Library ? ProducerKind.Library : ProducerKind.MetaModel
-                await this.collectPublishedRef({ id: dep.id, version: dep.version }, depKind, out)
-            }
+                await this.collectPublishedRef({ id: dep.id, version: dep.version }, out)
         }
         catch { /* unpublished / absent — its own key is recorded; deps unreachable */ }
     }
@@ -211,9 +208,7 @@ export class WorkspaceBaseResolver extends ServiceBase
         const key = `${kind}:${ref.id}@${ref.version}`
         if (seenPub.has(key)) return
         seenPub.add(key)
-        const backend = kind === ProducerKind.MetaModel
-            ? ensureMetaModelsBackend(this.Provider)
-            : ensureLibrariesBackend(this.Provider)
+        const backend = ensurePackagesBackend(this.Provider)
         try
         {
             const doc = JSON.parse(await backend.ReadText(`${ref.id}/${ref.version}/model.json`)) as PackageDocument
