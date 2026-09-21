@@ -7,10 +7,10 @@ import { discoverLibraries } from '../../library/services/library-loader.js'
 
 // App-side IPublishedBases: enumerates the meta-models / libraries published to the
 // single shared packages backend as BaseRefs (`<id>/<version>/`), offered by the New
-// Project pickers. Under one root, kind is recovered from each package's recorded
-// discriminator file (manifest.json for meta-models, library.json for libraries) —
-// scanPublishedModels lists the former, discoverLibraries the latter. Registered
-// under PublishedBasesKey (see app.mu).
+// Project pickers. Under one root, kind is recovered from each package's unified
+// `bundle.json` (checking its `.type`: 'meta-model' vs 'library') — scanPublishedModels
+// lists the former, discoverLibraries the latter. Registered under PublishedBasesKey
+// (see app.mu).
 export class PublishedBases extends ServiceBase implements IPublishedBases
 {
     public static readonly Key = new ServiceKey<PublishedBases>('PublishedBases')

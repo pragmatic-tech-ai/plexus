@@ -41,34 +41,34 @@ const LIB = `namespace lib { import ea; taxonomy Microsoft : represents Location
 
 test('createProject writes the shared TODL scaffold + a library CLAUDE.md', async () => {
   const storage = new FakeStorage('fake://Acme')
-  await factory().createProject(storage, 'Acme Lib', { metaModel: { id: 'ea', version: '5' } })
+  await factory().createProject(storage, 'Acme Lib', { metaModels: [{ id: 'ea', version: '5' }] })
   expect(await storage.Exists('.claude/todl-manual.md')).toBe(true)
   expect(await storage.Exists('.claude/todl-rules.md')).toBe(true)
   expect(await storage.Exists('CLAUDE.md')).toBe(true)
   expect(await storage.ReadText('CLAUDE.md')).toMatch(/library/i)
 })
 
-test('getVersion/setVersion round-trips libVersion, preserving id + metaModel', async () => {
+test('getVersion/setVersion round-trips packageVersion, preserving id + metaModels', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'Acme Lib', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'Acme Lib', { metaModels: [{ id: 'ea', version: '5' }] })
   expect(await f.getVersion(storage)).toBe('0.1.0')
   await f.setVersion(storage, '1.0.0')
   expect(await f.getVersion(storage)).toBe('1.0.0')
   const m = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
   expect(m.id).toBe('acme-lib')                        // untouched
-  expect(m.metaModel).toEqual({ id: 'ea', version: '5' })   // untouched
+  expect(m.metaModels).toEqual([{ id: 'ea', version: '5' }])   // untouched
 })
 
 test('createProject writes a library manifest with a publish identity + binding', async () => {
   const storage = new FakeStorage('fake://Acme')
-  const project = await factory().createProject(storage, 'Acme Lib', { metaModel: { id: 'ea', version: '5' } })
+  const project = await factory().createProject(storage, 'Acme Lib', { metaModels: [{ id: 'ea', version: '5' }] })
   expect(project.Type).toBe('library')
   const manifest = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
   expect(manifest.type).toBe('library')
   expect(manifest.id).toBe('acme-lib')
-  expect(manifest.libVersion).toBe('0.1.0')
-  expect(manifest.metaModel).toEqual({ id: 'ea', version: '5' })
+  expect(manifest.packageVersion).toBe('0.1.0')
+  expect(manifest.metaModels).toEqual([{ id: 'ea', version: '5' }])
 })
 
 test('requiresMetaModel is true', () => {
@@ -78,7 +78,7 @@ test('requiresMetaModel is true', () => {
 test('publish validates against the bound meta-model and writes the compiled library', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   const { provider, meta, libs } = publishEnv()
   await seedMeta(meta)
@@ -100,7 +100,7 @@ test('publish validates against the bound meta-model and writes the compiled lib
 test('publish copies the resources/ folder into the bundle', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('resources/azure.svg', '<svg viewBox="0 0 10 10"><path d="M0 0 L10 0 L10 10 Z"/></svg>')
   const { provider, meta, libs } = publishEnv()
@@ -114,7 +114,7 @@ test('publish copies the resources/ folder into the bundle', async () => {
 test('publish bundles the wiki/ pages alongside the package', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('wiki/service.md', '# Service\n\nThe service page.')
   const { provider, meta, libs } = publishEnv()
@@ -130,7 +130,7 @@ test('publish bundles the wiki/ pages alongside the package', async () => {
 test('publish is blocked when the bound meta-model is not published', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ghost', version: '1' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ghost', version: '1' }] })
   await storage.WriteText('microsoft.todl', LIB)
   const { provider, libs } = publishEnv()
   const result = await f.publish(await f.openProject(storage), storage, provider)
@@ -138,10 +138,10 @@ test('publish is blocked when the bound meta-model is not published', async () =
   expect(libs.size).toBe(0)
 })
 
-test('publish writes library.json with the derived classes + resource paths, and copies the folders', async () => {
+test('publish writes bundle.json with the derived classes + resource paths, and copies the folders', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('visuals/Microsoft.Azure.mural', '<template/>')
   await storage.WriteText('thumbnails/Microsoft.Azure.png', 'PNGBYTES')
@@ -155,10 +155,10 @@ test('publish writes library.json with the derived classes + resource paths, and
 
   expect(result.ok).toBe(true)
 
-  const bundle = JSON.parse(await libs.ReadText('microsoft/0.1.0/library.json'))
+  const bundle = JSON.parse(await libs.ReadText('microsoft/0.1.0/bundle.json'))
   expect(bundle.id).toBe('microsoft')
   expect(bundle.version).toBe('0.1.0')
-  expect(bundle.metaModel).toEqual({ id: 'ea', version: '5' })
+  expect(bundle.metaModels).toEqual([{ id: 'ea', version: '5' }])
   expect(bundle.classes.map((c: { id: string }) => c.id).sort())
       .toEqual(['Microsoft.Azure', 'Microsoft.AzureOpenai'])
   const azure = bundle.classes.find((c: { id: string }) => c.id === 'Microsoft.Azure')
@@ -180,7 +180,7 @@ test('publish writes library.json with the derived classes + resource paths, and
 test('samples/*.todl is excluded from the compiled model', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('samples/demo.todl', 'namespace boom { this is not valid todl }')
 
@@ -197,7 +197,7 @@ test('samples/*.todl is excluded from the compiled model', async () => {
 test('an orphan visual is a non-blocking warning', async () => {
   const storage = new FakeStorage('fake://Acme')
   const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('visuals/ghost.mural', '<template/>')
 
@@ -219,7 +219,7 @@ test('regeneratePresentation writes presentation.generated.mu with a template pe
   const { provider, meta } = publishEnv()
   await seedMeta(meta)
   const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('presentation/custom.mu', 'resources LibraryPresentationCustom { }')
 
@@ -238,7 +238,7 @@ test('regeneratePresentation is a no-op when the project has no .todl sources', 
   const { provider, meta } = publishEnv()
   await seedMeta(meta)
   const f = factoryWith(provider)
-  await f.createProject(storage, 'empty', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'empty', { metaModels: [{ id: 'ea', version: '5' }] })
 
   await f.regeneratePresentation(storage, true)
 
@@ -250,7 +250,7 @@ test('regeneratePresentation is a no-op when a .todl has a compile error', async
   const { provider, meta } = publishEnv()
   await seedMeta(meta)
   const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('bad.todl', 'namespace lib { taxonomy microsoft : represents nonesuch { } }')
 
   await f.regeneratePresentation(storage, true)
@@ -263,7 +263,7 @@ test('publish bakes presentation.compiled.json into the bundle and refreshes the
   const { provider, meta, libs } = publishEnv()
   await seedMeta(meta)
   const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
 
   const result = await f.publish(await f.openProject(storage), storage, provider)
@@ -286,7 +286,7 @@ test('publish blocks when a class references an icon with no project file', asyn
   const { provider, meta, libs } = publishEnv()
   await seedMetaIcon(meta)
   const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModel: { id: 'ea', version: '5' } })
+  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   // a class carrying an icon path, but the SVG file is never written to the project
   await storage.WriteText('microsoft.todl',
     'namespace lib { import ea; taxonomy microsoft : represents location { location azure { label = "Azure"; annotate icon { path = "resources/azure.svg"; } } } }')

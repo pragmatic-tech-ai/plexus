@@ -18,7 +18,7 @@ const NO_DELETE = (): void => {}
 test('buildCatalog produces the Model→Version node tree the service binds as Nodes', async () => {
     const storage = new FakeStorage('fake://packages')
     await storage.WriteText('tech/0.1.0/model.json', JSON.stringify({ nodes: [], edges: [] }))
-    await storage.WriteText('tech/0.1.0/manifest.json', '{}')   // meta-model discriminator
+    await storage.WriteText('tech/0.1.0/bundle.json', JSON.stringify({ type: 'meta-model' }))   // meta-model discriminator
 
     const nodes = await buildCatalog(storage, NO_ACTIVATE, NO_DELETE)
 
@@ -53,7 +53,7 @@ test('onMetaModelsChanged notifies subscribers after reload completes, and unsub
 
 function lib(id: string, mmId: string, mmVersion: string): LoadedLibrary
 {
-    return { id, version: '0.1.0', name: id, metaModel: { id: mmId, version: mmVersion }, classes: [], problems: [] }
+    return { id, version: '0.1.0', name: id, metaModels: [{ id: mmId, version: mmVersion }], classes: [], problems: [] }
 }
 
 test('dependentLibraryNames filters by meta-model id and optional version', () => {
@@ -77,9 +77,9 @@ function deleteEnv(seed: (mm: FakeStorage) => void): { provider: ServiceProvider
 test('deleteTarget removes one version and cleans an emptied id folder', async () => {
     const { provider, mm } = deleteEnv((s) => {
         void s.WriteText('a/1.0.0/model.json', '{"nodes":[],"edges":[]}')
-        void s.WriteText('a/1.0.0/manifest.json', '{}')
+        void s.WriteText('a/1.0.0/bundle.json', JSON.stringify({ type: 'meta-model' }))
         void s.WriteText('a/1.1.0/model.json', '{"nodes":[],"edges":[]}')
-        void s.WriteText('a/1.1.0/manifest.json', '{}')
+        void s.WriteText('a/1.1.0/bundle.json', JSON.stringify({ type: 'meta-model' }))
     })
     const svc = new MetaModelsService(provider)
     await svc.reload()
@@ -96,9 +96,9 @@ test('deleteTarget removes one version and cleans an emptied id folder', async (
 test('deleteTarget removes a whole model (all versions)', async () => {
     const { provider, mm } = deleteEnv((s) => {
         void s.WriteText('a/1.0.0/model.json', '{"nodes":[],"edges":[]}')
-        void s.WriteText('a/1.0.0/manifest.json', '{}')
+        void s.WriteText('a/1.0.0/bundle.json', JSON.stringify({ type: 'meta-model' }))
         void s.WriteText('a/1.1.0/model.json', '{"nodes":[],"edges":[]}')
-        void s.WriteText('a/1.1.0/manifest.json', '{}')
+        void s.WriteText('a/1.1.0/bundle.json', JSON.stringify({ type: 'meta-model' }))
     })
     const svc = new MetaModelsService(provider)
     await svc.reload()

@@ -26,7 +26,7 @@ function env(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorag
 test('resolveBases reads a bound meta-model model.json', async () => {
     const { provider, meta } = env()
     await meta.WriteText('ea/5/model.json', JSON.stringify(toJSON(check([{ uri: 'c.todl', text: CONCEPTS }]).model)))
-    const { bases, problems } = await resolveBases(provider, { metaModel: { id: 'ea', version: '5' } })
+    const { bases, problems } = await resolveBases(provider, { metaModels: [{ id: 'ea', version: '5' }] })
     expect(problems).toEqual([])
     expect(bases.length).toBe(1)
     expect(bases[0]!.nodes.some((n) => n.id === 'location')).toBe(true)
@@ -34,7 +34,7 @@ test('resolveBases reads a bound meta-model model.json', async () => {
 
 test('a missing base is reported in problems, not thrown', async () => {
     const { provider } = env()
-    const { bases, problems } = await resolveBases(provider, { metaModel: { id: 'ghost', version: '1' } })
+    const { bases, problems } = await resolveBases(provider, { metaModels: [{ id: 'ghost', version: '1' }] })
     expect(bases).toEqual([])
     expect(problems.length).toBe(1)
     expect(problems[0]).toMatch(/ghost/)
@@ -75,7 +75,7 @@ test('resolves a shared meta-model only once (diamond)', async () => {
     await libs.WriteText('b/0.1.0/model.json', docJson(['B'], [{ kind: 'meta-model', id: 'meta', version: '1.0.0' }]))
 
     const { bases, problems } = await resolveBases(provider, {
-        metaModel: { id: 'meta', version: '1.0.0' },
+        metaModels: [{ id: 'meta', version: '1.0.0' }],
         libraries: [{ id: 'a', version: '0.1.0' }, { id: 'b', version: '0.1.0' }],
     })
     expect(problems).toEqual([])

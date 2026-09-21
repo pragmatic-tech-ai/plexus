@@ -7,16 +7,16 @@ import { scanPublishedModels, buildCatalog, loadVersionEntities, type DeleteTarg
 const NO_ACTIVATE = (): void => {}
 const NO_DELETE = (): void => {}
 
-// Seed model.json entries plus the meta-model discriminator (manifest.json) beside
-// each, since scanPublishedModels now filters the shared packages root to versions
-// carrying a manifest.json.
+// Seed model.json entries plus the meta-model discriminator (bundle.json with
+// type 'meta-model') beside each, since scanPublishedModels now filters the shared
+// packages root to versions whose bundle.json declares type 'meta-model'.
 function backendWith(entries: Array<[string, string]>): FakeStorage
 {
     const s = new FakeStorage('fake://packages')
     for (const [path, text] of entries)
     {
         void s.WriteText(path, text)
-        if (path.endsWith('/model.json')) void s.WriteText(path.replace(/model\.json$/, 'manifest.json'), '{}')
+        if (path.endsWith('/model.json')) void s.WriteText(path.replace(/model\.json$/, 'bundle.json'), JSON.stringify({ type: 'meta-model' }))
     }
     return s
 }
@@ -42,14 +42,14 @@ test('scanPublishedModels groups by id and sorts versions numeric-aware', async 
     expect(models.find((m) => m.id === 'm')?.versions).toEqual(['0.9.0', '0.10.0'])
 })
 
-test('scanPublishedModels ignores library packages (no manifest.json) under the shared root', async () => {
+test('scanPublishedModels ignores library packages (bundle.type library) under the shared root', async () => {
     const storage = new FakeStorage('fake://packages')
-    // A meta-model: model.json + manifest.json.
+    // A meta-model: model.json + bundle.json with type 'meta-model'.
     void storage.WriteText('mm/1.0.0/model.json', '{}')
-    void storage.WriteText('mm/1.0.0/manifest.json', '{}')
-    // A library under the same root: model.json + library.json (no manifest.json).
+    void storage.WriteText('mm/1.0.0/bundle.json', JSON.stringify({ type: 'meta-model' }))
+    // A library under the same root: model.json + bundle.json with type 'library'.
     void storage.WriteText('lib/2.0.0/model.json', '{}')
-    void storage.WriteText('lib/2.0.0/library.json', '{}')
+    void storage.WriteText('lib/2.0.0/bundle.json', JSON.stringify({ type: 'library' }))
 
     const models = await scanPublishedModels(storage)
     expect(models.map((m) => m.id)).toEqual(['mm'])

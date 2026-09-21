@@ -72,14 +72,16 @@ export class ManageReferencesDialogModel extends MuralBase
 
         // Meta-models: the catalog, guaranteed to include (and pre-select) the
         // current binding even when it is no longer published/open — a stale ref
-        // stays visible rather than silently vanishing.
+        // stays visible rather than silently vanishing. The picker stays single-
+        // select for now, so it pre-selects the first bound meta-model.
+        const currentMeta = current.metaModels?.[0]
         const metaRefs = ManageReferencesDialogModel.dedupe(
-            current.metaModel !== undefined ? [current.metaModel, ...availableMetaModels] : availableMetaModels)
+            currentMeta !== undefined ? [currentMeta, ...availableMetaModels] : availableMetaModels)
         const metas = new ObservableCollection<MetaModelChoice>()
         for (const ref of metaRefs) metas.Add(new MetaModelChoice(ref))
         this.set_property_value(ManageReferencesDialogModel.MetaModelsKey, metas)
-        const selected = current.metaModel !== undefined
-            ? metas.ToArray().find((m) => ManageReferencesDialogModel.sameRef(m.Ref, current.metaModel!))
+        const selected = currentMeta !== undefined
+            ? metas.ToArray().find((m) => ManageReferencesDialogModel.sameRef(m.Ref, currentMeta))
             : metas.ToArray()[0]
         this.set_property_value(ManageReferencesDialogModel.SelectedMetaModelKey, selected)
 
@@ -122,14 +124,16 @@ export class ManageReferencesDialogModel extends MuralBase
     public get ConfirmCommand(): ICommand { return this.get_property_value(ManageReferencesDialogModel.ConfirmCommandKey) }
     public get CancelCommand(): ICommand { return this.get_property_value(ManageReferencesDialogModel.CancelCommandKey) }
 
-    // The edited bindings: the selected meta-model plus, for a libraries-bearing
+    // The edited bindings: the selected meta-model (single-select picker → a
+    // one-element `metaModels` array, or [] when none) plus, for a libraries-bearing
     // project, the checked libraries. A library project omits `libraries` entirely
     // so its manifest keeps its original shape.
     public get Result(): BaseBindings
     {
-        const metaModel = this.SelectedMetaModel?.Ref
-        if (!this.offersLibraries) return { metaModel }
-        return { metaModel, libraries: this.Libraries.ToArray().filter((l) => l.IsSelected).map((l) => l.Ref) }
+        const chosen = this.SelectedMetaModel?.Ref
+        const metaModels = chosen !== undefined ? [chosen] : []
+        if (!this.offersLibraries) return { metaModels }
+        return { metaModels, libraries: this.Libraries.ToArray().filter((l) => l.IsSelected).map((l) => l.Ref) }
     }
 
     private recompute(): void

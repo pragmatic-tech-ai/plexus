@@ -32,13 +32,12 @@ function producer(kind: ProducerKind, text: string): IProjectFactory & IProducer
 
 async function openProject(
     kind: string, id: string, version: string, factory: IProjectFactory,
-    bindings?: { metaModel?: { id: string; version: string }; libraries?: { id: string; version: string }[] },
+    bindings?: { metaModels?: { id: string; version: string }[]; libraries?: { id: string; version: string }[] },
 ): Promise<OpenProject>
 {
     const storage = new FakeStorage(`C:/${id}`)
-    const verKey = kind === 'meta-model' ? 'modelVersion' : 'libVersion'
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(
-        { type: kind, id, [verKey]: version, ...bindings }))
+        { type: kind, id, packageVersion: version, ...bindings }))
     return new OpenProject(new Project(kind, id, `C:/${id}`, new ProjectNode(id, '', ProjectNodeKind.Folder)), factory, storage)
 }
 
@@ -69,7 +68,7 @@ test('prefers an open producer\'s live document over the published artifact', as
     await meta.WriteText('ea/0.1.0/model.json', JSON.stringify(toJSON(check([{ uri: 'x.todl', text: 'namespace ea { concept PublishedConcept { label : string; } }' }]).model)))
 
     const consumer = new FakeStorage('C:/arch')
-    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModel: { id: 'ea', version: '0.1.0' } }))
+    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModels: [{ id: 'ea', version: '0.1.0' }] }))
 
     const resolver = new WorkspaceBaseResolver(provider)
     const { bases, problems, originOf } = await resolver.ResolveForStorage(consumer)
@@ -84,7 +83,7 @@ test('falls back to the published artifact when the producer is not open', async
     const { provider, meta } = env([])
     await meta.WriteText('ea/0.1.0/model.json', JSON.stringify(toJSON(check([{ uri: 'x.todl', text: 'namespace ea { concept PublishedConcept { label : string; } }' }]).model)))
     const consumer = new FakeStorage('C:/arch')
-    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModel: { id: 'ea', version: '0.1.0' } }))
+    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModels: [{ id: 'ea', version: '0.1.0' }] }))
 
     const resolver = new WorkspaceBaseResolver(provider)
     const { bases, originOf } = await resolver.ResolveForStorage(consumer)
@@ -100,7 +99,7 @@ test('an id match on a different version uses local and notes it in problems', a
         producer(ProducerKind.MetaModel, 'namespace ea { concept LiveConcept { label : string; } }'))
     const { provider } = env([mm])
     const consumer = new FakeStorage('C:/arch')
-    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModel: { id: 'ea', version: '0.1.0' } }))
+    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModels: [{ id: 'ea', version: '0.1.0' }] }))
 
     const resolver = new WorkspaceBaseResolver(provider)
     const { bases, problems } = await resolver.ResolveForStorage(consumer)
@@ -113,11 +112,11 @@ test('resolves recursively: architecture -> library -> meta-model, all local, me
         producer(ProducerKind.MetaModel, 'namespace ea { concept MmNode { label : string; } }'))
     const lib = await openProject('library', 'acme', '0.1.0',
         producer(ProducerKind.Library, 'namespace acme { concept LibNode { label : string; } }'),
-        { metaModel: { id: 'ea', version: '0.1.0' } })
+        { metaModels: [{ id: 'ea', version: '0.1.0' }] })
     const { provider } = env([mm, lib])
     const consumer = new FakeStorage('C:/arch')
     await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(
-        { type: 'architecture', metaModel: { id: 'ea', version: '0.1.0' }, libraries: [{ id: 'acme', version: '0.1.0' }] }))
+        { type: 'architecture', metaModels: [{ id: 'ea', version: '0.1.0' }], libraries: [{ id: 'acme', version: '0.1.0' }] }))
 
     const resolver = new WorkspaceBaseResolver(provider)
     const { bases, problems } = await resolver.ResolveForStorage(consumer)
@@ -140,14 +139,14 @@ test('diamond: architecture -> meta-model + two libraries that each bind it reso
         producer(ProducerKind.MetaModel, 'namespace tech { concept MmNode { label : string; } }'))
     const libA = await openProject('library', 'microsoft', '0.1.0',
         producer(ProducerKind.Library, 'namespace microsoft { concept ANode { label : string; } }'),
-        { metaModel: { id: 'tech', version: '0.1.0' } })
+        { metaModels: [{ id: 'tech', version: '0.1.0' }] })
     const libB = await openProject('library', 'aws', '0.1.0',
         producer(ProducerKind.Library, 'namespace aws { concept BNode { label : string; } }'),
-        { metaModel: { id: 'tech', version: '0.1.0' } })
+        { metaModels: [{ id: 'tech', version: '0.1.0' }] })
     const { provider } = env([mm, libA, libB])
     const consumer = new FakeStorage('C:/arch')
     await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
-        type: 'architecture', metaModel: { id: 'tech', version: '0.1.0' },
+        type: 'architecture', metaModels: [{ id: 'tech', version: '0.1.0' }],
         libraries: [{ id: 'microsoft', version: '0.1.0' }, { id: 'aws', version: '0.1.0' }],
     }))
 
@@ -182,7 +181,7 @@ test('a local producer with compile errors surfaces problems and still returns i
     const mm = await openProject('meta-model', 'ea', '0.1.0', failing)
     const { provider } = env([mm])
     const consumer = new FakeStorage('C:/arch')
-    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModel: { id: 'ea', version: '0.1.0' } }))
+    await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModels: [{ id: 'ea', version: '0.1.0' }] }))
 
     const resolver = new WorkspaceBaseResolver(provider)
     const { bases, problems } = await resolver.ResolveForStorage(consumer)
@@ -196,9 +195,9 @@ test('RefreshDependentsOfIds refreshes a changed producer\'s transitive dependen
         producer(ProducerKind.MetaModel, 'namespace ea { concept c { label : string; } }'))
     const lib = await openProject('library', 'acme', '0.1.0',
         producer(ProducerKind.Library, 'namespace acme { concept l { label : string; } }'),
-        { metaModel: { id: 'ea', version: '0.1.0' } })
+        { metaModels: [{ id: 'ea', version: '0.1.0' }] })
     const arch = await openProject('architecture', 'sys', '0.1.0', { formats: [] } as unknown as IProjectFactory,
-        { metaModel: { id: 'ea', version: '0.1.0' }, libraries: [{ id: 'acme', version: '0.1.0' }] })
+        { metaModels: [{ id: 'ea', version: '0.1.0' }], libraries: [{ id: 'acme', version: '0.1.0' }] })
     const { provider } = env([mm, lib, arch])
 
     const refreshed: IStorage[] = []
@@ -219,7 +218,7 @@ test('ProducedIdOf reports a producer\'s id and undefined for a consumer', async
     const mm = await openProject('meta-model', 'ea', '0.1.0',
         producer(ProducerKind.MetaModel, 'namespace ea { concept c { label : string; } }'))
     const arch = await openProject('architecture', 'sys', '0.1.0', { formats: [] } as unknown as IProjectFactory,
-        { metaModel: { id: 'ea', version: '0.1.0' } })
+        { metaModels: [{ id: 'ea', version: '0.1.0' }] })
     const { provider } = env([mm, arch])
     const resolver = new WorkspaceBaseResolver(provider)
     // Force snapshot construction (ProducedIdOf reads the current snapshot).
@@ -263,7 +262,7 @@ test('referencedPublishedRefs collects the manifest bases as id@version keys', a
 
     const consumer = new FakeStorage('C:/arch')
     await consumer.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(
-        { type: 'architecture', metaModel: { id: 'ea', version: '1.0.0' }, libraries: [{ id: 'acme', version: '0.1.0' }] }))
+        { type: 'architecture', metaModels: [{ id: 'ea', version: '1.0.0' }], libraries: [{ id: 'acme', version: '0.1.0' }] }))
 
     const resolver = new WorkspaceBaseResolver(provider)
     const refs = await resolver.referencedPublishedRefs(consumer)

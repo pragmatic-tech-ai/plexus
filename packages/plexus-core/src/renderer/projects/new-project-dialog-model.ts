@@ -19,9 +19,10 @@ export interface NewProjectResult
     type:      string
     name:      string
     location:  string
-    // The meta-model the project is authored against — present only for a type
-    // that RequiresMetaModel (a library or an architecture).
-    metaModel?: BaseRef
+    // The meta-models the project is authored against — present only for a type
+    // that RequiresMetaModel (a library or an architecture). The picker stays
+    // single-select for now, so this is [] or a single-element array.
+    metaModels?: readonly BaseRef[]
     // The libraries an architecture draws on — present (possibly empty) only for a
     // type that OffersLibraries.
     libraries?: readonly BaseRef[]
@@ -217,9 +218,10 @@ export class NewProjectDialogModel extends MuralBase
             type: this.SelectedType.Type,
             name: this.Name.trim(),
             location: this.Location,
-            // Only a meta-model-requiring type carries a binding.
+            // Only a meta-model-requiring type carries a binding. The picker is
+            // single-select, so the chosen ref is emitted as a one-element array.
             ...(this.ShowMetaModelPicker && this.SelectedMetaModel !== undefined
-                ? { metaModel: this.SelectedMetaModel.Ref }
+                ? { metaModels: [this.SelectedMetaModel.Ref] }
                 : {}),
             // An OffersLibraries type carries the (possibly empty) checked set.
             ...(this.ShowLibrariesPicker ? { libraries: this.SelectedLibraries } : {}),

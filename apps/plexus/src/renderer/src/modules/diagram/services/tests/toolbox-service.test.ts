@@ -43,8 +43,8 @@ class TestToolbox extends ToolboxService
 }
 
 // A meta-model / library seeder over the SINGLE packages backend: each writes the
-// package's model.json plus the kind discriminator file the enumerate-by-kind paths
-// filter on (manifest.json for meta-models, library.json for libraries).
+// package's model.json plus the unified bundle.json whose `type` the enumerate-by-
+// kind paths filter on ('meta-model' vs 'library').
 interface KindSeeder { WriteText(path: string, text: string): void }
 
 function metaSeeder(backend: FakeStorage): KindSeeder
@@ -54,7 +54,7 @@ function metaSeeder(backend: FakeStorage): KindSeeder
     {
       void backend.WriteText(path, text)
       const base = path.slice(0, path.lastIndexOf('/'))
-      void backend.WriteText(`${base}/manifest.json`, '{}')
+      void backend.WriteText(`${base}/bundle.json`, JSON.stringify({ type: 'meta-model' }))
     },
   }
 }
@@ -67,8 +67,8 @@ function librarySeeder(backend: FakeStorage): KindSeeder
       void backend.WriteText(path, text)
       const base = path.slice(0, path.lastIndexOf('/'))   // `<id>/<version>`
       const [id, version] = base.split('/')
-      // discoverLibraries reads id/version from library.json, so give it real ones.
-      void backend.WriteText(`${base}/library.json`, JSON.stringify({ id, version, name: id, metaModel: { id: 'ea', version: '5' }, classes: [] }))
+      // discoverLibraries reads id/version from bundle.json, so give it real ones.
+      void backend.WriteText(`${base}/bundle.json`, JSON.stringify({ type: 'library', id, version, name: id, metaModels: [{ id: 'ea', version: '5' }], classes: [] }))
     },
   }
 }

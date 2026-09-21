@@ -30,10 +30,11 @@ export async function resolveBases(
     // routes storage — every base reads from the single packages backend.
     const backend = ensurePackagesBackend(provider)
 
-    // Seed the worklist with the project's direct bindings (meta-model first, then
-    // libraries — a stable order).
+    // Seed the worklist with the project's direct bindings (meta-models first, then
+    // libraries — a stable order). Both are lists now (meta-models and libraries are
+    // unified), so each is queued uniformly.
     const queue: PackageRef[] = []
-    if (bindings.metaModel !== undefined) queue.push({ kind: PackageKind.MetaModel, ...bindings.metaModel })
+    for (const mm of bindings.metaModels ?? []) queue.push({ kind: PackageKind.MetaModel, ...mm })
     for (const lib of bindings.libraries ?? []) queue.push({ kind: PackageKind.Library, ...lib })
 
     while (queue.length > 0)

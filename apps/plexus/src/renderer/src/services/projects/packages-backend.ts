@@ -10,10 +10,9 @@ import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 // and libraries alike — under one root at <userData>/packages. A normal rooted
 // IStorage on the shared StorageService (the same seam as project storage), so a
 // cloud/REST backend can replace it later. Package ids are globally unique, so kind
-// no longer routes storage; a package's kind is recovered from its recorded
-// discriminator file (manifest.json for meta-models, library.json for libraries).
-// A published package lives at <id>/<version>/model.json (+ manifest/library.json,
-// src/, presentation/).
+// no longer routes storage; a package's kind is recovered from its unified
+// `bundle.json` (checking its `.type`: 'meta-model' vs 'library'). A published
+// package lives at <id>/<version>/model.json (+ bundle.json, src/, presentation/).
 export const PACKAGES_BACKEND_ID = 'packages'
 
 // Resolve the packages storage, lazily registering the backend on first use

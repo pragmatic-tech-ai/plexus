@@ -32,8 +32,8 @@ function leaves(root: LibraryTreeNode): LibraryTreeNode[]
 
 test('builds a Library -> Concept -> Class tree, concepts sorted, leaves carry term + template', async () => {
     const provider = providerWith((b) => {
-        void b.WriteText('microsoft/0.1.0/library.json', JSON.stringify({
-            id: 'microsoft', version: '0.1.0', name: 'Microsoft', metaModel: { id: 'ea', version: '5' },
+        void b.WriteText('microsoft/0.1.0/bundle.json', JSON.stringify({ type: 'library',
+id: 'microsoft', version: '0.1.0', name: 'Microsoft', metaModels: [{ id: 'ea', version: '5' }],
             classes: [
                 { id: 'Microsoft.Azure', localId: 'azure', label: 'Azure', concept: 'location', template: 'visuals/a.mural' },
                 { id: 'Stack.AzureOpenai', localId: 'AzureOpenai', label: 'Azure OpenAI', concept: 'technology', template: 'visuals/b.mural' },
@@ -69,8 +69,8 @@ test('builds a Library -> Concept -> Class tree, concepts sorted, leaves carry t
 
 test('IsLoading is true while discovering and false once the tree is built', async () => {
     const svc = new LibrariesPanelService(providerWith((b) => {
-        void b.WriteText('ms/0.1.0/library.json', JSON.stringify({
-            id: 'ms', version: '0.1.0', name: 'MS', metaModel: { id: 'ea', version: '5' },
+        void b.WriteText('ms/0.1.0/bundle.json', JSON.stringify({ type: 'library',
+id: 'ms', version: '0.1.0', name: 'MS', metaModels: [{ id: 'ea', version: '5' }],
             classes: [{ id: 'stack.a', localId: 'a', label: 'A', concept: 'technology', template: 'visuals/a.mural' }],
             assets: [], docs: [], samples: [],
         }))
@@ -84,8 +84,8 @@ test('IsLoading is true while discovering and false once the tree is built', asy
 
 test('selecting a class drives the bottom preview pane; selecting another moves it; a group clears it', async () => {
     const provider = providerWith((b) => {
-        void b.WriteText('ms/0.1.0/library.json', JSON.stringify({
-            id: 'ms', version: '0.1.0', name: 'MS', metaModel: { id: 'ea', version: '5' },
+        void b.WriteText('ms/0.1.0/bundle.json', JSON.stringify({ type: 'library',
+id: 'ms', version: '0.1.0', name: 'MS', metaModels: [{ id: 'ea', version: '5' }],
             classes: [
                 { id: 'stack.a', localId: 'a', label: 'A', concept: 'technology', template: 'visuals/a.mural' },
                 { id: 'stack.b', localId: 'b', label: 'B', concept: 'technology', template: 'visuals/b.mural' },
@@ -162,8 +162,8 @@ test('onLibrariesChanged notifies subscribers after Reload completes, and unsubs
 
 test('a Library node carries a Delete command that uninstalls it; Concept/Class nodes do not', async () => {
     const provider = providerWith((b) => {
-        void b.WriteText('microsoft/0.1.0/library.json', JSON.stringify({
-            id: 'microsoft', version: '0.1.0', name: 'Microsoft', metaModel: { id: 'ea', version: '5' },
+        void b.WriteText('microsoft/0.1.0/bundle.json', JSON.stringify({ type: 'library',
+id: 'microsoft', version: '0.1.0', name: 'Microsoft', metaModels: [{ id: 'ea', version: '5' }],
             classes: [{ id: 'Microsoft.Azure', localId: 'azure', label: 'Azure', concept: 'location', template: 'visuals/a.mural' }],
             assets: [], docs: [], samples: [],
         }))

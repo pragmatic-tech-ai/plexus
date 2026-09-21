@@ -1,8 +1,9 @@
 // meta-model-manifest-loader.ts — the published meta-model package descriptor and
-// its never-throws read. manifest.json is a DISTINCT artifact from the project's
-// on-disk envelope (project.plexus / MetaModelManifest); it mirrors library.json:
-// identity plus the package-level annotations projected from the model graph, so
-// Plexus can understand a package without parsing model.json.
+// its never-throws read. It now reads the unified `bundle.json` (the single
+// descriptor every published package writes, discriminated by `bundle.type`),
+// which is a DISTINCT artifact from the project's on-disk envelope (project.plexus
+// / MetaModelManifest): identity plus the package-level annotations projected from
+// the model graph, so Plexus can understand a package without parsing model.json.
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 
 export interface MetaModelManifestFile
@@ -23,7 +24,11 @@ export interface LoadedMetaModelManifest extends MetaModelManifestFile
     problems: ManifestProblem[]
 }
 
-// Load a published meta-model's manifest.json. A malformed or unreadable manifest
+// The unified package descriptor file — every published package (meta-model or
+// library) writes it; `bundle.type` discriminates.
+const PACKAGE_BUNDLE = 'bundle.json'
+
+// Load a published meta-model's bundle.json. A malformed or unreadable bundle
 // yields a safe default (name = id, no annotations) plus one error problem — never
 // throws, mirroring library-loader's loadLibrary.
 export async function loadMetaModelManifest(
@@ -34,14 +39,14 @@ export async function loadMetaModelManifest(
     let file: MetaModelManifestFile
     try
     {
-        file = JSON.parse(await backend.ReadText(`${base}/manifest.json`))
+        file = JSON.parse(await backend.ReadText(`${base}/${PACKAGE_BUNDLE}`))
     }
     catch (e)
     {
         return {
             id, version, name: id, annotations: {},
-            problems: [{ severity: 'error', uri: 'manifest.json',
-                         message: `Meta-model manifest is invalid: ${(e as Error).message}` }],
+            problems: [{ severity: 'error', uri: PACKAGE_BUNDLE,
+                         message: `Meta-model bundle is invalid: ${(e as Error).message}` }],
         }
     }
     const loaded: LoadedMetaModelManifest = {

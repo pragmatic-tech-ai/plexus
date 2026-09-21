@@ -1,6 +1,7 @@
 import { deriveClasses as todlDeriveClasses, type PublishedClass as TodlPublishedClass, type TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 
 // One instantiable class a published library provides — a palette item. The
 // model-derived fields (id/localId/label/icon/concept) come from TODL's
@@ -13,16 +14,19 @@ export interface PublishedClass extends TodlPublishedClass
     doc?:       string     // "docs/<id>.md"          — present only if the file exists
 }
 
-// The library.json bundle manifest — the index a consumer reads to discover and
-// mount a published library. `classes` are the palette items; `assets`/`docs`/
-// `samples` list every file under those bundle folders.
+// The bundle.json descriptor — the index a consumer reads to discover and mount a
+// published library. Every published package (meta-model or library) writes this
+// file; `type` discriminates. `classes` are the palette items; `assets`/`docs`/
+// `samples` list every file under those bundle folders; `metaModels` are the
+// meta-models the library was authored against (any number).
 export interface LibraryBundleManifest
 {
     id:          string
     version:     string
     name:        string
     description?: string
-    metaModel:   { id: string; version: string }
+    type?:       string
+    metaModels:  BaseRef[]
     classes:     PublishedClass[]
     assets:      string[]
     docs:        string[]

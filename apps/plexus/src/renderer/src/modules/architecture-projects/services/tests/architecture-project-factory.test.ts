@@ -14,14 +14,14 @@ test('architecture is not versioned', () => {
 test('createProject writes an architecture manifest with meta-model + libraries bindings', async () => {
     const storage = new FakeStorage('fake://Acme')
     const project = await factory().createProject(storage, 'Acme Arch', {
-        metaModel: { id: 'ea', version: '5' },
+        metaModels: [{ id: 'ea', version: '5' }],
         libraries: [{ id: 'microsoft', version: '0.1.0' }, { id: 'aws', version: '2' }],
     })
     expect(project.Type).toBe('architecture')
     const manifest = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
     expect(manifest.type).toBe('architecture')
     expect(manifest.name).toBe('Acme Arch')
-    expect(manifest.metaModel).toEqual({ id: 'ea', version: '5' })
+    expect(manifest.metaModels).toEqual([{ id: 'ea', version: '5' }])
     expect(manifest.libraries).toEqual([{ id: 'microsoft', version: '0.1.0' }, { id: 'aws', version: '2' }])
 })
 
@@ -38,7 +38,7 @@ test('createProject with no bindings omits both binding fields', async () => {
     const storage = new FakeStorage('fake://Bare')
     await factory().createProject(storage, 'Bare')
     const manifest = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
-    expect('metaModel' in manifest).toBe(false)
+    expect('metaModels' in manifest).toBe(false)
     expect('libraries' in manifest).toBe(false)
 })
 

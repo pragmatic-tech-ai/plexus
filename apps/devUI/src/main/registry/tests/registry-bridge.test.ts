@@ -140,15 +140,15 @@ test("compileDir registers the compiled package into the local store", async () 
   assert.equal(store.has("acme.demo", "1.0.0"), true);
 });
 
-test("bumpVersion writes the next unused patch to project.plexus (meta-model modelVersion)", async () => {
+test("bumpVersion writes the next unused patch to project.plexus (packageVersion)", async () => {
   const dir = mkdtempSync(join(tmpdir(), "todl-bump-"));
-  writeFileSync(join(dir, "project.plexus"), JSON.stringify({ type: "meta-model", id: "tech-architecture", version: 1, modelVersion: "0.1.0" }));
+  writeFileSync(join(dir, "project.plexus"), JSON.stringify({ type: "meta-model", id: "tech-architecture", version: 1, packageVersion: "0.1.0" }));
   const packument = { name: "@pragmatic-tech-ai/tech-architecture", "dist-tags": { latest: "0.1.1" }, versions: { "0.1.0": {}, "0.1.1": {} } };
   const bridge = await ready(makeBridge({ transport: new InMemoryNpm(200, [], { "@pragmatic-tech-ai/tech-architecture": packument }) }));
 
   const next = await bridge.bumpVersion(dir);
   assert.equal(next, "0.1.2"); // above the highest published (0.1.1)
-  assert.equal(JSON.parse(readFileSync(join(dir, "project.plexus"), "utf8")).modelVersion, "0.1.2");
+  assert.equal(JSON.parse(readFileSync(join(dir, "project.plexus"), "utf8")).packageVersion, "0.1.2");
 });
 
 test("listConnections reports the seeded connection + hasToken; setConnectionToken flips it", async () => {

@@ -334,8 +334,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
         if (backend === undefined) return []
         const out: Array<{ tax: ToolboxTaxonomy; isLibrary: boolean; sourceRef: string }> = []
 
-        // Meta-models (isLibrary=false → `mm:`-keyed terms): the versions carrying a
-        // manifest.json under the single packages root.
+        // Meta-models (isLibrary=false → `mm:`-keyed terms): the versions whose
+        // bundle.json declares type 'meta-model' under the single packages root.
         for (const { id, versions } of await scanPublishedModels(backend))
         {
             for (const version of versions)
@@ -346,8 +346,8 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
             }
         }
 
-        // Libraries (isLibrary=true → class-id-keyed terms): the versions carrying a
-        // library.json under the same root.
+        // Libraries (isLibrary=true → class-id-keyed terms): the versions whose
+        // bundle.json declares type 'library' under the same root.
         for (const lib of await discoverLibraries(backend))
         {
             const doc = await this.readModel(backend, `${lib.id}/${lib.version}`)

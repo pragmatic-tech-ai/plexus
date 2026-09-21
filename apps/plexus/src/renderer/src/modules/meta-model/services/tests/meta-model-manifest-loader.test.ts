@@ -6,7 +6,7 @@ describe('loadMetaModelManifest', () => {
   it('round-trips a written manifest', async () => {
     const backend = new FakeStorage('fake://meta-models')
     const file = { id: 'ea', version: '0.1.0', name: 'EA', annotations: { author: { name: 'Acme' } } }
-    await backend.WriteText('ea/0.1.0/manifest.json', JSON.stringify(file))
+    await backend.WriteText('ea/0.1.0/bundle.json', JSON.stringify(file))
 
     const loaded = await loadMetaModelManifest(backend, 'ea', '0.1.0')
     expect(loaded.id).toBe('ea')
@@ -18,7 +18,7 @@ describe('loadMetaModelManifest', () => {
 
   it('returns a safe default with an error problem on malformed JSON', async () => {
     const backend = new FakeStorage('fake://meta-models')
-    await backend.WriteText('ea/0.1.0/manifest.json', '{ not json')
+    await backend.WriteText('ea/0.1.0/bundle.json', '{ not json')
 
     const loaded = await loadMetaModelManifest(backend, 'ea', '0.1.0')
     expect(loaded.name).toBe('ea')            // safe default = id

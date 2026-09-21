@@ -149,14 +149,13 @@ export class RegistryBridge
   {
     const manifestPath = join(dir, "project.plexus");
     const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as
-      { type?: string; id?: string; modelVersion?: string; libVersion?: string };
-    const field = manifest.type === "meta-model" ? "modelVersion" : "libVersion";
-    const current = manifest[field] ?? "0.0.0";
+      { type?: string; id?: string; packageVersion?: string };
+    const current = manifest.packageVersion ?? "0.0.0";
     const scope = await this.defaultScope();
     const name = `${scope}/${manifest.id ?? ""}`;
     const published = await this.managerFor().then((m) => m.versions(name)).then((v) => v.versions).catch(() => [] as string[]);
     const next = RegistryBridge.nextUnusedPatch(current, published);
-    manifest[field] = next;
+    manifest.packageVersion = next;
     writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     return next;
   }

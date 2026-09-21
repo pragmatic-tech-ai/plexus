@@ -32,7 +32,7 @@ function env(seed: (b: FakeStorage) => void): { provider: ServiceProvider; diagn
 function manifest(id: string, template = `visuals/${id}.azure.mural`): string
 {
     return JSON.stringify({
-        id, version: '0.1.0', name: id, metaModel: { id: 'ea', version: '5' },
+        type: 'library', id, version: '0.1.0', name: id, metaModels: [{ id: 'ea', version: '5' }],
         classes: [{ id: `${id}.azure`, localId: 'azure', label: 'Azure', concept: 'location', template }],
         assets: [], docs: [], samples: [],
     })
@@ -40,7 +40,7 @@ function manifest(id: string, template = `visuals/${id}.azure.mural`): string
 
 test('discover returns LoadedLibrary[] with id, version, name, classes and metaModel', async () => {
     const { provider } = env((b) => {
-        void b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft'))
+        void b.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft'))
     })
     const reg = new LibraryRegistry(provider)
     const libs = await reg.discover()
@@ -63,7 +63,7 @@ test('discover publishes discovery problems for a class referencing a missing te
     // The manifest references a template that does not exist on disk — discoverLibraries
     // records a LoadProblem with severity "warning" for the missing asset.
     const { provider, diagnostics } = env((b) => {
-        void b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft', 'visuals/missing.mural'))
+        void b.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft', 'visuals/missing.mural'))
         // Template file intentionally absent.
     })
     const reg = new LibraryRegistry(provider)
@@ -75,7 +75,7 @@ test('discover publishes discovery problems for a class referencing a missing te
 
 test('delete removes the library from the backend and clears its Problems slice', async () => {
     const { provider, diagnostics } = env((b) => {
-        void b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft', 'visuals/missing.mural'))
+        void b.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft', 'visuals/missing.mural'))
     })
     const reg = new LibraryRegistry(provider)
     await reg.discover()
@@ -91,7 +91,7 @@ test('delete removes the library from the backend and clears its Problems slice'
 
 test('discover can be called multiple times and rebuilds the metadata each time', async () => {
     const backend = new FakeStorage('fake://libraries')
-    void backend.WriteText('microsoft/0.1.0/library.json', manifest('microsoft'))
+    void backend.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft'))
     const { provider } = envWith(backend)
     const reg = new LibraryRegistry(provider)
 

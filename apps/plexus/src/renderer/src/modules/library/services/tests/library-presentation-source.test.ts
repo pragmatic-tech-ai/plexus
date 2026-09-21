@@ -23,11 +23,12 @@ function iconManifest(icon?: string): string
 {
     const cls: Record<string, unknown> = { id: 'microsoft.azure', localId: 'azure', label: 'Azure', concept: 'location' }
     if (icon !== undefined) cls.icon = icon
-    return JSON.stringify({ id: 'microsoft', version: '0.1.0', name: 'microsoft', metaModel: { id: 'ea', version: '5' }, classes: [cls], assets: [], docs: [], samples: [] })
+    return JSON.stringify({ type: 'library',
+id: 'microsoft', version: '0.1.0', name: 'microsoft', metaModels: [{ id: 'ea', version: '5' }], classes: [cls], assets: [], docs: [], samples: [] })
 }
 
 // Bake a presentation artifact (assets + icon-index) into the backend for one
-// iconful class, plus the library.json so discoverLibraries lists it.
+// iconful class, plus the bundle.json so discoverLibraries lists it.
 async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
 {
     const proj = new FakeStorage('fake://proj')
@@ -42,7 +43,7 @@ async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
           ], edges: [] } as any
     const { publishLibraryPresentation } = await import('../library-presentation-publisher.js')
     await publishLibraryPresentation(proj, backend, 'microsoft/0.1.0', doc)
-    void backend.WriteText('microsoft/0.1.0/library.json', iconManifest(withIcon ? 'resources/azure.svg' : undefined))
+    void backend.WriteText('microsoft/0.1.0/bundle.json', iconManifest(withIcon ? 'resources/azure.svg' : undefined))
 }
 
 function makeSource(provider: ServiceProvider): LibraryPresentationSource

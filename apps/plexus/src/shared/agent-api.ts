@@ -135,15 +135,15 @@ export interface PrefillBaseRef { id: string; version: string }
 
 // create_project payloads. `prefill` is the agent's optional proposal; the user
 // finalizes it in the New Project form. Correlated by `id` like a Question.
-// `metaModel`/`libraries` pre-fill the base-binding pickers (a meta-model-requiring
+// `metaModels`/`libraries` pre-fill the base-binding pickers (a meta-model-requiring
 // or library-offering type) so an agent-driven create carries its bindings in.
 export interface CreateProjectPrefill
 {
-    name?:      string
-    type?:      string
-    location?:  string
-    metaModel?: PrefillBaseRef
-    libraries?: readonly PrefillBaseRef[]
+    name?:       string
+    type?:       string
+    location?:   string
+    metaModels?: readonly PrefillBaseRef[]
+    libraries?:  readonly PrefillBaseRef[]
 }
 export interface CreateProjectRequest { id: string; prefill?: CreateProjectPrefill }
 // The outcome the create_project card returns to the agent.

@@ -7,8 +7,8 @@ import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-back
 import { PublishedBases } from '../published-bases.js'
 
 // Wire a provider around a single packages backend. Under one root a package's kind
-// is recovered from its discriminator file: meta-models carry manifest.json,
-// libraries carry library.json — the enumerate-by-kind paths filter on that.
+// is recovered from its unified bundle.json (checking `.type`: 'meta-model' vs
+// 'library') — the enumerate-by-kind paths filter on that.
 function providerWith(seed: (b: FakeStorage) => void): ServiceProvider
 {
     const provider = new ServiceProvider()
@@ -23,13 +23,13 @@ function providerWith(seed: (b: FakeStorage) => void): ServiceProvider
 function seedMeta(b: FakeStorage, id: string, version: string): void
 {
     void b.WriteText(`${id}/${version}/model.json`, '{"nodes":[],"edges":[]}')
-    void b.WriteText(`${id}/${version}/manifest.json`, '{}')
+    void b.WriteText(`${id}/${version}/bundle.json`, JSON.stringify({ type: 'meta-model', id, version, name: id }))
 }
 
 function seedLibrary(b: FakeStorage, id: string, version: string): void
 {
     void b.WriteText(`${id}/${version}/model.json`, '{"nodes":[],"edges":[]}')
-    void b.WriteText(`${id}/${version}/library.json`, JSON.stringify({ id, version, name: id, metaModel: { id: 'ea', version: '5' }, classes: [] }))
+    void b.WriteText(`${id}/${version}/bundle.json`, JSON.stringify({ type: 'library', id, version, name: id, metaModels: [{ id: 'ea', version: '5' }], classes: [] }))
 }
 
 test('ListMetaModels enumerates <id>/<version> BaseRefs for meta-model packages only', async () => {

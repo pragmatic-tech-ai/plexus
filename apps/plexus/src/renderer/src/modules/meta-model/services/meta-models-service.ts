@@ -6,7 +6,7 @@
 // MetaModelsService]` (meta-model.resources.mu).
 //
 // It reads the shared meta-models storage backend (where MetaModelProjectFactory
-// publishes under `<id>/<modelVersion>/`) and re-scans every time the panel
+// publishes under `<id>/<packageVersion>/`) and re-scans every time the panel
 // becomes active (IActivatable). Version nodes load their entities lazily on
 // first expand (see MetaModelTreeNode / meta-model-tree-builder).
 import {
@@ -174,6 +174,6 @@ export class MetaModelsService extends ServiceBase implements IActivatable
 export function dependentLibraryNames(libs: readonly LoadedLibrary[], id: string, version?: string): string[]
 {
     return libs
-        .filter((l) => l.metaModel.id === id && (version === undefined || l.metaModel.version === version))
+        .filter((l) => l.metaModels.some((m) => m.id === id && (version === undefined || m.version === version)))
         .map((l) => l.name)
 }

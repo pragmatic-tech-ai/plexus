@@ -8,7 +8,7 @@ async function seeded(): Promise<FakeStorage>
     const s = new FakeStorage('fake://Acme')
     await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
         type: 'architecture', name: 'Acme', version: 1,
-        metaModel: { id: 'ea', version: '5' }, libraries: [{ id: 'aws', version: '2' }],
+        metaModels: [{ id: 'ea', version: '5' }], libraries: [{ id: 'aws', version: '2' }],
     }))
     return s
 }
@@ -24,7 +24,7 @@ test('write preserves the other manifest fields', async () => {
     await writeDiagramViewpoints(s, 'deploy.diagram', ['DeploymentView'])
     const m = JSON.parse(await s.ReadText(PROJECT_MANIFEST_FILENAME))
     expect(m.name).toBe('Acme')
-    expect(m.metaModel).toEqual({ id: 'ea', version: '5' })
+    expect(m.metaModels).toEqual([{ id: 'ea', version: '5' }])
     expect(m.libraries).toEqual([{ id: 'aws', version: '2' }])
 })
 

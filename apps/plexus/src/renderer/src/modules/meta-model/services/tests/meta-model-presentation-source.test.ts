@@ -35,9 +35,9 @@ async function bakePresentation(backend: FakeStorage, id: string, version: strin
     const { publishPresentation } = await import('../presentation-publisher.js')
     const res = await publishPresentation(project, backend, `${id}/${version}`, DOC)
     expect(res.ok).toBe(true)
-    // The meta-model discriminator: scanPublishedModels lists only versions carrying
-    // a manifest.json under the shared packages root.
-    await backend.WriteText(`${id}/${version}/manifest.json`, '{}')
+    // The meta-model discriminator: scanPublishedModels lists only versions whose
+    // bundle.json declares type 'meta-model' under the shared packages root.
+    await backend.WriteText(`${id}/${version}/bundle.json`, JSON.stringify({ type: 'meta-model' }))
 }
 
 // ── happy path ────────────────────────────────────────────────────────────────
@@ -56,7 +56,7 @@ test('load() contributes the baked icon asset + a mm: icon-key index for a baked
 test('a published model dir with no presentation artifact contributes nothing (no throw)', async () => {
     const backend = new FakeStorage('fake://packages')
     await backend.WriteText('ea/1.0.0/model.json', JSON.stringify({ nodes: [], edges: [] }))
-    await backend.WriteText('ea/1.0.0/manifest.json', '{}')   // meta-model discriminator
+    await backend.WriteText('ea/1.0.0/bundle.json', JSON.stringify({ type: 'meta-model' }))   // meta-model discriminator
     const source = new MetaModelPresentationSource(envWith(backend))
     const { assets, iconKeys } = await source.load()
     expect(assets.CanResolve('mm_icon_app')).toBe(false)

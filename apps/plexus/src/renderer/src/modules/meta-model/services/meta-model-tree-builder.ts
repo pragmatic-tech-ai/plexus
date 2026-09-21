@@ -24,15 +24,17 @@ export interface PublishedModel { id: string; versions: string[] }
 // A delete request from a tree row: a whole model (id only) or one version.
 export interface DeleteTarget { id: string; version?: string }
 
-// The discriminator file a meta-model package writes at `<id>/<version>/`: its
-// presence is what distinguishes a meta-model from a library under the single
-// shared packages root (a library writes `library.json` instead).
-const META_MODEL_MANIFEST = 'manifest.json'
+// The single package descriptor every published package writes at
+// `<id>/<version>/`; its `type` field is the discriminator. A version is a
+// META-MODEL iff `bundle.json` exists AND its `type` is 'meta-model' (a library
+// writes the same file with `type === 'library'`).
+const PACKAGE_BUNDLE = 'bundle.json'
+const META_MODEL_TYPE = 'meta-model'
 
 // Scan the shared packages backend for published META-MODELS. Layout on disk is
 // `<id>/<version>/…`, so the root's directories are ids and each id's directories
-// are versions — but the root now holds libraries too, so only versions carrying a
-// `manifest.json` (the meta-model discriminator) count. An id with no meta-model
+// are versions — but the root now holds libraries too, so only versions whose
+// `bundle.json` declares `type === 'meta-model'` count. An id with no meta-model
 // versions is dropped. Sorted numeric-aware so 0.9.0 precedes 0.10.0.
 export async function scanPublishedModels(storage: IStorage): Promise<PublishedModel[]>
 {
@@ -44,11 +46,23 @@ export async function scanPublishedModels(storage: IStorage): Promise<PublishedM
         const versions: string[] = []
         for (const v of (await storage.List(id)).filter((e) => e.IsDirectory).map((e) => e.Name).sort(byName))
         {
-            if (await storage.Exists(`${id}/${v}/${META_MODEL_MANIFEST}`)) versions.push(v)
+            if (await isMetaModelVersion(storage, id, v)) versions.push(v)
         }
         if (versions.length > 0) out.push({ id, versions })
     }
     return out
+}
+
+// A version is a meta-model iff its bundle.json exists and declares type
+// 'meta-model'. A malformed/unreadable bundle.json is treated as not-a-meta-model.
+async function isMetaModelVersion(storage: IStorage, id: string, version: string): Promise<boolean>
+{
+    try
+    {
+        const bundle = JSON.parse(await storage.ReadText(`${id}/${version}/${PACKAGE_BUNDLE}`)) as { type?: string }
+        return bundle.type === META_MODEL_TYPE
+    }
+    catch { return false }
 }
 
 // Build the catalog layer: one Model node per published id, each with lazy

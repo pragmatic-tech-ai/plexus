@@ -10,7 +10,7 @@ import { BuildManagerCompiler } from "../build-manager-compiler.js";
 function metaProject(): string
 {
   const dir = mkdtempSync(join(tmpdir(), "plexus-compiler-"));
-  writeFileSync(join(dir, "project.plexus"), JSON.stringify({ type: "meta-model", name: "widgets", version: 1, id: "widgets", modelVersion: "0.1.0" }));
+  writeFileSync(join(dir, "project.plexus"), JSON.stringify({ type: "meta-model", name: "widgets", version: 1, id: "widgets", packageVersion: "0.1.0" }));
   writeFileSync(join(dir, "model.todl"), "namespace acme { concept Widget { label : string?; } }");
   writeFileSync(join(dir, "README.md"), "# widgets");
   return dir;

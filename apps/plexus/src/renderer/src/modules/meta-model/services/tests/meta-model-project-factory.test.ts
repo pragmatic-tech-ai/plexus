@@ -16,6 +16,14 @@ function factory(): MetaModelProjectFactory
     return new MetaModelProjectFactory(new ServiceProvider())
 }
 
+// A factory built on a full publish-capable provider — regeneratePresentation now
+// resolves the project's (unified meta-model + library) bases through the package
+// store, so it needs PackageStoreKey + the baker registered.
+function factoryWith(provider: ServiceProvider): MetaModelProjectFactory
+{
+    return new MetaModelProjectFactory(provider)
+}
+
 // A provider whose single packages backend resolves to an inspectable FakeStorage
 // (pre-registered, so ensurePackagesBackend's Has-check finds it), with the app's
 // PlexusPackageStore registered under PackageStoreKey — the seam the todl factory
@@ -40,10 +48,10 @@ const BAD = 'namespace d { concept { label : string; } }'
 // A clean package with a declared annotation applied at package level (0.5.0).
 const PKG_ANN = 'namespace d { annotation author { name : string; } package { annotate author { name = "Acme Corp"; } } concept widget { label : string; } }'
 
-test('getVersion/setVersion round-trips modelVersion, preserving other fields', async () => {
+test('getVersion/setVersion round-trips packageVersion, preserving other fields', async () => {
     const storage = new FakeStorage('fake://Acme')
     const f = factory()
-    await f.createProject(storage, 'Acme EA')          // seeds modelVersion '0.1.0', id 'acme-ea'
+    await f.createProject(storage, 'Acme EA')          // seeds packageVersion '0.1.0', id 'acme-ea'
     expect(await f.getVersion(storage)).toBe('0.1.0')
     await f.setVersion(storage, '0.2.0')
     expect(await f.getVersion(storage)).toBe('0.2.0')
@@ -60,7 +68,7 @@ test('createProject writes a meta-model manifest with a publish identity', async
     const manifest = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
     expect(manifest.type).toBe('meta-model')
     expect(manifest.id).toBe('acme-ea')          // slugified
-    expect(manifest.modelVersion).toBe('0.1.0')
+    expect(manifest.packageVersion).toBe('0.1.0')
 })
 
 test('createProject writes the agent-support scaffold (CLAUDE.md + .claude/)', async () => {
@@ -88,7 +96,7 @@ test('scaffold surfaces in the tree (shown, not hidden like the manifest)', asyn
 
 test('openProject self-heals a missing scaffold without overwriting edits', async () => {
     const storage = new FakeStorage()
-    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'P', id: 'p', modelVersion: '0.1.0' }))
+    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'P', id: 'p', packageVersion: '0.1.0' }))
     // Pre-existing, author-edited CLAUDE.md — must be preserved.
     await storage.WriteText('CLAUDE.md', 'MY EDITS')
 
@@ -100,7 +108,7 @@ test('openProject self-heals a missing scaffold without overwriting edits', asyn
 
 test('openProject tags .todl nodes openable and hides the manifest', async () => {
     const storage = new FakeStorage()
-    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'P', id: 'p', modelVersion: '0.1.0' }))
+    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'P', id: 'p', packageVersion: '0.1.0' }))
     await storage.WriteText('defs/core.todl', CONCEPTS)
     await storage.WriteText('readme.md', 'hi')
 
@@ -141,7 +149,7 @@ test('publish writes compiled model + sources for a clean project', async () => 
     expect(await dest.Exists('acme/0.1.0/src/concepts.todl')).toBe(true)
 })
 
-test('publish writes a manifest.json with identity + package annotations', async () => {
+test('publish writes a bundle.json with identity + package annotations', async () => {
     const storage = new FakeStorage('fake://Acme')
     const f = factory()
     await f.createProject(storage, 'Acme')
@@ -152,7 +160,7 @@ test('publish writes a manifest.json with identity + package annotations', async
     const result = await f.publish(project, storage, provider)
 
     expect(result.ok).toBe(true)
-    expect(await dest.Exists('acme/0.1.0/manifest.json')).toBe(true)
+    expect(await dest.Exists('acme/0.1.0/bundle.json')).toBe(true)
 
     const m = await loadMetaModelManifest(dest, 'acme', '0.1.0')
     expect(m.id).toBe('acme')
@@ -194,7 +202,8 @@ test('publish is blocked and writes nothing when a source has an error', async (
 
 test('regeneratePresentation writes an assets dict merging author + scaffolded stubs', async () => {
     const storage = new FakeStorage('fake://Acme')
-    const f = factory()
+    const { provider } = publishEnv()
+    const f = factoryWith(provider)
     await f.createProject(storage, 'Acme')
     await storage.WriteText('concepts.todl', CONCEPTS)
     // an author override dictionary under presentation/

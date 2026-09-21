@@ -16,15 +16,15 @@ import { type WikiOrigin, openProjectOrigin, packageOrigin } from './wiki-origin
 // storage (open project root vs published package dir).
 type OriginMap = Map<string, WikiOrigin>
 
-// The normalized manifest fields the resolver reads (modelVersion/libVersion
-// unified to `version`).
+// The normalized manifest fields the resolver reads (`packageVersion` is the
+// single unified version field; `metaModels[]` the unified base-model list).
 interface ProjManifest
 {
-    type:       string
-    id?:        string
-    version?:   string
-    metaModel?: BaseRef
-    libraries?: readonly BaseRef[]
+    type:        string
+    id?:         string
+    version?:    string
+    metaModels?: readonly BaseRef[]
+    libraries?:  readonly BaseRef[]
 }
 
 // A published model.json read back: the graph plus any recorded base deps.
@@ -78,8 +78,8 @@ export class WorkspaceBaseResolver extends ServiceBase
     {
         const manifest = await this.readManifest(storage)
         const out = new Set<string>()
-        if (manifest?.metaModel !== undefined)
-            await this.collectPublishedRef(manifest.metaModel, out)
+        for (const mm of manifest?.metaModels ?? [])
+            await this.collectPublishedRef(mm, out)
         for (const lib of manifest?.libraries ?? [])
             await this.collectPublishedRef(lib, out)
         return out
@@ -154,8 +154,8 @@ export class WorkspaceBaseResolver extends ServiceBase
         const bases: TodlDocument[] = []
         const problems: string[] = []
         const originOf: OriginMap = new Map()
-        if (manifest?.metaModel !== undefined)
-            await this.resolveOne(manifest.metaModel, ProducerKind.MetaModel, storage, visited, bases, problems, originOf, seenPub)
+        for (const mm of manifest?.metaModels ?? [])
+            await this.resolveOne(mm, ProducerKind.MetaModel, storage, visited, bases, problems, originOf, seenPub)
         for (const lib of manifest?.libraries ?? [])
             await this.resolveOne(lib, ProducerKind.Library, storage, visited, bases, problems, originOf, seenPub)
         return { bases, problems, originOf }
@@ -269,7 +269,7 @@ export class WorkspaceBaseResolver extends ServiceBase
                 producedId = m.id
             }
             const refIds = new Set<string>()
-            if (m.metaModel?.id !== undefined) refIds.add(m.metaModel.id)
+            for (const mm of m.metaModels ?? []) if (mm.id !== undefined) refIds.add(mm.id)
             for (const l of m.libraries ?? []) if (l.id !== undefined) refIds.add(l.id)
             consumers.push({ project: op, producedId, refIds })
         }
@@ -282,10 +282,10 @@ export class WorkspaceBaseResolver extends ServiceBase
         try
         {
             const m = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)) as {
-                type: string; id?: string; modelVersion?: string; libVersion?: string
-                metaModel?: BaseRef; libraries?: readonly BaseRef[]
+                type: string; id?: string; packageVersion?: string
+                metaModels?: readonly BaseRef[]; libraries?: readonly BaseRef[]
             }
-            return { type: m.type, id: m.id, version: m.modelVersion ?? m.libVersion, metaModel: m.metaModel, libraries: m.libraries }
+            return { type: m.type, id: m.id, version: m.packageVersion, metaModels: m.metaModels, libraries: m.libraries }
         }
         catch
         {

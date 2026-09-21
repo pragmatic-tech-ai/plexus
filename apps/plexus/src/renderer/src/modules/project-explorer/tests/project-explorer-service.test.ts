@@ -111,10 +111,10 @@ function fakeVersionedFactory(published: string[]): IProjectFactory & IVersioned
     return {
         ...base,
         publish: async () => { published.push('published'); return { ok: true, message: 'Published.' } },
-        getVersion: async (s) => (JSON.parse(await s.ReadText(PROJECT_MANIFEST_FILENAME)) as { modelVersion: string }).modelVersion,
+        getVersion: async (s) => (JSON.parse(await s.ReadText(PROJECT_MANIFEST_FILENAME)) as { packageVersion: string }).packageVersion,
         setVersion: async (s, v) => {
             const m = JSON.parse(await s.ReadText(PROJECT_MANIFEST_FILENAME))
-            m.modelVersion = v
+            m.packageVersion = v
             await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(m))
         },
     }
@@ -123,7 +123,7 @@ function fakeVersionedFactory(published: string[]): IProjectFactory & IVersioned
 async function seededStorage(folder: string, version = '0.1.0'): Promise<FakeStorage>
 {
     const s = new FakeStorage(folder)
-    await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'A', modelVersion: version }))
+    await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'A', packageVersion: version }))
     return s
 }
 
@@ -345,7 +345,7 @@ test('applyPrefill selects the prefilled meta-model and checks the prefilled lib
     const form = archForm()
     applyPrefill(form, {
         type: 'architecture',
-        metaModel: { id: 'tech-architecture', version: '0.1.0' },
+        metaModels: [{ id: 'tech-architecture', version: '0.1.0' }],
         libraries: [{ id: 'microsoft', version: '0.1.0' }],
     })
     expect(form.SelectedMetaModel?.Ref).toEqual({ id: 'tech-architecture', version: '0.1.0' })
@@ -356,7 +356,7 @@ test('applyPrefill ignores meta-model/library refs not among the published choic
     const form = archForm()
     applyPrefill(form, {
         type: 'architecture',
-        metaModel: { id: 'nope', version: '9' },
+        metaModels: [{ id: 'nope', version: '9' }],
         libraries: [{ id: 'ghost', version: '1' }],
     })
     expect(form.SelectedMetaModel).toBeUndefined()
@@ -624,7 +624,7 @@ test('Import File through the REAL MetaModelProjectFactory refreshes the tree', 
     const picked: Picked[] = [{ Path: 'C:/ext/logo.png', Bytes: bytesOf('PNG') }]
     const { priv, provider } = makeExplorer(picked)
     const storage = new FakeStorage('C:/a')
-    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'A', id: 'a', modelVersion: '0.1.0', version: 1 }))
+    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: 'A', id: 'a', packageVersion: '0.1.0', version: 1 }))
     await storage.WriteText('core.todl', 'x')
     const factory = new MetaModelProjectFactory(provider)
     const op = await priv.addOpenProject(await factory.openProject(storage), factory, storage)
@@ -1317,7 +1317,7 @@ test('bumpVersion writes the incremented version to the manifest', async () => {
     const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory([]), storage)
     await priv.bumpVersion(op, VersionPart.Minor)
     const m = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
-    expect(m.modelVersion).toBe('0.2.0')
+    expect(m.packageVersion).toBe('0.2.0')
 })
 
 test('bump commands are enabled only for versioned factories', async () => {
@@ -1337,7 +1337,7 @@ test('setVersionDialog sets the version and publishes only when the flag is set'
     const storage = await seededStorage('C:/a', '0.1.0')
     const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(published), storage)
     await priv.setVersionDialog(op)
-    expect(JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)).modelVersion).toBe('3.0.0')
+    expect(JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)).packageVersion).toBe('3.0.0')
     expect(published).toEqual(['published'])                    // publish ran
 
     const published2: string[] = []
@@ -1345,7 +1345,7 @@ test('setVersionDialog sets the version and publishes only when the flag is set'
     const storage2 = await seededStorage('C:/b', '0.1.0')
     const op2 = await priv2.addOpenProject(projectWith('B', 'C:/b'), fakeVersionedFactory(published2), storage2)
     await priv2.setVersionDialog(op2)
-    expect(JSON.parse(await storage2.ReadText(PROJECT_MANIFEST_FILENAME)).modelVersion).toBe('4.0.0')
+    expect(JSON.parse(await storage2.ReadText(PROJECT_MANIFEST_FILENAME)).packageVersion).toBe('4.0.0')
     expect(published2).toEqual([])                              // publish did NOT run
 })
 

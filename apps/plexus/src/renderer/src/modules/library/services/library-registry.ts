@@ -7,8 +7,9 @@ import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-c
 
 const OWNER = 'libraries'
 
-// Metadata-only registry for published library bundles. Scans each library.json,
-// builds per-library Problems slices (discovery errors only), and publishes them to
+// Metadata-only registry for published library bundles. Scans each bundle.json
+// (the versions whose bundle.type === 'library'), builds per-library Problems
+// slices (discovery errors only), and publishes them to
 // DiagnosticsService. Does NOT compile visual templates, merge resources into
 // Application, or hold any resolve() logic — those responsibilities belong to
 // LibraryPresentationSource (aggregated by TodlPresentationRegistry).
@@ -24,8 +25,9 @@ export class LibraryRegistry extends ServiceBase
         super(provider)
     }
 
-    // Discover every published library (reads each library.json), rebuilds the
-    // per-library Problems slices for discovery errors, and returns the loaded set
+    // Discover every published library (reads each bundle.json with type
+    // 'library'), rebuilds the per-library Problems slices for discovery errors,
+    // and returns the loaded set
     // for the Libraries panel. No visual compilation happens here.
     public async discover(): Promise<LoadedLibrary[]>
     {

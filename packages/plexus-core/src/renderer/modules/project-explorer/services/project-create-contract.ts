@@ -6,11 +6,11 @@ export interface PrefillBaseRef { id: string; version: string }
 
 export interface CreateProjectPrefill
 {
-    name?:      string
-    type?:      string
-    location?:  string
-    metaModel?: PrefillBaseRef
-    libraries?: readonly PrefillBaseRef[]
+    name?:       string
+    type?:       string
+    location?:   string
+    metaModels?: readonly PrefillBaseRef[]
+    libraries?:  readonly PrefillBaseRef[]
 }
 
 export interface CreateProjectResult

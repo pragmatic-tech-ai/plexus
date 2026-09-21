@@ -384,21 +384,21 @@ export class PlexusMcpServer
                 title: 'Create a new Plexus project',
                 description:
                     'Open the New Project form in the chat so the user can create a project. Optionally '
-                    + 'prefill `name`, `type`, `location`, and — for a type that binds bases (a library binds a '
-                    + '`metaModel`; an architecture binds a `metaModel` plus `libraries`) — the base bindings by '
+                    + 'prefill `name`, `type`, `location`, and — for a type that binds bases (a library binds '
+                    + '`metaModels`; an architecture binds `metaModels` plus `libraries`) — the base bindings by '
                     + 'published id + version. The user reviews and confirms (or cancels). Returns the created '
                     + 'project\'s folder and name, or a cancelled/error outcome.',
                 inputSchema: {
                     name: z.string().optional(),
                     type: z.string().optional(),
                     location: z.string().optional(),
-                    metaModel: z.object({ id: z.string(), version: z.string() }).optional(),
+                    metaModels: z.array(z.object({ id: z.string(), version: z.string() })).optional(),
                     libraries: z.array(z.object({ id: z.string(), version: z.string() })).optional(),
                 },
             },
-            async ({ name, type, location, metaModel, libraries }) =>
+            async ({ name, type, location, metaModels, libraries }) =>
             {
-                const result = await this.requestCreateProject(sessionId, { name, type, location, metaModel, libraries })
+                const result = await this.requestCreateProject(sessionId, { name, type, location, metaModels, libraries })
                 return { content: [{ type: 'text' as const, text: JSON.stringify(result) }] }
             },
         )

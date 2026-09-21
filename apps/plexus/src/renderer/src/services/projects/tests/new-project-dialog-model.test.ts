@@ -144,7 +144,7 @@ test('confirm on a library type includes the chosen meta-model ref', async () =>
     vm.SelectedMetaModel = vm.MetaModels.ToArray()[0]
     vm.ConfirmCommand.Execute(undefined)
     await flush()
-    expect(closed()).toEqual({ type: 'library', name: 'Acme', location: '/work/acme', metaModel: { id: 'ea', version: '5' } })
+    expect(closed()).toEqual({ type: 'library', name: 'Acme', location: '/work/acme', metaModels: [{ id: 'ea', version: '5' }] })
 })
 
 test('a non-requiring type never blocks on, nor includes, a meta-model', async () => {
@@ -218,7 +218,7 @@ test('checked libraries flow into confirm().libraries; meta-model still required
     await flush()
     expect(closed()).toEqual({
         type: 'architecture', name: 'Acme', location: '/work/acme',
-        metaModel: { id: 'ea', version: '5' },
+        metaModels: [{ id: 'ea', version: '5' }],
         libraries: [{ id: 'microsoft', version: '0.1.0' }],
     })
 })

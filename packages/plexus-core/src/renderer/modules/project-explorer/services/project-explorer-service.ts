@@ -114,10 +114,12 @@ export function applyPrefill(form: NewProjectDialogModel, prefill?: CreateProjec
     // the collections are populated). Unknown refs are ignored — the user still
     // finalizes the form. Without this the pickers reset to empty even when the
     // agent named a meta-model/library, silently dropping the binding.
-    if (prefill.metaModel !== undefined)
+    // The meta-model picker stays single-select — pre-select the first proposed
+    // meta-model that matches a published choice.
+    const wantedMeta = prefill.metaModels?.[0]
+    if (wantedMeta !== undefined)
     {
-        const ref = prefill.metaModel
-        const choice = form.MetaModels.ToArray().find((m) => m.Ref.id === ref.id && m.Ref.version === ref.version)
+        const choice = form.MetaModels.ToArray().find((m) => m.Ref.id === wantedMeta.id && m.Ref.version === wantedMeta.version)
         if (choice !== undefined) form.SelectedMetaModel = choice
     }
     if (prefill.libraries !== undefined)
@@ -368,7 +370,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         {
             return { created: false, error: `Could not create the project folder: ${(e as Error).message}` }
         }
-        const op = await this.createProjectAt(data.type, name, folder, data.metaModel, data.libraries)
+        const op = await this.createProjectAt(data.type, name, folder, data.metaModels, data.libraries)
         if (op === undefined) return { created: false, error: this.Status }
         return { created: true, folder: op.Folder, name: op.Name, type: data.type }
     }
@@ -425,11 +427,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     }
 
     // Create a project of `type` named `name` in `folder`, add + record it.
-    // `metaModel` / `libraries` are the base bindings chosen in the dialog
-    // (library binds a meta-model; architecture binds a meta-model + libraries).
+    // `metaModels` / `libraries` are the base bindings chosen in the dialog
+    // (library binds meta-models; architecture binds meta-models + libraries).
     private async createProjectAt(
         type: string, name: string, folder: string,
-        metaModel?: BaseRef, libraries?: readonly BaseRef[]): Promise<OpenProject | undefined>
+        metaModels?: readonly BaseRef[], libraries?: readonly BaseRef[]): Promise<OpenProject | undefined>
     {
         const factory = this.resolveFactory(type)
         if (factory === undefined) { this.Status = `No factory for project type "${type}".`; return undefined }
@@ -437,8 +439,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const storage = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
         try
         {
-            const bindings = (metaModel !== undefined || (libraries !== undefined && libraries.length > 0))
-                ? { metaModel, libraries }
+            const bindings = ((metaModels !== undefined && metaModels.length > 0) || (libraries !== undefined && libraries.length > 0))
+                ? { metaModels, libraries }
                 : undefined
             const project = await factory.createProject(storage, name, bindings)
             const op = await this.addOpenProject(project, factory, storage)
@@ -1169,7 +1171,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private async manageReferences(op: OpenProject): Promise<void>
     {
         const manifest = JSON.parse(await op.Storage.ReadText(PROJECT_MANIFEST_FILENAME)) as {
-            metaModel?: BaseRef; libraries?: BaseRef[]; [k: string]: unknown
+            metaModels?: BaseRef[]; libraries?: BaseRef[]; [k: string]: unknown
         }
         const resolver = this.Provider.get(BaseResolverKey)
         const offersLibraries = op.Factory.offersLibraries === true
@@ -1185,14 +1187,14 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             ]
             : []
 
-        const current: BaseBindings = { metaModel: manifest.metaModel, libraries: manifest.libraries }
+        const current: BaseBindings = { metaModels: manifest.metaModels, libraries: manifest.libraries }
         const vm = new ManageReferencesDialogModel(
             current, availableMetaModels, availableLibraries, offersLibraries, (r) => this.dialogs.Close(r))
         const result = await this.dialogs.Show<BaseBindings>({ Title: 'Manage References', Content: vm, Width: 480 })
         if (result === undefined) return
 
         // Apply the edited bindings, preserving every other manifest field.
-        manifest.metaModel = result.metaModel
+        manifest.metaModels = [...(result.metaModels ?? [])]
         if (offersLibraries) manifest.libraries = [...(result.libraries ?? [])]
         await op.Storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
         await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)

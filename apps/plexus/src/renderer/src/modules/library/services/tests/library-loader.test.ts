@@ -6,7 +6,7 @@ import { discoverLibraries, loadLibrary } from '../library-loader.js'
 function manifest(id: string): string
 {
     return JSON.stringify({
-        id, version: '0.1.0', name: id, metaModel: { id: 'ea', version: '5' },
+        type: 'library', id, version: '0.1.0', name: id, metaModels: [{ id: 'ea', version: '5' }],
         classes: [{ id: `${id}.azure`, localId: 'azure', label: 'Azure', concept: 'location', template: `visuals/${id}.azure.mural` }],
         assets: [], docs: [], samples: [],
     })
@@ -14,8 +14,8 @@ function manifest(id: string): string
 
 test('a class icon path surfaces on the LoadedClass', async () => {
     const s = new FakeStorage('fake://libraries')
-    await s.WriteText('microsoft/0.1.0/library.json', JSON.stringify({
-        id: 'microsoft', version: '0.1.0', name: 'microsoft', metaModel: { id: 'ea', version: '5' },
+    await s.WriteText('microsoft/0.1.0/bundle.json', JSON.stringify({
+        type: 'library', id: 'microsoft', version: '0.1.0', name: 'microsoft', metaModels: [{ id: 'ea', version: '5' }],
         classes: [{ id: 'microsoft.azure', concept: 'location', icon: 'resources/azure.svg' }],
     }))
     const lib = await loadLibrary(s, 'microsoft', '0.1.0')
@@ -24,9 +24,9 @@ test('a class icon path surfaces on the LoadedClass', async () => {
 
 test('discovers every published <id>/<version> and loads its classes', async () => {
     const b = new FakeStorage('fake://libraries')
-    await b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft'))
+    await b.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft'))
     await b.WriteText('microsoft/0.1.0/visuals/microsoft.azure.mural', 'TextBlock [ Text = $Display ]')
-    await b.WriteText('aws/0.1.0/library.json', manifest('aws'))
+    await b.WriteText('aws/0.1.0/bundle.json', manifest('aws'))
 
     const libs = await discoverLibraries(b)
     expect(libs.map((l) => l.id).sort()).toEqual(['aws', 'microsoft'])
@@ -35,32 +35,31 @@ test('discovers every published <id>/<version> and loads its classes', async () 
     expect(ms.problems).toEqual([])
 })
 
-test('discoverLibraries ignores meta-model packages (no library.json) under the shared root', async () => {
+test('discoverLibraries ignores meta-model packages (bundle.type meta-model) under the shared root', async () => {
     const b = new FakeStorage('fake://packages')
-    // A library: library.json present.
-    await b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft'))
-    // A meta-model under the same root: model.json + manifest.json, no library.json.
+    // A library: bundle.json with type 'library'.
+    await b.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft'))
+    // A meta-model under the same root: model.json + bundle.json with type 'meta-model'.
     await b.WriteText('ea/5/model.json', '{"nodes":[],"edges":[]}')
-    await b.WriteText('ea/5/manifest.json', '{}')
+    await b.WriteText('ea/5/bundle.json', JSON.stringify({ type: 'meta-model', id: 'ea', version: '5', name: 'ea' }))
 
     const libs = await discoverLibraries(b)
     expect(libs.map((l) => l.id)).toEqual(['microsoft'])
 })
 
-test('a malformed manifest yields one error problem and no classes, not a throw', async () => {
+test('a malformed bundle yields one error problem and no classes, not a throw', async () => {
     const b = new FakeStorage('fake://libraries')
-    await b.WriteText('broken/0.1.0/library.json', '{ not json')
+    await b.WriteText('broken/0.1.0/bundle.json', '{ not json')
     const lib = await loadLibrary(b, 'broken', '0.1.0')
     expect(lib.classes).toEqual([])
     expect(lib.problems).toHaveLength(1)
-    expect(lib.problems[0]).toMatchObject({ severity: 'error', uri: 'library.json' })
+    expect(lib.problems[0]).toMatchObject({ severity: 'error', uri: 'bundle.json' })
 })
 
 test('a class citing a missing template file records a warning but still loads', async () => {
     const b = new FakeStorage('fake://libraries')
-    await b.WriteText('microsoft/0.1.0/library.json', manifest('microsoft'))   // template file absent
+    await b.WriteText('microsoft/0.1.0/bundle.json', manifest('microsoft'))   // template file absent
     const lib = await loadLibrary(b, 'microsoft', '0.1.0')
     expect(lib.classes).toHaveLength(1)
     expect(lib.problems).toEqual([{ severity: 'warning', uri: 'visuals/microsoft.azure.mural', message: expect.stringContaining('missing') }])
 })
-

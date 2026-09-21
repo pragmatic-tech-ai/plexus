@@ -8,7 +8,7 @@ import { MetaModelProjectFactory } from '../meta-model-project-factory.js'
 async function project(text: string): Promise<FakeStorage>
 {
     const s = new FakeStorage('C:/mm')
-    await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', id: 'ea', modelVersion: '0.1.0' }))
+    await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', id: 'ea', packageVersion: '0.1.0' }))
     await s.WriteText('concepts.todl', text)
     return s
 }

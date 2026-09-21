@@ -13,7 +13,7 @@ async function libraryProject(text: string): Promise<FakeStorage>
 {
     const s = new FakeStorage('C:/lib')
     await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(
-        { type: 'library', id: 'acme', libVersion: '0.1.0', metaModel: { id: 'ea', version: '0.1.0' } }))
+        { type: 'library', id: 'acme', packageVersion: '0.1.0', metaModels: [{ id: 'ea', version: '0.1.0' }] }))
     await s.WriteText('terms.todl', text)
     return s
 }

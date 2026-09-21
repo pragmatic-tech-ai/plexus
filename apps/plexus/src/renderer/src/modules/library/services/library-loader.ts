@@ -1,4 +1,5 @@
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 
 export interface LoadProblem { uri: string | null; message: string; severity: 'error' | 'warning' }
 
@@ -16,23 +17,24 @@ export interface LoadedClass
 
 export interface LoadedLibrary
 {
-    id:        string
-    version:   string
-    name:      string
-    metaModel: { id: string; version: string }
-    classes:   LoadedClass[]
-    problems:  LoadProblem[]
+    id:         string
+    version:    string
+    name:       string
+    metaModels: BaseRef[]
+    classes:    LoadedClass[]
+    problems:   LoadProblem[]
 }
 
-// The discriminator file a library package writes at `<id>/<version>/`: its
-// presence is what distinguishes a library from a meta-model under the single
-// shared packages root (a meta-model writes `manifest.json` instead).
-const LIBRARY_MANIFEST = 'library.json'
+// The single package descriptor every published package (meta-model OR library)
+// writes at `<id>/<version>/`; its `type` field is the discriminator. A version is
+// a LIBRARY iff `bundle.json` exists AND its `type` is 'library'.
+const PACKAGE_BUNDLE = 'bundle.json'
+const LIBRARY_TYPE = 'library'
 
 // Every published LIBRARY under the backend, loaded. Directory layout is
 // `<id>/<version>/…`: root dirs are ids, each id's dirs are versions — but the root
-// now holds meta-models too, so only versions carrying a `library.json` (the library
-// discriminator) are loaded.
+// now holds meta-models too, so only versions whose `bundle.json` has
+// `type === 'library'` are loaded.
 export async function discoverLibraries(backend: IStorage): Promise<LoadedLibrary[]>
 {
     const out: LoadedLibrary[] = []
@@ -42,14 +44,27 @@ export async function discoverLibraries(backend: IStorage): Promise<LoadedLibrar
         const versions = (await backend.List(id)).filter((e) => e.IsDirectory).map((e) => e.Name).sort()
         for (const version of versions)
         {
-            if (await backend.Exists(`${id}/${version}/${LIBRARY_MANIFEST}`)) out.push(await loadLibrary(backend, id, version))
+            if (await isLibraryVersion(backend, id, version)) out.push(await loadLibrary(backend, id, version))
         }
     }
     return out
 }
 
-// Load one library's manifest into a LoadedLibrary. A malformed/unreadable
-// manifest yields empty classes + one error problem (never throws). A class that
+// A version is a library iff its bundle.json exists and declares type 'library'.
+// A malformed/unreadable bundle.json is treated as not-a-library (it never counts
+// as a meta-model either — the meta-model side applies the mirror check).
+async function isLibraryVersion(backend: IStorage, id: string, version: string): Promise<boolean>
+{
+    try
+    {
+        const bundle = JSON.parse(await backend.ReadText(`${id}/${version}/${PACKAGE_BUNDLE}`)) as { type?: string }
+        return bundle.type === LIBRARY_TYPE
+    }
+    catch { return false }
+}
+
+// Load one library's bundle.json into a LoadedLibrary. A malformed/unreadable
+// bundle yields empty classes + one error problem (never throws). A class that
 // cites a template/thumbnail/doc file with no file on disk records a warning.
 export async function loadLibrary(backend: IStorage, id: string, version: string): Promise<LoadedLibrary>
 {
@@ -57,17 +72,17 @@ export async function loadLibrary(backend: IStorage, id: string, version: string
     const problems: LoadProblem[] = []
     let manifest: {
         id: string; version: string; name: string
-        metaModel: { id: string; version: string }
+        metaModels?: BaseRef[]
         classes: Array<{ id: string; localId?: string; label?: string; concept: string; template?: string; thumbnail?: string; doc?: string; icon?: string }>
     }
     try
     {
-        manifest = JSON.parse(await backend.ReadText(`${base}/library.json`))
+        manifest = JSON.parse(await backend.ReadText(`${base}/${PACKAGE_BUNDLE}`))
     }
     catch (e)
     {
-        return { id, version, name: id, metaModel: { id: '', version: '' }, classes: [],
-                 problems: [{ severity: 'error', uri: 'library.json', message: `Library manifest is invalid: ${(e as Error).message}` }] }
+        return { id, version, name: id, metaModels: [], classes: [],
+                 problems: [{ severity: 'error', uri: PACKAGE_BUNDLE, message: `Library bundle is invalid: ${(e as Error).message}` }] }
     }
 
     const classes: LoadedClass[] = []
@@ -85,6 +100,6 @@ export async function loadLibrary(backend: IStorage, id: string, version: string
         }
         classes.push(cls)
     }
-    return { id: manifest.id, version: manifest.version, name: manifest.name, metaModel: manifest.metaModel, classes, problems }
+    return { id: manifest.id, version: manifest.version, name: manifest.name, metaModels: manifest.metaModels ?? [], classes, problems }
 }
 
