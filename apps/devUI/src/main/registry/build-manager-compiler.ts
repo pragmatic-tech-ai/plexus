@@ -5,43 +5,44 @@ import { join } from "node:path";
 import { NodeFsStorage } from "@pragmatic-tech-ai/todl-runtime/node";
 import type { IStorage } from "@pragmatic-tech-ai/todl-runtime";
 import {
-  BuildSystemRegistry,
-  ProjectBuildManager,
-  NpmPackageBuildSystem,
-  NpmArtifacts,
   type IBuildStorageProvider,
   type OpenedOutput,
   type BuildOptions,
+} from "@pragmatic-tech-ai/todl/build-system-core";
+import {
+  TodlBuildSystemRegistry,
+  TodlProjectBuildManager,
+  NpmArtifacts,
   type IPackageSource,
-} from "@pragmatic-tech-ai/todl/build-services";
+} from "@pragmatic-tech-ai/todl/todl-build-system";
 import { parseManifest } from "@pragmatic-tech-ai/todl/package-manager";
 import type { DirectoryCompileResult, PackageCompilerLike } from "./registry-bridge.js";
 
 // The devUI directory compiler on the build-services pipeline (retiring PackageCompiler).
-// It runs the NpmPackageBuildSystem for one project directory through ProjectBuildManager
-// — a fresh temp sandbox, promote into <dir>/dist — and hands back the compiled package
-// from the build's artifact bag, so the bridge registers it into the local store and
-// shows its identity, exactly the shape compileDir consumed before. Base resolution reads
-// through the injected source (prod: a NodeModulesPackageSource over <dir>/node_modules).
+// It runs todl's npm-package build system for one project directory through the
+// TodlProjectBuildManager facade — a fresh temp sandbox, promote into <dir>/dist — and
+// hands back the compiled package from the build's artifact bag, so the bridge registers
+// it into the local store and shows its identity, exactly the shape compileDir consumed
+// before. Base resolution reads through the injected source (prod: a
+// NodeModulesPackageSource over <dir>/node_modules).
 export class BuildManagerCompiler implements PackageCompilerLike
 {
   private static readonly ManifestFileName = "project.plexus";
   private static readonly BuildSystemId = "npm-package";
   private static readonly DistDirName = "dist";
 
-  private readonly registry: BuildSystemRegistry;
+  private readonly registry: TodlBuildSystemRegistry;
 
   constructor(private readonly source: IPackageSource)
   {
-    this.registry = new BuildSystemRegistry();
-    this.registry.Register(new NpmPackageBuildSystem());
+    this.registry = new TodlBuildSystemRegistry();
   }
 
   async compile(directory: string, options: { scope?: string; outDir?: string } = {}): Promise<DirectoryCompileResult>
   {
     const outDir = options.outDir ?? join(directory, BuildManagerCompiler.DistDirName);
     const manifest = parseManifest(readFileSync(join(directory, BuildManagerCompiler.ManifestFileName), "utf8"));
-    const manager = new ProjectBuildManager(this.registry, new DirectoryBuildStorage(outDir));
+    const manager = new TodlProjectBuildManager(this.registry, new DirectoryBuildStorage(outDir));
 
     const { Result: result, Artifacts: artifacts } = await manager.Build({
       Project: new NodeFsStorage(directory),

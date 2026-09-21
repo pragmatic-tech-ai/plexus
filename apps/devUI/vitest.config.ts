@@ -45,8 +45,9 @@ const ALIASES = [
   // otherwise point at a non-existent dist/package-manager.
   { find: /^@pragmatic-tech-ai\/todl\/package-manager\/connections$/, replacement: `${TODL}/dist/solution-services/package-manager/engine/registry-connection.js` },
   { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/solution-services/package-manager/index.js` },
-  // build-services also lives under dist/solution-services/; precede the generic map.
-  { find: /^@pragmatic-tech-ai\/todl\/build-services$/, replacement: `${TODL}/dist/solution-services/build-services/index.js` },
+  // build-system-core + todl-build-system live under dist/solution-services/; precede the generic map.
+  { find: /^@pragmatic-tech-ai\/todl\/build-system-core$/, replacement: `${TODL}/dist/solution-services/build-system-core/index.js` },
+  { find: /^@pragmatic-tech-ai\/todl\/todl-build-system$/, replacement: `${TODL}/dist/solution-services/todl-build-system/index.js` },
   { find: /^@pragmatic-tech-ai\/todl\/(.*)$/, replacement: `${TODL}/dist/$1` },
   { find: /^@pragmatic-tech-ai\/todl$/, replacement: `${TODL}/dist/index.js` },
 ];
@@ -57,11 +58,12 @@ export default defineConfig({
   test: {
     include: ["src/**/*.test.ts"],
     environment: "node",
-    // Inline ONLY fresco: it ships a nested mural whose imports would otherwise
-    // resolve (natively) to that copy's uncompiled src. Transforming fresco
-    // routes its `@pragmatic-tech-ai/mural/*` imports through the dist aliases
-    // above -> the single root mural dist. mural itself stays external
-    // (transforming it breaks its circular init).
-    server: { deps: { inline: [/@pragmatic-tech-ai\/fresco/] } },
+    // Inline fresco + todl's todl-build-system: each imports `@pragmatic-tech-ai/
+    // mural/*` which would otherwise resolve (natively, as an externalized dep) to
+    // mural's uncompiled `development` src. Transforming them routes those imports
+    // through the dist aliases above -> the single root mural dist. mural itself and
+    // the rest of todl stay external (transforming mural breaks its circular init;
+    // build-system-core is mural-free).
+    server: { deps: { inline: [/@pragmatic-tech-ai\/fresco/, /@pragmatic-tech-ai\/todl\/dist\/solution-services\/todl-build-system\//] } },
   },
 });
