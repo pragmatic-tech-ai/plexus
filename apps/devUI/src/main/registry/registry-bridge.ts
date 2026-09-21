@@ -69,8 +69,9 @@ export interface RegistryBridgeDeps
 {
   /** The engine connection authority: connection CRUD + per-connection clients. */
   service: PackageManagerService;
-  /** Build the directory compiler (prod: () => new PackageCompiler()). */
-  createCompiler(): PackageCompilerLike;
+  /** Build the directory compiler for a project directory — the compiler resolves
+   *  its bases from that directory's node_modules (prod: a NodeModulesProducerBackends). */
+  createCompiler(directory: string): PackageCompilerLike;
   /** The shared local compiled-package store — compileDir registers into it and
    *  resolvePackage reads from it (local-first). Owned by main/index.ts. */
   localStore: LocalPackageStore;
@@ -172,7 +173,7 @@ export class RegistryBridge
   async compileDir(dir: string): Promise<CompileResultView>
   {
     const outDir = join(dir, "dist");
-    const result = await this.deps.createCompiler().compile(dir, { outDir });
+    const result = await this.deps.createCompiler(dir).compile(dir, { outDir });
     const pkg = result.package;
     if (result.ok && pkg !== undefined) this.deps.localStore.register(pkg);
     return {

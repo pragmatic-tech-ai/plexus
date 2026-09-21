@@ -90,7 +90,7 @@ function makeBridge(options: {
   const compile = options.compile;
   const bridge = new RegistryBridge({
     service: engine.Service,
-    createCompiler: () => ({
+    createCompiler: (_dir: string) => ({
       compile: (compile ?? (() => Promise.resolve({ ok: true, diagnostics: [], errors: [] }))) as never,
     }),
     localStore,
