@@ -14,7 +14,7 @@ import KindToGeometry from "../../projects/project-node-icon.js"
 import EditingToLabelVisibility from "../../projects/project-node-icon.js"
 import NewProjectDialogModel from "../../projects/new-project-dialog-model.js"
 import ProjectTypeChoice from "../../projects/new-project-dialog-model.js"
-import LibraryChoice from "../../projects/new-project-dialog-model.js"
+import ReferenceNode from "../../projects/reference-node.js"
 import ManageReferencesDialogModel from "../../projects/manage-references-dialog-model.js"
 import OpenProjectDialogModel from "../../projects/open-project-dialog-model.js"
 import RecentProjectItem from "../../projects/open-project-dialog-model.js"
@@ -272,13 +272,23 @@ resources ProjectExplorerResources {
     // StackPanel shrinks to its widest child and the content presenter pins it
     // to one side (leaving Name/Location collapsed).
 
-    // One library row in the architecture picker's checklist: a Switch two-waying
-    // LibraryChoice.IsSelected + its `id @ version` label.
-    DataTemplate [ DataType = LibraryChoice ] {
+    // One row in the consolidated "References" tree, shared by both dialogs. A GROUP
+    // node ("Meta-models" / "Libraries") is a bold header with no checkbox; a LEAF
+    // node carries a Switch two-waying ReferenceNode.IsSelected + its `id @ version`
+    // label. The Switch shows on leaves only (IsLeaf). itemsselector = Children walks
+    // the group's leaves.
+    HierarchicalDataTemplate x:key="ReferenceNodeTemplate" [ DataType = ReferenceNode, itemsselector = Children ] {
         DockPanel [ LastChildFill = true, Margin = (0,2,0,2) ] {
-            Switch [ DockPanel.Dock = Left, IsChecked = $IsSelected, Margin = (0,0,8,0) ]
+            Switch [ DockPanel.Dock = Left, IsChecked = $IsSelected, Margin = (0,0,8,0),
+                     Visibility = $IsLeaf << ToVisibility ]
             TextBlock [ Text = $Label, Style = @BodyMedium, Foreground = @OnSurface, VerticalAlignment = Center ]
         }
+    }
+
+    // Mirror each group's expansion from its data node so both sections open by
+    // default (ReferenceNode.IsExpanded → TreeViewItem).
+    Style x:key="ReferenceTreeItemStyle" [ TargetType = TreeViewItem ] {
+        IsExpanded = $IsExpanded;
     }
 
     DataTemplate [ DataType = NewProjectDialogModel ] {
@@ -300,24 +310,17 @@ resources ProjectExplorerResources {
                 TextBox [ Text = $Location ]
             }
 
-            // Meta-model picker — shown only for a project type that requires a
-            // base meta-model (library today, architecture later). The combo lists
-            // the published meta-models as `id @ version` (MetaModelChoice.Label).
-            Border [ Visibility = $ShowMetaModelPicker << ToVisibility, Margin = (0,4,0,8) ] {
+            // References — one consolidated tree (Meta-models + Libraries groups),
+            // shown for a project type that requires a meta-model and/or offers
+            // libraries. Each leaf's Switch two-ways ReferenceNode.IsSelected; a
+            // library binds ≥1 meta-model, an architecture also picks libraries
+            // (zero valid). Capped at 300dp so a large catalog scrolls in place.
+            Border [ Visibility = $ShowReferences << ToVisibility, Margin = (0,4,0,8) ] {
                 StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ Style = @BodyLarge, Text = "Meta-model", Foreground = @OnSurface ]
-                    ComboBox [ ItemsSource = $MetaModels, SelectedItem = $SelectedMetaModel,
-                               Margin = (0,4,0,0), HorizontalAlignment = Stretch ]
-                }
-            }
-
-            // Libraries picker — shown only for a project type that offers
-            // libraries (architecture). A checklist of published libraries; each
-            // row's Switch two-ways LibraryChoice.IsSelected. Zero selected is valid.
-            Border [ Visibility = $ShowLibrariesPicker << ToVisibility, Margin = (0,4,0,8) ] {
-                StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ Style = @BodyLarge, Text = "Libraries", Foreground = @OnSurface ]
-                    ItemsControl [ ItemsSource = $Libraries, ItemsPanel = @VerticalStackPanel, Margin = (0,4,0,0) ]
+                    TextBlock [ Style = @BodyLarge, Text = "References", Foreground = @OnSurface ]
+                    TreeView [ Indent = 16, ItemsSource = $Roots, ItemTemplate = @ReferenceNodeTemplate,
+                               ItemContainerStyle = @ReferenceTreeItemStyle,
+                               MaxHeight = 300, Margin = (0,4,0,0) ]
                 }
             }
 
@@ -331,24 +334,20 @@ resources ProjectExplorerResources {
     }
 
     // ── Manage References dialog ─────────────────────────────────────────
-    // The consolidated references editor for a consumer project. A ComboBox swaps
-    // the required meta-model; a checklist (reusing DataTemplate[LibraryChoice])
-    // adds/removes libraries — current refs start checked, addable ones unchecked.
-    // The libraries section shows only for a project that offers libraries
-    // (architecture); a library project edits its meta-model alone.
+    // The consolidated references editor for a consumer project — one "References"
+    // tree (Meta-models + Libraries groups) reusing @ReferenceNodeTemplate. Current
+    // refs start checked, addable ones unchecked; a project binds ≥1 meta-model and
+    // any number of libraries. The Libraries group shows only for a project that
+    // offers libraries (architecture); a library project edits its meta-models alone.
     DataTemplate [ DataType = ManageReferencesDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = "Meta-model", Foreground = @OnSurface, Margin = (0,0,0,4) ]
-            ComboBox [ ItemsSource = $MetaModels, SelectedItem = $SelectedMetaModel,
-                       HorizontalAlignment = Stretch, Margin = (0,0,0,14) ]
+            TextBlock [ Style = @BodyLarge, Text = "References", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+            TreeView [ Indent = 16, ItemsSource = $Roots, ItemTemplate = @ReferenceNodeTemplate,
+                       ItemContainerStyle = @ReferenceTreeItemStyle, MaxHeight = 300 ]
 
             Border [ Visibility = $ShowLibraries << ToVisibility ] {
-                StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ Style = @BodyLarge, Text = "Libraries", Foreground = @OnSurface, Margin = (0,0,0,4) ]
-                    ItemsControl [ ItemsSource = $Libraries, ItemsPanel = @VerticalStackPanel ]
-                    TextBlock [ Style = @BodySmall, Text = $EmptyLibrariesLabel, Foreground = @OnSurfaceVariant,
-                                TextWrapping = Wrap, Margin = (0,2,0,0) ]
-                }
+                TextBlock [ Style = @BodySmall, Text = $EmptyLibrariesLabel, Foreground = @OnSurfaceVariant,
+                            TextWrapping = Wrap, Margin = (0,2,0,0) ]
             }
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {

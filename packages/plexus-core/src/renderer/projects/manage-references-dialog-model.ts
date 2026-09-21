@@ -7,35 +7,32 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 
 import type { BaseBindings, BaseRef } from './base-binding.js'
-import { LibraryChoice, MetaModelChoice } from './new-project-dialog-model.js'
+import { ReferenceNode } from './reference-node.js'
 
 // The "Manage References" dialog's view-model — the consolidated VS-style
 // references editor for a consumer TODL project (architecture / library). It
 // shows the project's current base bindings against the catalog of everything it
-// COULD reference (published packages ∪ open workspace producers) and lets the
-// user add/remove without leaving the dialog:
-//   * Meta-model — the required singleton — is a ComboBox pre-selected to the
-//     current binding; picking another entry swaps it (a workspace producer can
-//     be chosen before it is published — resolution is local-first).
-//   * Libraries (architecture only) — a checklist where the current references
-//     start CHECKED and the addable ones start unchecked, so unchecking removes
-//     and checking adds. The result is simply the checked set.
+// COULD reference (published packages ∪ open workspace producers) in one
+// "References" TreeView, and lets the user add/remove without leaving the dialog:
+//   * Meta-models — a checklist where the current bindings start CHECKED and the
+//     addable ones start unchecked; a project may bind any number, and a workspace
+//     producer can be checked before it is published (resolution is local-first).
+//   * Libraries (architecture only) — the same checklist shape. Unchecking removes,
+//     checking adds; the result is simply the checked set.
 //
-// It reuses MetaModelChoice / LibraryChoice (and their DataTemplates) from the
-// New-Project dialog. Like every dialog VM here it is a MuralBase (not the
+// It renders through the shared ReferenceNode tree (DataTemplate reused from the
+// New-Project dialog). Like every dialog VM here it is a MuralBase (not the
 // lightweight Observable): it genuinely leans on the dependency-property system —
-// two-way SelectedMetaModel + per-row IsSelected bindings and a CanConfirm that
-// recomputes on selection change — the same shape as NewProjectDialogModel.
+// per-row IsSelected bindings and a CanConfirm that recomputes on selection change.
 export class ManageReferencesDialogModel extends MuralBase
 {
-    static readonly MetaModelsKey = MuralBase.RegisterProperty<ObservableCollection<MetaModelChoice>>(
-        ManageReferencesDialogModel, 'MetaModels', undefined as unknown as ObservableCollection<MetaModelChoice>, MetaData.None)
-    static readonly SelectedMetaModelKey = MuralBase.RegisterProperty<MetaModelChoice | undefined>(
-        ManageReferencesDialogModel, 'SelectedMetaModel', undefined, MetaData.None)
+    private static readonly MetaModelsGroupLabel = 'Meta-models'
+    private static readonly LibrariesGroupLabel = 'Libraries'
+
+    static readonly RootsKey = MuralBase.RegisterProperty<ObservableCollection<ReferenceNode>>(
+        ManageReferencesDialogModel, 'Roots', undefined as unknown as ObservableCollection<ReferenceNode>, MetaData.None)
     static readonly ShowLibrariesKey = MuralBase.RegisterProperty<boolean>(
         ManageReferencesDialogModel, 'ShowLibraries', false, MetaData.None)
-    static readonly LibrariesKey = MuralBase.RegisterProperty<ObservableCollection<LibraryChoice>>(
-        ManageReferencesDialogModel, 'Libraries', undefined as unknown as ObservableCollection<LibraryChoice>, MetaData.None)
     // Guidance shown in the libraries section when there is nothing to list
     // (no library is published or open) — the checklist renders empty otherwise.
     static readonly EmptyLibrariesLabelKey = MuralBase.RegisterProperty<string>(
@@ -50,6 +47,8 @@ export class ManageReferencesDialogModel extends MuralBase
     // Whether the managed project declares a libraries list (architecture). A
     // library project omits libraries from its manifest, so the result must too.
     private readonly offersLibraries: boolean
+    private readonly metaGroup: ReferenceNode
+    private readonly libGroup?: ReferenceNode
 
     constructor(
         // The project's current base bindings, read from its manifest.
@@ -69,81 +68,72 @@ export class ManageReferencesDialogModel extends MuralBase
     {
         super()
         this.offersLibraries = offersLibraries
-
-        // Meta-models: the catalog, guaranteed to include (and pre-select) the
-        // current binding even when it is no longer published/open — a stale ref
-        // stays visible rather than silently vanishing. The picker stays single-
-        // select for now, so it pre-selects the first bound meta-model.
-        const currentMeta = current.metaModels?.[0]
-        const metaRefs = ManageReferencesDialogModel.dedupe(
-            currentMeta !== undefined ? [currentMeta, ...availableMetaModels] : availableMetaModels)
-        const metas = new ObservableCollection<MetaModelChoice>()
-        for (const ref of metaRefs) metas.Add(new MetaModelChoice(ref))
-        this.set_property_value(ManageReferencesDialogModel.MetaModelsKey, metas)
-        const selected = currentMeta !== undefined
-            ? metas.ToArray().find((m) => ManageReferencesDialogModel.sameRef(m.Ref, currentMeta))
-            : metas.ToArray()[0]
-        this.set_property_value(ManageReferencesDialogModel.SelectedMetaModelKey, selected)
-
-        // Libraries (architecture only): the current refs (checked) followed by
-        // the addable ones (unchecked), deduped by id@version so a ref offered by
-        // both the published store and a workspace project appears once.
         this.set_property_value(ManageReferencesDialogModel.ShowLibrariesKey, offersLibraries)
-        const libs = new ObservableCollection<LibraryChoice>()
+
+        const roots = new ObservableCollection<ReferenceNode>()
+
+        // Meta-models: the current bindings (checked) followed by the addable ones
+        // (unchecked), deduped by id@version so a stale current ref stays visible +
+        // checked rather than silently vanishing.
+        this.metaGroup = this.buildGroup(
+            ManageReferencesDialogModel.MetaModelsGroupLabel, current.metaModels ?? [], availableMetaModels)
+        roots.Add(this.metaGroup)
+
+        // Libraries (architecture only): same checklist shape.
         if (offersLibraries)
         {
-            const currentLibs = current.libraries ?? []
-            const checked = new Set(currentLibs.map((l) => ManageReferencesDialogModel.key(l)))
-            for (const ref of ManageReferencesDialogModel.dedupe([...currentLibs, ...availableLibraries]))
-            {
-                const choice = new LibraryChoice(ref)
-                choice.IsSelected = checked.has(ManageReferencesDialogModel.key(ref))
-                libs.Add(choice)
-            }
+            this.libGroup = this.buildGroup(
+                ManageReferencesDialogModel.LibrariesGroupLabel, current.libraries ?? [], availableLibraries)
+            roots.Add(this.libGroup)
+            this.set_property_value(ManageReferencesDialogModel.EmptyLibrariesLabelKey,
+                this.libGroup.Children.Count === 0 ? 'No libraries are published or open to reference.' : '')
         }
-        this.set_property_value(ManageReferencesDialogModel.LibrariesKey, libs)
-        this.set_property_value(ManageReferencesDialogModel.EmptyLibrariesLabelKey,
-            offersLibraries && libs.Count === 0 ? 'No libraries are published or open to reference.' : '')
+        this.set_property_value(ManageReferencesDialogModel.RootsKey, roots)
 
         this.set_property_value(ManageReferencesDialogModel.ConfirmCommandKey,
             new RelayCommand(() => { if (this.CanConfirm) this.close(this.Result) }))
         this.set_property_value(ManageReferencesDialogModel.CancelCommandKey,
             new RelayCommand(() => this.close(undefined)))
 
-        this.PropertyChanged(ManageReferencesDialogModel.SelectedMetaModelKey).subscribe(() => this.recompute())
         this.recompute()
     }
 
-    public get MetaModels(): ObservableCollection<MetaModelChoice> { return this.get_property_value(ManageReferencesDialogModel.MetaModelsKey) }
-    public get SelectedMetaModel(): MetaModelChoice | undefined { return this.get_property_value(ManageReferencesDialogModel.SelectedMetaModelKey) }
-    public set SelectedMetaModel(v: MetaModelChoice | undefined) { this.set_property_value(ManageReferencesDialogModel.SelectedMetaModelKey, v) }
+    public get Roots(): ObservableCollection<ReferenceNode> { return this.get_property_value(ManageReferencesDialogModel.RootsKey) }
     public get ShowLibraries(): boolean { return this.get_property_value(ManageReferencesDialogModel.ShowLibrariesKey) }
-    public get Libraries(): ObservableCollection<LibraryChoice> { return this.get_property_value(ManageReferencesDialogModel.LibrariesKey) }
     public get EmptyLibrariesLabel(): string { return this.get_property_value(ManageReferencesDialogModel.EmptyLibrariesLabelKey) }
     public get CanConfirm(): boolean { return this.get_property_value(ManageReferencesDialogModel.CanConfirmKey) }
     public get ConfirmCommand(): ICommand { return this.get_property_value(ManageReferencesDialogModel.ConfirmCommandKey) }
     public get CancelCommand(): ICommand { return this.get_property_value(ManageReferencesDialogModel.CancelCommandKey) }
 
-    // The edited bindings: the selected meta-model (single-select picker → a
-    // one-element `metaModels` array, or [] when none) plus, for a libraries-bearing
+    // The edited bindings: the checked meta-models plus, for a libraries-bearing
     // project, the checked libraries. A library project omits `libraries` entirely
     // so its manifest keeps its original shape.
     public get Result(): BaseBindings
     {
-        const chosen = this.SelectedMetaModel?.Ref
-        const metaModels = chosen !== undefined ? [chosen] : []
+        const metaModels = [...this.metaGroup.SelectedRefs]
         if (!this.offersLibraries) return { metaModels }
-        return { metaModels, libraries: this.Libraries.ToArray().filter((l) => l.IsSelected).map((l) => l.Ref) }
+        return { metaModels, libraries: [...(this.libGroup?.SelectedRefs ?? [])] }
+    }
+
+    // A group whose current refs come first (checked) then the addable ones
+    // (unchecked), deduped by id@version. Each leaf's check recomputes CanConfirm.
+    private buildGroup(label: string, current: readonly BaseRef[], available: readonly BaseRef[]): ReferenceNode
+    {
+        const checked = new Set(current.map((r) => ManageReferencesDialogModel.key(r)))
+        const leaves = ManageReferencesDialogModel.dedupe([...current, ...available])
+            .map((ref) => ReferenceNode.leaf(ref, checked.has(ManageReferencesDialogModel.key(ref))))
+        for (const leaf of leaves)
+            leaf.PropertyChanged(ReferenceNode.IsSelectedKey).subscribe(() => this.recompute())
+        return ReferenceNode.group(label, leaves)
     }
 
     private recompute(): void
     {
-        this.set_property_value(ManageReferencesDialogModel.CanConfirmKey, this.SelectedMetaModel !== undefined)
+        // A consumer project must bind at least one meta-model.
+        this.set_property_value(ManageReferencesDialogModel.CanConfirmKey, this.metaGroup.SelectedRefs.length > 0)
     }
 
     private static key(ref: BaseRef): string { return `${ref.id}@${ref.version}` }
-
-    private static sameRef(a: BaseRef, b: BaseRef): boolean { return a.id === b.id && a.version === b.version }
 
     // First-wins dedupe by id@version, preserving order.
     private static dedupe(refs: readonly BaseRef[]): BaseRef[]

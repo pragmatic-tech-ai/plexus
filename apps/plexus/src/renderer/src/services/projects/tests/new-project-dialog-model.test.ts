@@ -2,6 +2,7 @@ import { test, expect } from 'vitest'
 
 import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
+import type { ReferenceNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/reference-node.js'
 import {
     NewProjectDialogModel,
     ProjectTypeChoice,
@@ -9,6 +10,15 @@ import {
 } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
+
+// The leaf rows under a named group in the consolidated References tree.
+function leavesOf(vm: NewProjectDialogModel, group: string): ReferenceNode[]
+{
+    const g = vm.Roots.ToArray().find((n) => n.Label === group)
+    return g !== undefined ? g.Children.ToArray() : []
+}
+const metaLeaves = (vm: NewProjectDialogModel) => leavesOf(vm, 'Meta-models')
+const libLeaves = (vm: NewProjectDialogModel) => leavesOf(vm, 'Libraries')
 
 function choices(): ProjectTypeChoice[]
 {
@@ -91,7 +101,7 @@ test('cancel closes with undefined', () => {
     expect(closed()).toBeUndefined()
 })
 
-// ── meta-model picker (library projects) ──
+// ── References tree: meta-models (library projects) ──
 
 const META_REFS: readonly BaseRef[] = [{ id: 'ea', version: '5' }]
 
@@ -117,34 +127,49 @@ function buildLib(metaModels: readonly BaseRef[] = META_REFS)
     return { vm, closed: () => result }
 }
 
-test('selecting a meta-model-requiring type shows the picker; a plain type hides it', () => {
+test('selecting a meta-model-requiring type shows the References tree; a plain type hides it', () => {
     const { vm } = buildLib()
-    expect(vm.ShowMetaModelPicker).toBe(false)               // architecture selected by default
+    expect(vm.ShowReferences).toBe(false)                    // architecture selected by default
     vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // library
-    expect(vm.ShowMetaModelPicker).toBe(true)
+    expect(vm.ShowReferences).toBe(true)
+    expect(metaLeaves(vm).map((n) => n.Label)).toEqual(['ea @ 5'])
     vm.Types.ToArray()[0].SelectCommand!.Execute(undefined)  // back to architecture
-    expect(vm.ShowMetaModelPicker).toBe(false)
+    expect(vm.ShowReferences).toBe(false)
 })
 
-test('a meta-model-requiring type blocks CanConfirm until a meta-model is chosen', () => {
+test('a meta-model-requiring type blocks CanConfirm until a meta-model is checked', () => {
     const { vm } = buildLib()
     vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // library
     vm.Name = 'Acme'
     vm.Location = '/work/acme'
-    expect(vm.CanConfirm).toBe(false)                        // no meta-model chosen yet
-    vm.SelectedMetaModel = vm.MetaModels.ToArray()[0]
+    expect(vm.CanConfirm).toBe(false)                        // no meta-model checked yet
+    metaLeaves(vm)[0].IsSelected = true
     expect(vm.CanConfirm).toBe(true)
 })
 
-test('confirm on a library type includes the chosen meta-model ref', async () => {
+test('confirm on a library type includes the checked meta-model ref', async () => {
     const { vm, closed } = buildLib()
     vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // library
     vm.Name = 'Acme'
     vm.Location = '/work/acme'
-    vm.SelectedMetaModel = vm.MetaModels.ToArray()[0]
+    metaLeaves(vm)[0].IsSelected = true
     vm.ConfirmCommand.Execute(undefined)
     await flush()
     expect(closed()).toEqual({ type: 'library', name: 'Acme', location: '/work/acme', metaModels: [{ id: 'ea', version: '5' }] })
+})
+
+test('a library type can reference multiple meta-models', async () => {
+    const two: readonly BaseRef[] = [{ id: 'ea', version: '5' }, { id: 'togaf', version: '9' }]
+    let result: NewProjectResult | undefined = undefined
+    const vm = new NewProjectDialogModel(
+        metaChoices(), stubFs('/picked'), () => Promise.resolve(null), (r) => { result = r }, two)
+    vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // library
+    vm.Name = 'Acme'
+    vm.Location = '/work/acme'
+    for (const leaf of metaLeaves(vm)) leaf.IsSelected = true
+    vm.ConfirmCommand.Execute(undefined)
+    await flush()
+    expect((result as unknown as NewProjectResult).metaModels).toEqual([{ id: 'ea', version: '5' }, { id: 'togaf', version: '9' }])
 })
 
 test('a non-requiring type never blocks on, nor includes, a meta-model', async () => {
@@ -163,12 +188,13 @@ test('selecting a requiring type with no published meta-models shows an error', 
     expect(vm.Error).toMatch(/Publish a meta-model first/)
 })
 
-test('the meta-model choices carry an id @ version label', () => {
+test('a meta-model leaf carries an id @ version label', () => {
     const { vm } = buildLib()
-    expect(vm.MetaModels.ToArray()[0].Label).toBe('ea @ 5')
+    vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // library
+    expect(metaLeaves(vm)[0].Label).toBe('ea @ 5')
 })
 
-// ── libraries multi-select (architecture projects) ──
+// ── References tree: libraries (architecture projects) ──
 
 const LIB_REFS: readonly BaseRef[] = [{ id: 'microsoft', version: '0.1.0' }, { id: 'aws', version: '2' }]
 
@@ -195,14 +221,15 @@ function buildArch(metaModels: readonly BaseRef[] = META_REFS, libraries: readon
     return { vm, closed: () => result }
 }
 
-test('selecting an offersLibraries type shows the libraries picker; a plain type hides it', () => {
+test('selecting an offersLibraries type shows both groups; a plain type hides the tree', () => {
     const { vm } = buildArch()
-    expect(vm.ShowLibrariesPicker).toBe(false)               // diagram selected by default
+    expect(vm.ShowReferences).toBe(false)                    // diagram selected by default
     vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // architecture
-    expect(vm.ShowLibrariesPicker).toBe(true)
-    expect(vm.Libraries.ToArray().map((l) => l.Label)).toEqual(['microsoft @ 0.1.0', 'aws @ 2'])
+    expect(vm.ShowReferences).toBe(true)
+    expect(vm.Roots.ToArray().map((n) => n.Label)).toEqual(['Meta-models', 'Libraries'])
+    expect(libLeaves(vm).map((l) => l.Label)).toEqual(['microsoft @ 0.1.0', 'aws @ 2'])
     vm.Types.ToArray()[0].SelectCommand!.Execute(undefined)  // back to diagram
-    expect(vm.ShowLibrariesPicker).toBe(false)
+    expect(vm.ShowReferences).toBe(false)
 })
 
 test('checked libraries flow into confirm().libraries; meta-model still required', async () => {
@@ -210,9 +237,9 @@ test('checked libraries flow into confirm().libraries; meta-model still required
     vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // architecture
     vm.Name = 'Acme'
     vm.Location = '/work/acme'
-    expect(vm.CanConfirm).toBe(false)                        // meta-model not chosen yet
-    vm.SelectedMetaModel = vm.MetaModels.ToArray()[0]
-    vm.Libraries.ToArray()[0].IsSelected = true              // check "microsoft"
+    expect(vm.CanConfirm).toBe(false)                        // meta-model not checked yet
+    metaLeaves(vm)[0].IsSelected = true
+    libLeaves(vm)[0].IsSelected = true                       // check "microsoft"
     expect(vm.CanConfirm).toBe(true)
     vm.ConfirmCommand.Execute(undefined)
     await flush()
@@ -228,7 +255,7 @@ test('confirming an architecture with zero libraries yields an empty libraries a
     vm.Types.ToArray()[1].SelectCommand!.Execute(undefined)  // architecture
     vm.Name = 'Acme'
     vm.Location = '/work/acme'
-    vm.SelectedMetaModel = vm.MetaModels.ToArray()[0]
+    metaLeaves(vm)[0].IsSelected = true
     vm.ConfirmCommand.Execute(undefined)
     await flush()
     expect((closed() as NewProjectResult).libraries).toEqual([])

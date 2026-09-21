@@ -80,6 +80,7 @@ import {
     type OpenProjectResult,
 } from '../../../projects/open-project-dialog-model.js'
 import type { BaseBindings, BaseRef } from '../../../projects/base-binding.js'
+import type { ReferenceNode } from '../../../projects/reference-node.js'
 import { DiagnosticsService } from '../../../diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '../../../diagnostics/diagnostic.js'
 import { planNodeMoves } from '../../../projects/node-move.js'
@@ -109,25 +110,21 @@ export function applyPrefill(form: NewProjectDialogModel, prefill?: CreateProjec
         const match = form.Types.ToArray().find((t) => t.Type === prefill.type)
         if (match?.SelectCommand !== undefined) match.SelectCommand.Execute()
     }
-    // Carry the base bindings the prefill proposes into the pickers, matched by
-    // id@version against the published choices (the type is already selected, so
-    // the collections are populated). Unknown refs are ignored — the user still
-    // finalizes the form. Without this the pickers reset to empty even when the
-    // agent named a meta-model/library, silently dropping the binding.
-    // The meta-model picker stays single-select — pre-select the first proposed
-    // meta-model that matches a published choice.
-    const wantedMeta = prefill.metaModels?.[0]
-    if (wantedMeta !== undefined)
-    {
-        const choice = form.MetaModels.ToArray().find((m) => m.Ref.id === wantedMeta.id && m.Ref.version === wantedMeta.version)
-        if (choice !== undefined) form.SelectedMetaModel = choice
-    }
-    if (prefill.libraries !== undefined)
-    {
-        const wanted = new Set(prefill.libraries.map((l) => `${l.id}@${l.version}`))
-        for (const lib of form.Libraries.ToArray())
-            if (wanted.has(`${lib.Ref.id}@${lib.Ref.version}`)) lib.IsSelected = true
-    }
+    // Carry the base bindings the prefill proposes into the References tree, matched
+    // by id@version against the offered leaves (the type is already selected, so the
+    // tree is populated). Unknown refs are ignored — the user still finalizes the
+    // form. Without this the tree resets to unchecked even when the agent named a
+    // meta-model/library, silently dropping the binding.
+    if (prefill.metaModels !== undefined) checkLeaves(form.MetaModelNodes, prefill.metaModels)
+    if (prefill.libraries !== undefined) checkLeaves(form.LibraryNodes, prefill.libraries)
+}
+
+// Check every tree leaf whose Ref matches one of `wanted` (by id@version).
+function checkLeaves(leaves: readonly ReferenceNode[], wanted: readonly BaseRef[]): void
+{
+    const keys = new Set(wanted.map((r) => `${r.id}@${r.version}`))
+    for (const leaf of leaves)
+        if (leaf.Ref !== undefined && keys.has(`${leaf.Ref.id}@${leaf.Ref.version}`)) leaf.IsSelected = true
 }
 
 // Depth-first membership test: is `node` `root` or anywhere in its subtree?

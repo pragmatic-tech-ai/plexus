@@ -348,7 +348,7 @@ test('applyPrefill selects the prefilled meta-model and checks the prefilled lib
         metaModels: [{ id: 'tech-architecture', version: '0.1.0' }],
         libraries: [{ id: 'microsoft', version: '0.1.0' }],
     })
-    expect(form.SelectedMetaModel?.Ref).toEqual({ id: 'tech-architecture', version: '0.1.0' })
+    expect(form.SelectedMetaModels).toEqual([{ id: 'tech-architecture', version: '0.1.0' }])
     expect(form.SelectedLibraries).toEqual([{ id: 'microsoft', version: '0.1.0' }])   // aws stays unchecked
 })
 
@@ -359,7 +359,7 @@ test('applyPrefill ignores meta-model/library refs not among the published choic
         metaModels: [{ id: 'nope', version: '9' }],
         libraries: [{ id: 'ghost', version: '1' }],
     })
-    expect(form.SelectedMetaModel).toBeUndefined()
+    expect(form.SelectedMetaModels).toEqual([])
     expect(form.SelectedLibraries).toEqual([])
 })
 

@@ -8,6 +8,7 @@ import {
 
 import type { FileSystemService } from '../modules/storage/index.js'
 import type { BaseRef } from './base-binding.js'
+import { ReferenceNode } from './reference-node.js'
 
 // The New Project dialog's view-model + its per-type choice model. Rendered by
 // DataTemplate[NewProjectDialogModel] / DataTemplate[ProjectTypeChoice]. It is a
@@ -19,9 +20,8 @@ export interface NewProjectResult
     type:      string
     name:      string
     location:  string
-    // The meta-models the project is authored against — present only for a type
-    // that RequiresMetaModel (a library or an architecture). The picker stays
-    // single-select for now, so this is [] or a single-element array.
+    // The meta-models the project is authored against — present (any number) only
+    // for a type that RequiresMetaModel (a library or an architecture).
     metaModels?: readonly BaseRef[]
     // The libraries an architecture draws on — present (possibly empty) only for a
     // type that OffersLibraries.
@@ -67,59 +67,25 @@ export class ProjectTypeChoice extends MuralBase
     public set SelectCommand(v: ICommand | undefined) { this.set_property_value(ProjectTypeChoice.SelectCommandKey, v) }
 }
 
-// One selectable meta-model in the library picker: a published BaseRef plus a
-// human `id @ version` label the combo displays.
-export class MetaModelChoice extends MuralBase
-{
-    static readonly LabelKey = MuralBase.RegisterProperty<string>(MetaModelChoice, 'Label', '', MetaData.None)
-
-    constructor(public readonly Ref: BaseRef)
-    {
-        super()
-        this.set_property_value(MetaModelChoice.LabelKey, `${Ref.id} @ ${Ref.version}`)
-    }
-
-    public get Label(): string { return this.get_property_value(MetaModelChoice.LabelKey) }
-    public toString(): string { return this.Label }
-}
-
-// One selectable library in the architecture picker: a published BaseRef, a
-// human `id @ version` label, and a two-way IsSelected the Switch row binds.
-export class LibraryChoice extends MuralBase
-{
-    static readonly LabelKey = MuralBase.RegisterProperty<string>(LibraryChoice, 'Label', '', MetaData.None)
-    static readonly IsSelectedKey = MuralBase.RegisterProperty<boolean>(LibraryChoice, 'IsSelected', false, MetaData.None)
-
-    constructor(public readonly Ref: BaseRef)
-    {
-        super()
-        this.set_property_value(LibraryChoice.LabelKey, `${Ref.id} @ ${Ref.version}`)
-    }
-
-    public get Label(): string { return this.get_property_value(LibraryChoice.LabelKey) }
-    public get IsSelected(): boolean { return this.get_property_value(LibraryChoice.IsSelectedKey) }
-    public set IsSelected(v: boolean) { this.set_property_value(LibraryChoice.IsSelectedKey, v) }
-    public toString(): string { return this.Label }
-}
-
 export class NewProjectDialogModel extends MuralBase
 {
+    private static readonly MetaModelsGroupLabel = 'Meta-models'
+    private static readonly LibrariesGroupLabel = 'Libraries'
+    private static readonly NoMetaModelsError = 'Publish a meta-model first.'
+
     static readonly TypesKey = MuralBase.RegisterProperty<ObservableCollection<ProjectTypeChoice>>(
         NewProjectDialogModel, 'Types', undefined as unknown as ObservableCollection<ProjectTypeChoice>, MetaData.None)
     static readonly SelectedTypeKey = MuralBase.RegisterProperty<ProjectTypeChoice | undefined>(
         NewProjectDialogModel, 'SelectedType', undefined, MetaData.None)
     static readonly NameKey = MuralBase.RegisterProperty<string>(NewProjectDialogModel, 'Name', '', MetaData.None)
     static readonly LocationKey = MuralBase.RegisterProperty<string>(NewProjectDialogModel, 'Location', '', MetaData.None)
-    static readonly MetaModelsKey = MuralBase.RegisterProperty<ObservableCollection<MetaModelChoice>>(
-        NewProjectDialogModel, 'MetaModels', undefined as unknown as ObservableCollection<MetaModelChoice>, MetaData.None)
-    static readonly SelectedMetaModelKey = MuralBase.RegisterProperty<MetaModelChoice | undefined>(
-        NewProjectDialogModel, 'SelectedMetaModel', undefined, MetaData.None)
-    static readonly ShowMetaModelPickerKey = MuralBase.RegisterProperty<boolean>(
-        NewProjectDialogModel, 'ShowMetaModelPicker', false, MetaData.None)
-    static readonly LibrariesKey = MuralBase.RegisterProperty<ObservableCollection<LibraryChoice>>(
-        NewProjectDialogModel, 'Libraries', undefined as unknown as ObservableCollection<LibraryChoice>, MetaData.None)
-    static readonly ShowLibrariesPickerKey = MuralBase.RegisterProperty<boolean>(
-        NewProjectDialogModel, 'ShowLibrariesPicker', false, MetaData.None)
+    // The consolidated References tree: up to two group nodes ("Meta-models",
+    // "Libraries"), each holding a checkable leaf per available package. Rebuilt on
+    // type selection.
+    static readonly RootsKey = MuralBase.RegisterProperty<ObservableCollection<ReferenceNode>>(
+        NewProjectDialogModel, 'Roots', undefined as unknown as ObservableCollection<ReferenceNode>, MetaData.None)
+    static readonly ShowReferencesKey = MuralBase.RegisterProperty<boolean>(
+        NewProjectDialogModel, 'ShowReferences', false, MetaData.None)
     static readonly ErrorKey = MuralBase.RegisterProperty<string>(NewProjectDialogModel, 'Error', '', MetaData.None)
     static readonly CanConfirmKey = MuralBase.RegisterProperty<boolean>(NewProjectDialogModel, 'CanConfirm', false, MetaData.None)
     static readonly BrowseCommandKey = MuralBase.RegisterProperty<ICommand>(
@@ -128,6 +94,13 @@ export class NewProjectDialogModel extends MuralBase
         NewProjectDialogModel, 'ConfirmCommand', undefined as unknown as ICommand, MetaData.None)
     static readonly CancelCommandKey = MuralBase.RegisterProperty<ICommand>(
         NewProjectDialogModel, 'CancelCommand', undefined as unknown as ICommand, MetaData.None)
+
+    // The catalogs offered to a type that references them; leaves are minted per
+    // selection so re-selecting a type resets the checks.
+    private readonly metaModelRefs: readonly BaseRef[]
+    private readonly libraryRefs: readonly BaseRef[]
+    private metaGroup?: ReferenceNode
+    private libGroup?: ReferenceNode
 
     constructor(
         choices: readonly ProjectTypeChoice[],
@@ -142,6 +115,8 @@ export class NewProjectDialogModel extends MuralBase
     )
     {
         super()
+        this.metaModelRefs = metaModels
+        this.libraryRefs = libraries
         const types = new ObservableCollection<ProjectTypeChoice>()
         for (const c of choices)
         {
@@ -149,19 +124,13 @@ export class NewProjectDialogModel extends MuralBase
             types.Add(c)
         }
         this.set_property_value(NewProjectDialogModel.TypesKey, types)
-        const metas = new ObservableCollection<MetaModelChoice>()
-        for (const ref of metaModels) metas.Add(new MetaModelChoice(ref))
-        this.set_property_value(NewProjectDialogModel.MetaModelsKey, metas)
-        const libs = new ObservableCollection<LibraryChoice>()
-        for (const ref of libraries) libs.Add(new LibraryChoice(ref))
-        this.set_property_value(NewProjectDialogModel.LibrariesKey, libs)
+        this.set_property_value(NewProjectDialogModel.RootsKey, new ObservableCollection<ReferenceNode>())
         this.set_property_value(NewProjectDialogModel.BrowseCommandKey, new RelayCommand(() => void this.browse()))
         this.set_property_value(NewProjectDialogModel.ConfirmCommandKey, new RelayCommand(() => void this.confirm()))
         this.set_property_value(NewProjectDialogModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
 
         this.PropertyChanged(NewProjectDialogModel.NameKey).subscribe(() => this.recompute())
         this.PropertyChanged(NewProjectDialogModel.LocationKey).subscribe(() => this.recompute())
-        this.PropertyChanged(NewProjectDialogModel.SelectedMetaModelKey).subscribe(() => this.recompute())
 
         if (choices.length > 0) this.select(choices[0])
     }
@@ -172,37 +141,60 @@ export class NewProjectDialogModel extends MuralBase
     public set Name(v: string) { this.set_property_value(NewProjectDialogModel.NameKey, v) }
     public get Location(): string { return this.get_property_value(NewProjectDialogModel.LocationKey) }
     public set Location(v: string) { this.set_property_value(NewProjectDialogModel.LocationKey, v) }
-    public get MetaModels(): ObservableCollection<MetaModelChoice> { return this.get_property_value(NewProjectDialogModel.MetaModelsKey) }
-    public get SelectedMetaModel(): MetaModelChoice | undefined { return this.get_property_value(NewProjectDialogModel.SelectedMetaModelKey) }
-    public set SelectedMetaModel(v: MetaModelChoice | undefined) { this.set_property_value(NewProjectDialogModel.SelectedMetaModelKey, v) }
-    public get ShowMetaModelPicker(): boolean { return this.get_property_value(NewProjectDialogModel.ShowMetaModelPickerKey) }
-    public get Libraries(): ObservableCollection<LibraryChoice> { return this.get_property_value(NewProjectDialogModel.LibrariesKey) }
-    public get ShowLibrariesPicker(): boolean { return this.get_property_value(NewProjectDialogModel.ShowLibrariesPickerKey) }
-    // The BaseRefs of the currently-checked libraries (empty when none checked).
-    public get SelectedLibraries(): readonly BaseRef[]
-    {
-        return this.Libraries.ToArray().filter((l) => l.IsSelected).map((l) => l.Ref)
-    }
+    public get Roots(): ObservableCollection<ReferenceNode> { return this.get_property_value(NewProjectDialogModel.RootsKey) }
+    public get ShowReferences(): boolean { return this.get_property_value(NewProjectDialogModel.ShowReferencesKey) }
+    // The leaf nodes under each group (empty when the group is not shown) — the
+    // prefill checks matching leaves through these.
+    public get MetaModelNodes(): readonly ReferenceNode[] { return this.metaGroup?.Children.ToArray() ?? [] }
+    public get LibraryNodes(): readonly ReferenceNode[] { return this.libGroup?.Children.ToArray() ?? [] }
+    // The BaseRefs of the currently-checked meta-models / libraries.
+    public get SelectedMetaModels(): readonly BaseRef[] { return this.metaGroup?.SelectedRefs ?? [] }
+    public get SelectedLibraries(): readonly BaseRef[] { return this.libGroup?.SelectedRefs ?? [] }
     public get Error(): string { return this.get_property_value(NewProjectDialogModel.ErrorKey) }
     public get CanConfirm(): boolean { return this.get_property_value(NewProjectDialogModel.CanConfirmKey) }
     public get BrowseCommand(): ICommand { return this.get_property_value(NewProjectDialogModel.BrowseCommandKey) }
     public get ConfirmCommand(): ICommand { return this.get_property_value(NewProjectDialogModel.ConfirmCommandKey) }
     public get CancelCommand(): ICommand { return this.get_property_value(NewProjectDialogModel.CancelCommandKey) }
 
-    // Select a type: mark it, clear the others, toggle the meta-model picker, and
-    // refresh confirmability. Selecting a meta-model-requiring type with nothing
-    // published surfaces a guiding error.
+    // Select a type: mark it, clear the others, rebuild the References tree for the
+    // type's needs, and refresh confirmability. A meta-model-requiring type with
+    // nothing published surfaces a guiding error.
     private select(choice: ProjectTypeChoice): void
     {
         for (const c of this.Types.ToArray()) c.Marker = c === choice ? '●' : '○'
         this.set_property_value(NewProjectDialogModel.SelectedTypeKey, choice)
-        this.set_property_value(NewProjectDialogModel.ShowMetaModelPickerKey, choice.RequiresMetaModel)
-        this.set_property_value(NewProjectDialogModel.ShowLibrariesPickerKey, choice.OffersLibraries)
-        if (choice.RequiresMetaModel && this.MetaModels.Count === 0)
-            this.set_property_value(NewProjectDialogModel.ErrorKey, 'Publish a meta-model first.')
+        this.rebuildReferences(choice)
+        if (choice.RequiresMetaModel && this.metaModelRefs.length === 0)
+            this.set_property_value(NewProjectDialogModel.ErrorKey, NewProjectDialogModel.NoMetaModelsError)
         else
             this.set_property_value(NewProjectDialogModel.ErrorKey, '')
         this.recompute()
+    }
+
+    // Mint fresh (unchecked) group + leaf nodes for the selected type, wiring each
+    // leaf's check to CanConfirm. A meta-model-requiring type gets the Meta-models
+    // group; an OffersLibraries type gets the Libraries group.
+    private rebuildReferences(choice: ProjectTypeChoice): void
+    {
+        this.metaGroup = choice.RequiresMetaModel
+            ? this.buildGroup(NewProjectDialogModel.MetaModelsGroupLabel, this.metaModelRefs)
+            : undefined
+        this.libGroup = choice.OffersLibraries
+            ? this.buildGroup(NewProjectDialogModel.LibrariesGroupLabel, this.libraryRefs)
+            : undefined
+        const roots = this.Roots
+        roots.Clear()
+        if (this.metaGroup !== undefined) roots.Add(this.metaGroup)
+        if (this.libGroup !== undefined) roots.Add(this.libGroup)
+        this.set_property_value(NewProjectDialogModel.ShowReferencesKey, roots.Count > 0)
+    }
+
+    private buildGroup(label: string, refs: readonly BaseRef[]): ReferenceNode
+    {
+        const leaves = refs.map((r) => ReferenceNode.leaf(r, false))
+        for (const leaf of leaves)
+            leaf.PropertyChanged(ReferenceNode.IsSelectedKey).subscribe(() => this.recompute())
+        return ReferenceNode.group(label, leaves)
     }
 
     private async browse(): Promise<void>
@@ -214,17 +206,15 @@ export class NewProjectDialogModel extends MuralBase
     private async confirm(): Promise<void>
     {
         if (!this.CanConfirm || this.SelectedType === undefined) return
+        const type = this.SelectedType
         const result: NewProjectResult = {
-            type: this.SelectedType.Type,
+            type: type.Type,
             name: this.Name.trim(),
             location: this.Location,
-            // Only a meta-model-requiring type carries a binding. The picker is
-            // single-select, so the chosen ref is emitted as a one-element array.
-            ...(this.ShowMetaModelPicker && this.SelectedMetaModel !== undefined
-                ? { metaModels: [this.SelectedMetaModel.Ref] }
-                : {}),
+            // A meta-model-requiring type carries the (≥1) checked meta-models.
+            ...(type.RequiresMetaModel ? { metaModels: this.SelectedMetaModels } : {}),
             // An OffersLibraries type carries the (possibly empty) checked set.
-            ...(this.ShowLibrariesPicker ? { libraries: this.SelectedLibraries } : {}),
+            ...(type.OffersLibraries ? { libraries: this.SelectedLibraries } : {}),
         }
         const error = await this.validate(result)
         if (error !== null) { this.set_property_value(NewProjectDialogModel.ErrorKey, error); return }
@@ -233,8 +223,8 @@ export class NewProjectDialogModel extends MuralBase
 
     private recompute(): void
     {
-        // A meta-model-requiring type also needs a chosen meta-model before confirm.
-        const metaOk = !this.ShowMetaModelPicker || this.SelectedMetaModel !== undefined
+        // A meta-model-requiring type also needs at least one checked meta-model.
+        const metaOk = this.SelectedType?.RequiresMetaModel !== true || this.SelectedMetaModels.length > 0
         const ok = this.SelectedType !== undefined
             && this.Name.trim().length > 0
             && this.Location.length > 0
