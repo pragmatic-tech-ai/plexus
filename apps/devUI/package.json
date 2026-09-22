@@ -20,7 +20,7 @@
   "dependencies": {
     "@pragmatic-tech-ai/mural": "^0.55.18",
     "@pragmatic-tech-ai/plexus-core": "*",
-    "@pragmatic-tech-ai/todl": "^0.35.0",
+    "@pragmatic-tech-ai/todl": "^0.36.0",
     "@pragmatic-tech-ai/todl-runtime": "^0.5.7",
     "electron-updater": "^6.8.9",
     "monaco-editor": "^0.52.0",
