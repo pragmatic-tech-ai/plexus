@@ -8,7 +8,7 @@ import { PackageStoreKey } from '@pragmatic-tech-ai/todl'
 import { MetaModelProjectFactory } from '../meta-model-project-factory.js'
 import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { PlexusPackageStore } from '../../../../services/projects/storage-service-backends.js'
-import { MuralPresentationBaker } from '../../../../services/projects/mural-presentation-baker.js'
+import { ComposedPackageBuild } from '../../../../services/projects/tests/composed-package-build.js'
 import { loadMetaModelManifest } from '../meta-model-manifest-loader.js'
 
 function factory(): MetaModelProjectFactory
@@ -28,7 +28,6 @@ function publishEnv(): { provider: ServiceProvider; dest: FakeStorage }
     registry.Register(PACKAGES_BACKEND_ID, () => dest)
     provider.registerInstance(StorageService.Key, registry)
     provider.registerInstance(PackageStoreKey, new PlexusPackageStore(provider))
-    provider.registerInstance(MuralPresentationBaker.Key, new MuralPresentationBaker(provider))
     return { provider, dest }
 }
 
@@ -118,41 +117,25 @@ test('openProject tags .todl nodes openable and hides the manifest', async () =>
     expect(readme.Kind).toBe('file')
 })
 
-test('publish writes compiled model + sources for a clean project', async () => {
-    const storage = new FakeStorage('fake://Acme')
-    const f = factory()
-    await f.createProject(storage, 'Acme')
-    await storage.WriteText('concepts.todl', CONCEPTS)
-
+// Builds the meta-model in `storage` with the TODL npm-package build exactly as Plexus
+// composes it, then places the package output into the packages backend under
+// <id>/<version>/ — where Plexus's bundle.json loader reads it.
+async function buildInto(storage: FakeStorage, id: string, version: string)
+{
     const { provider, dest } = publishEnv()
-    const project = await f.openProject(storage)
-    const result = await f.publish(project, storage, provider)
+    const result = await new ComposedPackageBuild(provider).Build(storage, new PlexusPackageStore(provider))
+    if (result.Ok) await ComposedPackageBuild.PlaceInto(result.Output, dest, id, version)
+    return { result, dest }
+}
 
-    expect(result.ok).toBe(true)
-    expect(await dest.Exists('acme/0.1.0/model.json')).toBe(true)
-    const doc = JSON.parse(await dest.ReadText('acme/0.1.0/model.json'))
-    expect(Array.isArray(doc.nodes)).toBe(true)
-    const ids = new Set((doc.nodes as { id: string }[]).map((n) => n.id))
-    // Own-only: the meta-model's own concepts are present; the prelude is not
-    // copied in, and there are no dependencies (a meta-model binds nothing).
-    expect(ids.has('component')).toBe(true)
-    expect(ids.has('identifier')).toBe(false)
-    expect(doc.dependencies).toBeUndefined()
-    expect(await dest.Exists('acme/0.1.0/src/concepts.todl')).toBe(true)
-})
-
-test('publish writes a bundle.json with identity + package annotations', async () => {
+test('the composed build emits a bundle.json Plexus reads with identity + package annotations', async () => {
     const storage = new FakeStorage('fake://Acme')
     const f = factory()
     await f.createProject(storage, 'Acme')
     await storage.WriteText('defs.todl', PKG_ANN)
 
-    const { provider, dest } = publishEnv()
-    const project = await f.openProject(storage)
-    const result = await f.publish(project, storage, provider)
-
-    expect(result.ok).toBe(true)
-    expect(await dest.Exists('acme/0.1.0/bundle.json')).toBe(true)
+    const { result, dest } = await buildInto(storage, 'acme', '0.1.0')
+    expect(result.Ok, JSON.stringify(result.Diagnostics)).toBe(true)
 
     const m = await loadMetaModelManifest(dest, 'acme', '0.1.0')
     expect(m.id).toBe('acme')
@@ -162,72 +145,30 @@ test('publish writes a bundle.json with identity + package annotations', async (
     expect(m.problems).toEqual([])
 })
 
-test('publish writes a manifest with empty annotations for a package-less model', async () => {
+test('the composed build emits empty bundle annotations for a package-less model', async () => {
     const storage = new FakeStorage('fake://Acme')
     const f = factory()
     await f.createProject(storage, 'Acme')
     await storage.WriteText('concepts.todl', CONCEPTS)   // plain concepts, no package block
 
-    const { provider, dest } = publishEnv()
-    const project = await f.openProject(storage)
-    await f.publish(project, storage, provider)
+    const { result, dest } = await buildInto(storage, 'acme', '0.1.0')
+    expect(result.Ok, JSON.stringify(result.Diagnostics)).toBe(true)
 
     const m = await loadMetaModelManifest(dest, 'acme', '0.1.0')
     expect(m.annotations).toEqual({})
     expect(m.problems).toEqual([])
 })
 
-test('publish is blocked and writes nothing when a source has an error', async () => {
+test('the composed build fails and promotes nothing when a source has an error', async () => {
     const storage = new FakeStorage('fake://Acme')
     const f = factory()
     await f.createProject(storage, 'Acme')
     await storage.WriteText('bad.todl', BAD)
 
-    const { provider, dest } = publishEnv()
-    const project = await f.openProject(storage)
-    const result = await f.publish(project, storage, provider)
-
-    expect(result.ok).toBe(false)
-    expect(result.message).toMatch(/error/i)
-    expect(dest.size).toBe(0)                           // nothing written
-})
-
-test('publish also (re)writes presentation.generated.mu into the project', async () => {
-    const storage = new FakeStorage('fake://Acme')
-    const f = factory()
-    await f.createProject(storage, 'Acme')
-    await storage.WriteText('concepts.todl', CONCEPTS)
-
     const { provider } = publishEnv()
-    const project = await f.openProject(storage)
-    const result = await f.publish(project, storage, provider)
+    const result = await new ComposedPackageBuild(provider).Build(storage, new PlexusPackageStore(provider))
 
-    expect(result.ok).toBe(true)
-    expect(await storage.Exists('presentation.generated.mu')).toBe(true)
-    expect(await storage.ReadText('presentation.generated.mu')).not.toContain('merge ')
-    // No template scaffolding — assets-only presentation.
-    expect(await storage.Exists('presentation/templates.mu')).toBe(false)
-})
-
-test('publish ships the presentation payload into the backend', async () => {
-    const storage = new FakeStorage('fake://Acme')
-    const f = factory()
-    await f.createProject(storage, 'Acme')
-    await storage.WriteText('concepts.todl', CONCEPTS)
-    // an author override dictionary under presentation/
-    await storage.WriteText('presentation/custom.mu', 'resources MetaModelPresentationCustom { }')
-
-    const { provider, dest } = publishEnv()
-    const project = await f.openProject(storage)
-    const result = await f.publish(project, storage, provider)
-
-    expect(result.ok).toBe(true)
-    // Compiled presentation shipped to the backend (self-contained, no raw .mu).
-    expect(await dest.Exists('acme/0.1.0/presentation/presentation.compiled.json')).toBe(true)
-    expect(await dest.Exists('acme/0.1.0/presentation/presentation.generated.mu')).toBe(false)
-    // Result message reports the presentation counts.
-    expect(result.message).toMatch(/presentation:/)
-    // Existing contract intact.
-    expect(await dest.Exists('acme/0.1.0/model.json')).toBe(true)
-    expect(await dest.Exists('acme/0.1.0/src/concepts.todl')).toBe(true)
+    expect(result.Ok).toBe(false)
+    expect(result.Diagnostics.some((d) => /expected/i.test(d.message))).toBe(true)
+    expect(await result.Output.Exists('model.json')).toBe(false)   // nothing promoted
 })

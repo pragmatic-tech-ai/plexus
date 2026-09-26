@@ -8,25 +8,24 @@
 // it (validated live), and publish the compiled model + sources into the
 // meta-models storage backend.
 //
-// `.services:` registers the panel service + the `.todl` doc factory + the producer
-// seams; the Capability names the panel service via `ServiceKey`. The "meta-model"
+// `.services:` registers the panel service + the `.todl` doc factory + the package
+// store seam; the Capability names the panel service via `ServiceKey`. The "meta-model"
 // project TYPE (MetaModelProjectFactory) now lives in TODL's project-system module
 // (TodlProjectSystemModule) — this module keeps only its shell contributions.
 
 import MetaModelsService from "./services/meta-models-service.js"
 import TodlDocumentFactory from "./services/todl-document-factory.js"
-import MuralPresentationBaker from "../../services/projects/mural-presentation-baker.js"
 import PlexusPackageStore from "../../services/projects/storage-service-backends.js"
 
 shell module MetaModelModule [ Name = "Meta-model" ] {
     .services: {
         MetaModelsService
         TodlDocumentFactory
-        // The producer seams the relocated (todl) meta-model + library factories
-        // resolve at publish time — the mural-compiler presentation baker and the
-        // single StorageService-backed package store. Registered here (app-global DI)
-        // so both producer factories find them under todl's ServiceKeys.
-        MuralPresentationBaker
+        // The producer seam the relocated (todl) meta-model + library factories
+        // resolve at publish time — the single StorageService-backed package store,
+        // registered here (app-global DI) under todl's PackageStoreKey. Presentation
+        // baking is TODL's own: TodlProjectSystemModule registers the default baker
+        // under PresentationBakerKey and the composed build resolves it at bake time.
         PlexusPackageStore
     }
 

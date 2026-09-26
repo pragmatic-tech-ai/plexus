@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { publishPresentation } from '../presentation-publisher.js'
+import { ComposedPresentationBake } from '../../../../services/projects/tests/composed-presentation-bake.js'
 import { loadCompiledPresentation } from '../compiled-presentation.js'
 
 const DOC: TodlDocument = {
@@ -22,7 +22,7 @@ test('the baked colored icon resolves standalone from the assets artifact', asyn
     const project = new FakeStorage('fake://proj')
     await project.WriteText('resources/actor.svg', '<svg viewBox="0 0 16 16"><path d="M2 2 L14 2 L14 14 Z"/></svg>')
     const backend = new FakeStorage('fake://meta-models')
-    expect((await publishPresentation(project, backend, 'x/1.0.0', DOC)).ok).toBe(true)
+    expect((await ComposedPresentationBake.MetaModel(project, backend, 'x/1.0.0', DOC)).ok).toBe(true)
     expect(await backend.Exists('x/1.0.0/presentation/resources/actor.svg')).toBe(false)   // baked, not a file
 
     const dict = await loadCompiledPresentation(backend, 'x/1.0.0')

@@ -1,9 +1,8 @@
-import type { TodlDocument, JsonNode } from '@pragmatic-tech-ai/todl'
+import { PresentationResourceEmitter, OntologyKind, type TodlDocument, type JsonNode } from '@pragmatic-tech-ai/todl'
 import { RelayCommand } from '@pragmatic-tech-ai/mural/runtime'
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MetaModelTreeNode, MetaModelNodeKind, type EntityRef } from './meta-model-tree-node.js'
-import { ontologyEntities, humanize, OntologyKind } from './presentation-generator.js'
 
 // A term is a taxonomy's `Contains` target that is a class node.
 const CONTAINS = 'Contains'
@@ -117,7 +116,7 @@ export async function loadVersionEntities(
     try { doc = JSON.parse(await storage.ReadText(`${id}/${version}/model.json`)) as TodlDocument }
     catch { return [MetaModelTreeNode.leaf(MetaModelNodeKind.Entity, 'Failed to load model.json')] }
 
-    const entities = ontologyEntities(doc)
+    const entities = PresentationResourceEmitter.OntologyEntities(doc)
     if (entities.length === 0) return [MetaModelTreeNode.leaf(MetaModelNodeKind.Entity, 'No entities')]
 
     // Every entity/term row built for this version, flagged for wiki after the
@@ -154,8 +153,8 @@ export async function loadVersionEntities(
     return out
 }
 
-// An entity's row label: attrs.label when a string, else humanize(id).
+// An entity's row label: attrs.label when a string, else Humanize(id).
 function entityLabel(n: JsonNode): string
 {
-    return typeof n.attrs['label'] === 'string' ? String(n.attrs['label']) : humanize(n.id)
+    return typeof n.attrs['label'] === 'string' ? String(n.attrs['label']) : PresentationResourceEmitter.Humanize(n.id)
 }

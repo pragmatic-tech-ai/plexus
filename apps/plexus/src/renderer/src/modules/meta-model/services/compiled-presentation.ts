@@ -9,7 +9,7 @@ import * as MuralEngine from '@pragmatic-tech-ai/mural/visual-engine'
 import { ResourceDictionary } from '@pragmatic-tech-ai/mural/runtime'
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import type { CompiledPresentation } from './presentation-publisher.js'
+import type { CompiledPresentation } from '@pragmatic-tech-ai/todl'
 
 const COMPILED = 'presentation/presentation.compiled.json'
 

@@ -6,6 +6,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PACKAGES_BACKEND_ID, ensurePackagesBackend } from '../../../../services/projects/packages-backend.js'
 import { discoverLibraries } from '../library-loader.js'
 import { LibraryPresentationSource } from '../library-presentation-source.js'
+import { ComposedPresentationBake } from '../../../../services/projects/tests/composed-presentation-bake.js'
 
 // Wire a provider around a pre-populated backend.
 function envWith(backend: FakeStorage): ServiceProvider
@@ -41,8 +42,7 @@ async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
         : { nodes: [
             { id: 'microsoft.azure', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'azure', attrs: { label: 'Azure' } },
           ], edges: [] } as any
-    const { publishLibraryPresentation } = await import('../library-presentation-publisher.js')
-    await publishLibraryPresentation(proj, backend, 'microsoft/0.1.0', doc)
+    await ComposedPresentationBake.Library(proj, backend, 'microsoft/0.1.0', doc)
     void backend.WriteText('microsoft/0.1.0/bundle.json', iconManifest(withIcon ? 'resources/azure.svg' : undefined))
 }
 

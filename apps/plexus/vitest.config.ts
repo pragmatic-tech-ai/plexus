@@ -38,6 +38,12 @@ const ALIASES = [
     { find: /^@pragmatic-tech-ai\/todl-runtime$/, replacement: `${TODL_RT}/dist/index.js` },
     { find: /^@pragmatic-tech-ai\/todl-runtime\/(.*)$/, replacement: `${TODL_RT}/dist/$1` },
     { find: /^@pragmatic-tech-ai\/todl$/, replacement: `${TODL}/dist/index.js` },
+    // todl subpath barrels (the composed-build test driver reaches the build manager
+    // through them). Same reason as the root: the packed todl ships no src/, so the
+    // `development` export condition would dead-end.
+    { find: /^@pragmatic-tech-ai\/todl\/build-system-core$/, replacement: `${TODL}/dist/solution-services/build-system-core/index.js` },
+    { find: /^@pragmatic-tech-ai\/todl\/todl-build-system$/, replacement: `${TODL}/dist/solution-services/todl-build-system/index.js` },
+    { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/solution-services/package-manager/index.js` },
 ]
 
 export default defineConfig({

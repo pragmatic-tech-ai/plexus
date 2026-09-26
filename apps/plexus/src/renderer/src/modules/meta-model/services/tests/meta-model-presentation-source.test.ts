@@ -6,6 +6,7 @@ import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { MetaModelPresentationSource } from '../meta-model-presentation-source.js'
+import { ComposedPresentationBake } from '../../../../services/projects/tests/composed-presentation-bake.js'
 
 const SVG = '<svg viewBox="0 0 16 16"><path d="M2 2 L14 2 L14 14 Z"/></svg>'
 
@@ -32,8 +33,7 @@ async function bakePresentation(backend: FakeStorage, id: string, version: strin
 {
     const project = new FakeStorage('fake://proj')
     await project.WriteText('resources/app.svg', SVG)
-    const { publishPresentation } = await import('../presentation-publisher.js')
-    const res = await publishPresentation(project, backend, `${id}/${version}`, DOC)
+    const res = await ComposedPresentationBake.MetaModel(project, backend, `${id}/${version}`, DOC)
     expect(res.ok).toBe(true)
     // The meta-model discriminator: scanPublishedModels lists only versions whose
     // bundle.json declares type 'meta-model' under the shared packages root.

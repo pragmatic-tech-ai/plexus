@@ -5,9 +5,8 @@
 // visible : boolean; }`): a taxonomy appears ONLY if it carries
 // `annotate toolbox { visible = true }`; a term is shown UNLESS it carries
 // `annotate toolbox { visible = false }`.
-import { projectAnnotations, type TodlDocument, type JsonNode } from '@pragmatic-tech-ai/todl'
+import { projectAnnotations, PresentationResourceEmitter, type TodlDocument, type JsonNode } from '@pragmatic-tech-ai/todl'
 
-import { resolveFacets } from './presentation-generator.js'
 import { termsOf } from './meta-model-tree-builder.js'
 
 // One draggable term on a toolbox page. `concept` is what the drop resolver keys
@@ -39,12 +38,12 @@ export function projectToolbox(doc: TodlDocument): ToolboxTaxonomy[]
     {
         if (n.tier !== 'Ontology' || n.metaKind !== 'taxonomy') continue
         if (toolboxVisible(doc, n.id) !== true) continue                   // taxonomy: opt-in
-        const facets = resolveFacets(n, projectAnnotations(doc, n.id))
+        const facets = PresentationResourceEmitter.ResolveFacets(n, projectAnnotations(doc, n.id))
         const terms: ToolboxTermRef[] = []
         for (const t of termsOf(doc, n.id))
         {
             if (toolboxVisible(doc, t.id) === false) continue              // term: opt-out
-            const f = resolveFacets(t, projectAnnotations(doc, t.id))
+            const f = PresentationResourceEmitter.ResolveFacets(t, projectAnnotations(doc, t.id))
             terms.push({ id: t.id, label: f.label, icon: f.icon, concept: conceptOf(t) })
         }
         out.push({ id: n.id, label: facets.label, terms })

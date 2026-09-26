@@ -8,7 +8,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PackageStoreKey } from '@pragmatic-tech-ai/todl'
 import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { PlexusPackageStore } from '../../../../services/projects/storage-service-backends.js'
-import { MuralPresentationBaker } from '../../../../services/projects/mural-presentation-baker.js'
+import { ComposedPackageBuild } from '../../../../services/projects/tests/composed-package-build.js'
 import { LibraryProjectFactory } from '../library-project-factory.js'
 
 function factory(): LibraryProjectFactory { return new LibraryProjectFactory(new ServiceProvider()) }
@@ -26,7 +26,6 @@ function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: Fak
   registry.Register(PACKAGES_BACKEND_ID, () => packages)
   provider.registerInstance(StorageService.Key, registry)
   provider.registerInstance(PackageStoreKey, new PlexusPackageStore(provider))
-  provider.registerInstance(MuralPresentationBaker.Key, new MuralPresentationBaker(provider))
   return { provider, meta: packages, libs: packages }
 }
 async function seedMeta(meta: FakeStorage): Promise<void>
@@ -75,17 +74,23 @@ test('requiresMetaModel is true', () => {
   expect(factory().requiresMetaModel).toBe(true)
 })
 
-test('publish validates against the bound meta-model and writes the compiled library', async () => {
+// Builds the library in `storage` with the TODL npm-package build exactly as Plexus
+// composes it, resolving the bound meta-model through the app's PlexusPackageStore.
+async function buildComposed(storage: FakeStorage, provider: ServiceProvider)
+{
+  return new ComposedPackageBuild(provider).Build(storage, new PlexusPackageStore(provider))
+}
+
+test('the composed build validates against the bound meta-model (via PlexusPackageStore) and emits the own-only library', async () => {
   const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
+  await factory().createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
-  const { provider, meta, libs } = publishEnv()
+  const { provider, meta } = publishEnv()
   await seedMeta(meta)
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-  expect(result.ok).toBe(true)
-  expect(await libs.Exists('microsoft/0.1.0/model.json')).toBe(true)
-  const doc = JSON.parse(await libs.ReadText('microsoft/0.1.0/model.json'))
+
+  const result = await buildComposed(storage, provider)
+  expect(result.Ok, JSON.stringify(result.Diagnostics)).toBe(true)
+  const doc = JSON.parse(await result.Output.ReadText('model.json'))
   const ids = new Set((doc.nodes as { id: string }[]).map((n) => n.id))
   // Own-only: the library's own taxonomy terms are present; the base meta-model's
   // concepts and the prelude are NOT copied in.
@@ -94,159 +99,52 @@ test('publish validates against the bound meta-model and writes the compiled lib
   expect(ids.has('identifier')).toBe(false)
   // The bound meta-model is recorded as a dependency (exact version).
   expect(doc.dependencies).toContainEqual({ kind: 'meta-model', id: 'ea', version: '5' })
-  expect(await libs.Exists('microsoft/0.1.0/src/microsoft.todl')).toBe(true)
 })
 
-test('publish copies the resources/ folder into the bundle', async () => {
+test('the composed build fails when the bound meta-model is not published', async () => {
   const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
+  await factory().createProject(storage, 'microsoft', { metaModels: [{ id: 'ghost', version: '1' }] })
   await storage.WriteText('microsoft.todl', LIB)
-  await storage.WriteText('resources/azure.svg', '<svg viewBox="0 0 10 10"><path d="M0 0 L10 0 L10 10 Z"/></svg>')
-  const { provider, meta, libs } = publishEnv()
-  await seedMeta(meta)
+  const { provider } = publishEnv()
 
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-  expect(result.ok).toBe(true)
-  expect(await libs.Exists('microsoft/0.1.0/resources/azure.svg')).toBe(true)
-})
-
-test('publish bundles the wiki/ pages alongside the package', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  await storage.WriteText('microsoft.todl', LIB)
-  await storage.WriteText('wiki/service.md', '# Service\n\nThe service page.')
-  const { provider, meta, libs } = publishEnv()
-  await seedMeta(meta)
-
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-  expect(result.ok).toBe(true)
-  // A consumer resolves `annotate wiki { path = "wiki/service.md" }` against
-  // <id>/<version>/ in the backend — the page ships there.
-  expect(await libs.Exists('microsoft/0.1.0/wiki/service.md')).toBe(true)
-})
-
-test('publish is blocked when the bound meta-model is not published', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ghost', version: '1' }] })
-  await storage.WriteText('microsoft.todl', LIB)
-  const { provider, libs } = publishEnv()
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-  expect(result.ok).toBe(false)
-  expect(libs.size).toBe(0)
-})
-
-test('publish writes bundle.json with the derived classes + resource paths, and copies the folders', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  await storage.WriteText('microsoft.todl', LIB)
-  await storage.WriteText('visuals/Microsoft.Azure.mural', '<template/>')
-  await storage.WriteText('thumbnails/Microsoft.Azure.png', 'PNGBYTES')
-  await storage.WriteText('docs/Microsoft.Azure.md', '# Azure')
-  await storage.WriteText('assets/logo.svg', '<svg/>')
-  await storage.WriteText('samples/demo.todl', 'sample instance')
-
-  const { provider, meta, libs } = publishEnv()
-  await seedMeta(meta)
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-
-  expect(result.ok).toBe(true)
-
-  const bundle = JSON.parse(await libs.ReadText('microsoft/0.1.0/bundle.json'))
-  expect(bundle.id).toBe('microsoft')
-  expect(bundle.version).toBe('0.1.0')
-  expect(bundle.metaModels).toEqual([{ id: 'ea', version: '5' }])
-  expect(bundle.classes.map((c: { id: string }) => c.id).sort())
-      .toEqual(['Microsoft.Azure', 'Microsoft.AzureOpenai'])
-  const azure = bundle.classes.find((c: { id: string }) => c.id === 'Microsoft.Azure')
-  expect(azure).toMatchObject({
-      localId: 'Azure', label: 'Azure', concept: 'Location',
-      template: 'visuals/Microsoft.Azure.mural',
-      thumbnail: 'thumbnails/Microsoft.Azure.png',
-      doc: 'docs/Microsoft.Azure.md',
-  })
-  expect(bundle.assets).toEqual(['assets/logo.svg'])
-  expect(bundle.samples).toEqual(['samples/demo.todl'])
-
-  // Resource folders copied into the bundle.
-  expect(await libs.Exists('microsoft/0.1.0/visuals/Microsoft.Azure.mural')).toBe(true)
-  expect(await libs.Exists('microsoft/0.1.0/assets/logo.svg')).toBe(true)
-  expect(await libs.Exists('microsoft/0.1.0/samples/demo.todl')).toBe(true)
+  const result = await buildComposed(storage, provider)
+  expect(result.Ok).toBe(false)
+  expect(await result.Output.Exists('model.json')).toBe(false)   // nothing promoted
 })
 
 test('samples/*.todl is excluded from the compiled model', async () => {
   const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
+  await factory().createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl', LIB)
   await storage.WriteText('samples/demo.todl', 'namespace boom { this is not valid todl }')
-
-  const { provider, meta, libs } = publishEnv()
-  await seedMeta(meta)
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-
-  // Would fail to compile if samples/ were included; it is excluded, so publish succeeds.
-  expect(result.ok).toBe(true)
-  // The invalid sample is still copied verbatim into the bundle (as a resource).
-  expect(await libs.Exists('microsoft/0.1.0/samples/demo.todl')).toBe(true)
-})
-
-test('an orphan visual is a non-blocking warning', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const f = factory()
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  await storage.WriteText('microsoft.todl', LIB)
-  await storage.WriteText('visuals/ghost.mural', '<template/>')
-
   const { provider, meta } = publishEnv()
   await seedMeta(meta)
-  const result = await f.publish(await f.openProject(storage), storage, provider)
 
-  expect(result.ok).toBe(true)
-  expect(result.message).toContain('warning')
+  const result = await buildComposed(storage, provider)
+  // Would fail to compile if samples/ were included; it is excluded, so the build succeeds.
+  expect(result.Ok, JSON.stringify(result.Diagnostics)).toBe(true)
 })
 
-// A factory on the publishEnv provider (resolves the bound meta-model at publish).
-function factoryWith(provider: ServiceProvider): LibraryProjectFactory { return new LibraryProjectFactory(provider) }
-
-test('publish bakes presentation.compiled.json into the bundle and refreshes the project file', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const { provider, meta, libs } = publishEnv()
-  await seedMeta(meta)
-  const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  await storage.WriteText('microsoft.todl', LIB)
-
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-  expect(result.ok).toBe(true)
-  expect(await libs.Exists('microsoft/0.1.0/presentation/presentation.compiled.json')).toBe(true)
-  expect(await storage.Exists('presentation.generated.mu')).toBe(true)   // project file refreshed
-  expect(result.message).toMatch(/presentation:/)
-})
-
-// A meta-model whose `location` concept declares an `icon` field, so a taxonomy
-// term can carry an icon path — used to exercise the missing-icon publish block.
-const META_ICON = 'namespace ea { concept location { label : string; icon : string; } concept technology { label : string; } }'
+// A meta-model whose `location` concept a taxonomy term can be a class of, so the
+// library can declare an iconful class.
+const META_ICON = 'namespace ea { concept location { label : string; } concept technology { label : string; } }'
 async function seedMetaIcon(meta: FakeStorage): Promise<void>
 {
   await meta.WriteText('ea/5/model.json', JSON.stringify(toJSON(check([{ uri: 'm.todl', text: META_ICON }]).model)))
 }
 
-test('publish blocks when a class references an icon with no project file', async () => {
+test('the composed build bakes presentation through the TODL default baker (PresentationBakerKey)', async () => {
   const storage = new FakeStorage('fake://Acme')
-  const { provider, meta, libs } = publishEnv()
-  await seedMetaIcon(meta)
-  const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  // a class carrying an icon path, but the SVG file is never written to the project
+  await factory().createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
   await storage.WriteText('microsoft.todl',
     'namespace lib { import ea; taxonomy microsoft : represents location { location azure { label = "Azure"; annotate icon { path = "resources/azure.svg"; } } } }')
+  await storage.WriteText('resources/azure.svg', '<svg viewBox="0 0 10 10"><path d="M0 0 L10 0 L10 10 Z"/></svg>')
+  const { provider, meta } = publishEnv()
+  await seedMetaIcon(meta)
 
-  const result = await f.publish(await f.openProject(storage), storage, provider)
-  expect(result.ok).toBe(false)
-  expect(result.message).toMatch(/icon/i)
-  expect(await libs.Exists('microsoft/0.1.0/model.json')).toBe(false)   // nothing written
+  const result = await buildComposed(storage, provider)
+  expect(result.Ok, JSON.stringify(result.Diagnostics)).toBe(true)
+  expect(await result.Output.Exists('presentation/presentation.compiled.json')).toBe(true)
+  const index = JSON.parse(await result.Output.ReadText('presentation/icon-index.json')) as Record<string, string>
+  expect(Object.values(index)).toContain('mm_icon_azure')
 })

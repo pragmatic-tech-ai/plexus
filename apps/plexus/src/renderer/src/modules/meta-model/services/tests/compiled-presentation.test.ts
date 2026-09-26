@@ -3,7 +3,7 @@ import { ResourceDictionary } from '@pragmatic-tech-ai/mural/runtime'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
-import { publishPresentation } from '../presentation-publisher.js'
+import { ComposedPresentationBake } from '../../../../services/projects/tests/composed-presentation-bake.js'
 import { loadCompiledPresentation } from '../compiled-presentation.js'
 
 const SVG = '<svg viewBox="0 0 16 16"><path d="M2 2 L14 2 L14 14 Z"/></svg>'
@@ -16,14 +16,14 @@ const DOC: TodlDocument = {
     edges: [{ kind: 'Annotated', via: null, from: 'application', to: 'application@icon' }],
 } as unknown as TodlDocument
 
-// Bake a compiled presentation artifact into a FakeStorage via the real publisher
-// so the artifact format is always in sync.
+// Bake a compiled presentation artifact into a FakeStorage via the composed TODL
+// baker so the artifact format is always in sync.
 async function bakePresentation(): Promise<FakeStorage>
 {
     const project = new FakeStorage('fake://proj')
     await project.WriteText('resources/app.svg', SVG)
     const backend = new FakeStorage('fake://backend')
-    const res = await publishPresentation(project, backend, 'ea/1.0.0', DOC)
+    const res = await ComposedPresentationBake.MetaModel(project, backend, 'ea/1.0.0', DOC)
     expect(res.ok).toBe(true)
     return backend
 }
