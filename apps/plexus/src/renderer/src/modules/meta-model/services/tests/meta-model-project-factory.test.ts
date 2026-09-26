@@ -16,14 +16,6 @@ function factory(): MetaModelProjectFactory
     return new MetaModelProjectFactory(new ServiceProvider())
 }
 
-// A factory built on a full publish-capable provider — regeneratePresentation now
-// resolves the project's (unified meta-model + library) bases through the package
-// store, so it needs PackageStoreKey + the baker registered.
-function factoryWith(provider: ServiceProvider): MetaModelProjectFactory
-{
-    return new MetaModelProjectFactory(provider)
-}
-
 // A provider whose single packages backend resolves to an inspectable FakeStorage
 // (pre-registered, so ensurePackagesBackend's Has-check finds it), with the app's
 // PlexusPackageStore registered under PackageStoreKey — the seam the todl factory
@@ -198,35 +190,6 @@ test('publish is blocked and writes nothing when a source has an error', async (
     expect(result.ok).toBe(false)
     expect(result.message).toMatch(/error/i)
     expect(dest.size).toBe(0)                           // nothing written
-})
-
-test('regeneratePresentation writes an assets dict merging author + scaffolded stubs', async () => {
-    const storage = new FakeStorage('fake://Acme')
-    const { provider } = publishEnv()
-    const f = factoryWith(provider)
-    await f.createProject(storage, 'Acme')
-    await storage.WriteText('concepts.todl', CONCEPTS)
-    // an author override dictionary under presentation/
-    await storage.WriteText('presentation/custom.mu', 'resources MetaModelPresentationCustom { }')
-
-    await f.regeneratePresentation(storage, true)
-
-    const out = await storage.ReadText('presentation.generated.mu')
-    expect(out).toContain('resources MetaModelPresentation {')
-    expect(out).not.toContain('DataTemplate')  // assets dict only — no per-entity templates
-    expect(out).not.toContain('merge ')
-    // No template scaffolding: every entity renders through Plexus's one default template.
-    expect(await storage.Exists('presentation/templates.mu')).toBe(false)
-})
-
-test('regeneratePresentation is a no-op when the project has no .todl sources', async () => {
-    const storage = new FakeStorage('fake://Empty')
-    const f = factory()
-    await f.createProject(storage, 'Empty')
-
-    await f.regeneratePresentation(storage, true)
-
-    expect(await storage.Exists('presentation.generated.mu')).toBe(false)
 })
 
 test('publish also (re)writes presentation.generated.mu into the project', async () => {

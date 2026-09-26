@@ -1,6 +1,7 @@
-import { toElement, type Element, type Entity, type ToElementOptions } from '@pragmatic-tech-ai/todl'
+import type { Entity } from '@pragmatic-tech-ai/todl'
 import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { resolveElementPresentation } from './element-presentation.js'
+import { ElementProjection, type Element, type ToElementOptions } from './element-projection.js'
 import type { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
 import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 
@@ -32,8 +33,9 @@ export function selectionToElements(
         presentation: (e, def) => resolveElementPresentation(repo, registry, e, def),
         homeOf: (id) => model.homeOf(id),
     }
+    const projection = new ElementProjection(repo, opts)
     return ids
         .map((id) => byId.get(id))
         .filter((e): e is Entity => e !== undefined)
-        .map((e) => toElement(repo, e, opts))
+        .map((e) => projection.Project(e))
 }

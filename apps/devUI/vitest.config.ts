@@ -64,6 +64,19 @@ export default defineConfig({
     // through the dist aliases above -> the single root mural dist. mural itself and
     // the rest of todl stay external (transforming mural breaks its circular init;
     // build-system-core is mural-free).
-    server: { deps: { inline: [/@pragmatic-tech-ai\/fresco/, /@pragmatic-tech-ai\/todl\/dist\/solution-services\/todl-build-system\//] } },
+    // todl's project-services joins them: todl-build-system-registry.js imports
+    // ../project-services/core/default-presentation-baker.js -> presentation-bake.js,
+    // which imports `@pragmatic-tech-ai/mural/compiler`. That relative edge leaves the
+    // inlined todl-build-system subtree, so without this rule Node resolves the mural
+    // import natively (vitest injects `--conditions development`) -> mural/src/compiler.
+    server: {
+      deps: {
+        inline: [
+          /@pragmatic-tech-ai\/fresco/,
+          /@pragmatic-tech-ai\/todl\/dist\/solution-services\/todl-build-system\//,
+          /@pragmatic-tech-ai\/todl\/dist\/solution-services\/project-services\//,
+        ],
+      },
+    },
   },
 });

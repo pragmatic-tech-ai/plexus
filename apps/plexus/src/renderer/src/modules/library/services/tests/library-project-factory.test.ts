@@ -209,54 +209,8 @@ test('an orphan visual is a non-blocking warning', async () => {
   expect(result.message).toContain('warning')
 })
 
-// ── presentation generation ───────────────────────────────────────────────────
-// regeneratePresentation resolves the bound meta-model, so it needs the publishEnv
-// provider + a seeded meta-model. `factoryWith(provider)` builds a factory on it.
+// A factory on the publishEnv provider (resolves the bound meta-model at publish).
 function factoryWith(provider: ServiceProvider): LibraryProjectFactory { return new LibraryProjectFactory(provider) }
-
-test('regeneratePresentation writes presentation.generated.mu with a template per class + author merge', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const { provider, meta } = publishEnv()
-  await seedMeta(meta)
-  const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  await storage.WriteText('microsoft.todl', LIB)
-  await storage.WriteText('presentation/custom.mu', 'resources LibraryPresentationCustom { }')
-
-  await f.regeneratePresentation(storage, true)
-
-  const out = await storage.ReadText('presentation.generated.mu')
-  expect(out).toContain('resources LibraryPresentation {')
-  expect(out).not.toContain('DataTemplate')  // assets dict only — no per-entity templates
-  expect(out).not.toContain('merge ')
-  // No template scaffolding: every class renders through Plexus's one default template.
-  expect(await storage.Exists('presentation/templates.mu')).toBe(false)
-})
-
-test('regeneratePresentation is a no-op when the project has no .todl sources', async () => {
-  const storage = new FakeStorage('fake://Empty')
-  const { provider, meta } = publishEnv()
-  await seedMeta(meta)
-  const f = factoryWith(provider)
-  await f.createProject(storage, 'empty', { metaModels: [{ id: 'ea', version: '5' }] })
-
-  await f.regeneratePresentation(storage, true)
-
-  expect(await storage.Exists('presentation.generated.mu')).toBe(false)
-})
-
-test('regeneratePresentation is a no-op when a .todl has a compile error', async () => {
-  const storage = new FakeStorage('fake://Acme')
-  const { provider, meta } = publishEnv()
-  await seedMeta(meta)
-  const f = factoryWith(provider)
-  await f.createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
-  await storage.WriteText('bad.todl', 'namespace lib { taxonomy microsoft : represents nonesuch { } }')
-
-  await f.regeneratePresentation(storage, true)
-
-  expect(await storage.Exists('presentation.generated.mu')).toBe(false)
-})
 
 test('publish bakes presentation.compiled.json into the bundle and refreshes the project file', async () => {
   const storage = new FakeStorage('fake://Acme')

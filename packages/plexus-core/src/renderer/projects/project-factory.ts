@@ -7,7 +7,6 @@ export {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,
     isPublishable,
-    canGeneratePresentation,
     isVersioned,
     // The engine project-factory registry — the single source a project-explorer
     // resolves for the New-Project gallery (All) and open routing (factoryFor).
@@ -21,6 +20,5 @@ export type {
     ProjectManifestEnvelope,
     PublishResult,
     IPublishableProjectFactory,
-    IPresentationProjectFactory,
     IVersionedProjectFactory,
 } from '@pragmatic-tech-ai/todl'

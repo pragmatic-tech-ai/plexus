@@ -15,7 +15,7 @@ import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/op
 const dnode = (name: string, path: string, kind: 'folder' | 'todl' | 'file' | 'diagram'): DataProjectNode =>
     new DataProjectNode(name, path, kind as unknown as ProjectNodeKind)
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
-import { PROJECT_MANIFEST_FILENAME, type IProjectFactory, type IPublishableProjectFactory, type IPresentationProjectFactory, type IVersionedProjectFactory, type ProjectFileFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { PROJECT_MANIFEST_FILENAME, type IProjectFactory, type IPublishableProjectFactory, type IVersionedProjectFactory, type ProjectFileFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { VersionPart } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
 import type { SetVersionResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/set-version-dialog-model.js'
 import type { IDocumentFactory, IRelocatableDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
@@ -245,25 +245,6 @@ function childNode(op: OpenProject): ProjectNode
     return op.Root.Children.ToArray()[0]!
 }
 
-test('a presentation-capable factory gets an enabled Generate Presentation command; others get it disabled', async () => {
-    const { service, priv } = makeExplorer()
-    const presFactory: IProjectFactory & IPresentationProjectFactory = {
-        ...fakeProjectFactory(),
-        regeneratePresentation: async () => {},
-    }
-    await priv.addOpenProject(projectWith('A', 'C:/a'), presFactory, new FakeStorage('C:/a'))
-    await priv.addOpenProject(projectWith('B', 'C:/b'), fakeProjectFactory(), new FakeStorage('C:/b'))
-
-    const a = service.OpenProjects.Get(0)!
-    const b = service.OpenProjects.Get(1)!
-    expect(a.GeneratePresentationColorfulCommand).toBeDefined()
-    expect(a.GeneratePresentationMonochromeCommand).toBeDefined()
-    expect(a.GeneratePresentationColorfulCommand!.CanExecute()).toBe(true)
-    expect(a.GeneratePresentationMonochromeCommand!.CanExecute()).toBe(true)
-    expect(b.GeneratePresentationColorfulCommand!.CanExecute()).toBe(false)   // plain factory: no presentation
-    expect(b.GeneratePresentationMonochromeCommand!.CanExecute()).toBe(false)
-})
-
 test('opening two projects adds two roots; reopening one dedupes', async () => {
     const { service, priv, store } = makeExplorer()
     await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
@@ -422,7 +403,7 @@ function factoryReturning(result: { ok: boolean; message: string }): IProjectFac
 {
     return { ...fakeProjectFactory(true), publish: async () => result } as IProjectFactory & IPublishableProjectFactory
 }
-interface PublishPrivates { publishProject(op: OpenProject): Promise<void>; generatePresentation(op: OpenProject, colored: boolean): Promise<void> }
+interface PublishPrivates { publishProject(op: OpenProject): Promise<void> }
 
 test('a failed publish surfaces its message as a project-level diagnostic in the Problems store', async () => {
     const { service, priv, provider } = makeExplorer()
@@ -460,24 +441,6 @@ test('a successful publish clears any prior publish diagnostic', async () => {
     result.message = 'Published.'
     await (service as unknown as PublishPrivates).publishProject(op)
     expect([...diagnostics.All].some((d) => d.owner === 'publish')).toBe(false)
-})
-
-test('a failed generate-presentation surfaces its error as a project-level diagnostic', async () => {
-    const { service, priv, provider } = makeExplorer()
-    const diagnostics = new DiagnosticsService(provider)
-    provider.registerInstance(DiagnosticsService.Key, diagnostics)
-    const presFactory: IProjectFactory & IPresentationProjectFactory = {
-        ...fakeProjectFactory(),
-        regeneratePresentation: async () => { throw new Error('kaboom') },
-    }
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), presFactory, new FakeStorage('C:/a'))
-
-    await (service as unknown as PublishPrivates).generatePresentation(op, true)
-
-    const diags = [...diagnostics.All].filter((d) => d.owner === 'presentation')
-    expect(diags).toHaveLength(1)
-    expect(diags[0]).toMatchObject({ owner: 'presentation', projectId: 'C:/a', uri: null, severity: DiagnosticSeverity.Error })
-    expect(diags[0].message).toContain('kaboom')
 })
 
 test('RestoreSession reopens folders that exist and prunes missing ones', async () => {

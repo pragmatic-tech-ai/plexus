@@ -49,12 +49,6 @@ export class OpenProject extends MuralBase
     // bundled version — enabled for any TODL project.
     static readonly UpdateAgentMetadataCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         OpenProject, 'UpdateAgentMetadataCommand', undefined, MetaData.None)
-    // (Re)generate the project's presentation dictionary — one command per icon mode
-    // (colorful / monochrome), both enabled only for factories that support it.
-    static readonly GeneratePresentationColorfulCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
-        OpenProject, 'GeneratePresentationColorfulCommand', undefined, MetaData.None)
-    static readonly GeneratePresentationMonochromeCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
-        OpenProject, 'GeneratePresentationMonochromeCommand', undefined, MetaData.None)
     // Re-resolve the project's declared bases (drop the validator's per-storage
     // cache + revalidate) — picks up a republished meta-model/library.
     static readonly RefreshBasesCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
@@ -171,10 +165,6 @@ export class OpenProject extends MuralBase
     public set SetVersionCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.SetVersionCommandKey, v) }
     public get UpdateAgentMetadataCommand(): ICommand | undefined { return this.get_property_value(OpenProject.UpdateAgentMetadataCommandKey) }
     public set UpdateAgentMetadataCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.UpdateAgentMetadataCommandKey, v) }
-    public get GeneratePresentationColorfulCommand(): ICommand | undefined { return this.get_property_value(OpenProject.GeneratePresentationColorfulCommandKey) }
-    public set GeneratePresentationColorfulCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.GeneratePresentationColorfulCommandKey, v) }
-    public get GeneratePresentationMonochromeCommand(): ICommand | undefined { return this.get_property_value(OpenProject.GeneratePresentationMonochromeCommandKey) }
-    public set GeneratePresentationMonochromeCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.GeneratePresentationMonochromeCommandKey, v) }
 
     public get RefreshBasesCommand(): ICommand | undefined { return this.get_property_value(OpenProject.RefreshBasesCommandKey) }
     public set RefreshBasesCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.RefreshBasesCommandKey, v) }

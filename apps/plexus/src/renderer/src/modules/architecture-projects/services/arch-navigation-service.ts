@@ -1,4 +1,4 @@
-import { toElement, type Element, type Entity, type Repository } from '@pragmatic-tech-ai/todl'
+import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { NavigationService, type NavigationDestination } from '@pragmatic-tech-ai/mural/framework'
 import { WikiOriginKind } from '../../../services/projects/wiki-origin.js'
@@ -6,6 +6,7 @@ import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/
 import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
 import { collectScenarioFlow, type FlowEntity } from './scenario-flow.js'
 import type { ArchModel } from './arch-model.js'
+import { ElementProjection, type Element } from './element-projection.js'
 
 // The two navigator surfaces the routing needs — narrowed so tests can supply
 // doubles without the full services.
@@ -191,7 +192,7 @@ export class ArchNavigationService extends ServiceBase
     }
 
     // The composed Element for an entity id. Resolves the model's own instance by
-    // id (else the repo node), then flattens it via toElement so `.refs` carry
+    // id (else the repo node), then flattens it via ElementProjection so `.refs` carry
     // resolved referents. Overridden in tests with hand-built Elements.
     protected elementFor(model: ArchModel, id: string): Element | undefined
     {
@@ -200,10 +201,10 @@ export class ArchNavigationService extends ServiceBase
         // meta-model archetype like `actors.internal`) resolves through repo.entity —
         // the canonical Entity accessor (carries `.field()` / `.refs`), the same one
         // the rescan uses. repo.resolve returns a bare node WITHOUT `.field()`, which
-        // toElement calls and throws on — aborting the whole rescan projection.
+        // the projection calls and throws on — aborting the whole rescan projection.
         const entity: Entity | undefined =
             model.entities().find((e) => e.id === id) ?? (repo.has(id) ? repo.entity(id) : undefined)
         if (entity === undefined) return undefined
-        return toElement(repo, entity, { homeOf: (x) => model.homeOf(x) })
+        return new ElementProjection(repo, { homeOf: (x) => model.homeOf(x) }).Project(entity)
     }
 }

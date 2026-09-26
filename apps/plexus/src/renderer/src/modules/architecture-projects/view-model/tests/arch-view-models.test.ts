@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import type { Element } from '@pragmatic-tech-ai/todl'
+import type { Element } from '../../services/element-projection.js'
 import { toViewModel } from '../element-view-model.js'
 import { Component, Technology, Category, registerArchViewModels } from '../arch-view-models.js'
 

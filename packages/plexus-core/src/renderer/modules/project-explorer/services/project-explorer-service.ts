@@ -39,7 +39,6 @@ import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,
     isPublishable,
-    canGeneratePresentation,
     isVersioned,
     ProjectFactoryRegistryKey,
     type IProjectFactory,
@@ -506,10 +505,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             () => void this.bumpVersion(op, VersionPart.Patch), () => isVersioned(op.Factory))
         op.SetVersionCommand = new RelayCommand(
             () => void this.setVersionDialog(op), () => isVersioned(op.Factory))
-        op.GeneratePresentationColorfulCommand = new RelayCommand(
-            () => void this.generatePresentation(op, true), () => canGeneratePresentation(op.Factory))
-        op.GeneratePresentationMonochromeCommand = new RelayCommand(
-            () => void this.generatePresentation(op, false), () => canGeneratePresentation(op.Factory))
         // Re-resolve the project's declared bases after a base was republished —
         // only meaningful for a type that binds one (library/architecture).
         op.RefreshBasesCommand = new RelayCommand(
@@ -1111,32 +1106,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         }
     }
 
-    // (Re)generate the project's presentation dictionary through its factory in the
-    // chosen icon mode (colorful / monochrome), then rescan so the generated file
-    // appears in the tree. Menu items are disabled for factories that don't support
-    // it, but guard anyway.
-    private async generatePresentation(op: OpenProject, colored: boolean): Promise<void>
-    {
-        if (!canGeneratePresentation(op.Factory)) { this.Status = 'This project type has no presentation.'; return }
-        try
-        {
-            await op.Factory.regeneratePresentation(op.Storage, colored)
-            await this.rescan(op)
-            this.Status = `Presentation regenerated (${colored ? 'colorful' : 'monochrome'}).`
-            this.reportProjectProblem(op, 'presentation', undefined)   // clear any prior failure
-        }
-        catch (e)
-        {
-            const message = `Generate presentation failed: ${(e as Error).message}`
-            this.Status = message
-            this.reportProjectProblem(op, 'presentation', message)
-            this.Provider.get(ProblemsDockKey)?.Expand()
-        }
-    }
-
     // Publish (or clear, when `message` is undefined) a single project-level
     // diagnostic for one owner into the Problems store, so an operation error like
-    // a blocked publish or a failed presentation shows in the dock, not only in the
+    // a blocked publish shows in the dock, not only in the
     // status strip. The atomic-slice store replaces this owner's slice each call.
     private reportProjectProblem(op: OpenProject, owner: string, message: string | undefined): void
     {

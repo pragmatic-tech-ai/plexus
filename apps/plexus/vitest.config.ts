@@ -64,6 +64,19 @@ export default defineConfig({
                     // extends mural values; inline it so Vite routes its mural imports
                     // through the dist aliases instead of Node picking mural's src.
                     /@pragmatic-tech-ai\/plexus-core/,
+                    // mural's Material theme is the one dist module that reaches into
+                    // mural's compiled markup (dist/resources/material/material.js →
+                    // ../../../build/resources/material/*.mu.js), and those .mu.js
+                    // files self-import `@pragmatic-tech-ai/mural/basic|runtime`.
+                    // Left external, Node resolves that self-reference natively with
+                    // vitest's injected `--conditions development` → mural's src/*.ts
+                    // ("Stripping types is currently unsupported … under
+                    // node_modules"). todl's root barrel now reaches it (MuralHost /
+                    // TodlAppBootstrap import mural/resources/material), so inline
+                    // just that subtree: Vite then routes the self-imports through the
+                    // dist aliases. The rest of mural stays external (cycle intact).
+                    /@pragmatic-tech-ai\/mural\/dist\/resources\/material\//,
+                    /@pragmatic-tech-ai\/mural\/build\//,
                 ],
             },
         },

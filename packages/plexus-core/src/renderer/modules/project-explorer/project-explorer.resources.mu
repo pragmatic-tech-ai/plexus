@@ -66,10 +66,6 @@ resources ProjectExplorerResources {
             [ Header = "Publish",
               Command = $PublishCommand,
               Icon = Shape [ Geometry = @Publish, Width = 16, Height = 16, HorizontalAlignment = Center, VerticalAlignment = Center ] ]
-        MenuItem [ Header = "Generate Presentation" ] {
-            MenuItem [ Header = "Colorful",   Command = $GeneratePresentationColorfulCommand ]
-            MenuItem [ Header = "Monochrome", Command = $GeneratePresentationMonochromeCommand ]
-        }
         MenuItem [ Header = "Bump Version" ] {
             MenuItem [ Header = "Major",   Command = $BumpVersionMajorCommand ]
             MenuItem [ Header = "Minor",   Command = $BumpVersionMinorCommand ]

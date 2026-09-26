@@ -1,4 +1,5 @@
-import type { Entity, Repository, PresentationHint } from '@pragmatic-tech-ai/todl'
+import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
+import type { PresentationHint } from './element-projection.js'
 import { iconEntityKey } from './arch-icon.js'
 import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
 

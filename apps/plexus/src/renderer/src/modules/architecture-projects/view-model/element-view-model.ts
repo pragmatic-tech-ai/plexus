@@ -1,4 +1,5 @@
-import type { Element, Scalar } from '@pragmatic-tech-ai/todl'
+import type { Scalar } from '@pragmatic-tech-ai/todl'
+import type { Element } from '../services/element-projection.js'
 
 // Bindable view-model over an Element. The concrete subclass TYPE is what mural
 // resolves a DataTemplate against; its getters flatten Element facets into clean
