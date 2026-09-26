@@ -37,11 +37,16 @@ import DiagramModule from "./modules/diagram/diagram.module.mu.js"
 import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
 import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
-// The solution ENGINE module (todl): SolutionManagerService + settings registry
-// PLUS the three built-in project TYPES (meta-model / library / architecture) and
-// the registrar that indexes them, under ProjectFactoryRegistryKey. Composed for its
-// project factories — the ProjectExplorer's New-Project gallery + open routing resolve
-// that registry. SolutionManagerService rides along lazily (unused here → dormant).
+// TODL's project-system module (browser-safe, main barrel): the three built-in
+// project TYPES (meta-model / library / architecture) + the ONE registry that
+// indexes them under ProjectFactoryRegistryKey, the build-system + generator
+// registries, the default presentation baker, and the ProjectEvents/GeneratorScheduler
+// lifecycle. The ProjectExplorer's New-Project gallery + open routing resolve that
+// registry. Listed by class name: the class itself satisfies IModule statically.
+import TodlProjectSystemModule from "@pragmatic-tech-ai/todl"
+// The solution ENGINE module (todl): SolutionManagerService + settings registry only
+// (project types now come from TodlProjectSystemModule). Rides along lazily (unused
+// here → dormant); its manager resolves the composed ProjectFactoryRegistryKey.
 import SolutionServicesEngine from "@pragmatic-tech-ai/todl"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
@@ -310,7 +315,7 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         PanelDockService
         // (The project-type registry is no longer registered here: it is the
         // engine's IProjectFactoryRegistry, registered under ProjectFactoryRegistryKey
-        // by the SolutionServicesEngine module in `.modules:` below. Module services
+        // by TodlProjectSystemModule at the head of `.modules:` below. Module services
         // compose into the ROOT provider, so the root-scoped ProjectExplorerService
         // reaches it — the same root-reachability the old app-level registration
         // guaranteed.)
@@ -409,6 +414,11 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
     }
 
     .modules: {
+        // TODL's project system FIRST: it seeds the project-factory / build-system /
+        // generator registries every later module resolves or extends. It is the only
+        // registrant of ProjectFactoryRegistryKey (the container is last-wins, so a
+        // second registrant would silently shadow it).
+        TodlProjectSystemModule
         // Shared storage: registers FileSystemService (native file system via
         // window.api.fs) + StorageService (universal front door, local-FS provider
         // seeded). The Project Explorer resolves StorageService to build a project's
@@ -417,10 +427,8 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         DiagramModule
         DiagramExportModule
         ArchitectureProjectsModule
-        // Solution engine module (todl): the three project TYPES (factories) + the
-        // engine ProjectFactoryRegistry, under ProjectFactoryRegistryKey. Composed
-        // before ProjectExplorerModule so the registry is registered when the explorer
-        // resolves it.
+        // Solution engine module (todl): SolutionManagerService + settings registry
+        // (no project types — those come from TodlProjectSystemModule above).
         SolutionServicesEngine
         ProjectExplorerModule
         MetaModelModule
