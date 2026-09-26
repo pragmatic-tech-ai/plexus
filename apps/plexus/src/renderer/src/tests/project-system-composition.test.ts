@@ -5,7 +5,6 @@ import {
     SolutionServicesEngine,
     ProjectFactoryRegistry,
     ProjectFactoryRegistryKey,
-    BuildSystemRegistryKey,
     MetaModelProjectFactory,
     LibraryProjectFactory,
     ArchitectureProjectFactory,
@@ -46,13 +45,18 @@ describe('app project-system composition', () =>
         expect(factories.factoryFor(AppCompositionFixture.UnknownType)).toBeUndefined()
     })
 
-    test('SolutionServicesEngine no longer shadows the registry: one instance, the composer\'s', () =>
+    test('SolutionServicesEngine no longer shadows the registry: the one under the key is the composer\'s', () =>
     {
         const provider = AppCompositionFixture.Compose().Provider
-        const first = provider.getRequired(ProjectFactoryRegistryKey)
+        const registry = provider.getRequired(ProjectFactoryRegistryKey)
 
-        expect(first).toBeInstanceOf(ProjectFactoryRegistry)
-        expect(provider.getRequired(ProjectFactoryRegistryKey)).toBe(first)
-        expect(provider.getRequired(BuildSystemRegistryKey)).toBeDefined()
+        // Exactly the composer's class — a shadowing registrar (e.g. the retired
+        // DefaultProjectFactoryRegistry) was a SUBCLASS, so instanceof cannot tell.
+        expect(Object.getPrototypeOf(registry)).toBe(ProjectFactoryRegistry.prototype)
+        // And it hands out the very factory instances the composer resolved (and seeded
+        // its generators from) under their class tokens.
+        expect(registry.factoryFor(MetaModelProjectFactory.ProjectType)).toBe(provider.getRequired(MetaModelProjectFactory))
+        expect(registry.factoryFor(LibraryProjectFactory.ProjectType)).toBe(provider.getRequired(LibraryProjectFactory))
+        expect(registry.factoryFor(ArchitectureProjectFactory.ProjectType)).toBe(provider.getRequired(ArchitectureProjectFactory))
     })
 })
