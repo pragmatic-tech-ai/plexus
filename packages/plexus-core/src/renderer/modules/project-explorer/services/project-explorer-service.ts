@@ -38,7 +38,6 @@ import { FileSystemService } from '../../storage/index.js'
 import {
     PROJECT_MANIFEST_FILENAME,
     ProducerKind,
-    isPublishable,
     isVersioned,
     ProjectFactoryRegistryKey,
     type IProjectFactory,
@@ -87,6 +86,7 @@ import { ConfirmDialogModel } from '../../../dialogs/confirm-dialog-model.js'
 import { DocumentCloseGuard } from '../../../documents/document-close-guard.js'
 import { ManageReferencesDialogModel } from '../../../projects/manage-references-dialog-model.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
+import { PackagePublisher } from '../../../projects/package-publisher.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 import { StorageService } from '../../storage/index.js'
@@ -146,6 +146,13 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
 
     // Status prefix when a lifecycle event's subscribers (the project generators) fail.
     private static readonly LifecycleFailedPrefix = 'Project generators failed: '
+
+    // Publish command strings + the Problems-dock owner key for a publish failure.
+    private static readonly NotPublishableStatus = "This project type can't be published."
+    private static readonly PublishedPrefix = 'Published '
+    private static readonly PublishFailedStatus = 'Publish failed — see Problems.'
+    private static readonly PublishFailedPrefix = 'Publish failed: '
+    private static readonly PublishOwner = 'publish'
 
     // The open projects — the tree's roots (each a collapsible DataTemplate
     // [OpenProject]). Empty until a project is opened or the session restores.
@@ -505,7 +512,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         op.ImportFileCommand = new RelayCommand(() => void this.importFilesInto(op, ''))
         op.ImportFolderCommand = new RelayCommand(() => void this.importFolderInto(op, ''))
         op.TreeKeyCommand = new RelayCommand((arg) => this.handleTreeKey(op, arg as KeyEventArgs))
-        op.PublishCommand = new RelayCommand(() => void this.publishProject(op), () => isPublishable(op.Factory))
+        op.PublishCommand = new RelayCommand(() => void this.publishProject(op), () => isVersioned(op.Factory))
         op.BumpVersionMajorCommand = new RelayCommand(
             () => void this.bumpVersion(op, VersionPart.Major), () => isVersioned(op.Factory))
         op.BumpVersionMinorCommand = new RelayCommand(
@@ -1085,32 +1092,33 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         this.Status = `Agent docs updated (${written.length} refreshed).`
     }
 
-    // Publish the project through its factory (the menu item is disabled for
-    // non-publishable types, but guard anyway). Surfaces the result message.
+    // Publish the project through the TODL build system's npm-publish flavor (the menu
+    // item is disabled for non-producer types, but guard anyway). Builds the package and
+    // pushes it to the workspace package registry via PackagePublisher, then surfaces the
+    // build diagnostics: success clears any prior failure, a failure's error text goes
+    // ONLY to the Problems dock while the status pane shows a neutral pointer.
     private async publishProject(op: OpenProject): Promise<void>
     {
-        if (!isPublishable(op.Factory)) { this.Status = "This project type can't be published."; return }
+        if (!isVersioned(op.Factory)) { this.Status = ProjectExplorerService.NotPublishableStatus; return }
         // Refresh diagnostics so the Problems dock reflects exactly what publish sees.
         await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
         try
         {
-            const result = await op.Factory.publish(op.Project, op.Storage, this.Provider)
-            if (result.ok)
+            const outcome = await new PackagePublisher(this.Provider).Publish(op.Storage)
+            if (outcome.Ok)
             {
-                this.Status = result.message
-                this.reportProjectProblem(op, 'publish', undefined)   // clear any prior failure
+                this.Status = `${ProjectExplorerService.PublishedPrefix}${outcome.Id}@${outcome.Version}.`
+                this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, undefined)   // clear any prior failure
                 return
             }
-            // A failure's error DESCRIPTION goes ONLY to the Problems dock — never
-            // the status pane, which shows just a neutral pointer.
-            this.Status = 'Publish failed — see Problems.'
-            this.reportProjectProblem(op, 'publish', result.message)
+            this.Status = ProjectExplorerService.PublishFailedStatus
+            this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, PackagePublisher.FormatErrors(outcome.Diagnostics))
             this.Provider.get(ProblemsDockKey)?.Expand()
         }
         catch (e)
         {
-            this.Status = 'Publish failed — see Problems.'
-            this.reportProjectProblem(op, 'publish', `Publish failed: ${(e as Error).message}`)
+            this.Status = ProjectExplorerService.PublishFailedStatus
+            this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, `${ProjectExplorerService.PublishFailedPrefix}${(e as Error).message}`)
             this.Provider.get(ProblemsDockKey)?.Expand()
         }
     }

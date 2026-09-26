@@ -18,7 +18,5 @@ export type {
     IProjectFactoryRegistry,
     ProjectFileFormat,
     ProjectManifestEnvelope,
-    PublishResult,
-    IPublishableProjectFactory,
     IVersionedProjectFactory,
 } from '@pragmatic-tech-ai/todl'

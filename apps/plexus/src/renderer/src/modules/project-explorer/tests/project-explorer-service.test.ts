@@ -15,7 +15,11 @@ import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/op
 const dnode = (name: string, path: string, kind: 'folder' | 'todl' | 'file' | 'diagram'): DataProjectNode =>
     new DataProjectNode(name, path, kind as unknown as ProjectNodeKind)
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
-import { PROJECT_MANIFEST_FILENAME, type IProjectFactory, type IPublishableProjectFactory, type IVersionedProjectFactory, type ProjectFileFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { PROJECT_MANIFEST_FILENAME, type IProjectFactory, type IVersionedProjectFactory, type ProjectFileFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { ProjectSystemComposer, PackageStoreKey } from '@pragmatic-tech-ai/todl'
+import { PACKAGES_BACKEND_ID } from '../../../services/projects/packages-backend.js'
+import { PlexusPackageStore } from '../../../services/projects/storage-service-backends.js'
+import { scanPublishedModels } from '../../meta-model/services/meta-model-tree-builder.js'
 import { VersionPart } from '@pragmatic-tech-ai/plexus-core/renderer/projects/semver-bump.js'
 import type { SetVersionResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/set-version-dialog-model.js'
 import type { IDocumentFactory, IRelocatableDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
@@ -50,20 +54,18 @@ function fakeDocFactory(rec: Rec): IDocumentFactory & IRelocatableDocumentFactor
     }
 }
 
-// A project factory: lifecycle + one 'todl' format + optional publish. No file
-// I/O — that lives on the document factory, resolved by extension.
-function fakeProjectFactory(publishable = true): IProjectFactory
+// A project factory: lifecycle + one 'todl' format. No file I/O — that lives on the
+// document factory, resolved by extension. Not versioned, so the Publish command is
+// disabled for it (publishability is now gated on isVersioned — the producer marker).
+function fakeProjectFactory(): IProjectFactory
 {
-    const base: IProjectFactory = {
+    return {
         typeId: 'todl', title: 'Test Project', description: '',
         formats: [{ extension: '.todl', kind: 'todl', displayName: 'TODL Definition' }],
         createProject: async (_s, name) => projectWith(name, 'C:/x'),
         openProject: async () => projectWith('P', 'C:/x'),
         saveProject: async () => {},
     }
-    if (!publishable) return base
-    const pub: IProjectFactory & IPublishableProjectFactory = { ...base, publish: async () => ({ ok: true, message: 'Published.' }) }
-    return pub
 }
 
 function projectWith(name: string, folder: string): Project
@@ -103,14 +105,12 @@ function scanningFactory(): IProjectFactory
     }
 }
 
-// A publishable + versioned fake factory whose version lives in the manifest of
-// the storage it's given; publish() records that it ran.
-function fakeVersionedFactory(published: string[]): IProjectFactory & IVersionedProjectFactory & IPublishableProjectFactory
+// A versioned fake factory whose version lives in the manifest of the storage it's
+// given. Being versioned makes it a producer, so the Publish command is enabled for it.
+function fakeVersionedFactory(): IProjectFactory & IVersionedProjectFactory
 {
-    const base = fakeProjectFactory(true) as IProjectFactory & IPublishableProjectFactory
     return {
-        ...base,
-        publish: async () => { published.push('published'); return { ok: true, message: 'Published.' } },
+        ...fakeProjectFactory(),
         getVersion: async (s) => (JSON.parse(await s.ReadText(PROJECT_MANIFEST_FILENAME)) as { packageVersion: string }).packageVersion,
         setVersion: async (s, v) => {
             const m = JSON.parse(await s.ReadText(PROJECT_MANIFEST_FILENAME))
@@ -389,27 +389,73 @@ test('closing a project removes it, closes its tabs, and unpersists it', async (
     expect(await store.List()).toEqual([])
 })
 
-test('Publish is disabled for a non-publishable project', async () => {
+test('Publish is enabled only for a versioned (producer) project', async () => {
     const { priv } = makeExplorer()
-    const pub = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(true), new FakeStorage('C:/a'))
-    const plain = await priv.addOpenProject(projectWith('B', 'C:/b'), fakeProjectFactory(false), new FakeStorage('C:/b'))
+    const pub = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(), new FakeStorage('C:/a'))
+    const plain = await priv.addOpenProject(projectWith('B', 'C:/b'), fakeProjectFactory(), new FakeStorage('C:/b'))
 
     expect(pub.PublishCommand!.CanExecute(undefined)).toBe(true)
     expect(plain.PublishCommand!.CanExecute(undefined)).toBe(false)
 })
 
-// A publishable factory whose publish returns a preset result.
-function factoryReturning(result: { ok: boolean; message: string }): IProjectFactory & IPublishableProjectFactory
-{
-    return { ...fakeProjectFactory(true), publish: async () => result } as IProjectFactory & IPublishableProjectFactory
-}
 interface PublishPrivates { publishProject(op: OpenProject): Promise<void> }
 
-test('a failed publish surfaces its message as a project-level diagnostic in the Problems store', async () => {
-    const { service, priv, provider } = makeExplorer()
+// A clean meta-model source (concepts in one file) the composed npm-publish build
+// compiles without diagnostics.
+const PUBLISHABLE_TODL = 'namespace d { concept model { label : string; } concept component { label : string; } }'
+// A syntax error (missing concept name) — the build fails and promotes nothing.
+const UNPUBLISHABLE_TODL = 'namespace d { concept { label : string; } }'
+
+// A meta-model project storage: a publish-ready manifest (type/name/id/version) plus
+// one .todl source the build compiles.
+async function metaModelStorage(folder: string, id: string, source: string, version = '0.1.0'): Promise<FakeStorage>
+{
+    const s = new FakeStorage(folder)
+    await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'meta-model', name: id, id, packageVersion: version }))
+    await s.WriteText('defs.todl', source)
+    return s
+}
+
+// An explorer wired for real publishing: the composed build system (BuildSystemRegistryKey
+// seeded by ProjectSystemComposer) + PlexusPackageStore over an inspectable packages
+// backend (pre-registered so ensurePackagesBackend finds it) + a Diagnostics store. This
+// is the seam publishProject drives through PackagePublisher's npm-publish flavor.
+function makePublishExplorer(confirm: boolean | object = true): {
+    service: ProjectExplorerService
+    priv: ExplorerPrivates
+    provider: ServiceProvider
+    diagnostics: DiagnosticsService
+    packages: FakeStorage
+}
+{
+    const provider = new ServiceProvider()
+    const host = new DocumentsContentHostService(provider)
+    provider.registerInstance(ContentHostService.Key, host)
+    provider.registerInstance(FileSystemService.Key, fakeFs())
+    provider.registerInstance(EnvironmentService.Key, { UserDataDirectory: '/data' } as unknown as EnvironmentService)
+    provider.registerInstance(DialogService.Key, fakeDialogs(confirm, []))
+    const packages = new FakeStorage('fake://packages')
+    const storage = new StorageService(provider)
+    storage.Register(PACKAGES_BACKEND_ID, () => packages)
+    provider.registerInstance(StorageService.Key, storage)
+    provider.registerInstance(OpenProjectsStore.Key, new OpenProjectsStore(provider))
+    provider.registerInstance(DocumentTypeRegistry.Key, {
+        GetByExtension: (ext: string) => ((ext === '.todl' || ext === '.diagram') ? { Factory: TodlDocFactoryToken } : undefined),
+    } as unknown as DocumentTypeRegistry)
+    provider.registerInstance(ServiceProvider.tokenFor(TodlDocFactoryToken), fakeDocFactory({ opened: [], saved: [], relocated: [] }))
+    provider.registerInstance(PackageStoreKey, new PlexusPackageStore(provider))
     const diagnostics = new DiagnosticsService(provider)
     provider.registerInstance(DiagnosticsService.Key, diagnostics)
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), factoryReturning({ ok: false, message: 'missing icon file(s): x.svg' }), new FakeStorage('C:/a'))
+    // Seed the build system registry (+ factories + default baker) into the container.
+    ProjectSystemComposer.Compose(provider)
+    const service = new ProjectExplorerService(provider)
+    return { service, priv: service as unknown as ExplorerPrivates, provider, diagnostics, packages }
+}
+
+test('a failed publish surfaces the build errors as a project-level diagnostic in the Problems store', async () => {
+    const { service, priv, diagnostics } = makePublishExplorer()
+    const op = await priv.addOpenProject(
+        projectWith('A', 'C:/a'), fakeVersionedFactory(), await metaModelStorage('C:/a', 'a', UNPUBLISHABLE_TODL))
 
     await (service as unknown as PublishPrivates).publishProject(op)
 
@@ -417,30 +463,30 @@ test('a failed publish surfaces its message as a project-level diagnostic in the
     expect(pubs).toHaveLength(1)
     expect(pubs[0]).toMatchObject({
         owner: 'publish', projectId: 'C:/a', projectName: 'A', uri: null,
-        message: 'missing icon file(s): x.svg', severity: DiagnosticSeverity.Error, span: null,
+        severity: DiagnosticSeverity.Error, span: null,
     })
-    // The error description goes ONLY to Problems — the status pane never carries it.
+    expect(pubs[0]!.message.length).toBeGreaterThan(0)
+    // The error description goes ONLY to Problems — the status pane shows a neutral pointer.
     expect(service.Status).toBe('Publish failed — see Problems.')
-    expect(service.Status).not.toContain('missing icon')
 })
 
-test('a successful publish clears any prior publish diagnostic', async () => {
-    const { service, priv, provider } = makeExplorer()
-    const diagnostics = new DiagnosticsService(provider)
-    provider.registerInstance(DiagnosticsService.Key, diagnostics)
-    // One project whose publish result flips fail → success; the second run must
-    // clear the diagnostic the first seeded.
-    const result = { ok: false, message: 'boom' }
-    const factory = { ...fakeProjectFactory(true), publish: async () => result } as IProjectFactory & IPublishableProjectFactory
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), factory, new FakeStorage('C:/a'))
+test('a successful publish clears any prior publish diagnostic and lands the package where bases resolve', async () => {
+    const { service, priv, diagnostics, packages } = makePublishExplorer()
+    const storage = await metaModelStorage('C:/a', 'a', UNPUBLISHABLE_TODL)
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(), storage)
 
     await (service as unknown as PublishPrivates).publishProject(op)
     expect([...diagnostics.All].some((d) => d.owner === 'publish')).toBe(true)
 
-    result.ok = true
-    result.message = 'Published.'
+    await storage.WriteText('defs.todl', PUBLISHABLE_TODL)   // fix the error, then republish
     await (service as unknown as PublishPrivates).publishProject(op)
+
     expect([...diagnostics.All].some((d) => d.owner === 'publish')).toBe(false)
+    expect(service.Status.startsWith('Published ')).toBe(true)
+    // Round-trip (ruling 2): the package lands at the BARE-id path the meta-model
+    // discovery scan reads, so a sibling project resolves it as a base.
+    const published = await scanPublishedModels(packages)
+    expect(published).toEqual([{ id: 'a', versions: ['0.1.0'] }])
 })
 
 test('RestoreSession reopens folders that exist and prunes missing ones', async () => {
@@ -1277,7 +1323,7 @@ test('without the diagram-export services loaded, a .diagram node gets no Export
 test('bumpVersion writes the incremented version to the manifest', async () => {
     const { priv } = makeExplorer()
     const storage = await seededStorage('C:/a', '0.1.0')
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory([]), storage)
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(), storage)
     await priv.bumpVersion(op, VersionPart.Minor)
     const m = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
     expect(m.packageVersion).toBe('0.2.0')
@@ -1285,7 +1331,7 @@ test('bumpVersion writes the incremented version to the manifest', async () => {
 
 test('bump commands are enabled only for versioned factories', async () => {
     const { priv } = makeExplorer()
-    const vOp = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory([]), await seededStorage('C:/a'))
+    const vOp = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(), await seededStorage('C:/a'))
     const plainOp = await priv.addOpenProject(projectWith('B', 'C:/b'), fakeProjectFactory(), new FakeStorage('C:/b'))
     expect(vOp.BumpVersionMajorCommand!.CanExecute(undefined)).toBe(true)
     expect(vOp.SetVersionCommand!.CanExecute(undefined)).toBe(true)
@@ -1294,22 +1340,19 @@ test('bump commands are enabled only for versioned factories', async () => {
 })
 
 test('setVersionDialog sets the version and publishes only when the flag is set', async () => {
-    const published: string[] = []
-    const result: SetVersionResult = { version: '3.0.0', publish: true }
-    const { priv } = makeExplorer(null, result)                 // dialog resolves this result
-    const storage = await seededStorage('C:/a', '0.1.0')
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(published), storage)
-    await priv.setVersionDialog(op)
+    const first = makePublishExplorer({ version: '3.0.0', publish: true } as SetVersionResult)
+    const storage = await metaModelStorage('C:/a', 'a', PUBLISHABLE_TODL)
+    const op = await first.priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(), storage)
+    await first.priv.setVersionDialog(op)
     expect(JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)).packageVersion).toBe('3.0.0')
-    expect(published).toEqual(['published'])                    // publish ran
+    expect(await scanPublishedModels(first.packages)).toEqual([{ id: 'a', versions: ['3.0.0'] }])   // publish ran
 
-    const published2: string[] = []
-    const { priv: priv2 } = makeExplorer(null, { version: '4.0.0', publish: false })
-    const storage2 = await seededStorage('C:/b', '0.1.0')
-    const op2 = await priv2.addOpenProject(projectWith('B', 'C:/b'), fakeVersionedFactory(published2), storage2)
-    await priv2.setVersionDialog(op2)
+    const second = makePublishExplorer({ version: '4.0.0', publish: false } as SetVersionResult)
+    const storage2 = await metaModelStorage('C:/b', 'b', PUBLISHABLE_TODL)
+    const op2 = await second.priv.addOpenProject(projectWith('B', 'C:/b'), fakeVersionedFactory(), storage2)
+    await second.priv.setVersionDialog(op2)
     expect(JSON.parse(await storage2.ReadText(PROJECT_MANIFEST_FILENAME)).packageVersion).toBe('4.0.0')
-    expect(published2).toEqual([])                              // publish did NOT run
+    expect(await scanPublishedModels(second.packages)).toEqual([])                                  // publish did NOT run
 })
 
 test('Update Agent Meta-data is enabled for a TODL project, disabled for a plain factory', async () => {
