@@ -6,6 +6,7 @@ import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/render
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PackageStoreKey } from '@pragmatic-tech-ai/todl'
+import { Severity } from '@pragmatic-tech-ai/todl/build-system-core'
 import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-backend.js'
 import { PlexusPackageStore } from '../../../../services/projects/storage-service-backends.js'
 import { ComposedPackageBuild } from '../../../../services/projects/tests/composed-package-build.js'
@@ -147,4 +148,32 @@ test('the composed build bakes presentation through the TODL default baker (Pres
   expect(await result.Output.Exists('presentation/presentation.compiled.json')).toBe(true)
   const index = JSON.parse(await result.Output.ReadText('presentation/icon-index.json')) as Record<string, string>
   expect(Object.values(index)).toContain('mm_icon_azure')
+})
+
+test('the composed build blocks when a class references an icon with no project file (nothing promoted)', async () => {
+  const storage = new FakeStorage('fake://Acme')
+  await factory().createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
+  // a class carrying an icon path, but the SVG file is never written to the project
+  await storage.WriteText('microsoft.todl',
+    'namespace lib { import ea; taxonomy microsoft : represents location { location azure { label = "Azure"; annotate icon { path = "resources/azure.svg"; } } } }')
+  const { provider, meta } = publishEnv()
+  await seedMetaIcon(meta)
+
+  const result = await buildComposed(storage, provider)
+  expect(result.Ok).toBe(false)
+  expect(result.Diagnostics.some((d) => /missing icon file\(s\): resources\/azure\.svg/.test(d.message)), JSON.stringify(result.Diagnostics)).toBe(true)
+  expect(await result.Output.Exists('model.json')).toBe(false)   // nothing promoted
+})
+
+test('an orphan visual is a non-blocking warning', async () => {
+  const storage = new FakeStorage('fake://Acme')
+  await factory().createProject(storage, 'microsoft', { metaModels: [{ id: 'ea', version: '5' }] })
+  await storage.WriteText('microsoft.todl', LIB)
+  await storage.WriteText('visuals/ghost.mural', '<template/>')
+  const { provider, meta } = publishEnv()
+  await seedMeta(meta)
+
+  const result = await buildComposed(storage, provider)
+  expect(result.Ok, JSON.stringify(result.Diagnostics)).toBe(true)
+  expect(result.Diagnostics.some((d) => d.severity === Severity.Warning && /ghost/.test(d.message))).toBe(true)
 })
