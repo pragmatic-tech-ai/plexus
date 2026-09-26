@@ -92,6 +92,8 @@ import { samePath } from '../../../file-watch/path-utils.js'
 import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
+import { ProjectEventKind, ProjectEventsKey } from '@pragmatic-tech-ai/todl'
+import type { ProjectManifest } from '@pragmatic-tech-ai/todl/package-manager'
 
 // The result of CreateProject — the tool outcome minus its correlation id.
 export type CreateOutcome = Omit<CreateProjectResult, 'id'>
@@ -141,6 +143,9 @@ function subtreeContains(root: ProjectNode, node: ProjectNode): boolean
 export class ProjectExplorerService extends ServiceBase implements IProjectTreeHost
 {
     public static readonly Key = new ServiceKey<ProjectExplorerService>('ProjectExplorerService')
+
+    // Status prefix when a lifecycle event's subscribers (the project generators) fail.
+    private static readonly LifecycleFailedPrefix = 'Project generators failed: '
 
     // The open projects — the tree's roots (each a collapsible DataTemplate
     // [OpenProject]). Empty until a project is opened or the session restores.
@@ -415,6 +420,10 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             const op = await this.addOpenProject(project, factory, storage)
             await this.recents.Add({ name: op.Name, path: folder, type: envelope.type, openedAt: Date.now() })
             this.Status = `Opened ${op.Name}.`
+            // A real open (Open Project / session restore) — NOT factory.openProject,
+            // which also serves every tree rescan. Created needs no raise here: the
+            // TODL factory's createProject raises it itself.
+            await this.raiseLifecycleEvent(ProjectEventKind.Opened, storage)
         }
         catch (e)
         {
@@ -1168,6 +1177,27 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         await op.Storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
         await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
         this.Status = `Updated references for ${op.Name}.`
+        await this.raiseLifecycleEvent(ProjectEventKind.ReferencesChanged, op.Storage)
+    }
+
+    // Announce a project lifecycle moment on TODL's ProjectEvents bus (registered by
+    // TodlProjectSystemModule's composer, which subscribes the generator scheduler).
+    // No bus registered => nothing raised. The event carries the manifest as written
+    // on disk. A subscriber failure surfaces in the status line rather than failing
+    // the open / reference edit that already succeeded.
+    private async raiseLifecycleEvent(kind: ProjectEventKind, storage: IStorage): Promise<void>
+    {
+        const events = this.Provider.get(ProjectEventsKey)
+        if (events === undefined) return
+        try
+        {
+            const manifest = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)) as ProjectManifest
+            await events.Raise({ Kind: kind, ProjectType: manifest.type, Project: storage, Manifest: manifest })
+        }
+        catch (e)
+        {
+            this.Status = ProjectExplorerService.LifecycleFailedPrefix + (e as Error).message
+        }
     }
 
     // Re-scan the named open projects from disk and re-validate their models —
