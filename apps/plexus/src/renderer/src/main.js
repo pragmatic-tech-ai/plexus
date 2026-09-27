@@ -47,6 +47,9 @@ import { LiveValidationKey, BaseResolverKey, ProblemsDockKey, ProjectTreeHostKey
 import { createTodlLspConnection } from './services/todl/todl-lsp-connection.js'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio'
+import { RendererPackageSource } from './services/projects/renderer-package-source.js'
 
 // Register the 'todl' Monaco language once, before any editor mounts, so .todl
 // documents get syntax colouring. (Diagnostics/squiggles are independent of it.)
@@ -220,6 +223,18 @@ try {
     // Dev/e2e: read a live setting value by key (used by the save-ux e2e to assert
     // the autosave settings registered with their defaults).
     globalThis.__getSetting = (k) => app.Services.get(ApplicationSettings.Key)?.Get(k)
+
+    // Solution engine collaborators: SolutionManagerService.Key is registered by
+    // SolutionServicesEngine (app.mu's .modules: block) but stays dormant until its
+    // remaining host seams are wired — SolutionStudioSeams supplies the generic ones
+    // (PromptServiceKey over DialogService, StorageRegistryKey over StorageService);
+    // PackageSourceKey is app-specific (RendererPackageSource, over the same
+    // published-packages backend PlexusPackageStore reads). Resolved once here —
+    // before the explorer restores its session below — so the ambient untitled
+    // solution ActiveSolution chain is live from boot.
+    SolutionStudioSeams.Register(app.Services)
+    app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
+    app.Services.get(SolutionManagerService.Key)
 
     // Restore the previous session's open projects into the explorer (skips
     // folders whose project manifest is gone). Fire-and-forget after mount.
