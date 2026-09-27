@@ -383,37 +383,82 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
                 for (const member of change.items) this.memberSyncTasks.set(member, this.onMemberAdded(member))
                 return
             case 'removed':
-                for (const member of change.items) this.memberSyncTasks.set(member, this.onMemberRemoved(member))
+                for (const member of change.items) this.trackRemoval(member)
                 return
             default:
                 return
         }
     }
 
+    // Run onMemberRemoved for `member`, track it under memberSyncTasks like any
+    // other in-flight sync task, and forget the entry once it settles — a member
+    // that's gone for good has nothing left worth awaiting, and a long-lived
+    // explorer must not accumulate one dead entry per member ever opened-and-
+    // closed. This can't be done by having onMemberRemoved delete its OWN entry
+    // (as an earlier version did): for a member that was never actually
+    // projected (see onMemberRemoved), the whole function runs synchronously to
+    // completion with no `await` to cross, so a self-delete would run BEFORE the
+    // `.set()` two lines below even executes — deleting nothing, then leaking the
+    // entry forever once `.set()` finally lands. `.then()` callbacks are always
+    // scheduled asynchronously, even for an already-settled promise, so doing the
+    // cleanup here instead can never race the `.set()` call it follows. The
+    // identity check guards against pruning a NEWER task for the same member out
+    // from under it.
+    private trackRemoval(member: SolutionMember): void
+    {
+        const task = this.onMemberRemoved(member)
+        this.memberSyncTasks.set(member, task)
+        void task.then(() => {
+            if (this.memberSyncTasks.get(member) === task) this.memberSyncTasks.delete(member)
+        })
+    }
+
     // Project a member added to Members. A member the manager hasn't finished
     // resolving yet (Project/Storage still undefined — SolutionManagerService
     // appends to Members before it awaits the open) waits for its own Project to
-    // settle first; a member removed while still waiting (see onMemberRemoved)
-    // unblocks this early with IsResolved left false, so it falls through to a
-    // no-op instead of building.
+    // settle first. Settling can land either way: resolved → build it; still
+    // unresolved (no factory registered for its type) → there is nothing to
+    // project and no way this member will ever open, so it is dropped rather than
+    // left stranded in Members with no live subscription. A member removed while
+    // still waiting (see onMemberRemoved) unblocks this early with IsResolved
+    // left false, landing on the same drop path.
     private async onMemberAdded(member: SolutionMember): Promise<void>
     {
         if (this.findByFolder(this.memberProjection.FolderOf(member)) !== undefined) return
         if (!member.IsResolved) await this.waitForResolution(member)
-        if (member.IsResolved) await this.projectMember(member)
+        if (member.IsResolved) { await this.projectMember(member); return }
+        this.dropUnresolvedMember(member)
     }
 
+    // Wait for `member`'s OWN resolution to settle. SolutionManagerService's
+    // Solution.OpenOne sets Project exactly once — to a resolved Project, or
+    // explicitly to `undefined` when no factory is registered for the member's
+    // type (still raising PropertyChanged even though the value didn't change) —
+    // so the FIRST 'Project' change this member raises after subscribing always
+    // means "settled", resolved or not. The handler must therefore resolve
+    // unconditionally here: bailing out on `!member.IsResolved` (as an earlier
+    // version did) leaves the promise pending forever for the no-factory case,
+    // hanging every caller awaiting it and leaking the subscription.
     private waitForResolution(member: SolutionMember): Promise<void>
     {
         return new Promise<void>((resolve) => {
             const subscription = member.PropertyChanged(ProjectExplorerService.MemberProjectPropertyName).subscribe(() => {
-                if (!member.IsResolved) return
                 this.pendingResolution.delete(member)
                 subscription.dispose()
                 resolve()
             })
             this.pendingResolution.set(member, { subscription, resolve })
         })
+    }
+
+    // A member that settled without ever resolving (no registered factory for its
+    // type) has nothing to project and no way to ever open. Remove it from
+    // Members rather than leaving a permanently-broken entry behind — the
+    // removal fires onMemberRemoved, which is a no-op beyond forgetting this
+    // member's own sync-task bookkeeping (nothing was ever projected for it).
+    private dropUnresolvedMember(member: SolutionMember): void
+    {
+        this.manager.ActiveSolution?.Members.Remove(member)
     }
 
     private async projectMember(member: SolutionMember): Promise<void>
@@ -436,7 +481,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // its pending wait cancelled (nothing was projected); one already projected
     // has its tabs untracked (the actual Close already ran — see closeProject),
     // is detached from live validation, and drops out of the tree + persisted
-    // open set.
+    // open set. The memberSyncTasks entry itself is pruned by trackRemoval, the
+    // caller — not here (see its comment for why).
     private async onMemberRemoved(member: SolutionMember): Promise<void>
     {
         const pending = this.pendingResolution.get(member)
@@ -445,23 +491,23 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             this.pendingResolution.delete(member)
             pending.subscription.dispose()
             pending.resolve()
-            return
         }
 
         const op = this.projected.get(member)
-        if (op === undefined) return
-
-        for (const [doc, owner] of [...this.docOwners])
+        if (op !== undefined)
         {
-            if (owner !== op) continue
-            this.docOwners.delete(doc)
-            this.docPaths.delete(doc)
+            for (const [doc, owner] of [...this.docOwners])
+            {
+                if (owner !== op) continue
+                this.docOwners.delete(doc)
+                this.docPaths.delete(doc)
+            }
+            this.Provider.get(LiveValidationKey)?.DetachProject(op.Storage)
+            this.OpenProjects.Remove(op)
+            this.projected.delete(member)
+            await this.openStore.Remove(op.Folder)
+            this.Status = `Closed ${op.Name}.`
         }
-        this.Provider.get(LiveValidationKey)?.DetachProject(op.Storage)
-        this.OpenProjects.Remove(op)
-        this.projected.delete(member)
-        await this.openStore.Remove(op.Folder)
-        this.Status = `Closed ${op.Name}.`
     }
 
     // The solution member currently projected as `op` — the reverse lookup of
@@ -555,15 +601,24 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         try
         {
             const member = await this.manager.OpenProject(folder)
-            // Let the sync loop's projection (OpenProjects.Add, openStore.Add)
-            // actually land before reporting success — the collection-change
-            // listener that runs it is synchronous and can't be awaited directly.
-            await this.memberSyncTasks.get(member)
+            // member.IsResolved is already the FINAL truth here — SolutionManagerService
+            // awaits the whole open (Solution.OpenOne sets Project exactly once, resolved
+            // or not) before returning the member — so a no-factory outcome is reported
+            // right away. Waiting on memberSyncTasks first would be wrong: for an
+            // unresolved member, that task's tail runs onMemberAdded's drop-and-forget
+            // cleanup (dropUnresolvedMember), not a projection — nothing to wait for here,
+            // and awaiting it anyway previously hung forever (waitForResolution never
+            // used to settle for a no-factory member — now fixed, but this order is also
+            // just the correct one regardless).
             if (!member.IsResolved)
             {
                 this.Status = `No factory for project type "${member.Ref.type}".`
                 return
             }
+            // Let the sync loop's projection (OpenProjects.Add, openStore.Add)
+            // actually land before reporting success — the collection-change
+            // listener that runs it is synchronous and can't be awaited directly.
+            await this.memberSyncTasks.get(member)
             const name = (member.Project as Project | undefined)?.Name ?? member.Ref.path
             await this.recents.Add({ name, path: folder, type: member.Ref.type, openedAt: Date.now() })
             this.Status = `Opened ${name}.`
@@ -598,6 +653,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
                 : undefined
             await factory.createProject(storage, name, bindings)
             const member = await this.manager.OpenProject(folder)
+            // Same ordering as openProjectAt: a no-factory outcome here would mean the
+            // registry changed between resolveFactory (above) and the manager's own
+            // resolution — report it directly rather than waiting on a sync task whose
+            // tail, for an unresolved member, never produces a projection to wait for.
+            if (!member.IsResolved) { this.Status = `No factory for project type "${type}".`; return undefined }
             await this.memberSyncTasks.get(member)
             const op = this.findByFolder(folder)
             if (op === undefined) { this.Status = 'Create failed: the project did not open.'; return undefined }

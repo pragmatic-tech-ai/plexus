@@ -166,6 +166,7 @@ function fakeFs(openFiles: Picked[] | null = null, os: FakeOsTree = { pickedFold
 interface ExplorerPrivates
 {
     addOpenProject(p: Project, f: IProjectFactory, s: FakeStorage): Promise<OpenProject>
+    openProjectAt(folder: string): Promise<void>
     openNode(node: ProjectNode, op: OpenProject): Promise<void>
     importFilesInto(op: OpenProject, target?: string): Promise<void>
     importFolderInto(op: OpenProject, target?: string): Promise<void>
@@ -556,6 +557,92 @@ test('two members that resolve to the same folder project only once (dedupe by f
     await memberSyncTaskFor(service, memberB)
 
     expect(service.OpenProjects.Count).toBe(1)
+})
+
+// Fix round 1 (review of 66cd3fa): a second member that resolves to the SAME
+// folder WHILE the first is still mid-resolution races the entry-check dedupe
+// (line ~401, exercised above) and must instead be caught by the RE-check inside
+// projectMember (~line 423) — the one that runs after a member's own await on
+// waitForResolution. Drive this explicitly: add memberA UNRESOLVED (so
+// onMemberAdded suspends), let memberB (already resolved) win the folder, THEN
+// resolve memberA and confirm its post-wait re-check skips it.
+test('a member resolving to an already-claimed folder AFTER waiting is still deduped (async race, Review Focus #3)', async () => {
+    const { service, manager, factories } = makeExplorer()
+    factories.register('todl-a', fakeProjectFactory())
+    factories.register('todl-b', fakeProjectFactory())
+
+    const memberA = new SolutionMember({ path: 'C:/a', type: 'todl-a' })   // unresolved when added
+    manager.Members.Add(memberA)
+    const taskA = memberSyncTaskFor(service, memberA)!   // onMemberAdded is now suspended in waitForResolution
+
+    const memberB = new SolutionMember({ path: 'C:/a', type: 'todl-b' })
+    memberB.Project = projectWith('B', 'C:/a')   // already resolved before being added — projects immediately
+    memberB.Storage = new FakeStorage('C:/a')
+    manager.Members.Add(memberB)
+    await memberSyncTaskFor(service, memberB)
+
+    expect(service.OpenProjects.Count).toBe(1)
+    expect(service.OpenProjects.ToArray()[0]!.Name).toBe('B')   // B won the folder first
+
+    // Resolve A now — its post-wait re-check (line ~423) must find the folder
+    // already taken and skip building, rather than double-projecting it.
+    memberA.Storage = new FakeStorage('C:/a')
+    memberA.Project = projectWith('A', 'C:/a')
+    await taskA
+
+    expect(service.OpenProjects.Count).toBe(1)
+    expect(service.OpenProjects.ToArray()[0]!.Name).toBe('B')
+})
+
+// Fix round 1: openProjectAt used to hang forever opening a folder whose type has
+// no registered factory — manager.OpenProject adds the member synchronously, then
+// Solution.OpenOne sets member.Project = undefined (still raising 'Project' even
+// though the value is unchanged); the old waitForResolution bailed on
+// `!member.IsResolved` instead of settling, so its promise — and everything
+// awaiting it, including this call — never resolved. Also verifies the orphaned
+// member is dropped rather than left stranded in Members forever.
+test('openProjectAt reports "no factory" without hanging, and drops the unresolved member', async () => {
+    const { service, priv, manager, store } = makeExplorer()
+    let capturedMember: SolutionMember | undefined
+
+    manager.OpenProjectImpl = async (folder) => {
+        const member = new SolutionMember({ path: folder, type: 'unregistered-type' })
+        capturedMember = member
+        manager.Members.Add(member)
+        // Mirrors Solution.OpenOne's no-factory branch: explicitly (re-)assigns
+        // Project to fire 'Project' even though the value doesn't change — the
+        // signal ProjectExplorerService's internal wait settles on.
+        member.Project = undefined
+        return member
+    }
+
+    await priv.openProjectAt('C:/unregistered')
+    await new Promise((r) => setTimeout(r, 0))   // let the drop-unresolved-member cleanup settle
+
+    expect(service.Status).toBe('No factory for project type "unregistered-type".')
+    expect(service.OpenProjects.Count).toBe(0)
+    expect(manager.Members.ToArray()).toEqual([])
+    expect(memberSyncTaskFor(service, capturedMember!)).toBeUndefined()
+    expect(await store.List()).toEqual([])
+})
+
+// Fix round 1: onMemberRemoved now prunes memberSyncTasks for every removed
+// member (resolved-and-projected or not) — otherwise a long-lived explorer
+// accumulates one dead map entry per member ever opened-and-closed.
+test('closing a project prunes its member-sync bookkeeping (no unbounded growth across open/close cycles)', async () => {
+    const { service, priv, manager, factories } = makeExplorer()
+    factories.register('todl', fakeProjectFactory())
+    const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
+    member.Project = projectWith('A', 'C:/a')
+    member.Storage = new FakeStorage('C:/a')
+    manager.Members.Add(member)
+    await memberSyncTaskFor(service, member)
+    expect(memberSyncTaskFor(service, member)).toBeDefined()
+
+    const op = service.OpenProjects.ToArray()[0]!
+    await priv.closeProject(op)
+
+    expect(memberSyncTaskFor(service, member)).toBeUndefined()
 })
 
 test('closeProject cancelled by the DocumentCloseGuard leaves the project open and never calls SolutionManagerService.CloseProject', async () => {
