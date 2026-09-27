@@ -4,11 +4,16 @@ import { ContentHostService, DialogService, DocumentsContentHostService, Documen
 
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
-import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { FakeStorage, ObservableCollection } from '@pragmatic-tech-ai/todl-runtime'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
-import { Project, ProjectNode as DataProjectNode, ProjectNodeKind, ProjectFactoryRegistryKey } from '@pragmatic-tech-ai/todl'
+import {
+    Project, ProjectNode as DataProjectNode, ProjectNodeKind, ProjectFactoryRegistryKey,
+    SolutionManagerService, SolutionMember,
+} from '@pragmatic-tech-ai/todl'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js'
+import { SavePromptResult } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
 
 // Build a todl DATA node (what a factory returns); the explorer projects it into a
 // VM ProjectNode tree (op.Root). Tests fetch VM nodes back from op.Root by name.
@@ -189,6 +194,97 @@ function fakeDialogs(confirm: boolean | object, shown: unknown[]): DialogService
     } as unknown as DialogService
 }
 
+// ── Solution member sync fixtures (Task 4: W3b) ─────────────────────────────
+// ProjectExplorerService now projects OpenProjects from
+// SolutionManagerService.ActiveSolution.Members, so every explorer under test
+// needs a SolutionManagerService.Key registered. A full real SolutionManagerService
+// needs three more collaborators of its own (storage/prompt/package-source) just to
+// construct, so most tests here use this minimal fake instead — it supplies exactly
+// the surface ProjectExplorerService actually calls (ActiveSolution.Members,
+// PropertyChanged, OpenProject, CloseProject). ActiveSolution never changes in these
+// tests, so PropertyChanged's subscription is never expected to fire.
+class FakeSolutionManager
+{
+    public readonly Members = new ObservableCollection<SolutionMember>()
+    public readonly CloseCalls: SolutionMember[] = []
+    // Most tests never call OpenProject/RestoreSession through this fake (they seed
+    // OpenProjects directly via addOpenProject, below); a test that needs it
+    // overrides this.
+    public OpenProjectImpl: (folder: string) => Promise<SolutionMember> =
+        () => { throw new Error('FakeSolutionManager.OpenProject is not wired for this test') }
+
+    public get ActiveSolution(): { Members: ObservableCollection<SolutionMember> }
+    {
+        return { Members: this.Members }
+    }
+
+    public PropertyChanged(_name: string): { subscribe(handler: () => void): { dispose(): void } }
+    {
+        return { subscribe: () => ({ dispose: () => {} }) }
+    }
+
+    public OpenProject(folder: string): Promise<SolutionMember>
+    {
+        return this.OpenProjectImpl(folder)
+    }
+
+    public async CloseProject(member: SolutionMember): Promise<void>
+    {
+        this.CloseCalls.push(member)
+        this.Members.Remove(member)
+    }
+}
+
+// A mutable IProjectFactoryRegistry a test grows on demand — MemberProjection.Build
+// resolves a member's factory through it by Ref.type, so a member that stands in for
+// a directly-constructed test Project/factory pair needs a matching registration.
+class FakeProjectFactoryRegistry
+{
+    private readonly map = new Map<string, IProjectFactory>()
+
+    public register(type: string, factory: IProjectFactory): void { this.map.set(type, factory) }
+    public factoryFor(type: string): IProjectFactory | undefined { return this.map.get(type) }
+    public All(): IProjectFactory[] { return [...this.map.values()] }
+}
+
+// The service's private per-member sync task (set synchronously whenever the
+// member-sync loop observes an insert/remove) — awaited so a test can rely on the
+// projection's async tail (openStore.Add/Remove) having actually landed, instead of
+// guessing at a timeout.
+function memberSyncTaskFor(service: ProjectExplorerService, member: SolutionMember): Promise<void> | undefined
+{
+    return (service as unknown as { memberSyncTasks: Map<SolutionMember, Promise<void>> }).memberSyncTasks.get(member)
+}
+
+let syntheticMemberType = 0
+
+// Attach a same-named `addOpenProject(project, factory, storage)` onto `service` —
+// every existing test in this file was written against the old direct mutator of
+// that name; the member-sync architecture replaces it with "register a resolved
+// SolutionMember and let the sync loop project it", so this reproduces the old
+// call shape on top of the new mechanism rather than rewriting ~60 call sites.
+// Registers `factory` under a fresh synthetic type so MemberProjection.Build
+// resolves back to the exact instance the test passed in.
+function attachAddOpenProject(
+    service: ProjectExplorerService, manager: FakeSolutionManager, factories: FakeProjectFactoryRegistry,
+): ProjectExplorerService & Pick<ExplorerPrivates, 'addOpenProject'>
+{
+    return Object.assign(service, {
+        addOpenProject: async (project: Project, factory: IProjectFactory, storage: FakeStorage): Promise<OpenProject> => {
+            const type = `test-type-${syntheticMemberType++}`
+            factories.register(type, factory)
+            const member = new SolutionMember({ path: project.RootPath, type })
+            member.Project = project
+            member.Storage = storage
+            manager.Members.Add(member)
+            await memberSyncTaskFor(service, member)
+            const op = service.OpenProjects.ToArray().find((o) => o.Folder === project.RootPath)
+            if (op === undefined) throw new Error(`addOpenProject: "${project.RootPath}" was not projected onto OpenProjects`)
+            return op
+        },
+    })
+}
+
 function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | object = true, os: FakeOsTree = { pickedFolder: null, files: {} }): {
     service: ProjectExplorerService
     host: DocumentsContentHostService
@@ -199,6 +295,8 @@ function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | obje
     rec: Rec
     occupied: Set<string>
     created: Set<string>
+    manager: FakeSolutionManager
+    factories: FakeProjectFactoryRegistry
 }
 {
     const provider = new ServiceProvider()
@@ -227,8 +325,12 @@ function makeExplorer(openFiles: Picked[] | null = null, confirm: boolean | obje
     provider.registerInstance(DocumentTypeRegistry.Key, {
         GetByExtension: (ext: string) => ((ext === '.todl' || ext === '.diagram') ? { Factory: TodlDocFactoryToken } : undefined),
     } as unknown as DocumentTypeRegistry)
-    const service = new ProjectExplorerService(provider)
-    return { service, host, store, priv: service as unknown as ExplorerPrivates, provider, shownDialogs, rec, occupied, created }
+    const manager = new FakeSolutionManager()
+    const factories = new FakeProjectFactoryRegistry()
+    provider.registerInstance(ProjectFactoryRegistryKey, factories)
+    provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
+    const service = attachAddOpenProject(new ProjectExplorerService(provider), manager, factories)
+    return { service, host, store, priv: service as unknown as ExplorerPrivates, provider, shownDialogs, rec, occupied, created, manager, factories }
 }
 
 // Mirror of the service's separator-aware absolute-path join, for asserting the
@@ -389,6 +491,88 @@ test('closing a project removes it, closes its tabs, and unpersists it', async (
     expect(await store.List()).toEqual([])
 })
 
+// ── Solution member sync (Task 4: W3b) ──────────────────────────────────────
+
+test('a member added to ActiveSolution.Members is projected into OpenProjects; AttachProject and openStore.Add run', async () => {
+    const { service, manager, factories, provider, store } = makeExplorer()
+    const attachCalls: unknown[] = []
+    provider.registerInstance(LiveValidationKey, {
+        AttachProject: async (...args: unknown[]) => { attachCalls.push(args) },
+        DetachProject: () => {},
+    } as never)
+    factories.register('todl', fakeProjectFactory())
+    const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
+    member.Project = projectWith('A', 'C:/a')
+    member.Storage = new FakeStorage('C:/a')
+
+    manager.Members.Add(member)
+    await memberSyncTaskFor(service, member)
+
+    const op = service.OpenProjects.ToArray()[0]
+    expect(op).toBeDefined()
+    expect(op!.Root).toBeDefined()
+    expect(op!.RefreshBasesCommand).toBeDefined()
+    expect(attachCalls).toHaveLength(1)
+    expect(await store.List()).toEqual(['C:/a'])
+})
+
+test('a member removed from ActiveSolution.Members drops it from OpenProjects; DetachProject and openStore.Remove run', async () => {
+    const { service, manager, factories, provider, store } = makeExplorer()
+    const detachCalls: unknown[] = []
+    provider.registerInstance(LiveValidationKey, {
+        AttachProject: async () => {},
+        DetachProject: (...args: unknown[]) => { detachCalls.push(args) },
+    } as never)
+    factories.register('todl', fakeProjectFactory())
+    const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
+    member.Project = projectWith('A', 'C:/a')
+    member.Storage = new FakeStorage('C:/a')
+    manager.Members.Add(member)
+    await memberSyncTaskFor(service, member)
+    expect(service.OpenProjects.Count).toBe(1)
+
+    manager.Members.Remove(member)
+    await memberSyncTaskFor(service, member)
+
+    expect(service.OpenProjects.Count).toBe(0)
+    expect(detachCalls).toHaveLength(1)
+    expect(await store.List()).toEqual([])
+})
+
+test('two members that resolve to the same folder project only once (dedupe by folder)', async () => {
+    const { service, manager, factories } = makeExplorer()
+    factories.register('todl-a', fakeProjectFactory())
+    factories.register('todl-b', fakeProjectFactory())
+    const memberA = new SolutionMember({ path: 'C:/a', type: 'todl-a' })
+    memberA.Project = projectWith('A', 'C:/a')
+    memberA.Storage = new FakeStorage('C:/a')
+    const memberB = new SolutionMember({ path: 'C:/a', type: 'todl-b' })
+    memberB.Project = projectWith('A2', 'C:/a')   // same folder as memberA
+    memberB.Storage = new FakeStorage('C:/a')
+
+    manager.Members.Add(memberA)
+    await memberSyncTaskFor(service, memberA)
+    manager.Members.Add(memberB)
+    await memberSyncTaskFor(service, memberB)
+
+    expect(service.OpenProjects.Count).toBe(1)
+})
+
+test('closeProject cancelled by the DocumentCloseGuard leaves the project open and never calls SolutionManagerService.CloseProject', async () => {
+    const { priv, service, manager, host, provider } = makeExplorer()
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
+    await priv.openNode(childNode(op), op)
+    const doc = host.OpenDocuments.ToArray()[0]!
+    ;(doc as unknown as { IsDirty: boolean }).IsDirty = true
+    provider.registerInstance(DocumentCloseGuard.Key, new DocumentCloseGuard(provider, { prompt: async () => SavePromptResult.Cancel }))
+
+    await priv.closeProject(op)
+
+    expect(service.OpenProjects.ToArray()).toContain(op)
+    expect(manager.CloseCalls).toHaveLength(0)
+    expect(host.OpenDocuments.Count).toBe(1)
+})
+
 test('Publish is enabled only for a versioned (producer) project', async () => {
     const { priv } = makeExplorer()
     const pub = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeVersionedFactory(), new FakeStorage('C:/a'))
@@ -426,6 +610,8 @@ function makePublishExplorer(confirm: boolean | object = true): {
     provider: ServiceProvider
     diagnostics: DiagnosticsService
     packages: FakeStorage
+    manager: FakeSolutionManager
+    factories: FakeProjectFactoryRegistry
 }
 {
     const provider = new ServiceProvider()
@@ -448,8 +634,17 @@ function makePublishExplorer(confirm: boolean | object = true): {
     provider.registerInstance(DiagnosticsService.Key, diagnostics)
     // Seed the build system registry (+ factories + default baker) into the container.
     ProjectSystemComposer.Compose(provider)
-    const service = new ProjectExplorerService(provider)
-    return { service, priv: service as unknown as ExplorerPrivates, provider, diagnostics, packages }
+    // Replace the composed ProjectFactoryRegistry with a mutable fake: these tests
+    // open projects via addOpenProject (an explicit factory instance per call), and
+    // MemberProjection.Build must resolve back to that exact instance — nothing here
+    // opens/creates through the real factory-registry path, so the built-ins
+    // ProjectSystemComposer seeded are unused regardless.
+    const manager = new FakeSolutionManager()
+    const factories = new FakeProjectFactoryRegistry()
+    provider.registerInstance(ProjectFactoryRegistryKey, factories)
+    provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
+    const service = attachAddOpenProject(new ProjectExplorerService(provider), manager, factories)
+    return { service, priv: service as unknown as ExplorerPrivates, provider, diagnostics, packages, manager, factories }
 }
 
 test('a failed publish surfaces the build errors as a project-level diagnostic in the Problems store', async () => {
@@ -517,12 +712,34 @@ test('RestoreSession reopens folders that exist and prunes missing ones', async 
     await store.Add('C:/a')
     await store.Add('C:/b')   // no manifest → should be pruned
 
+    // A minimal fake manager whose OpenProject mirrors just enough of the real
+    // SolutionManagerService.OpenProject (Solution.AddMember/OpenOne) to exercise
+    // RestoreSession's delegation: read the manifest, add a member (its own
+    // Members.Add is what the member-sync loop reacts to), and resolve its
+    // factory — which the registered fake leaves undefined, so the member stays
+    // unresolved (matching "its factory type isn't registered" below).
+    const manager = new FakeSolutionManager()
+    let openProjectCalls = 0
+    manager.OpenProjectImpl = async (folder) => {
+        openProjectCalls++
+        const storage = storageFor(folder)
+        const manifest = JSON.parse(await storage.ReadText(PROJECT_MANIFEST_FILENAME)) as { type: string }
+        const member = new SolutionMember({ path: folder, type: manifest.type })
+        manager.Members.Add(member)
+        const factory = provider.getRequired(ProjectFactoryRegistryKey).factoryFor(manifest.type)
+        if (factory !== undefined) { member.Storage = storage; member.Project = await factory.openProject(storage) }
+        return member
+    }
+    provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
+
     const service = new ProjectExplorerService(provider)
     await service.RestoreSession()
 
     // C:/b pruned (missing manifest); C:/a kept (it has a manifest, even though
-    // its factory type isn't registered in this test, so it isn't removed).
+    // its factory type isn't registered in this test, so it isn't removed) — and
+    // OpenProject was asked for exactly once (only C:/a has a manifest).
     expect(await store.List()).toEqual(['C:/a'])
+    expect(openProjectCalls).toBe(1)
 })
 
 test('Add Existing Files copies each picked file into the project storage', async () => {

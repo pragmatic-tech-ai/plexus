@@ -70,6 +70,13 @@ const todlShimPlugin: Plugin = {
             `export { Project, ProjectNode, ProjectNodeKind } from ${p('solution-services/project-services/core/project.js')}`,
             `export { ProjectFactoryRegistryKey } from ${p('solution-services/solution-manager/engine/host-services.js')}`,
             `export { PROJECT_MANIFEST_FILENAME, ProducerKind, isPublishable, isVersioned } from ${p('solution-services/project-services/core/project-factory.js')}`,
+            // Task 4 (W3b): ProjectExplorerService projects OpenProjects from
+            // SolutionManagerService.ActiveSolution.Members. Verified mural-free
+            // transitively (solution.js/solution-manifest.js/solution-session.js/
+            // host-services.js/package-manager/manifest.js and, through
+            // solution-session's domain/compiler-services imports, down through
+            // manifest/reflection + binary-codec — none reach mural).
+            `export { SolutionManagerService } from ${p('solution-services/solution-manager/engine/solution-manager-service.js')}`,
         ].join('\n')
     },
 }

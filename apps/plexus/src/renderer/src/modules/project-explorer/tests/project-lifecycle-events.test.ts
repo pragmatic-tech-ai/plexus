@@ -2,7 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ArchitectureProjectFactory, ProjectEventKind, ProjectEventsKey, ProjectSystemComposer, type ProjectEvent } from '@pragmatic-tech-ai/todl'
+import { ArchitectureProjectFactory, ProjectEventKind, ProjectEventsKey, ProjectSystemComposer, SolutionManagerService, type ProjectEvent } from '@pragmatic-tech-ai/todl'
 
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { FileSystemService, StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
@@ -63,6 +63,27 @@ class LifecycleHarness
         this.Provider.registerInstance(StorageService.Key, registry)
         this.Provider.registerInstance(OpenProjectsStore.Key, new OpenProjectsStore(this.Provider))
         this.Provider.registerInstance(RecentProjectsService.Key, new RecentProjectsService(this.Provider))
+        // ProjectExplorerService now projects OpenProjects from
+        // SolutionManagerService.ActiveSolution.Members (Task 4: W3b), so
+        // openProjectAt/CreateProject delegate to a REAL SolutionManagerService here
+        // (not a fake) — these tests exist to prove the REAL generator/event
+        // pipeline runs end to end, and OpenProject's manifest-read + factory-open
+        // is exactly the path that must trigger it. Its three collaborators beyond
+        // what's already registered above (storage/prompt/package-source) are
+        // stubbed minimally — none of these tests exercise Save/discard prompts or
+        // manager-level base resolution.
+        this.Provider.registerInstance(SolutionManagerService.StorageRegistryKey, {
+            CreateStorage: (location: string) => this.StorageFor(location),
+        } as never)
+        this.Provider.registerInstance(SolutionManagerService.PromptServiceKey, {
+            Ask: async () => true,
+            PickFolder: async () => undefined,
+        } as never)
+        this.Provider.registerInstance(SolutionManagerService.PackageSourceKey, {
+            resolve: async () => { throw new Error('PackageSourceKey is not used by this harness') },
+            versions: async () => [],
+        } as never)
+        this.Provider.registerInstance(SolutionManagerService.Key, new SolutionManagerService(this.Provider))
         // Record every event the composed bus delivers (its real subscriber, the
         // scheduler, stays wired — this only observes).
         const events = this.Provider.getRequired(ProjectEventsKey) as unknown as { Subscribe(h: (e: ProjectEvent) => Promise<void>): void }

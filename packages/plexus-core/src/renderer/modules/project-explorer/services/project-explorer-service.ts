@@ -42,7 +42,6 @@ import {
     ProjectFactoryRegistryKey,
     type IProjectFactory,
     type ProjectFileFormat,
-    type ProjectManifestEnvelope,
 } from '../../../projects/project-factory.js'
 import { isRelocatable, isRelocatableAcrossStorage, type IDocumentFactory } from '../../../documents/document-factory.js'
 import { NewFileParticipantKey } from '../../../documents/new-file-participant.js'
@@ -91,9 +90,12 @@ import { EnvironmentService } from '../../../environment/environment-service.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
-import { ProjectEventKind, ProjectEventsKey } from '@pragmatic-tech-ai/todl'
+import { ProjectEventKind, ProjectEventsKey, SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ProjectManifest } from '@pragmatic-tech-ai/todl/package-manager'
+import { MemberProjection } from './member-projection.js'
 
 // The result of CreateProject — the tool outcome minus its correlation id.
 export type CreateOutcome = Omit<CreateProjectResult, 'id'>
@@ -154,6 +156,13 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private static readonly PublishFailedPrefix = 'Publish failed: '
     private static readonly PublishOwner = 'publish'
 
+    // The INPC property names this service observes on its solution collaborators
+    // (ActiveSolution on the manager, Project on a member) — hoisted so the
+    // watched name and the watcher can't drift, mirroring
+    // SolutionBaseResolver's own local copy of the same well-known names.
+    private static readonly ActiveSolutionPropertyName = 'ActiveSolution'
+    private static readonly MemberProjectPropertyName = 'Project'
+
     // The open projects — the tree's roots (each a collapsible DataTemplate
     // [OpenProject]). Empty until a project is opened or the session restores.
     private readonly _openProjects = new ObservableCollection<OpenProject>()
@@ -173,6 +182,26 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // re-point the tab (via the factory's relocateOpenFile) instead of leaving
     // it stale.
     private readonly docPaths = new Map<IDocument, string>()
+
+    // OpenProjects is a PROJECTION of the active solution's Members — see the
+    // "── Solution member sync ──" section below, which is the sole mutator of
+    // OpenProjects. Builds a member into an OpenProject (Task 3).
+    private readonly memberProjection: MemberProjection
+    // The live OpenProject for each currently-projected member.
+    private readonly projected = new Map<SolutionMember, OpenProject>()
+    // A member observed still unresolved (SolutionManagerService.OpenProject
+    // appends to Members synchronously, then resolves the member's Project/
+    // Storage afterwards — see todl's Solution.AddMember/OpenOne) — the pending
+    // wait for its own Project to settle, plus the means to unblock it early if
+    // the member is removed before it ever resolves.
+    private readonly pendingResolution = new Map<SolutionMember, { subscription: Disposable; resolve: () => void }>()
+    // The in-flight (or settled) sync task for each member last observed added or
+    // removed — awaited by closeProject (after the manager confirms the removal)
+    // and by callers that need the projection's side effects (OpenProjects /
+    // openStore) to have actually landed, since the collection-change listener
+    // itself is synchronous and can't be awaited directly.
+    private readonly memberSyncTasks = new Map<SolutionMember, Promise<void>>()
+    private membersUnsubscribe: (() => void) | undefined
 
     // The open reloadable document whose resolved OS path matches `absPath`, if
     // any — for the file-watch editor-reload consumer. Matches a watcher-reported
@@ -198,6 +227,8 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         this._openProjectCommand = new RelayCommand(() => void this.openProject())
         this._newProjectCommand = new RelayCommand(() => void this.newProject())
         this._treeKeyCommand = new RelayCommand((arg) => this.handleTreeKeyGlobal(arg as KeyEventArgs))
+        this.memberProjection = new MemberProjection(provider)
+        this.subscribeToManager()
     }
 
     public get OpenProjects(): ObservableCollection<OpenProject> { return this._openProjects }
@@ -309,9 +340,137 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get recents(): RecentProjectsService { return this.Provider.getRequired(RecentProjectsService.Key) }
     private get openStore(): OpenProjectsStore { return this.Provider.getRequired(OpenProjectsStore.Key) }
+    private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionManagerService.Key) }
     private get host(): DocumentsContentHostService
     {
         return this.Provider.getRequired(ContentHostService.Key) as DocumentsContentHostService
+    }
+
+    // ── Solution member sync ────────────────────────────────────────────────
+    // OpenProjects is a PROJECTION of the active solution's Members; the methods
+    // below are the SOLE mutator of it. Every open/create/close/restore path only
+    // ever asks the manager to change Members — the actual OpenProjects.Add/
+    // Remove happens here, in reaction to the collection's own change events, so
+    // there is exactly one place that can put an entry in the tree.
+
+    // Subscribe to the manager's CURRENT Members, projecting whatever is already
+    // there; re-subscribe whenever ActiveSolution itself changes (mirrors
+    // SolutionBaseResolver.rewireMembers).
+    private subscribeToManager(): void
+    {
+        const manager = this.manager
+        manager.PropertyChanged(ProjectExplorerService.ActiveSolutionPropertyName)
+            .subscribe(() => this.rewireMembers(manager))
+        this.rewireMembers(manager)
+    }
+
+    private rewireMembers(manager: SolutionManagerService): void
+    {
+        this.membersUnsubscribe?.()
+        this.membersUnsubscribe = undefined
+        const members = manager.ActiveSolution?.Members
+        if (members === undefined) return
+        for (const member of members.ToArray())
+            this.memberSyncTasks.set(member, this.onMemberAdded(member))
+        this.membersUnsubscribe = members.Subscribe((change) => this.onMembersChanged(change))
+    }
+
+    private onMembersChanged(change: CollectionChange<SolutionMember>): void
+    {
+        switch (change.kind)
+        {
+            case 'inserted':
+                for (const member of change.items) this.memberSyncTasks.set(member, this.onMemberAdded(member))
+                return
+            case 'removed':
+                for (const member of change.items) this.memberSyncTasks.set(member, this.onMemberRemoved(member))
+                return
+            default:
+                return
+        }
+    }
+
+    // Project a member added to Members. A member the manager hasn't finished
+    // resolving yet (Project/Storage still undefined — SolutionManagerService
+    // appends to Members before it awaits the open) waits for its own Project to
+    // settle first; a member removed while still waiting (see onMemberRemoved)
+    // unblocks this early with IsResolved left false, so it falls through to a
+    // no-op instead of building.
+    private async onMemberAdded(member: SolutionMember): Promise<void>
+    {
+        if (this.findByFolder(this.memberProjection.FolderOf(member)) !== undefined) return
+        if (!member.IsResolved) await this.waitForResolution(member)
+        if (member.IsResolved) await this.projectMember(member)
+    }
+
+    private waitForResolution(member: SolutionMember): Promise<void>
+    {
+        return new Promise<void>((resolve) => {
+            const subscription = member.PropertyChanged(ProjectExplorerService.MemberProjectPropertyName).subscribe(() => {
+                if (!member.IsResolved) return
+                this.pendingResolution.delete(member)
+                subscription.dispose()
+                resolve()
+            })
+            this.pendingResolution.set(member, { subscription, resolve })
+        })
+    }
+
+    private async projectMember(member: SolutionMember): Promise<void>
+    {
+        // Re-check: another member may have resolved to the same folder while
+        // this one was waiting (Review Focus #3 — dedupe by folder).
+        if (this.findByFolder(this.memberProjection.FolderOf(member)) !== undefined) return
+        const op = this.memberProjection.Build(member)
+        this.wireProjectCommands(op)
+        this.wireNodes(op.Root, op)
+        this.OpenProjects.Add(op)
+        this.projected.set(member, op)
+        // Register the project for whole-project live validation (populates the
+        // Problems dock even before any file is opened).
+        void this.Provider.get(LiveValidationKey)?.AttachProject(op.Project.RootPath, op.Project.Name, op.Storage)
+        await this.openStore.Add(op.Folder)
+    }
+
+    // The removal counterpart: a member removed before it ever resolved just has
+    // its pending wait cancelled (nothing was projected); one already projected
+    // has its tabs untracked (the actual Close already ran — see closeProject),
+    // is detached from live validation, and drops out of the tree + persisted
+    // open set.
+    private async onMemberRemoved(member: SolutionMember): Promise<void>
+    {
+        const pending = this.pendingResolution.get(member)
+        if (pending !== undefined)
+        {
+            this.pendingResolution.delete(member)
+            pending.subscription.dispose()
+            pending.resolve()
+            return
+        }
+
+        const op = this.projected.get(member)
+        if (op === undefined) return
+
+        for (const [doc, owner] of [...this.docOwners])
+        {
+            if (owner !== op) continue
+            this.docOwners.delete(doc)
+            this.docPaths.delete(doc)
+        }
+        this.Provider.get(LiveValidationKey)?.DetachProject(op.Storage)
+        this.OpenProjects.Remove(op)
+        this.projected.delete(member)
+        await this.openStore.Remove(op.Folder)
+        this.Status = `Closed ${op.Name}.`
+    }
+
+    // The solution member currently projected as `op` — the reverse lookup of
+    // `projected`, needed to hand the manager the member identity it removes.
+    private memberFor(op: OpenProject): SolutionMember | undefined
+    {
+        for (const [member, projectedOp] of this.projected)
+            if (projectedOp === op) return member
+        return undefined
     }
 
     // Open Project: present the recents-or-Browse dialog; open whatever folder it
@@ -383,54 +542,35 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         return { created: true, folder: op.Folder, name: op.Name, type: data.type }
     }
 
-    // Read a folder's manifest envelope → build the project's storage for the
-    // backend it names → route to the matching factory → add it to the open set.
-    // A no-op (with a status) if the folder is already open.
+    // Open Project: hand the folder to the solution manager (which reads its
+    // manifest, resolves storage + factory, and mints/opens the member) and let
+    // the member-sync loop project the result into the tree. A no-op (with a
+    // status) if the folder is already open — dedupe is guarded up front so a
+    // folder already projected never asks the manager again.
     private async openProjectAt(folder: string): Promise<void>
     {
         const already = this.findByFolder(folder)
         if (already !== undefined) { this.Status = `${already.Name} is already open.`; return }
 
-        const bootstrap = this.storageRegistry.Create(StorageService.DefaultBackendId, folder)
-
-        let envelope: ProjectManifestEnvelope
         try
         {
-            envelope = JSON.parse(await bootstrap.ReadText(PROJECT_MANIFEST_FILENAME)) as ProjectManifestEnvelope
-        }
-        catch
-        {
-            this.Status = `No ${PROJECT_MANIFEST_FILENAME} in that folder.`
-            return
-        }
-
-        const factory = this.resolveFactory(envelope.type)
-        if (factory === undefined) { this.Status = `No factory for project type "${envelope.type}".`; return }
-
-        let storage: IStorage
-        try
-        {
-            const backendId = envelope.storage ?? StorageService.DefaultBackendId
-            storage = backendId === StorageService.DefaultBackendId
-                ? bootstrap
-                : this.storageRegistry.Create(backendId, folder)
-        }
-        catch (e)
-        {
-            this.Status = (e as Error).message   // unknown storage backend
-            return
-        }
-
-        try
-        {
-            const project = await factory.openProject(storage)
-            const op = await this.addOpenProject(project, factory, storage)
-            await this.recents.Add({ name: op.Name, path: folder, type: envelope.type, openedAt: Date.now() })
-            this.Status = `Opened ${op.Name}.`
+            const member = await this.manager.OpenProject(folder)
+            // Let the sync loop's projection (OpenProjects.Add, openStore.Add)
+            // actually land before reporting success — the collection-change
+            // listener that runs it is synchronous and can't be awaited directly.
+            await this.memberSyncTasks.get(member)
+            if (!member.IsResolved)
+            {
+                this.Status = `No factory for project type "${member.Ref.type}".`
+                return
+            }
+            const name = (member.Project as Project | undefined)?.Name ?? member.Ref.path
+            await this.recents.Add({ name, path: folder, type: member.Ref.type, openedAt: Date.now() })
+            this.Status = `Opened ${name}.`
             // A real open (Open Project / session restore) — NOT factory.openProject,
             // which also serves every tree rescan. Created needs no raise here: the
             // TODL factory's createProject raises it itself.
-            await this.raiseLifecycleEvent(ProjectEventKind.Opened, storage)
+            if (member.Storage !== undefined) await this.raiseLifecycleEvent(ProjectEventKind.Opened, member.Storage)
         }
         catch (e)
         {
@@ -438,7 +578,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         }
     }
 
-    // Create a project of `type` named `name` in `folder`, add + record it.
+    // Create a project of `type` named `name` in `folder` on disk via its
+    // factory, then hand the folder to the solution manager exactly like an Open
+    // — the member-sync loop projects the resulting member into the tree.
     // `metaModels` / `libraries` are the base bindings chosen in the dialog
     // (library binds meta-models; architecture binds meta-models + libraries).
     private async createProjectAt(
@@ -454,8 +596,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             const bindings = ((metaModels !== undefined && metaModels.length > 0) || (libraries !== undefined && libraries.length > 0))
                 ? { metaModels, libraries }
                 : undefined
-            const project = await factory.createProject(storage, name, bindings)
-            const op = await this.addOpenProject(project, factory, storage)
+            await factory.createProject(storage, name, bindings)
+            const member = await this.manager.OpenProject(folder)
+            await this.memberSyncTasks.get(member)
+            const op = this.findByFolder(folder)
+            if (op === undefined) { this.Status = 'Create failed: the project did not open.'; return undefined }
             await this.recents.Add({ name: op.Name, path: folder, type, openedAt: Date.now() })
             this.Status = `Created ${op.Name}.`
             return op
@@ -480,29 +625,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
                 hasManifest = await storage.Exists(PROJECT_MANIFEST_FILENAME)
             }
             catch { hasManifest = false }
-            if (hasManifest) await this.openProjectAt(folder)
+            if (hasManifest) await this.manager.OpenProject(folder)
             else await this.openStore.Remove(folder)
         }
-    }
-
-    // Wrap a project as an OpenProject, wire its per-project commands + node
-    // open-commands, add it to the tree, and persist the folder. Deduped by
-    // folder — a project already open is returned as-is (no duplicate, no
-    // re-persist), so every entry point stays idempotent.
-    private async addOpenProject(project: Project, factory: IProjectFactory, storage: IStorage): Promise<OpenProject>
-    {
-        const existing = this.findByFolder(project.RootPath)
-        if (existing !== undefined) return existing
-
-        const op = new OpenProject(project, factory, storage)
-        this.wireProjectCommands(op)
-        this.wireNodes(op.Root, op)
-        this.OpenProjects.Add(op)
-        // Register the project for whole-project live validation (populates the
-        // Problems dock even before any file is opened).
-        void this.Provider.get(LiveValidationKey)?.AttachProject(op.Project.RootPath, op.Project.Name, op.Storage)
-        await this.openStore.Add(op.Folder)
-        return op
     }
 
     private wireProjectCommands(op: OpenProject): void
@@ -1232,14 +1357,19 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             await resolver.RefreshDependentsOfIds(producerIds)
     }
 
-    // Close a project: close its open tabs, drop it from the tree, and forget it
-    // from the persisted open set.
+    // Close a project: close its open tabs through the save/discard guard FIRST —
+    // a Cancel aborts the whole close, leaving the project (and its Members entry)
+    // untouched — then hand the underlying solution member to the manager.
+    // Removing it from ActiveSolution.Members fires onMemberRemoved, which does
+    // the actual tree/tracking teardown (the member-sync loop stays the sole
+    // mutator of OpenProjects; see Review Focus #1 on ordering).
     private async closeProject(op: OpenProject): Promise<void>
     {
         // Close each owned tab through the guard so a dirty document prompts
-        // Save / Don't Save / Cancel; Cancel aborts the whole project close (the
-        // guard performs the actual Close on Save/Don't-Save, so we only forget
-        // the doc's tracking afterwards).
+        // Save / Don't Save / Cancel; Cancel aborts the whole project close. The
+        // guard (or, absent one, a direct Close) performs the actual tab close
+        // here — the docOwners/docPaths bookkeeping teardown happens afterward,
+        // in onMemberRemoved, once the manager confirms the member is gone.
         const guard = this.Provider.get(DocumentCloseGuard.Key)
         for (const [doc, owner] of [...this.docOwners])
         {
@@ -1252,13 +1382,14 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             {
                 this.host.Close(doc)
             }
-            this.docOwners.delete(doc); this.docPaths.delete(doc)
         }
-        // Unregister from the language client and drop this project's diagnostics.
-        this.Provider.get(LiveValidationKey)?.DetachProject(op.Storage)
-        this.OpenProjects.Remove(op)
-        await this.openStore.Remove(op.Folder)
-        this.Status = `Closed ${op.Name}.`
+        const member = this.memberFor(op)
+        if (member === undefined) return
+        await this.manager.CloseProject(member)
+        // Let onMemberRemoved's teardown (docOwners/docPaths, live-validation
+        // detach, OpenProjects.Remove, openStore.Remove) actually land before
+        // this call returns.
+        await this.memberSyncTasks.get(member)
     }
 
     // Activate a tree node: open a file whose extension a registered editor
