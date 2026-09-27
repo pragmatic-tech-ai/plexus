@@ -645,6 +645,43 @@ test('closing a project prunes its member-sync bookkeeping (no unbounded growth 
     expect(memberSyncTaskFor(service, member)).toBeUndefined()
 })
 
+// Fix round 2 (review of 672664b): trackRemoval's cleanup was attached as a
+// fulfillment-only handler. onMemberRemoved's `await this.openStore.Remove(...)`
+// for a PROJECTED member is real disk I/O and can reject — a fulfillment-only
+// handler would then never prune the memberSyncTasks entry (reopening exactly
+// the leak Fix 2 closed, just gated behind an I/O failure instead of the
+// no-factory case) and would leave the derived `.then()` promise's rejection
+// unhandled. closeProject's OWN error propagation is untouched by this fix (it
+// awaits its own reference to the same task) and is expected to still reject —
+// this test asserts that, but only to reach the post-rejection state; it isn't
+// asserting anything new about that propagation itself.
+test('a rejected openStore.Remove during close still prunes the member-sync bookkeeping (Fix 2 must survive an I/O failure, not just the no-factory case)', async () => {
+    const { service, priv, manager, factories, store } = makeExplorer()
+    factories.register('todl', fakeProjectFactory())
+    const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
+    member.Project = projectWith('A', 'C:/a')
+    member.Storage = new FakeStorage('C:/a')
+    manager.Members.Add(member)
+    await memberSyncTaskFor(service, member)
+    const op = service.OpenProjects.ToArray()[0]!
+
+    // Fail the NEXT Remove call once (the one onMemberRemoved's teardown makes),
+    // then restore normal behavior.
+    const realRemove = store.Remove.bind(store)
+    store.Remove = async (): Promise<void> => {
+        store.Remove = realRemove
+        throw new Error('disk full (simulated)')
+    }
+
+    await expect(priv.closeProject(op)).rejects.toThrow('disk full (simulated)')
+
+    // trackRemoval's own branch consumed the rejection via .then(cleanup, cleanup)
+    // — the entry is pruned regardless of the I/O failure, and this test itself
+    // completing (rather than vitest reporting an unhandled rejection from that
+    // branch) is what proves nothing leaked out of it unhandled.
+    expect(memberSyncTaskFor(service, member)).toBeUndefined()
+})
+
 test('closeProject cancelled by the DocumentCloseGuard leaves the project open and never calls SolutionManagerService.CloseProject', async () => {
     const { priv, service, manager, host, provider } = makeExplorer()
     const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))

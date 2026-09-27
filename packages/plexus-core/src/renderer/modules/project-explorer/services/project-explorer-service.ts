@@ -404,13 +404,25 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // cleanup here instead can never race the `.set()` call it follows. The
     // identity check guards against pruning a NEWER task for the same member out
     // from under it.
+    //
+    // The SAME cleanup runs on rejection too (onMemberRemoved's
+    // `await this.openStore.Remove(...)` is real disk I/O for a projected member
+    // and can reject) — a fulfillment-only handler would both leak this entry
+    // forever on an I/O failure (the exact leak this method exists to close, just
+    // gated behind a different trigger) and leave the rejection unhandled here.
+    // `.then(cleanup, cleanup)` (not `.finally`, which re-propagates the
+    // rejection instead of consuming it) prunes the entry either way and swallows
+    // the rejection in THIS branch only — `closeProject` awaits its OWN copy of
+    // `task` (captured via `memberSyncTasks.get(member)` before this cleanup can
+    // possibly run), so its own error propagation is untouched.
     private trackRemoval(member: SolutionMember): void
     {
         const task = this.onMemberRemoved(member)
         this.memberSyncTasks.set(member, task)
-        void task.then(() => {
+        const cleanup = (): void => {
             if (this.memberSyncTasks.get(member) === task) this.memberSyncTasks.delete(member)
-        })
+        }
+        void task.then(cleanup, cleanup)
     }
 
     // Project a member added to Members. A member the manager hasn't finished
