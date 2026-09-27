@@ -1,7 +1,7 @@
 import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { editorSemanticLegend } from './semantic-scopes.js'
 import type { MessageConnection } from 'vscode-jsonrpc'
-import { SolutionBaseResolver, type TodlDocument } from '@pragmatic-tech-ai/todl'
+import { SolutionBaseResolver, SolutionManagerService, type TodlDocument } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../modules/code-editor/code-document.js'
 import { collectTodlSources } from './todl-sources.js'
@@ -76,6 +76,11 @@ export class TodlLanguageClient extends ServiceBase
 {
   public static readonly Key = new ServiceKey<TodlLanguageClient>('TodlLanguageClient')
 
+  // The exact PropertyChanged signal name SolutionBaseResolver.Invalidate raises
+  // (RaisePropertyChanged(SolutionBaseResolver.StaleMemberIdsPropertyName, ...) in its
+  // .js body) — mirrored here since that constant is private to the resolver's own class.
+  private static readonly StaleMemberIdsPropertyName = 'StaleMemberIds'
+
   private connection: MessageConnection | undefined
   private semanticLegend: SemanticLegend | undefined
   // Subscribers to "semantic tokens may have changed for a reason other than a
@@ -96,6 +101,9 @@ export class TodlLanguageClient extends ServiceBase
   // Latest diagnostics per project (projectId → relpath → canonical), so a
   // per-URI publish can be flattened into the whole-project slice the store wants.
   private readonly diagsByProject = new Map<string, Map<string, Diagnostic[]>>()
+  // The live subscription to SolutionBaseResolver's StaleMemberIds push, set by
+  // SubscribeToStaleMembers (called once at init) — kept so a re-call is idempotent.
+  private staleMembersSubscription: Disposable | undefined
 
   constructor(provider: IServiceProvider) { super(provider) }
 
@@ -322,6 +330,51 @@ export class TodlLanguageClient extends ServiceBase
     const { bases } = await this.basesFor(storage)
     await this.notify('todl/refreshBases', { rootUri: this.uriFor(found.project.projectId, ''), bases })
     this.fireSemanticStale()
+  }
+
+  // Called once at init (main.js, after both this client and SolutionBaseResolver.Key
+  // are resolved): subscribes to the resolver's StaleMemberIds push so a producer
+  // change (Invalidate → StaleMemberIds raise) flows into a coalesced editor refresh
+  // here, without SolutionBaseResolver ever blocking on this client. Re-callable —
+  // drops any prior subscription first, so it stays idempotent.
+  public SubscribeToStaleMembers(): void
+  {
+    const resolver = this.Provider.get(SolutionBaseResolver.Key)
+    if (resolver === undefined) return
+    this.staleMembersSubscription?.dispose()
+    this.staleMembersSubscription = resolver.PropertyChanged(TodlLanguageClient.StaleMemberIdsPropertyName).subscribe((): void => {
+      void this.refreshStaleMembers(resolver)
+    })
+  }
+
+  // One pass per raise: snapshot the resolver's current StaleMemberIds, map it to the
+  // deduped set of member storages it affects, and refresh each exactly once — whether
+  // the raise carried one id or many (Review Focus #4/#coalescing).
+  private async refreshStaleMembers(resolver: SolutionBaseResolver): Promise<void>
+  {
+    const storages = await this.staleStoragesFor(resolver)
+    for (const storage of storages) await this.RefreshBases(storage)
+  }
+
+  // Map every currently-stale member id to its member storage via
+  // SolutionManagerService.ActiveSolution.Members, matching resolver.ProducedIdOf(storage)
+  // — the same manifest-id lookup SolutionBaseResolver's own liveProducerFor uses. An id
+  // with no matching member (already closed, or a bogus id) contributes nothing to the
+  // result: the unknown-id guard is this absence, never a throw.
+  private async staleStoragesFor(resolver: SolutionBaseResolver): Promise<Set<IStorage>>
+  {
+    const staleIds = resolver.StaleMemberIds
+    const members = this.Provider.get(SolutionManagerService.Key)?.ActiveSolution?.Members
+    const storages = new Set<IStorage>()
+    if (members === undefined) return storages
+    for (const member of members)
+    {
+      const storage = member.Storage
+      if (storage === undefined) continue
+      const producedId = await resolver.ProducedIdOf(storage)
+      if (producedId !== undefined && staleIds.has(producedId)) storages.add(storage)
+    }
+    return storages
   }
 
   // Record a document's URI and publish it on the document so the editor keys its

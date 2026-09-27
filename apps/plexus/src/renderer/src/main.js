@@ -236,6 +236,11 @@ try {
     // its own ActiveSolution/Members subscription is live before session restore.
     // BaseResolverKey (registered above) resolves this SAME singleton.
     app.Services.get(SolutionBaseResolver.Key)
+    // Now that both the language client and SolutionBaseResolver are resolved,
+    // subscribe once to the resolver's StaleMemberIds push (W3b Task 6): a producer
+    // change → SolutionBaseResolver.Invalidate → StaleMemberIds raise → coalesced
+    // editor refresh here, with the resolver never blocking on this client.
+    todlClient?.SubscribeToStaleMembers()
 
     // Restore the previous session's open projects into the explorer (skips
     // folders whose project manifest is gone). Fire-and-forget after mount.
