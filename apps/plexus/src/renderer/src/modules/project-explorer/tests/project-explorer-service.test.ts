@@ -10,6 +10,7 @@ import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/pr
 import {
     Project, ProjectNode as DataProjectNode, ProjectNodeKind, ProjectFactoryRegistryKey,
     SolutionManagerService, SolutionMember, SolutionBaseResolver, ProjectType,
+    type IPackageRegistry, type PublishablePackage,
 } from '@pragmatic-tech-ai/todl'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js'
@@ -209,6 +210,10 @@ class FakeSolutionManager
 {
     public readonly Members = new ObservableCollection<SolutionMember>()
     public readonly CloseCalls: SolutionMember[] = []
+    // The active publish target PackagePublisher now reads (W3c): unset here, so most
+    // tests fall through to the publisher's local-store default; a publish test that
+    // needs to assert the manager's registry is honored sets this to a fake.
+    public PublishRegistry: IPackageRegistry | undefined = undefined
     // Most tests never call OpenProject/RestoreSession through this fake (they seed
     // OpenProjects directly via addOpenProject, below); a test that needs it
     // overrides this.
@@ -860,6 +865,34 @@ test('a successful publish clears any prior publish diagnostic and lands the pac
     // discovery scan reads, so a sibling project resolves it as a base.
     const published = await scanPublishedModels(packages)
     expect(published).toEqual([{ id: 'a', versions: ['0.1.0'] }])
+})
+
+// A recording publish target: the publisher only ever calls Publish, so this captures
+// each Publish and is cast to IPackageRegistry at the assignment site rather than
+// stubbing that interface's full read surface. A test uses it to assert the publisher
+// targeted the registry set on SolutionManagerService.PublishRegistry rather than
+// constructing its own local-store default.
+class RecordingRegistry
+{
+    public readonly Published: PublishablePackage[] = []
+
+    public async Publish(pkg: PublishablePackage): Promise<void> { this.Published.push(pkg) }
+}
+
+test('publish targets the registry set on SolutionManagerService.PublishRegistry, not the local-store default (W3c)', async () => {
+    const { service, priv, manager, packages } = makePublishExplorer()
+    const registry = new RecordingRegistry()
+    manager.PublishRegistry = registry as unknown as IPackageRegistry
+    const op = await priv.addOpenProject(
+        projectWith('A', 'C:/a'), fakeVersionedFactory(), await metaModelStorage('C:/a', 'a', PUBLISHABLE_TODL))
+
+    await (service as unknown as PublishPrivates).publishProject(op)
+
+    // The build succeeded and pushed to the manager's registry, not the local default.
+    expect(service.Status.startsWith('Published ')).toBe(true)
+    expect(registry.Published).toHaveLength(1)
+    // Nothing landed in the local packages store — the manager's registry overrode it.
+    expect(await scanPublishedModels(packages)).toEqual([])
 })
 
 test('RestoreSession reopens folders that exist and prunes missing ones', async () => {
