@@ -12,7 +12,8 @@ import { TodlPresentationRegistry } from '../../diagram/services/todl-presentati
 import { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
 import { WikiService, type WikiTarget } from '../../../services/wiki/wiki-service.js'
 import { wikiPathOf } from '../../../services/wiki/wiki-locator.js'
-import { locateWikiFile } from '../../../services/projects/wiki-origin.js'
+import { WikiLocator } from '../../../services/projects/wiki-origin.js'
+import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import type { ArchModel } from './arch-model.js'
 import { loadViewpoints, writeViewpoints } from './arch-diagram-viewpoints-store.js'
 import { readScenarios, writeScenarios } from './arch-diagram-scenarios-store.js'
@@ -71,7 +72,7 @@ export class ArchDiagramBindingService extends ServiceBase
         if (path === undefined) return undefined
         const origin = model.wikiOriginOf(concept)
         if (origin === undefined) return undefined
-        const loc = locateWikiFile(this.Provider, origin, path)
+        const loc = WikiLocator.LocateFile(ensurePackagesBackend(this.Provider), origin, path)
         return { id: `${loc.storage.Root}::${loc.path}`, storage: loc.storage, path: loc.path }
     }
 

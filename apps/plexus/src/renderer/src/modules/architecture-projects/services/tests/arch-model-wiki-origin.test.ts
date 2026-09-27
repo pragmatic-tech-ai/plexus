@@ -1,8 +1,7 @@
 import { describe, test, expect } from 'vitest'
 import { ModelDraft } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProducerKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
-import { WikiOriginKind, packageOrigin, type WikiOrigin } from '../../../../services/projects/wiki-origin.js'
+import { WikiOriginKind, WikiLocator, type WikiOrigin } from '../../../../services/projects/wiki-origin.js'
 import { ArchModel } from '../arch-model.js'
 
 const SRC = `namespace mm { concept service { annotate wiki { path = "wiki/service.md"; } } }`
@@ -16,7 +15,7 @@ function model(originOf: Map<string, WikiOrigin>): ArchModel
 
 describe('ArchModel.wikiOriginOf', () => {
     test('returns the tagged origin for a base concept', () => {
-        const origin = packageOrigin(ProducerKind.Library, 'mm', '1.0.0')
+        const origin = WikiLocator.PackageOrigin('mm', '1.0.0')
         expect(model(new Map([['service', origin]])).wikiOriginOf('service')).toBe(origin)
     })
 

@@ -124,7 +124,7 @@ function routing(origin: 'published' | 'project')
     protected override activateLibraries() { activated = true }
   }
   const model = {
-    wikiOriginOf: () => (origin === 'published' ? { kind: WikiOriginKind.Package, backend: 'library', id: 'tech', version: '1.0' } : undefined),
+    wikiOriginOf: () => (origin === 'published' ? { kind: WikiOriginKind.Package, id: 'tech', version: '1.0' } : undefined),
     homeOf: () => (origin === 'project' ? 'landscape.todl' : undefined),
     Storage: { ReadText: () => Promise.resolve('namespace x {\n  component orders { }\n}\n') },
   } as never

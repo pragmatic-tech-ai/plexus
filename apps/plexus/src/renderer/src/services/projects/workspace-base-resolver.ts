@@ -9,7 +9,7 @@ import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projec
 import type { BaseRef } from '@pragmatic-tech-ai/plexus-core/renderer/projects/base-binding.js'
 import { PROJECT_MANIFEST_FILENAME, ProducerKind } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { isProducer } from './producer-project-factory.js'
-import { type WikiOrigin, openProjectOrigin, packageOrigin } from './wiki-origin.js'
+import { type WikiOrigin, WikiLocator } from './wiki-origin.js'
 
 // The provenance of every base node — where its declaring artifact lives — keyed
 // by node id, so the wiki opener can resolve a concept's page against the right
@@ -186,7 +186,7 @@ export class WorkspaceBaseResolver extends ServiceBase
                 problems.push(`using local "${ref.id}" (open project) — binding requests @${ref.version}, project is @${pv}`)
             bases.push(compiled.doc)
             // Open producer → its concepts' pages are live source under its root.
-            tagOrigin(originOf, compiled.doc, openProjectOrigin(producer.Storage))
+            tagOrigin(originOf, compiled.doc, WikiLocator.OpenProjectOrigin(producer.Storage))
             return
         }
         if (producer !== undefined && visited.has(producer.Storage))
@@ -214,7 +214,7 @@ export class WorkspaceBaseResolver extends ServiceBase
             const doc = JSON.parse(await backend.ReadText(`${ref.id}/${ref.version}/model.json`)) as PackageDocument
             bases.push({ nodes: doc.nodes, edges: doc.edges })
             // Published package → its concepts' pages ship at <backend>/<id>/<ver>/.
-            tagOrigin(originOf, doc, packageOrigin(kind, ref.id, ref.version ?? ''))
+            tagOrigin(originOf, doc, WikiLocator.PackageOrigin(ref.id, ref.version ?? ''))
             for (const dep of doc.dependencies ?? [])
             {
                 const depKind = dep.kind === PackageKind.Library ? ProducerKind.Library : ProducerKind.MetaModel

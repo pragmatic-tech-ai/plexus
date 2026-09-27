@@ -90,7 +90,7 @@ test('falls back to the published artifact when the producer is not open', async
     expect(hasNode(bases, 'PublishedConcept')).toBe(true)
     // Provenance: a published concept is tagged with its package coordinates.
     expect(originOf.get('PublishedConcept')).toEqual({
-        kind: WikiOriginKind.Package, backend: ProducerKind.MetaModel, id: 'ea', version: '0.1.0',
+        kind: WikiOriginKind.Package, id: 'ea', version: '0.1.0',
     })
 })
 

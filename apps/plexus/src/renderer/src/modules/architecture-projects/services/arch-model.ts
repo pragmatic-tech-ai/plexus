@@ -1,7 +1,7 @@
 import { ModelDraft } from '@pragmatic-tech-ai/todl'
 import type { Repository, Entity, SourceFile } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { type WikiOrigin, openProjectOrigin } from '../../../services/projects/wiki-origin.js'
+import { type WikiOrigin, WikiLocator } from '../../../services/projects/wiki-origin.js'
 
 // One viewpoint's projection over the model: the concepts it frames and the
 // entities visible through it (an entity is a member when its concept is framed
@@ -40,7 +40,7 @@ export class ArchModel
         if (direct !== undefined) return direct
         const node = this.repository().resolve(concept)
         if (node === undefined) return undefined
-        return this.wikiOriginByNode.get(node.id) ?? openProjectOrigin(this.storage)
+        return this.wikiOriginByNode.get(node.id) ?? WikiLocator.OpenProjectOrigin(this.storage)
     }
 
     public entities(): Entity[]
