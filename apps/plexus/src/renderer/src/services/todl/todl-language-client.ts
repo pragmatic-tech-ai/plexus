@@ -80,6 +80,11 @@ export class TodlLanguageClient extends ServiceBase
   // (RaisePropertyChanged(SolutionBaseResolver.StaleMemberIdsPropertyName, ...) in its
   // .js body) — mirrored here since that constant is private to the resolver's own class.
   private static readonly StaleMemberIdsPropertyName = 'StaleMemberIds'
+  // Logged (main.js convention: console.error('[plexus] ...', err)) when a
+  // StaleMemberIds-triggered refresh pass rejects — this handler runs off a
+  // PropertyChanged signal, not an awaited call site, so a rejection would
+  // otherwise surface only as an unhandled promise rejection with no context.
+  private static readonly StaleMembersRefreshFailedMessage = '[plexus] StaleMemberIds refresh failed:'
 
   private connection: MessageConnection | undefined
   private semanticLegend: SemanticLegend | undefined
@@ -343,7 +348,9 @@ export class TodlLanguageClient extends ServiceBase
     if (resolver === undefined) return
     this.staleMembersSubscription?.dispose()
     this.staleMembersSubscription = resolver.PropertyChanged(TodlLanguageClient.StaleMemberIdsPropertyName).subscribe((): void => {
-      void this.refreshStaleMembers(resolver)
+      this.refreshStaleMembers(resolver).catch((err: unknown) => {
+        console.error(TodlLanguageClient.StaleMembersRefreshFailedMessage, err)
+      })
     })
   }
 
@@ -356,11 +363,19 @@ export class TodlLanguageClient extends ServiceBase
     for (const storage of storages) await this.RefreshBases(storage)
   }
 
-  // Map every currently-stale member id to its member storage via
-  // SolutionManagerService.ActiveSolution.Members, matching resolver.ProducedIdOf(storage)
-  // — the same manifest-id lookup SolutionBaseResolver's own liveProducerFor uses. An id
-  // with no matching member (already closed, or a bogus id) contributes nothing to the
-  // result: the unknown-id guard is this absence, never a throw.
+  // Map every currently-stale member id to the member storages it affects, via
+  // SolutionManagerService.ActiveSolution.Members. A member matches on EITHER of two
+  // resolver-backed criteria (union, deduped into one Set<IStorage>):
+  //  - it IS the changed producer (or a transitive producer dependent) —
+  //    resolver.ProducedIdOf(storage) is one of the stale ids; or
+  //  - it CONSUMES a changed producer — resolver.ReferencedPublishedRefs(storage)
+  //    (its transitive metaModels/libraries bindings, as `id@version` keys) names one.
+  // The second branch is what makes a pure consumer (e.g. an Architecture project,
+  // which produces nothing so ProducedIdOf is always undefined for it) refresh when
+  // the metamodel/library it binds changes — without it, such a consumer's editor
+  // would show diagnostics against the old base until manually refreshed. An id with
+  // no matching member on either branch contributes nothing: the unknown-id guard is
+  // this absence, never a throw.
   private async staleStoragesFor(resolver: SolutionBaseResolver): Promise<Set<IStorage>>
   {
     const staleIds = resolver.StaleMemberIds
@@ -371,10 +386,38 @@ export class TodlLanguageClient extends ServiceBase
     {
       const storage = member.Storage
       if (storage === undefined) continue
-      const producedId = await resolver.ProducedIdOf(storage)
-      if (producedId !== undefined && staleIds.has(producedId)) storages.add(storage)
+      const stale = await this.isStaleProducer(resolver, storage, staleIds) || await this.isStaleConsumer(resolver, storage, staleIds)
+      if (stale) storages.add(storage)
     }
     return storages
+  }
+
+  // Is `storage` itself one of the stale ids (the changed producer, or a transitive
+  // producer dependent SolutionBaseResolver's own withDependents already evicted)?
+  private async isStaleProducer(resolver: SolutionBaseResolver, storage: IStorage, staleIds: ReadonlySet<string>): Promise<boolean>
+  {
+    const producedId = await resolver.ProducedIdOf(storage)
+    return producedId !== undefined && staleIds.has(producedId)
+  }
+
+  // Does `storage` reference (metaModels/libraries-bind) one of the stale ids? Each
+  // entry of ReferencedPublishedRefs is a package key (`id@version`, per its own
+  // doc comment), so the producer id is recovered before comparing against staleIds
+  // (which holds bare manifest ids).
+  private async isStaleConsumer(resolver: SolutionBaseResolver, storage: IStorage, staleIds: ReadonlySet<string>): Promise<boolean>
+  {
+    const refs = await resolver.ReferencedPublishedRefs(storage)
+    for (const key of refs) if (staleIds.has(TodlLanguageClient.ProducerIdFromRefKey(key))) return true
+    return false
+  }
+
+  // The `id` half of a `${id}@${version}` package key (ReferencedPublishedRefs'
+  // format). Splits on the LAST '@' rather than the first, so a scoped id containing
+  // its own '@' (if TODL ever allows one) still resolves to the right id.
+  private static ProducerIdFromRefKey(key: string): string
+  {
+    const at = key.lastIndexOf('@')
+    return at < 0 ? key : key.slice(0, at)
   }
 
   // Record a document's URI and publish it on the document so the editor keys its

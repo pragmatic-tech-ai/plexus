@@ -45,7 +45,10 @@ class FakeSolutionManager
 // the real SolutionBaseResolver.Invalidate raises (verified against its .js body —
 // RaisePropertyChanged(SolutionBaseResolver.StaleMemberIdsPropertyName, old, evicted)).
 // ProducedIdOf counts its calls so a test can assert the client does one pass over
-// Members per raise, not one pass per stale id.
+// Members per raise, not one pass per stale id. ReferencedPublishedRefs returns
+// `id@version` package keys per storage — the real resolver's own documented format
+// (see collectPublishedRef's `${ref.id}@${ref.version}` key) — so a pure consumer
+// (no producedId of its own) can still be matched via what it binds.
 class FakeSolutionBaseResolver extends Observable
 {
   private static readonly StaleMemberIdsPropertyName = 'StaleMemberIds'
@@ -53,7 +56,10 @@ class FakeSolutionBaseResolver extends Observable
   private staleMemberIds: ReadonlySet<string> = new Set()
   private producedIdCalls = 0
 
-  public constructor(private readonly producedIds: ReadonlyMap<IStorage, string>) { super() }
+  public constructor(
+    private readonly producedIds: ReadonlyMap<IStorage, string>,
+    private readonly referencedRefs: ReadonlyMap<IStorage, ReadonlySet<string>> = new Map(),
+  ) { super() }
 
   public get StaleMemberIds(): ReadonlySet<string> { return this.staleMemberIds }
   public get ProducedIdOfCallCount(): number { return this.producedIdCalls }
@@ -62,6 +68,11 @@ class FakeSolutionBaseResolver extends Observable
   {
     this.producedIdCalls++
     return Promise.resolve(this.producedIds.get(storage))
+  }
+
+  public ReferencedPublishedRefs(storage: IStorage): Promise<Set<string>>
+  {
+    return Promise.resolve(new Set(this.referencedRefs.get(storage) ?? []))
   }
 
   public ResolveBasesFor(): Promise<{ bases: unknown[]; problems: string[] }>
@@ -110,6 +121,34 @@ class TestHarness
     return new TestHarness(client, conn, resolver)
   }
 
+  // An Architecture-style pure consumer alongside its metamodel producer: `arch`
+  // produces nothing (ProducedIdOf(archStorage) → undefined) but its manifest binds
+  // `mm` (ReferencedPublishedRefs(archStorage) → {'mm@1.0.0'}) — the regression case
+  // (Fix 1): a consumer must still refresh when the producer it references goes stale.
+  public static async BuildWithConsumer(): Promise<TestHarness>
+  {
+    const mmStorage = new FakeStorage('C:/mm')
+    const archStorage = new FakeStorage('C:/arch')
+    const producedIds = new Map([[mmStorage, 'mm']]) // archStorage absent: it produces nothing
+    const referencedRefs = new Map<IStorage, ReadonlySet<string>>([[archStorage, new Set(['mm@1.0.0'])]])
+    const resolver = new FakeSolutionBaseResolver(producedIds, referencedRefs)
+    const manager = new FakeSolutionManager([new FakeMember(mmStorage), new FakeMember(archStorage)])
+
+    const provider = new ServiceProvider()
+    provider.registerInstance(SolutionBaseResolver.Key, resolver as unknown as SolutionBaseResolver)
+    provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
+
+    const client = new TodlLanguageClient(provider)
+    const conn = new FakeConnection()
+    await client.Initialize(conn as never)
+    await client.AttachProject('C:/mm', 'MM', mmStorage)
+    await client.AttachProject('C:/arch', 'Arch', archStorage)
+    conn.notifications.length = 0
+
+    client.SubscribeToStaleMembers()
+    return new TestHarness(client, conn, resolver)
+  }
+
   // Lets a raise's fire-and-forget async handler chain (ProducedIdOf → RefreshBases →
   // basesFor) settle before assertions — the same pattern used elsewhere in this test
   // suite for fire-and-forget async work (see todl-language-client-docsync.test.ts).
@@ -151,4 +190,17 @@ test('two stale ids in one raise drive one refresh pass per storage, not per id'
   // which a naive per-id loop over Members would produce (would be 4 here).
   expect(resolver.ProducedIdOfCallCount).toBe(2)
   expect(conn.NotificationsFor('todl/refreshBases')).toHaveLength(2)
+})
+
+test('a pure consumer with no ProducedIdOf still refreshes when a producer it references goes stale', async () => {
+  const { client, conn, resolver } = await TestHarness.BuildWithConsumer()
+
+  resolver.RaiseStaleMembers(new Set(['mm']))
+  await TestHarness.Settle()
+
+  const refreshed = conn.NotificationsFor('todl/refreshBases') as Array<{ rootUri: string }>
+  const rootUris = refreshed.map((r) => r.rootUri)
+  expect(rootUris).toContain(client.uriFor('C:/arch', '')) // the pure consumer — the regression case
+  expect(rootUris).toContain(client.uriFor('C:/mm', ''))   // the producer itself still matches too
+  expect(refreshed).toHaveLength(2)
 })
