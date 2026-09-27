@@ -1,9 +1,8 @@
 import { test, expect, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { toJSON, check } from '@pragmatic-tech-ai/todl'
+import { toJSON, check, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { WorkspaceBaseResolver } from '../../projects/workspace-base-resolver.js'
 import { TodlLanguageClient } from '../todl-language-client.js'
 import { TodlSemanticScope } from '../semantic-scopes.js'
 
@@ -24,9 +23,9 @@ function providerWithBase()
 {
   const provider = new ServiceProvider()
   const doc = toJSON(check([{ uri: 'p.todl', text: 'namespace ea { concept C { label : string; } }' }]).model)
-  provider.registerInstance(WorkspaceBaseResolver.Key, {
-    ResolveForStorage: async () => ({ bases: [doc], problems: [] }),
-  } as unknown as WorkspaceBaseResolver)
+  provider.registerInstance(SolutionBaseResolver.Key, {
+    ResolveBasesFor: async () => ({ bases: [doc], problems: [] }),
+  } as unknown as SolutionBaseResolver)
   return provider
 }
 

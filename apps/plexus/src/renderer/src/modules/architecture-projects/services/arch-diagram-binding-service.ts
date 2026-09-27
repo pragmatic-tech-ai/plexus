@@ -1,9 +1,9 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DiagramDocument, DialogService, StatusService, type DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
+import { SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 
 import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import { ArchDiagramBinding } from './arch-diagram-binding.js'
@@ -149,8 +149,8 @@ export class ArchDiagramBindingService extends ServiceBase
             const contexts = new Set<string>(['model:' + model.namespace])
             try
             {
-                const resolver = this.Provider.get(WorkspaceBaseResolver.Key)
-                if (resolver !== undefined) for (const r of await resolver.referencedPublishedRefs(model.Storage)) contexts.add(r)
+                const resolver = this.Provider.get(SolutionBaseResolver.Key)
+                if (resolver !== undefined) for (const r of await resolver.ReferencedPublishedRefs(model.Storage)) contexts.add(r)
             }
             catch { /* leave contexts at just the model token */ }
             ;(doc as unknown as ToolboxContextTarget).ToolboxContexts = contexts

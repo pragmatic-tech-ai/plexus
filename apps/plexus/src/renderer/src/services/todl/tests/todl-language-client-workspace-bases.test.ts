@@ -1,9 +1,8 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { toJSON, check } from '@pragmatic-tech-ai/todl'
+import { toJSON, check, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { WorkspaceBaseResolver } from '../../projects/workspace-base-resolver.js'
 import { TodlLanguageClient } from '../todl-language-client.js'
 
 function fakeConn()
@@ -20,13 +19,13 @@ function fakeConn()
   }
 }
 
-test('AttachProject resolves bases through WorkspaceBaseResolver (local-first), not resolveBases', async () => {
+test('AttachProject resolves bases through SolutionBaseResolver (local-first), not resolveBases', async () => {
   const provider = new ServiceProvider()
   const doc = toJSON(check([{ uri: 'p.todl', text: 'namespace ea { concept ViaResolver { label : string; } }' }]).model)
   let called = false
-  provider.registerInstance(WorkspaceBaseResolver.Key, {
-    ResolveForStorage: async () => { called = true; return { bases: [doc], problems: [] } },
-  } as unknown as WorkspaceBaseResolver)
+  provider.registerInstance(SolutionBaseResolver.Key, {
+    ResolveBasesFor: async () => { called = true; return { bases: [doc], problems: [] } },
+  } as unknown as SolutionBaseResolver)
 
   const client = new TodlLanguageClient(provider)
   const { conn, notes } = fakeConn()

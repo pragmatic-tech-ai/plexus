@@ -77,6 +77,16 @@ const todlShimPlugin: Plugin = {
             // solution-session's domain/compiler-services imports, down through
             // manifest/reflection + binary-codec — none reach mural).
             `export { SolutionManagerService } from ${p('solution-services/solution-manager/engine/solution-manager-service.js')}`,
+            // Task 5 (W3b): project-explorer-service.ts's manageReferences/
+            // RefreshProjects now import the ProjectType enum (a runtime value) and
+            // resolve SolutionBaseResolver.Key directly (for Invalidate) alongside
+            // BaseResolverKey. ProjectType lives in the already-shimmed manifest.js
+            // (no imports of its own — trivially mural-free). SolutionBaseResolver's
+            // full transitive closure (59 files: package-store/publish/compiler-
+            // services/project-model-provider/wiki-origin/…) was traced and contains
+            // no mural import.
+            `export { ProjectType } from ${p('solution-services/package-manager/manifest.js')}`,
+            `export { SolutionBaseResolver } from ${p('solution-services/solution-manager/engine/solution-base-resolver.js')}`,
         ].join('\n')
     },
 }

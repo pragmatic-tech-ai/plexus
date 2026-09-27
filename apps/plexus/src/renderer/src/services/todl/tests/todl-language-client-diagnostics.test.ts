@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { TodlLanguageClient } from '../todl-language-client.js'
-import { WorkspaceBaseResolver } from '../../projects/workspace-base-resolver.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
@@ -25,9 +25,9 @@ function fakeConn()
 async function setup()
 {
   const provider = new ServiceProvider()
-  provider.registerInstance(WorkspaceBaseResolver.Key, {
-    ResolveForStorage: async () => ({ bases: [], problems: [] }),
-  } as unknown as WorkspaceBaseResolver)
+  provider.registerInstance(SolutionBaseResolver.Key, {
+    ResolveBasesFor: async () => ({ bases: [], problems: [] }),
+  } as unknown as SolutionBaseResolver)
   const diagnostics = new DiagnosticsService(provider)
   provider.registerInstance(DiagnosticsService.Key, diagnostics)
   const storage = new FakeStorage('proj')

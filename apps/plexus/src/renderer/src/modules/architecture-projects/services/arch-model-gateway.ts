@@ -1,9 +1,8 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { checkAgainst, Severity, type SourceFile } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, Severity, SolutionBaseResolver, type SourceFile } from '@pragmatic-tech-ai/todl'
 import { PatchOpKind, type PatchOp } from '../../../../../shared/model-patch-api.js'
 import { SkillProblemSeverity, type SkillProblem } from '../../../../../shared/skill-api.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import type { ArchModel } from './arch-model.js'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
@@ -51,7 +50,7 @@ export class ArchModelGateway implements IArchModelGateway
     // libraries) — the same composition modelFor uses, but returning diagnostics.
     private async validate(op: OpenProject, model: ArchModel): Promise<SkillProblem[]>
     {
-        const { bases } = await this.provider.getRequired(WorkspaceBaseResolver.Key).ResolveForStorage(op.Storage)
+        const { bases } = await this.provider.getRequired(SolutionBaseResolver.Key).ResolveBasesFor(op.Storage)
         const sources: SourceFile[] = [...model.toTodlByFile()].map(([uri, text]) => ({ uri, text }))
         return checkAgainst(bases, sources).diagnostics.map((d) => ({
             message: d.message,

@@ -31,7 +31,6 @@ import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-
 import { FileWatchService } from './services/file-watch/file-watch-service.js'
 import { EditorReloadService } from './services/file-watch/editor-reload-service.js'
 import { ProjectRescanService } from './services/file-watch/project-rescan-service.js'
-import { WorkspaceBaseResolver } from './services/projects/workspace-base-resolver.js'
 import { ArchDiagramBindingService } from './modules/architecture-projects/services/arch-diagram-binding-service.js'
 import { ArchModelToolboxContributor } from './modules/architecture-projects/services/arch-model-toolbox-contributor.js'
 import { DiagramCameraService } from './modules/diagram/services/diagram-camera-service.js'
@@ -47,7 +46,7 @@ import { LiveValidationKey, BaseResolverKey, ProblemsDockKey, ProjectTreeHostKey
 import { createTodlLspConnection } from './services/todl/todl-lsp-connection.js'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
-import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio'
 import { RendererPackageSource } from './services/projects/renderer-package-source.js'
 
@@ -96,7 +95,7 @@ try {
     // adapter-backed capabilities (PublishedBases/DiagramTreeExport/ProjectMenuSource)
     // ARE registered via the `.mu` alias, since each has only the one instance.
     app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
-    app.Services.register(BaseResolverKey,    (p) => p.getRequired(WorkspaceBaseResolver.Key))
+    app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionBaseResolver.Key))
     app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
     app.Services.register(ProjectTreeHostKey, (p) => p.getRequired(ProjectExplorerService.Key))
     // The shell chrome (title strip + @Surface) has mounted; drop the boot
@@ -141,9 +140,6 @@ try {
     app.Services.get(EditorReloadService.Key)
     // Project-rescan consumer: re-validates the owning project on external change.
     app.Services.get(ProjectRescanService.Key)
-    // Local-first base resolver: construct now so its OpenProjects subscription
-    // (refresh dependents on open/close) is live before session restore.
-    app.Services.get(WorkspaceBaseResolver.Key)
     // Arch diagram binding: construct now so it observes opened documents and
     // binds architecture diagrams to their ArchModel from boot.
     app.Services.get(ArchDiagramBindingService.Key)
@@ -235,6 +231,11 @@ try {
     SolutionStudioSeams.Register(app.Services)
     app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
     app.Services.get(SolutionManagerService.Key)
+    // Base resolution (retired WorkspaceBaseResolver — W3b Task 5): construct
+    // SolutionBaseResolver now, after the solution engine wiring just above, so
+    // its own ActiveSolution/Members subscription is live before session restore.
+    // BaseResolverKey (registered above) resolves this SAME singleton.
+    app.Services.get(SolutionBaseResolver.Key)
 
     // Restore the previous session's open projects into the explorer (skips
     // folders whose project manifest is gone). Fire-and-forget after mount.

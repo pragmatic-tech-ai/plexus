@@ -9,7 +9,7 @@ import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/
 import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import {
     Project, ProjectNode as DataProjectNode, ProjectNodeKind, ProjectFactoryRegistryKey,
-    SolutionManagerService, SolutionMember,
+    SolutionManagerService, SolutionMember, SolutionBaseResolver, ProjectType,
 } from '@pragmatic-tech-ai/todl'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js'
@@ -34,7 +34,7 @@ import { NewProjectDialogModel, ProjectTypeChoice } from '@pragmatic-tech-ai/ple
 import { MetaModelProjectFactory } from '../../meta-model/services/meta-model-project-factory.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
-import { LiveValidationKey, DiagramTreeExportKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+import { LiveValidationKey, DiagramTreeExportKey, BaseResolverKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 
 // A picked file as the OS dialog would hand it back (absolute path + raw bytes).
 type Picked = { Path: string; Bytes: Uint8Array }
@@ -183,6 +183,7 @@ interface ExplorerPrivates
     bumpVersion(op: OpenProject, part: VersionPart): Promise<void>
     setVersionDialog(op: OpenProject): Promise<void>
     updateAgentMetadata(op: OpenProject): Promise<void>
+    manageReferences(op: OpenProject): Promise<void>
 }
 
 // A fake DialogService: Show records the shown content and resolves the preset
@@ -391,6 +392,59 @@ test('RefreshProjects rescans each named project and refreshes its bases; unknow
 
     expect(opened).toBe(1)                       // only the known project rescanned
     expect(calls).toEqual(['resync', 'refresh']) // rescan resyncs the doc set, then bases refresh
+})
+
+// W3b Task 5: WorkspaceBaseResolver retired — RefreshProjects now awaits the
+// reshaped IBaseResolver.ProducedIdOf (async) and, for a changed producer,
+// invalidates it through SolutionBaseResolver.Invalidate directly (no more
+// RefreshDependentsOfIds fan-out on IBaseResolver itself).
+test('RefreshProjects awaits ProducedIdOf and invalidates a changed producer via SolutionBaseResolver', async () => {
+    const { service, priv, provider } = makeExplorer()
+    const factory = fakeProjectFactory()
+    const producerOp = await priv.addOpenProject(projectWith('A', 'C:/a'), factory, new FakeStorage('C:/a'))
+    const consumerOp = await priv.addOpenProject(projectWith('B', 'C:/b'), factory, new FakeStorage('C:/b'))
+
+    provider.registerInstance(LiveValidationKey, {
+        RefreshBases: async () => {},
+        ResyncProject: async () => {},
+    } as never)
+
+    const producedIdOfCalls: unknown[] = []
+    provider.registerInstance(BaseResolverKey, {
+        WorkspaceProducers: async () => [],
+        ProducedIdOf: async (storage: unknown) => {
+            producedIdOfCalls.push(storage)
+            return storage === producerOp.Storage ? 'ea' : undefined
+        },
+    } as never)
+    const invalidateCalls: string[] = []
+    provider.registerInstance(SolutionBaseResolver.Key, {
+        Invalidate: (id: string) => invalidateCalls.push(id),
+    } as unknown as SolutionBaseResolver)
+
+    await service.RefreshProjects(['C:/a', 'C:/b'])
+
+    expect(producedIdOfCalls).toEqual([producerOp.Storage, consumerOp.Storage])
+    expect(invalidateCalls).toEqual(['ea'])   // only the producer, not the consumer
+})
+
+// W3b Task 5: manageReferences migrated its WorkspaceProducers kind argument from
+// the old ProducerKind to TODL's ProjectType (the reshaped IBaseResolver).
+test('manageReferences asks the resolver for open workspace meta-model producers via ProjectType', async () => {
+    const { priv, provider } = makeExplorer()
+    const storage = new FakeStorage('C:/arch')
+    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'architecture', metaModels: [], libraries: [] }))
+    const op = await priv.addOpenProject(projectWith('Arch', 'C:/arch'), fakeProjectFactory(), storage)
+
+    const kinds: ProjectType[] = []
+    provider.registerInstance(BaseResolverKey, {
+        WorkspaceProducers: async (kind: ProjectType) => { kinds.push(kind); return [] },
+        ProducedIdOf: async () => undefined,
+    } as never)
+
+    await priv.manageReferences(op)
+
+    expect(kinds).toEqual([ProjectType.MetaModel])
 })
 
 function formWith(types: string[]): NewProjectDialogModel

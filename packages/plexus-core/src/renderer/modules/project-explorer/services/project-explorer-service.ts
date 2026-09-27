@@ -37,7 +37,6 @@ import {
 import { FileSystemService } from '../../storage/index.js'
 import {
     PROJECT_MANIFEST_FILENAME,
-    ProducerKind,
     isVersioned,
     ProjectFactoryRegistryKey,
     type IProjectFactory,
@@ -92,7 +91,7 @@ import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
-import { ProjectEventKind, ProjectEventsKey, SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { ProjectEventKind, ProjectEventsKey, ProjectType, SolutionBaseResolver, SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ProjectManifest } from '@pragmatic-tech-ai/todl/package-manager'
 import { MemberProjection } from './member-projection.js'
@@ -1361,12 +1360,12 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
 
         const availableMetaModels = [
             ...await this.publishedMetaModels(),
-            ...(resolver !== undefined ? await resolver.WorkspaceProducers(ProducerKind.MetaModel) : []),
+            ...(resolver !== undefined ? await resolver.WorkspaceProducers(ProjectType.MetaModel) : []),
         ]
         const availableLibraries = offersLibraries
             ? [
                 ...await this.publishedLibraries(),
-                ...(resolver !== undefined ? await resolver.WorkspaceProducers(ProducerKind.Library) : []),
+                ...(resolver !== undefined ? await resolver.WorkspaceProducers(ProjectType.Library) : []),
             ]
             : []
 
@@ -1413,20 +1412,23 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     {
         const client = this.Provider.get(LiveValidationKey)
         const resolver = this.Provider.get(BaseResolverKey)
-        const producerIds: string[] = []
+        // BaseResolverKey binds directly to the SAME SolutionBaseResolver singleton;
+        // resolved again here (its own Key) for Invalidate, which IBaseResolver — the
+        // narrow capability surface manageReferences/RefreshProjects otherwise use —
+        // does not declare.
+        const invalidator = this.Provider.get(SolutionBaseResolver.Key)
         for (const folder of folders)
         {
             const op = this.findByFolder(folder)
             if (op === undefined) continue
             await this.rescan(op)   // also resyncs the server's document set
             await client?.RefreshBases(op.Storage)
-            // Signal A: if the refreshed project is a producer, its dependents
-            // consume its (now-changed) live source and must revalidate too.
-            const id = resolver?.ProducedIdOf(op.Storage)
-            if (id !== undefined) producerIds.push(id)
+            // Signal A: if the refreshed project is a producer, invalidate it so
+            // SolutionBaseResolver evicts its cache + transitive dependents (which
+            // raises StaleMemberIds — the language client's own refresh trigger).
+            const id = resolver !== undefined ? await resolver.ProducedIdOf(op.Storage) : undefined
+            if (id !== undefined) invalidator?.Invalidate(id)
         }
-        if (resolver !== undefined && producerIds.length > 0)
-            await resolver.RefreshDependentsOfIds(producerIds)
     }
 
     // Close a project: close its open tabs through the save/discard guard FIRST —

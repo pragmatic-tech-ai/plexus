@@ -1,7 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ModelDraft, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
+import { ModelDraft, SolutionBaseResolver, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
 
-import { WorkspaceBaseResolver } from '../../../services/projects/workspace-base-resolver.js'
 import { collectTodlSources } from '../../../services/todl/todl-sources.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
@@ -31,7 +30,7 @@ export class ArchitectureModelService extends ServiceBase
         super(provider)
         // Drop a project's model when it leaves the open set. Subscribe is a
         // generic change callback, so diff the live RootPaths against the cache
-        // (mirrors WorkspaceBaseResolver's OpenProjects.Subscribe pattern).
+        // (mirrors SolutionBaseResolver's own member-subscription pattern).
         const explorer = this.Provider.get(ProjectExplorerService.Key)
         explorer?.OpenProjects.Subscribe(() => {
             const live = new Set(explorer.OpenProjects.ToArray().map((op) => op.Project.RootPath))
@@ -90,8 +89,8 @@ export class ArchitectureModelService extends ServiceBase
         const cached = this.models.get(key)
         if (cached !== undefined) return cached
 
-        const resolver = this.Provider.getRequired(WorkspaceBaseResolver.Key)
-        const { bases, originOf } = await resolver.ResolveForStorage(op.Storage)
+        const resolver = this.Provider.getRequired(SolutionBaseResolver.Key)
+        const { bases, originOf } = await resolver.ResolveBasesFor(op.Storage)
         const sources = await collectTodlSources(op.Storage)
         const namespace = deriveNamespace(sources, op.Project.Name)
         // Published bases are OWN-ONLY documents: each carries only its own

@@ -174,7 +174,6 @@ import DockTabsResources from "./services/dock-tabs/dock-tabs.resources.mu.js"
 // project's .todl files against its declared bases via checkAgainst. Root-scoped
 // like ProjectFactoryRegistry so every module's editor can attach documents.
 import TodlLanguageClient from "./services/todl/todl-language-client.js"
-import WorkspaceBaseResolver from "./services/projects/workspace-base-resolver.js"
 import ArchitectureModelService from "./modules/architecture-projects/services/architecture-model-service.js"
 import ArchDiagramBindingService from "./modules/architecture-projects/services/arch-diagram-binding-service.js"
 import ArchNavigationService from "./modules/architecture-projects/services/arch-navigation-service.js"
@@ -335,11 +334,6 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // owns the LSP connection, the project source/base feed, diagnostics
         // routing, and the Monaco provider adapters.
         TodlLanguageClient
-        // Local-first base resolution: a consuming project resolves a base from
-        // an open sibling producer's live source instead of the published
-        // registry. Eagerly resolved in main.js so its OpenProjects subscription
-        // (dependent refresh on open/close) is live before session restore.
-        WorkspaceBaseResolver
         // One live architecture model per open architecture project (keyed by
         // RootPath): composes the project's bases + .todl files via
         // ModelDraft.fromSources. Built lazily on first modelFor; its

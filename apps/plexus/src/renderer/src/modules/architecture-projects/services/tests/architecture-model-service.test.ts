@@ -1,8 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { load, toJSON, compilePackage, type TodlDocument } from '@pragmatic-tech-ai/todl'
+import { load, toJSON, compilePackage, SolutionBaseResolver, type TodlDocument } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
@@ -22,20 +21,20 @@ function fakeOpenProject(storage: FakeStorage): OpenProject
     return { Project: project, Storage: storage } as unknown as OpenProject
 }
 
-// A provider whose WorkspaceBaseResolver returns the meta-model as the base doc.
+// A provider whose SolutionBaseResolver returns the meta-model as the base doc.
 function providerWithBase(baseDoc: TodlDocument): ServiceProvider
 {
     return providerWithBases([baseDoc])
 }
 
-// A provider returning several bases — the shape ResolveForStorage yields for a
+// A provider returning several bases — the shape ResolveBasesFor yields for a
 // published meta-model + libraries (each an OWN-ONLY document).
 function providerWithBases(bases: TodlDocument[]): ServiceProvider
 {
     const provider = new ServiceProvider()
-    provider.registerInstance(WorkspaceBaseResolver.Key, {
-        ResolveForStorage: async () => ({ bases, problems: [] }),
-    } as unknown as WorkspaceBaseResolver)
+    provider.registerInstance(SolutionBaseResolver.Key, {
+        ResolveBasesFor: async () => ({ bases, problems: [] }),
+    } as unknown as SolutionBaseResolver)
     return provider
 }
 

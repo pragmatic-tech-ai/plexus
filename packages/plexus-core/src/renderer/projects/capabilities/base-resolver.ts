@@ -1,19 +1,18 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import type { BaseRef } from '../base-binding.js'
-import type { ProducerKind } from '../project-factory.js'
+import type { ProjectType, DependencyRef } from '@pragmatic-tech-ai/todl'
 
-// Resolves bases produced by *other open projects* in the workspace (local
-// inter-project references) and drives re-validation of a producer's dependents
-// when it changes. The impl (app-side) knows how producers publish; core only
-// needs the workspace-producer list, the produced-id lookup, and the dependent
-// refresh. Method names match WorkspaceBaseResolver so it registers under this
-// key with no adapter.
+// Resolves bases for the active solution — reshaped (W3b Task 5) to bind
+// directly to TODL's SolutionBaseResolver: a structural match, so
+// BaseResolverKey needs no adapter. Only the two members plexus-core's
+// consumers (project-explorer-service.ts) drive through this capability are
+// declared here; SolutionBaseResolver's other members (ResolveBasesFor,
+// ReferencedPublishedRefs, Invalidate, …) are consumed directly against its
+// own Key by the app-side direct consumers.
 export interface IBaseResolver
 {
-    WorkspaceProducers(kind: ProducerKind): Promise<BaseRef[]>
-    ProducedIdOf(storage: IStorage): string | undefined
-    RefreshDependentsOfIds(ids: readonly string[]): Promise<void>
+    WorkspaceProducers(kind: ProjectType): Promise<readonly DependencyRef[]>
+    ProducedIdOf(storage: IStorage): Promise<string | undefined>
 }
 
 export const BaseResolverKey = new ServiceKey<IBaseResolver>('IBaseResolver')

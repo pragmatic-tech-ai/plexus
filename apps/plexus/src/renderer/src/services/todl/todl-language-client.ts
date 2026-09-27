@@ -1,11 +1,10 @@
 import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { editorSemanticLegend } from './semantic-scopes.js'
 import type { MessageConnection } from 'vscode-jsonrpc'
-import type { TodlDocument } from '@pragmatic-tech-ai/todl'
+import { SolutionBaseResolver, type TodlDocument } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../modules/code-editor/code-document.js'
 import { collectTodlSources } from './todl-sources.js'
-import { WorkspaceBaseResolver } from '../projects/workspace-base-resolver.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { lspToMonacoRange, type MonacoRange } from '../../modules/meta-model/todl-lsp/position.js'
@@ -261,13 +260,13 @@ export class TodlLanguageClient extends ServiceBase
   }
 
   // Resolve (and cache) a project's declared bases, preferring an open sibling
-  // producer's live source over the published artifact (WorkspaceBaseResolver).
+  // producer's live source over the published artifact (SolutionBaseResolver).
   // Cache is per-storage; RefreshBases drops it to pick up producer edits.
   private async basesFor(storage: IStorage): Promise<{ bases: TodlDocument[]; problems: string[] }>
   {
     const cached = this.baseCache.get(storage)
     if (cached !== undefined) return cached
-    const resolved = await this.Provider.getRequired(WorkspaceBaseResolver.Key).ResolveForStorage(storage)
+    const resolved = await this.Provider.getRequired(SolutionBaseResolver.Key).ResolveBasesFor(storage)
     this.baseCache.set(storage, resolved)
     return resolved
   }

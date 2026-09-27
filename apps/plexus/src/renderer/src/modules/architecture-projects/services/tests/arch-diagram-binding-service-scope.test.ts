@@ -1,10 +1,9 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DiagramDocument, type IDocument, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { load, toJSON, Repository, graphFromJSON, ModelDraft, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
-import { WorkspaceBaseResolver } from '../../../../services/projects/workspace-base-resolver.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ArchitectureModelService } from '../architecture-model-service.js'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
@@ -43,7 +42,7 @@ async function scenario(seedScope?: string[])
 
     const provider = new ServiceProvider()
     provider.registerInstance(ContentHostService.Key, host as unknown as ContentHostService)
-    provider.registerInstance(WorkspaceBaseResolver.Key, { ResolveForStorage: async () => ({ bases: [], problems: [] }) } as unknown as WorkspaceBaseResolver)
+    provider.registerInstance(SolutionBaseResolver.Key, { ResolveBasesFor: async () => ({ bases: [], problems: [] }) } as unknown as SolutionBaseResolver)
     provider.registerInstance(ProjectExplorerService.Key, explorer)
     provider.registerInstance(ArchitectureModelService.Key, { modelFor: async () => model } as unknown as ArchitectureModelService)
 

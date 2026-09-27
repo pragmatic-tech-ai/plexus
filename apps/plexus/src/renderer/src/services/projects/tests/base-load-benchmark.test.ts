@@ -11,7 +11,7 @@ import { check, checkAgainst, toJSON, type TodlDocument } from '@pragmatic-tech-
 // It isolates the four CPU phases the base/validation path pays in the renderer
 // (IPC latency + stdio transfer are NOT measured here — those need the live app):
 //   compile   — checkAgainst(meta, [librarySource])  → the open-sibling producer
-//               path (WorkspaceBaseResolver.resolveOne → compileToDocument).
+//               path (SolutionBaseResolver.resolveOneBase → compileToDocument).
 //   stringify — toJSON + JSON.stringify of the library model.json (publish + the
 //               size that later crosses stdio to the TODL server).
 //   parse     — JSON.parse of that model.json (base-resolver.read / resolveOne
