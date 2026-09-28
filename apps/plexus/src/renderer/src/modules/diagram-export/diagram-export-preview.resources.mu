@@ -21,11 +21,11 @@ resources DiagramExportPreviewResources {
             }
 
             // Preview (left): the rendered diagram on a neutral backdrop + a size readout.
-            Border [ DockPanel.Dock = Left, Width = 500, MinHeight = 440, Fill = @SurfaceContainerHigh,
-                     CornerRadius = @ShapeSmall, Margin = (0,0,16,0), Padding = (8) ] {
+            Border [ DockPanel.Dock = Left, Width = 500, MinHeight = 440, Fill = @Bg2,
+                     CornerRadius = @RadiusMd, Margin = (0,0,16,0), Padding = (8) ] {
                 StackPanel [ Orientation = Vertical, HorizontalAlignment = Center, VerticalAlignment = Center ] {
                     Image [ Source = $Preview, Stretch = Uniform, MaxWidth = 480, MaxHeight = 460 ]
-                    TextBlock [ Text = $PreviewSize, Style = @BodySmall, Foreground = @OnSurfaceVariant,
+                    TextBlock [ Text = $PreviewSize, Style = @BodySm, Foreground = @Fg2,
                                 HorizontalAlignment = Center, Margin = (0,8,0,0) ]
                 }
             }
@@ -34,27 +34,27 @@ resources DiagramExportPreviewResources {
             StackPanel [ Orientation = Vertical ] {
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
                     ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Formats, SelectedIndex = $FormatIndex, VerticalAlignment = Center ]
-                    TextBlock [ Style = @BodyLarge, Text = "Format", Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Format", Foreground = @Fg1, VerticalAlignment = Center ]
                 }
                 DockPanel x:name="PART_SelectionOption" [ LastChildFill = true, Margin = (0,4,0,4) ] {
                     Switch [ DockPanel.Dock = Right, IsChecked = $UseSelection, VerticalAlignment = Center ]
-                    TextBlock [ Style = @BodyLarge, Text = "Selection only", Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Selection only", Foreground = @Fg1, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
                     ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Backgrounds, SelectedIndex = $BackgroundIndex, VerticalAlignment = Center ]
-                    TextBlock [ Style = @BodyLarge, Text = "Background", Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Background", Foreground = @Fg1, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
                     ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $ForegroundChoices, SelectedIndex = $ForegroundIndex, VerticalAlignment = Center ]
-                    TextBlock [ Style = @BodyLarge, Text = "Foreground", Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Foreground", Foreground = @Fg1, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
                     Switch [ DockPanel.Dock = Right, IsChecked = $ShowPageBreaks, VerticalAlignment = Center ]
-                    TextBlock [ Style = @BodyLarge, Text = "Page breaks", Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Page breaks", Foreground = @Fg1, VerticalAlignment = Center ]
                 }
                 DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
                     ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Scales, SelectedIndex = $ScaleIndex, VerticalAlignment = Center ]
-                    TextBlock [ Style = @BodyLarge, Text = "Scale (raster)", Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Scale (raster)", Foreground = @Fg1, VerticalAlignment = Center ]
                 }
             }
         }

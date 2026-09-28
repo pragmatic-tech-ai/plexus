@@ -5,7 +5,7 @@
 // panel's body — a slim VSCode-style switcher rather than tabs. The rail is a
 // Selector, so SelectedItem TwoWay-binds to SelectedPanel: clicking a label
 // switches panels, and Add()/Close() re-select. No icons, no per-tab close;
-// the selected destination carries a 2dp @Primary bottom accent (the same
+// the selected destination carries a 2dp @ControlAccent bottom accent (the same
 // active-indicator the tab underline gave).
 //
 // Merged app-global by app.mu (`merge DockTabsResources`); it lives in
@@ -22,8 +22,8 @@ resources DockTabsResources {
 
     // One dock destination: a text label ($Title, bound through the item's
     // DataContext — the IDockPanel) with a 2dp bottom accent that lights
-    // @Primary when selected. No icon slot. Ink is @OnSurfaceVariant at rest,
-    // @Primary when selected (matching the accent), @OnSurface on hover. The
+    // @ControlAccent when selected. No icon slot. Ink is @Fg2 at rest,
+    // @ControlAccent when selected (matching the accent), @Fg1 on hover. The
     // NavigationRail wraps each panel into a NavigationItem whose DataContext is
     // the panel, so $Title resolves even though the panel also carries a
     // full-body DataTemplate (rendered below, not here).
@@ -31,25 +31,25 @@ resources DockTabsResources {
         Border x:name="PART_Outer" [ Fill = #00000000 ] {
             DockPanel {
                 // 2dp selection accent at the very bottom edge (transparent at
-                // rest, @Primary when selected). The label carries the former
+                // rest, @ControlAccent when selected). The label carries the former
                 // Border padding as a margin so the rule stays flush to the edge.
                 Line x:name="PART_Indicator"
                     [ DockPanel.Dock = Bottom,
                       Orientation    = Horizontal,
                       Stroke         = (#00000000, 2) ]
                 TextBlock x:name="PART_Label"
-                    [ Style             = @TitleSmall,
+                    [ Style             = @UiLabel,
                       Text              = $Title,
-                      Foreground        = @OnSurfaceVariant,
+                      Foreground        = @Fg2,
                       VerticalAlignment = Center,
                       Margin            = (12,8,12,8) ]
             }
         }
         when ( IsSelected ) {
-            PART_Indicator.Stroke = (@Primary, 2);
-            PART_Label.Foreground  = @Primary;
+            PART_Indicator.Stroke = (@ControlAccent, 2);
+            PART_Label.Foreground  = @ControlAccent;
         }
-        when ( IsMouseOver ) { PART_Label.Foreground = @OnSurface; }
+        when ( IsMouseOver ) { PART_Label.Foreground = @Fg1; }
     }
 
     // Keyed (not implicit-by-type) so only the dock rail adopts it — ordinary
@@ -65,11 +65,11 @@ resources DockTabsResources {
     // dock only renders while HasPanels, so a panel is always selected). No
     // Header / Footer slots (the dock has none).
     Template x:key="DockRailTemplate" [ TargetType = NavigationRail ] {
-        Border x:name="PART_Border" [ Fill = @SurfaceContainer ] {
+        Border x:name="PART_Border" [ Fill = @Bg2 ] {
             DockPanel [ LastChildFill = true ] {
                 Line [ DockPanel.Dock = Bottom,
                        Orientation    = Horizontal,
-                       Stroke         = (@OutlineVariant, 1) ]
+                       Stroke         = (@Border, 1) ]
                 StackPanel x:name="PART_HeaderBar"
                     [ DockPanel.Dock  = Right,
                       Orientation       = Horizontal,
@@ -77,14 +77,14 @@ resources DockTabsResources {
                       Margin            = (8,0,8,0) ] {
                     MenuButton x:name="PART_Overflow"
                         [ TriggerTemplate = @CompactHeaderMenuButton,
-                          Icon            = Shape [ Geometry = @MoreHoriz, Fill = @OnSurfaceVariant, Width = 12, Height = 12 ] ]
+                          Icon            = Shape [ Geometry = @MoreHoriz, Fill = @Fg2, Width = 12, Height = 12 ] ]
                     IconButton x:name="PART_Close"
                         [ Template          = @CompactHeaderIconButton,
                           Command           = $service(PanelDockService).ClosePanelCommand,
                           CommandParameter  = $service(PanelDockService).SelectedPanel.Id,
                           VerticalAlignment = Center,
                           Margin            = (4,0,0,0) ] {
-                        Shape [ Geometry = @IconClose, Fill = @OnSurfaceVariant, Width = 12, Height = 12 ]
+                        Shape [ Geometry = @IconClose, Fill = @Fg2, Width = 12, Height = 12 ]
                     }
                 }
                 ItemsPresenter x:name="PART_ItemsPresenter"
@@ -110,11 +110,11 @@ resources DockTabsResources {
     // template's ContentHostService note). ReuseContentViews caches each panel's
     // view so switching back restores it rather than rebuilding.
     DataTemplate [ DataType = PanelDockService ] {
-        // Outer rounded container: @ShapeSmall corners + ClipToBounds so the rail
+        // Outer rounded container: @RadiusMd corners + ClipToBounds so the rail
         // (top corners) and the panel body (bottom corners) clip to the rounded
         // silhouette, matching the left side pane and the document area. Fill is
-        // @SurfaceContainer so the whole right dock reads as one surface.
-        Border [ Fill = @SurfaceContainer, CornerRadius = @ShapeSmall, ClipToBounds = true, Margin = (1) ] {
+        // @Bg2 so the whole right dock reads as one surface.
+        Border [ Fill = @Bg2, CornerRadius = @RadiusMd, ClipToBounds = true, Margin = (1) ] {
             DockPanel [ LastChildFill = true ] {
                 NavigationRail
                     [ DockPanel.Dock     = Top,
@@ -122,10 +122,10 @@ resources DockTabsResources {
                       ItemContainerStyle = @DockRailItem,
                       ItemsSource        = $Panels,
                       SelectedItem       = $SelectedPanel ]
-                // Body painted @SurfaceContainer so the whole right dock (rail +
+                // Body painted @Bg2 so the whole right dock (rail +
                 // panel body) reads as one surface. The ContentPresenter itself is
                 // transparent, so the fill lives on this wrapping Border.
-                Border [ Fill = @SurfaceContainer ] {
+                Border [ Fill = @Bg2 ] {
                     ContentPresenter
                         [ Content           = $service(PanelDockService).SelectedPanel,
                           ReuseContentViews = true ]

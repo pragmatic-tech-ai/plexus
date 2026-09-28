@@ -160,7 +160,7 @@ export class DiagramExportService extends ServiceBase
   // The active theme's Surface color as hex, for the Surface-background option.
   private surfaceHex(): string
   {
-    const b = Application.current?.Resources?.Resolve('Surface')
+    const b = Application.current?.Resources?.Resolve('Bg1')
     return b instanceof SolidColorBrush ? b.Color.ToHex() : '#1c1b1f'
   }
 }

@@ -15,7 +15,7 @@ resources SkillsResources {
     // Visibility). Two-way binds $Value.
     DataTemplate [ DataType = SkillInputVm ] {
         StackPanel [ Orientation = Vertical, Margin = (0,4,0,4) ] {
-            TextBlock [ Text = $Label, Style = @LabelMedium, Foreground = @OnSurfaceVariant, Margin = (0,0,0,2) ]
+            TextBlock [ Text = $Label, Style = @UiCaption, Foreground = @Fg2, Margin = (0,0,0,2) ]
             Checkbox [ IsChecked = $Value, Visibility = $IsBool << ToVisibility ]
             ComboBox [ ItemsSource = $Options, SelectedItem = $Value, HorizontalAlignment = Stretch, Visibility = $IsChoice << ToVisibility ]
             TextBox [ Text = $Value, HorizontalAlignment = Stretch, Visibility = $IsPlain << ToVisibility ]

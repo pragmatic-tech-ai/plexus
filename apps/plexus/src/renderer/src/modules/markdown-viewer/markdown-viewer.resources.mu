@@ -12,7 +12,7 @@ resources MarkdownViewerResources {
         // scrolling sideways.
         ScrollViewer [ HorizontalScrollEnabled = false ] {
             Border [ Padding = (20) ] {
-                RichTextBlock [ Document = $Document, Foreground = @OnSurface ]
+                RichTextBlock [ Document = $Document, Foreground = @Fg1 ]
             }
         }
     }

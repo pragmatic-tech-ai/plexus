@@ -25,8 +25,8 @@
 // Theme / Scheme are real class references (the no-string-proxies rule);
 // Shell owns the `Region` attached property. All other controls resolve
 // through the compiler's default symbol table.
-import Material from "@pragmatic-tech-ai/mural/resources/material"
-import MaterialDark from "@pragmatic-tech-ai/mural/resources/material"
+import Pragmatic from "@pragmatic-tech-ai/mural/resources/pragmatic"
+import PragmaticDark from "@pragmatic-tech-ai/mural/resources/pragmatic"
 import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 
 // The app's modules — each a `module NAME { … }` const from its own file.
@@ -245,7 +245,7 @@ import SettingsContributionKey from "@pragmatic-tech-ai/mural/framework"
 // No app-level `.services:` registration is needed — the shell supplies the
 // default (an app wanting custom navigation would register its own against
 // NavigationService.Key to override it).
-Application [ Theme = Material, Scheme = MaterialDark ] {
+Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
     .services: {
         EnvironmentService
         // Live viewport (window) height, bindable + resize-reactive. The Problems
@@ -452,12 +452,12 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
             StackPanel [ Orientation = Vertical ]
         }
 
-        // The status bar keeps the framework default @Surface chrome tone (with
+        // The status bar keeps the framework default @Bg1 chrome tone (with
         // the title bar + activity rail), so it is NOT restyled here — the side
-        // pane, right dock, and document area are the @SurfaceContainer work
+        // pane, right dock, and document area are the @Bg2 work
         // surfaces; the status bar is chrome.
 
-        // Round the left side pane's corners (@ShapeSmall) to match the right
+        // Round the left side pane's corners (@RadiusMd) to match the right
         // dock + document area. CornerRadius is a themeable DP on
         // ShellSideContentPane (mural 0.41.4, defaults to square); the template
         // clips the pane content to the rounded bounds.
@@ -467,27 +467,27 @@ Application [ Theme = Material, Scheme = MaterialDark ] {
         // Seal() resolves the implicit BasedOn to THIS style, trips the
         // self-reference guard, and inherits no Template — the pane would vanish.
         // Naming a concrete Template (@PlexusSideContentPane) + the
-        // @SurfaceContainer Fill here makes the style self-contained.
+        // @Bg2 Fill here makes the style self-contained.
         Style [ TargetType = ShellSideContentPane ] {
             Template     = @PlexusSideContentPane;
-            Fill         = @SurfaceContainer;
-            CornerRadius = @ShapeSmall;
+            Fill         = @Bg2;
+            CornerRadius = @RadiusMd;
             // 1dp inset so the pane floats off the window/splitter edges (matches
             // the document area + right dock).
             Margin       = (1);
         }
 
         // Resize splitters between the panels: paint the resting divider with the
-        // window chrome tone (@Surface) so it's visually invisible in the gap the
-        // panel margins open up, while hover/drag still tint it to @Primary and
+        // window chrome tone (@Bg1) so it's visually invisible in the gap the
+        // panel margins open up, while hover/drag still tint it to @ControlAccent and
         // thicken (imperative chrome in splitter.ts). RestBrush is mural 0.43.0.
         // Self-contained (re-declares Template + PreviewBrush) so the app-level
         // implicit Style doesn't trip mural's Seal() self-reference guard and drop
         // the framework Template — same pattern as the ShellSideContentPane style.
         Style [ TargetType = Splitter ] {
             Template     = @DefaultSplitter;
-            PreviewBrush = @Primary;
-            RestBrush    = @Surface;
+            PreviewBrush = @ControlAccent;
+            RestBrush    = @Bg1;
         }
 
         // VSCode-style scrollbars: hidden until the pointer is over the scroll

@@ -184,7 +184,7 @@ export class DiagramSvgRenderer
       const b = res?.Resolve(token)
       return b instanceof SolidColorBrush ? b.Color.ToCss() : undefined
     }
-    return ['OnSurface', 'OnSurfaceVariant']
+    return ['Fg1', 'Fg2']
       .map(css)
       .filter((c): c is string => c !== undefined)
   }

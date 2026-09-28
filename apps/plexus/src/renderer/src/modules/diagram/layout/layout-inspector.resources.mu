@@ -24,8 +24,8 @@ resources LayoutInspectorResources {
                 ColumnDefinition [ Width = GridLength.Auto ]
                 ColumnDefinition [ Width = GridLength.Star ]
             }
-            TextBlock [ Grid.Column = 0, Text = $Label, Style = @BodySmall, Width = 108,
-                        Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,8,0) ]
+            TextBlock [ Grid.Column = 0, Text = $Label, Style = @BodySm, Width = 108,
+                        Foreground = @Fg2, VerticalAlignment = Center, Margin = (0,0,8,0) ]
             SpinEdit  [ Grid.Column = 1, Value = $Value, Minimum = 0, Maximum = 100000,
                         VerticalAlignment = Center ]
         }
@@ -38,8 +38,8 @@ resources LayoutInspectorResources {
                 ColumnDefinition [ Width = GridLength.Auto ]
                 ColumnDefinition [ Width = GridLength.Star ]
             }
-            TextBlock [ Grid.Column = 0, Text = $Label, Style = @BodySmall, Width = 108,
-                        Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,8,0) ]
+            TextBlock [ Grid.Column = 0, Text = $Label, Style = @BodySm, Width = 108,
+                        Foreground = @Fg2, VerticalAlignment = Center, Margin = (0,0,8,0) ]
             Switch    [ Grid.Column = 1, IsChecked = $Value, HorizontalAlignment = Left, VerticalAlignment = Center ]
         }
     }
@@ -53,8 +53,8 @@ resources LayoutInspectorResources {
                     ColumnDefinition [ Width = GridLength.Auto ]
                     ColumnDefinition [ Width = GridLength.Star ]
                 }
-                TextBlock [ Grid.Column = 0, Text = $Label, Style = @BodySmall, Width = 120,
-                            Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,8,0) ]
+                TextBlock [ Grid.Column = 0, Text = $Label, Style = @BodySm, Width = 120,
+                            Foreground = @Fg2, VerticalAlignment = Center, Margin = (0,0,8,0) ]
                 ComboBox  [ Grid.Column = 1, ItemsSource = $Options, SelectedItem = $Selected,
                             IsEnabled = $Enabled, VerticalAlignment = Center ]
             }
@@ -66,8 +66,8 @@ resources LayoutInspectorResources {
         ScrollViewer [ HorizontalScrollEnabled = false ] {
             StackPanel [ Orientation = Vertical, Margin = (12,12,12,12) ] {
 
-                TextBlock [ Style = @TitleMedium, Text = "Layout Pipeline",
-                            Foreground = @OnSurface, Margin = (0,0,0,10) ]
+                TextBlock [ Style = @UiLabel, Text = "Layout Pipeline",
+                            Foreground = @Fg1, Margin = (0,0,0,10) ]
 
                 // Preset strip: [ presets ▾ ]  [Save]  [Delete]  [Preview]  [Run].
                 // While a preview is active this whole group collapses, leaving
@@ -79,41 +79,41 @@ resources LayoutInspectorResources {
                                    SelectedItem = $service(LayoutPipelineService).SelectedPreset,
                                    Width = 150, VerticalAlignment = Center, Margin = (0,0,8,0) ]
                         PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).SaveCommand ] {
-                            Shape [ Geometry = @Save, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                            Shape [ Geometry = @Save, Fill = @Fg2, Width = 20, Height = 20 ]
                         }
                         PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).DeleteCommand,
                                       IsEnabled = $service(LayoutPipelineService).CanDelete ] {
-                            Shape [ Geometry = @Delete, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                            Shape [ Geometry = @Delete, Fill = @Fg2, Width = 20, Height = 20 ]
                         }
                         // Preview: paint a ghost of the proposed layout over the canvas.
                         PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).PreviewCommand ] {
-                            Shape [ Geometry = @Visibility, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                            Shape [ Geometry = @Visibility, Fill = @Fg2, Width = 20, Height = 20 ]
                         }
                         PanelButton [ Command = $service(LayoutPipelineService).RunCommand ] {
-                            Shape [ Geometry = @Play, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                            Shape [ Geometry = @Play, Fill = @Fg2, Width = 20, Height = 20 ]
                         }
                     }
                     // Apply / Cancel the shown preview — only while one is active.
                     PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).ApplyPreviewCommand,
                                   Visibility = $service(LayoutPipelineService).PreviewActive << ToVisibility ] {
-                        Shape [ Geometry = @Check, Fill = @Primary, Width = 20, Height = 20 ]
+                        Shape [ Geometry = @Check, Fill = @ControlAccent, Width = 20, Height = 20 ]
                     }
                     PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).CancelPreviewCommand,
                                   Visibility = $service(LayoutPipelineService).PreviewActive << ToVisibility ] {
-                        Shape [ Geometry = @Close, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                        Shape [ Geometry = @Close, Fill = @Fg2, Width = 20, Height = 20 ]
                     }
                 }
 
                 // Hairline separating the preset toolbar from the pipeline config.
-                Border [ Height = 1, Fill = @OutlineVariant, Margin = (0,0,0,10) ]
+                Border [ Height = 1, Fill = @Border, Margin = (0,0,0,10) ]
 
-                TextBlock [ Style = @BodySmall, Text = $service(LayoutPipelineService).Status,
-                            Foreground = @OnSurfaceVariant, TextWrapping = Wrap, Margin = (0,0,0,12) ]
+                TextBlock [ Style = @BodySm, Text = $service(LayoutPipelineService).Status,
+                            Foreground = @Fg2, TextWrapping = Wrap, Margin = (0,0,0,12) ]
 
                 // Layout stages — one labelled ComboBox per stage; the choice
                 // writes into the pipeline configuration used by Run.
-                TextBlock [ Style = @BodySmall, Text = "Layout stages",
-                            Foreground = @OnSurfaceVariant, Margin = (0,0,0,4) ]
+                TextBlock [ Style = @BodySm, Text = "Layout stages",
+                            Foreground = @Fg2, Margin = (0,0,0,4) ]
                 ItemsControl [ ItemsSource = $service(LayoutPipelineService).Stages,
                                ItemsPanel = @VerticalStackPanel ]
             }
@@ -127,9 +127,9 @@ resources LayoutInspectorResources {
     // shows each option's Label via the displayString convention.
     DataTemplate [ DataType = SavePresetPromptModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = "Preset name", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+            TextBlock [ Style = @Body, Text = "Preset name", Foreground = @Fg1, Margin = (0,0,0,4) ]
             TextBox [ Text = $Name, Margin = (0,0,0,14) ]
-            TextBlock [ Style = @BodyLarge, Text = "Save to", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+            TextBlock [ Style = @Body, Text = "Save to", Foreground = @Fg1, Margin = (0,0,0,4) ]
             ComboBox [ ItemsSource = $Scopes, SelectedItem = $SelectedScope, HorizontalAlignment = Stretch, Margin = (0,0,0,14) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }

@@ -267,8 +267,8 @@ function tableBlock(header: string[], aligns: TextAlignment[], body: string[][])
     // Content-fit (auto) columns, with the last column filling the remaining
     // width so the table spans the bubble instead of leaving a ragged right edge.
     table.LastColumnFills = true
-    bindTheme(table, Table.BorderBrushKey, 'OutlineVariant')
-    bindTheme(table, Table.HeaderBackgroundKey, 'SurfaceContainerHigh')
+    bindTheme(table, Table.BorderBrushKey, 'Border')
+    bindTheme(table, Table.HeaderBackgroundKey, 'Bg2')
 
     table.AddChild(tableRow(header, aligns, true))
     for (const cells of body) table.AddChild(tableRow(cells, aligns, false))
@@ -430,7 +430,7 @@ function codeChip(text: string): InlineUIContainer
 {
     const label = new TextBlock(text)
     label.FontFamily = MONO
-    bindTheme(label, TextBlock.ForegroundKey, 'OnSurface')
+    bindTheme(label, TextBlock.ForegroundKey, 'Fg1')
 
     const chip = new Border(label)
     chip.CornerRadius = 4
@@ -438,7 +438,7 @@ function codeChip(text: string): InlineUIContainer
     // surrounding text baseline regardless of this padding — the padding only
     // sets how far the box extends above/below the label (a touch more above).
     chip.Padding = new Thickness(5, 3, 5, 0)
-    bindTheme(chip, Border.FillKey, 'SurfaceContainerHigh')
+    bindTheme(chip, Border.FillKey, 'Bg2')
 
     return new InlineUIContainer(chip)
 }

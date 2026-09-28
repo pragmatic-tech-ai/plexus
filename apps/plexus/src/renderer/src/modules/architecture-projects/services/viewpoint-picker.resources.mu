@@ -14,7 +14,7 @@ resources ViewpointPickerResources {
     DataTemplate [ DataType = PickerRow ] {
         DockPanel [ LastChildFill = true, Margin = (0,3,0,3) ] {
             Checkbox [ DockPanel.Dock = Left, IsChecked = $IsSelected, VerticalAlignment = Top, Margin = (0,2,8,0) ]
-            TextBlock [ Text = $Label, Style = @BodyMedium, Foreground = @OnSurface, TextWrapping = Wrap ]
+            TextBlock [ Text = $Label, Style = @Body, Foreground = @Fg1, TextWrapping = Wrap ]
         }
     }
 
@@ -22,7 +22,7 @@ resources ViewpointPickerResources {
     // until at least one viewpoint is checked (CanConfirm enforces the ≥1 rule).
     DataTemplate [ DataType = ViewpointPickerModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodySmall, TextWrapping = Wrap, Foreground = @OnSurfaceVariant, Margin = (0,0,0,10),
+            TextBlock [ Style = @BodySm, TextWrapping = Wrap, Foreground = @Fg2, Margin = (0,0,0,10),
                         Text = "Choose the viewpoints that govern what can be added to this diagram." ]
             ItemsControl [ ItemsSource = $Rows, ItemsPanel = @VerticalStackPanel ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {

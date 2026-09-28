@@ -22,18 +22,18 @@ resources SkillsAuthoringResources {
 
     // ── one input row ───────────────────────────────────────────────────────
     DataTemplate x:key="SkillInputRowTemplate" [ DataType = SkillInputRowVm ] {
-        Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6, Padding = (8,6,8,6), Margin = (0,0,0,6) ] {
+        Border [ Fill = @Bg2, CornerRadius = 6, Padding = (8,6,8,6), Margin = (0,0,0,6) ] {
             StackPanel [ Orientation = Vertical ] {
                 StackPanel [ Orientation = Horizontal ] {
                     TextBox [ Text = $Key, Width = 110, Margin = (0,0,6,0) ]
                     ComboBox [ ItemsSource = $Kinds, SelectedItem = $Type, Width = 100, Margin = (0,0,6,0) ]
-                    Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySmall ] }
+                    Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySm ] }
                 }
                 TextBox [ Text = $Label, Margin = (0,4,0,0) ]
                 TextBox [ Text = $OptionsText, Margin = (0,4,0,0) ]
                 StackPanel [ Orientation = Horizontal, Margin = (0,4,0,0) ] {
                     Switch [ IsChecked = $Required, VerticalAlignment = Center, Margin = (0,0,6,0) ]
-                    TextBlock [ Text = "Required", Style = @BodySmall, Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
+                    TextBlock [ Text = "Required", Style = @BodySm, Foreground = @Fg2, VerticalAlignment = Center ]
                     TextBox [ Text = $DefaultText, Width = 120, Margin = (10,0,0,0) ]
                 }
             }
@@ -45,7 +45,7 @@ resources SkillsAuthoringResources {
         StackPanel [ Orientation = Horizontal, Margin = (0,0,0,4) ] {
             ComboBox [ ItemsSource = $Sources, SelectedItem = $Source, Width = 150, Margin = (0,0,6,0) ]
             TextBox [ Text = $As, Width = 120, Margin = (0,0,6,0) ]
-            Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySmall ] }
+            Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySm ] }
         }
     }
 
@@ -54,63 +54,63 @@ resources SkillsAuthoringResources {
         StackPanel [ Orientation = Horizontal, Margin = (0,0,0,4) ] {
             ComboBox [ ItemsSource = $Kinds, SelectedItem = $Kind, Width = 150, Margin = (0,0,6,0) ]
             TextBox [ Text = $Target, Width = 120, Margin = (0,0,6,0) ]
-            Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySmall ] }
+            Button [ Variant = Text, Command = $RemoveCommand ] { TextBlock [ Text = "Remove", Style = @BodySm ] }
         }
     }
 
     // ── the x-plexus form ───────────────────────────────────────────────────
     DataTemplate [ DataType = SkillFrontmatterFormVm ] {
         StackPanel [ Orientation = Vertical, Help.Topic = "skills#edit-frontmatter" ] {
-            TextBlock [ Text = "Authored with a newer schema — editing disabled here.", Style = @BodySmall,
-                        Foreground = @OnSurfaceVariant, TextWrapping = Wrap, Margin = (0,0,0,6),
+            TextBlock [ Text = "Authored with a newer schema — editing disabled here.", Style = @BodySm,
+                        Foreground = @Fg2, TextWrapping = Wrap, Margin = (0,0,0,6),
                         Visibility = $IsUnknownVersion << ToVisibility ]
 
-            TextBlock [ Text = "Title", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Title", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $Title, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Category", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Category", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $Category, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Icon", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Icon", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $Icon, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Model", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Model", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $Model, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Tags (comma-separated)", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Tags (comma-separated)", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $TagsText, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Allowed tools (comma-separated)", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Allowed tools (comma-separated)", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $AllowedToolsText, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Requires project type (comma-separated)", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Requires project type (comma-separated)", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $RequiresProjectTypeText, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
 
-            TextBlock [ Text = "Deprecation — replaced by", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Deprecation — replaced by", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $DeprecationReplacedBy, IsEnabled = $IsEditable, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Deprecation — note", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Deprecation — note", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $DeprecationNote, IsEnabled = $IsEditable, Margin = (0,0,0,10) ]
 
-            TextBlock [ Text = "Inputs", Style = @BodyMedium, Foreground = @OnSurface, Margin = (0,4,0,4) ]
+            TextBlock [ Text = "Inputs", Style = @Body, Foreground = @Fg1, Margin = (0,4,0,4) ]
             ItemsControl [ ItemsSource = $Inputs, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillInputRowTemplate ]
             Button [ Variant = Text, Command = $AddInputCommand, IsEnabled = $IsEditable, HorizontalAlignment = Left, Margin = (0,0,0,10) ] {
-                TextBlock [ Text = "+ Add input", Style = @BodySmall ]
+                TextBlock [ Text = "+ Add input", Style = @BodySm ]
             }
 
-            TextBlock [ Text = "Bindings", Style = @BodyMedium, Foreground = @OnSurface, Margin = (0,4,0,4) ]
+            TextBlock [ Text = "Bindings", Style = @Body, Foreground = @Fg1, Margin = (0,4,0,4) ]
             ItemsControl [ ItemsSource = $Bindings, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillBindingRowTemplate ]
             Button [ Variant = Text, Command = $AddBindingCommand, IsEnabled = $IsEditable, HorizontalAlignment = Left, Margin = (0,0,0,10) ] {
-                TextBlock [ Text = "+ Add binding", Style = @BodySmall ]
+                TextBlock [ Text = "+ Add binding", Style = @BodySm ]
             }
 
-            TextBlock [ Text = "Outputs", Style = @BodyMedium, Foreground = @OnSurface, Margin = (0,4,0,4) ]
+            TextBlock [ Text = "Outputs", Style = @Body, Foreground = @Fg1, Margin = (0,4,0,4) ]
             ItemsControl [ ItemsSource = $Outputs, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillOutputRowTemplate ]
             Button [ Variant = Text, Command = $AddOutputCommand, IsEnabled = $IsEditable, HorizontalAlignment = Left ] {
-                TextBlock [ Text = "+ Add output", Style = @BodySmall ]
+                TextBlock [ Text = "+ Add output", Style = @BodySm ]
             }
         }
     }
 
     // ── the selected-skill editor (form + validation problems) ──────────────
     DataTemplate [ DataType = SkillEditSession ] {
-        Border [ Fill = @SurfaceContainer, CornerRadius = 6, Padding = (12,12,12,12), Margin = (0,8,0,0) ] {
+        Border [ Fill = @Bg2, CornerRadius = 6, Padding = (12,12,12,12), Margin = (0,8,0,0) ] {
             StackPanel [ Orientation = Vertical ] {
                 ContentControl [ Content = $Form ]
-                TextBlock [ Text = $ProblemText, Style = @BodySmall, Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
+                TextBlock [ Text = $ProblemText, Style = @BodySm, Foreground = @Fg2, TextWrapping = Wrap,
                             Margin = (0,8,0,0), Visibility = $HasProblems << ToVisibility ]
             }
         }
@@ -118,15 +118,15 @@ resources SkillsAuthoringResources {
 
     // ── one catalog row ─────────────────────────────────────────────────────
     DataTemplate x:key="SkillListItemTemplate" [ DataType = SkillListItemVm ] {
-        Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6, Padding = (10,8,10,8), Margin = (0,0,0,6) ] {
+        Border [ Fill = @Bg2, CornerRadius = 6, Padding = (10,8,10,8), Margin = (0,0,0,6) ] {
             Button [ Variant = Text, Command = $SelectCommand, HorizontalAlignment = Stretch ] {
                 StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-                    TextBlock [ Text = $Title, Style = @BodyMedium, Foreground = @OnSurface ]
+                    TextBlock [ Text = $Title, Style = @Body, Foreground = @Fg1 ]
                     StackPanel [ Orientation = Horizontal, Margin = (0,2,0,0) ] {
-                        TextBlock [ Text = $ScopeLabel, Style = @BodySmall, Foreground = @OnSurfaceVariant, Margin = (0,0,8,0) ]
-                        TextBlock [ Text = "read-only", Style = @BodySmall, Foreground = @OnSurfaceVariant, Visibility = $IsReadOnly << ToVisibility ]
+                        TextBlock [ Text = $ScopeLabel, Style = @BodySm, Foreground = @Fg2, Margin = (0,0,8,0) ]
+                        TextBlock [ Text = "read-only", Style = @BodySm, Foreground = @Fg2, Visibility = $IsReadOnly << ToVisibility ]
                     }
-                    TextBlock [ Text = $Description, Style = @BodySmall, Foreground = @OnSurfaceVariant, TextTrimming = CharacterEllipsis ]
+                    TextBlock [ Text = $Description, Style = @BodySm, Foreground = @Fg2, TextTrimming = CharacterEllipsis ]
                 }
             }
         }
@@ -135,7 +135,7 @@ resources SkillsAuthoringResources {
     // ── one project / scope group (header + its rows) ───────────────────────
     DataTemplate x:key="SkillGroupTemplate" [ DataType = SkillGroupVm ] {
         StackPanel [ Orientation = Vertical, Margin = (0,0,0,10) ] {
-            TextBlock [ Text = $Header, Style = @BodyMedium, Foreground = @OnSurface, Margin = (0,0,0,6) ]
+            TextBlock [ Text = $Header, Style = @Body, Foreground = @Fg1, Margin = (0,0,0,6) ]
             ItemsControl [ ItemsSource = $Items, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillListItemTemplate ]
         }
     }
@@ -143,16 +143,16 @@ resources SkillsAuthoringResources {
     // ── the new-skill modal ─────────────────────────────────────────────────
     DataTemplate [ DataType = SkillNewDialogVm ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Text = "Name", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Name", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $Form.Name, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Description", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Description", Style = @BodySm, Foreground = @Fg2 ]
             TextBox [ Text = $Form.Description, Margin = (0,0,0,6) ]
-            TextBlock [ Text = "Scope", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Scope", Style = @BodySm, Foreground = @Fg2 ]
             ComboBox [ ItemsSource = $Form.Scopes, SelectedItem = $Form.Scope, HorizontalAlignment = Stretch, Margin = (0,0,0,6), Help.Topic = "skills#scope-a-skill-to-a-project" ]
-            TextBlock [ Text = "Project", Style = @BodySmall, Foreground = @OnSurfaceVariant, Visibility = $Form.ShowProjectPicker << ToVisibility ]
+            TextBlock [ Text = "Project", Style = @BodySm, Foreground = @Fg2, Visibility = $Form.ShowProjectPicker << ToVisibility ]
             ComboBox [ ItemsSource = $Form.Projects, SelectedItem = $Form.SelectedProject, HorizontalAlignment = Stretch, Margin = (0,0,0,6),
                        Visibility = $Form.ShowProjectPicker << ToVisibility ]
-            TextBlock [ Text = "Template", Style = @BodySmall, Foreground = @OnSurfaceVariant ]
+            TextBlock [ Text = "Template", Style = @BodySm, Foreground = @Fg2 ]
             ComboBox [ ItemsSource = $Form.Templates, SelectedItem = $Form.Template, HorizontalAlignment = Stretch, Margin = (0,0,0,6) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,10,0,0) ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
@@ -165,16 +165,16 @@ resources SkillsAuthoringResources {
     DataTemplate [ DataType = SkillAuthoringService ] {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
             StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,10) ] {
-                Button [ Variant = Tonal, Command = $NewCommand, Help.Topic = "skills#create-a-skill" ] { TextBlock [ Text = "+ New Skill", Style = @BodySmall ] }
-                Button [ Variant = Text, Command = $RunCommand, Margin = (6,0,0,0), Help.Topic = "skills#run-a-skill" ] { TextBlock [ Text = "Run", Style = @BodySmall ] }
-                Button [ Variant = Text, Command = $RefreshCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Refresh", Style = @BodySmall ] }
-                Button [ Variant = Text, Command = $SaveCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Save", Style = @BodySmall ] }
+                Button [ Variant = Tonal, Command = $NewCommand, Help.Topic = "skills#create-a-skill" ] { TextBlock [ Text = "+ New Skill", Style = @BodySm ] }
+                Button [ Variant = Text, Command = $RunCommand, Margin = (6,0,0,0), Help.Topic = "skills#run-a-skill" ] { TextBlock [ Text = "Run", Style = @BodySm ] }
+                Button [ Variant = Text, Command = $RefreshCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Refresh", Style = @BodySm ] }
+                Button [ Variant = Text, Command = $SaveCommand, Margin = (6,0,0,0) ] { TextBlock [ Text = "Save", Style = @BodySm ] }
             }
             TextBox [ DockPanel.Dock = Top, Text = $SearchText, Margin = (0,0,0,8) ]
 
             ScrollViewer [ HorizontalScrollEnabled = false ] {
                 StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ DockPanel.Dock = Top, Style = @BodyMedium, Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
+                    TextBlock [ DockPanel.Dock = Top, Style = @Body, Foreground = @Fg2, TextWrapping = Wrap,
                                 Text = "No skills found. Create one with + New Skill.",
                                 Visibility = $IsEmpty << ToVisibility ]
                     ItemsControl [ ItemsSource = $Groups, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillGroupTemplate ]

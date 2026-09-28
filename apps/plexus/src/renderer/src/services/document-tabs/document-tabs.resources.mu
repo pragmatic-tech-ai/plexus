@@ -37,10 +37,10 @@ resources DocumentTabsResources {
     // hit surface with the standard hover/press state layers (the default Button
     // chrome centres + pads, which reads wrong for a menu row).
     Template x:key="TabMenuRowButton" [ TargetType = Button ] {
-        Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = @ShapeExtraSmall, Padding = (8,6,8,6) ] {
+        Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (8,6,8,6) ] {
             ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
         }
-        when ( IsMouseOver ) { PART_Row.Fill = @StateHoverOverlay; }
+        when ( IsMouseOver ) { PART_Row.Fill = @RowHoverFill; }
         when ( IsPressed ) { PART_Row.Fill = @StatePressOverlay; }
     }
 
@@ -48,13 +48,13 @@ resources DocumentTabsResources {
     // A one-shot action row (today "Close All") — fires its own carried command.
     DataTemplate [ DataType = TabMenuAction ] {
         Button [ Template = @TabMenuRowButton, Command = $Command, HorizontalAlignment = Stretch, MinWidth = 200 ] {
-            TextBlock [ Text = $Label, Foreground = @OnSurface, VerticalAlignment = Center ]
+            TextBlock [ Text = $Label, Foreground = @Fg1, VerticalAlignment = Center ]
         }
     }
 
     // The rule between the action block and the document list.
     DataTemplate [ DataType = TabMenuSeparator ] {
-        Border [ Height = 1, Fill = @OutlineVariant, Margin = (6,4,6,4) ]
+        Border [ Height = 1, Fill = @Border, Margin = (6,4,6,4) ]
     }
 
     // One open-document row: click the title to activate that tab, ✕ to close it.
@@ -67,14 +67,14 @@ resources DocumentTabsResources {
                   CommandParameter = $Id,
                   VerticalAlignment = Center,
                   Margin           = (4,0,0,0) ] {
-                Shape [ Geometry = @IconClose, Fill = @OnSurfaceVariant, Width = 10, Height = 10 ]
+                Shape [ Geometry = @IconClose, Fill = @Fg2, Width = 10, Height = 10 ]
             }
             Button
                 [ Template          = @TabMenuRowButton,
                   Command           = $service(ContentHostService).ActivateDocumentCommand,
                   CommandParameter  = $Id,
                   HorizontalAlignment = Stretch ] {
-                TextBlock [ Text = $Title, Foreground = @OnSurface, VerticalAlignment = Center ]
+                TextBlock [ Text = $Title, Foreground = @Fg1, VerticalAlignment = Center ]
             }
         }
     }
@@ -87,11 +87,11 @@ resources DocumentTabsResources {
     // (@MoreHoriz) glyph, self-centred (StackPanel HorizontalAlignment=Center,
     // no leading margin).
     Template x:key="TabOverflowTrigger" [ TargetType = ToolBarSplitButton ] {
-        Border x:name="PART_Primary" [ Fill = @SurfaceContainerHigh, CornerRadius = @ShapeFull ] {
-            Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @ShapeFull, Padding = (4,4,4,4) ] {
+        Border x:name="PART_Primary" [ Fill = @Bg2, CornerRadius = @RadiusPill ] {
+            Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @RadiusPill, Padding = (4,4,4,4) ] {
                 StackPanel [ Orientation = Horizontal, HorizontalAlignment = Center, VerticalAlignment = Center ] {
                     Border x:name="PART_Content" [ HorizontalAlignment = Center, VerticalAlignment = Center ]
-                    Shape [ Geometry = @MoreHoriz, Fill = @OnSurfaceVariant, Width = 10, Height = 10, VerticalAlignment = Center ]
+                    Shape [ Geometry = @MoreHoriz, Fill = @Fg2, Width = 10, Height = 10, VerticalAlignment = Center ]
                 }
             }
         }
@@ -122,12 +122,12 @@ resources DocumentTabsResources {
     // spill under the actions), and the action area (module command buttons + the
     // ⋯ overflow dropdown) pins to column 1. The content presenter is unchanged.
     Template x:key="ExtendedTabControlTemplate" [ TargetType = ExtendedTabControl ] {
-        Border x:name="PART_Border" [ Fill = @SurfaceContainer, CornerRadius = @ShapeSmall, ClipToBounds = true ] {
+        Border x:name="PART_Border" [ Fill = @Bg2, CornerRadius = @RadiusMd, ClipToBounds = true ] {
             DockPanel [ LastChildFill = true ] {
                 Line x:name="PART_HeaderRule"
                      [ DockPanel.Dock = Bottom,
                        Orientation    = Horizontal,
-                       Stroke         = (@OutlineVariant, 1) ]
+                       Stroke         = (@Border, 1) ]
                 Grid [ DockPanel.Dock = Top ] {
                     // The header row hugs the tab height (Auto). Without an
                     // explicit RowDefinition the Grid falls back to a single
@@ -163,7 +163,7 @@ resources DocumentTabsResources {
                     }
                 }
                 // 3dp uniform inset so the active document's content doesn't butt
-                // against the tab strip / pane edges. The @SurfaceContainer pane
+                // against the tab strip / pane edges. The @Bg2 pane
                 // fill shows through the gap as a thin frame around the content.
                 Border [ Padding = (3) ] {
                     // FocusContentOnActivate: when the active document's view is
@@ -181,7 +181,7 @@ resources DocumentTabsResources {
         // document host (the focused diagram is a descendant, so the control's
         // IsKeyboardFocusWithin is true), accent the header rule — the visible
         // "this pane is focused" cue. Recolour only (same thickness) → no reflow.
-        when ( IsKeyboardFocusWithin ) { PART_HeaderRule.Stroke = (@Primary, 1); }
+        when ( IsKeyboardFocusWithin ) { PART_HeaderRule.Stroke = (@ControlAccent, 1); }
     }
 
     Style [ TargetType = ExtendedTabControl ] {

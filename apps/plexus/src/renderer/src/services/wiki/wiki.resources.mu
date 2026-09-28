@@ -19,7 +19,7 @@ resources WikiResources {
     DataTemplate [DataType = WikiDocument] {
         ScrollViewer {
             Border [ Padding = (16) ] {
-                RichTextBlock [ Document = $Document, Foreground = @OnSurface ]
+                RichTextBlock [ Document = $Document, Foreground = @Fg1 ]
             }
         }
     }

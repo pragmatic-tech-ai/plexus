@@ -13,7 +13,7 @@ resources SavePromptResources {
 
     DataTemplate [ DataType = SavePromptModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = $Message, Foreground = @OnSurface, TextWrapping = Wrap, Margin = (0,0,0,16) ]
+            TextBlock [ Style = @Body, Text = $Message, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,0,0,16) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
                 Button [ Variant = Text, Command = $DontSaveCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = $DontSaveLabel ] }

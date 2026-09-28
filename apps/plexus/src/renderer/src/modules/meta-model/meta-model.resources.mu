@@ -23,9 +23,9 @@ resources MetaModelResources {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
             TextBlock
                 [ DockPanel.Dock = Top,
-                  Style          = @BodyMedium,
+                  Style          = @Body,
                   Text           = "No published meta-models yet.",
-                  Foreground     = @OnSurfaceVariant,
+                  Foreground     = @Fg2,
                   TextWrapping   = Wrap,
                   Visibility     = $IsEmpty << ToVisibility ]
             TreeView
@@ -51,12 +51,12 @@ resources MetaModelResources {
         StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
             Shape
                 [ Geometry          = $Kind << MetaModelKindToGeometry,
-                  Fill              = @OnSurfaceVariant,
+                  Fill              = @Fg2,
                   Width             = 16,
                   Height            = 16,
                   Margin            = (0,0,6,0),
                   VerticalAlignment = Center ]
-            TextBlock [ Text = $Label, Style = @BodyMedium, VerticalAlignment = Center ]
+            TextBlock [ Text = $Label, Style = @Body, VerticalAlignment = Center ]
         }
         // Only Model (id) and Version rows carry a delete command / context menu.
         when ( $IsDeletable = true ) { ContextMenuService.ContextMenu = @MetaModelContextMenu; }

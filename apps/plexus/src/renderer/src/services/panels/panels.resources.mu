@@ -13,7 +13,7 @@ resources PanelsResources {
     // The left side pane's control template (referenced by the app-level
     // Style [ TargetType = ShellSideContentPane ] in app.mu). We supply our OWN
     // template rather than the framework's @DefaultShellSideContentPane so the pane
-    // header carries a visible 1dp divider below its title — the same @OutlineVariant
+    // header carries a visible 1dp divider below its title — the same @Border
     // header rule the document tab strip (@ExtendedTabControlTemplate) and the right
     // dock (@DockRailTemplate) draw, so all three work surfaces match. (This lives in
     // a standalone resource dictionary, not app.mu's inline resources: block, because
@@ -27,7 +27,7 @@ resources PanelsResources {
     // @CompactHeader{Menu,Icon}Button are the shared compact header-button chromes the
     // tab strip + dock reuse.
     Template x:key="PlexusSideContentPane" [ TargetType = ShellSideContentPane ] {
-        Border [ Fill = @SurfaceContainer, CornerRadius = @ShapeSmall, ClipToBounds = true ] {
+        Border [ Fill = @Bg2, CornerRadius = @RadiusMd, ClipToBounds = true ] {
             Grid {
                 RowDefinitions {
                     RowDefinition [ Height = GridLength.Auto ]
@@ -38,9 +38,9 @@ resources PanelsResources {
                     DockPanel [ LastChildFill = true ] {
                         // A docked 1dp Border (not an oriented Line) is the reliable
                         // full-width rule here — the framework pane's own Line in this
-                        // header context doesn't lay out. @Outline (vs the fainter
-                        // @OutlineVariant) keeps it clearly visible against the pane fill.
-                        Border [ DockPanel.Dock = Bottom, Height = 1, Fill = @Outline ]
+                        // header context doesn't lay out. @BorderStrong (vs the fainter
+                        // @Border) keeps it clearly visible against the pane fill.
+                        Border [ DockPanel.Dock = Bottom, Height = 1, Fill = @BorderStrong ]
                         StackPanel x:name="PART_HeaderBar"
                             [ DockPanel.Dock   = Right,
                               Orientation       = Horizontal,
@@ -48,21 +48,21 @@ resources PanelsResources {
                               Margin            = (8,0,0,0) ] {
                             MenuButton x:name="PART_Overflow"
                                 [ TriggerTemplate = @CompactHeaderMenuButton,
-                                  Icon            = Shape [ Geometry = @MoreHoriz, Fill = @OnSurfaceVariant, Width = 12, Height = 12 ] ]
+                                  Icon            = Shape [ Geometry = @MoreHoriz, Fill = @Fg2, Width = 12, Height = 12 ] ]
                             IconButton x:name="PART_Close"
                                 [ Template          = @CompactHeaderIconButton,
                                   Command           = $$CloseCommand,
                                   VerticalAlignment = Center,
                                   Margin            = (4,0,0,0) ] {
-                                Shape [ Geometry = @IconClose, Fill = @OnSurfaceVariant, Width = 12, Height = 12 ]
+                                Shape [ Geometry = @IconClose, Fill = @Fg2, Width = 12, Height = 12 ]
                             }
                         }
                         ContentPresenter x:name="PART_Commands"
                             [ DockPanel.Dock = Right, Content = $$Commands, VerticalAlignment = Center ]
                         TextBlock x:name="PART_Title"
-                            [ Style             = @TitleSmall,
+                            [ Style             = @UiLabel,
                               Text              = $$Header,
-                              Foreground        = @OnSurfaceVariant,
+                              Foreground        = @Fg2,
                               VerticalAlignment = Center ]
                     }
                 }
@@ -82,6 +82,6 @@ resources PanelsResources {
 
     // One section row inside a panel.
     DataTemplate [ DataType = PanelSection ] {
-        TextBlock [ Style = @BodyMedium, Text = $Label, Foreground = @OnSurfaceVariant, Margin = (0,3,0,3) ]
+        TextBlock [ Style = @Body, Text = $Label, Foreground = @Fg2, Margin = (0,3,0,3) ]
     }
 }

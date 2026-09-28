@@ -86,19 +86,19 @@ function primaryScope(classAttr: string): string | undefined
 // so the renderer uses the inherited foreground).
 const SCOPE_TOKEN: Readonly<Record<string, string>> = {
     // muted — comments and docs
-    comment: 'OnSurfaceVariant', quote: 'OnSurfaceVariant',
+    comment: 'Fg2', quote: 'Fg2',
     // keywords and language machinery — the brand accent
-    keyword: 'Primary', literal: 'Primary', built_in: 'Primary', type: 'Primary',
-    'selector-tag': 'Primary', doctag: 'Primary', meta: 'Primary', 'meta-keyword': 'Primary',
+    keyword: 'ControlAccent', literal: 'ControlAccent', built_in: 'ControlAccent', type: 'ControlAccent',
+    'selector-tag': 'ControlAccent', doctag: 'ControlAccent', meta: 'ControlAccent', 'meta-keyword': 'ControlAccent',
     // strings and string-like atoms
-    string: 'Tertiary', regexp: 'Tertiary', char: 'Tertiary', symbol: 'Tertiary',
-    'template-tag': 'Tertiary', 'meta-string': 'Tertiary',
+    string: 'AccentCyan', regexp: 'AccentCyan', char: 'AccentCyan', symbol: 'AccentCyan',
+    'template-tag': 'AccentCyan', 'meta-string': 'AccentCyan',
     // names, numbers, definitions
-    number: 'Secondary', title: 'Secondary', section: 'Secondary', name: 'Secondary',
-    attr: 'Secondary', attribute: 'Secondary', variable: 'Secondary',
-    'template-variable': 'Secondary', params: 'Secondary', property: 'Secondary',
+    number: 'AccentPlum', title: 'AccentPlum', section: 'AccentPlum', name: 'AccentPlum',
+    attr: 'AccentPlum', attribute: 'AccentPlum', variable: 'AccentPlum',
+    'template-variable': 'AccentPlum', params: 'AccentPlum', property: 'AccentPlum',
     // problems / removals
-    deletion: 'Error',
+    deletion: 'StateDanger',
 }
 
 // The theme token a scope paints with, or undefined for default body colour.

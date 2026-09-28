@@ -36,12 +36,12 @@ export function codeChip(text: string): InlineUIContainer
 {
     const label = new TextBlock(text)
     label.FontFamily = MONO
-    bindTheme(label, TextBlock.ForegroundKey, 'OnSurface')
+    bindTheme(label, TextBlock.ForegroundKey, 'Fg1')
 
     const chip = new Border(label)
     chip.CornerRadius = 4
     chip.Padding = new Thickness(5, 3, 5, 0)
-    bindTheme(chip, Border.FillKey, 'SurfaceContainerHigh')
+    bindTheme(chip, Border.FillKey, 'Bg2')
     return new InlineUIContainer(chip)
 }
 

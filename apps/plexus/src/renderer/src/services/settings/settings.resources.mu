@@ -22,7 +22,7 @@ resources SettingsResources {
     // Rendered when the gear Views a SettingsPage: a titled column of category
     // sections.
     // Shown as the body of the modal settings dialog (DialogService). The dialog
-    // surface supplies the @Surface background, padding, and the "Settings"
+    // surface supplies the @Bg1 background, padding, and the "Settings"
     // headline, so the body is just the scrollable category list — the
     // ScrollViewer keeps a long settings list bounded within the dialog's
     // MaxHeight (HorizontalScrollEnabled = false so rows measure to the dialog
@@ -36,7 +36,7 @@ resources SettingsResources {
     // A category section — title over its rows.
     DataTemplate [ DataType = SettingsCategory ] {
         StackPanel [ Orientation = Vertical, Margin = (0,0,0,28) ] {
-            TextBlock [ Style = @TitleMedium, Text = $Name, Foreground = @OnSurface, Margin = (0,0,0,10) ]
+            TextBlock [ Style = @UiLabel, Text = $Name, Foreground = @Fg1, Margin = (0,0,0,10) ]
             ItemsControl [ ItemsSource = $Rows, ItemsPanel = @VerticalStackPanel ]
         }
     }
@@ -49,8 +49,8 @@ resources SettingsResources {
         DockPanel [ LastChildFill = true, Margin = (0,7,0,7) ] {
             Switch [ DockPanel.Dock = Right, IsChecked = $Setting.Value, VerticalAlignment = Center ]
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Style = @BodyLarge,  Text = $Label,       Foreground = @OnSurface ]
-                TextBlock [ Style = @BodySmall,  Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                TextBlock [ Style = @Body,  Text = $Label,       Foreground = @Fg1 ]
+                TextBlock [ Style = @BodySm,  Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
@@ -61,16 +61,16 @@ resources SettingsResources {
                        Value = $Setting.Value, Minimum = $Minimum, Maximum = $Maximum,
                        VerticalAlignment = Center ]
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Style = @BodyLarge,  Text = $Label,       Foreground = @OnSurface ]
-                TextBlock [ Style = @BodySmall,  Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                TextBlock [ Style = @Body,  Text = $Label,       Foreground = @Fg1 ]
+                TextBlock [ Style = @BodySm,  Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
 
     DataTemplate [ DataType = StringSettingRow ] {
         StackPanel [ Orientation = Vertical, Margin = (0,7,0,7) ] {
-            TextBlock [ Style = @BodyLarge,  Text = $Label,       Foreground = @OnSurface ]
-            TextBlock [ Style = @BodySmall,  Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+            TextBlock [ Style = @Body,  Text = $Label,       Foreground = @Fg1 ]
+            TextBlock [ Style = @BodySm,  Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
             TextBox   [ Text = $Setting.Value, Margin = (0,4,0,0) ]
         }
     }
@@ -79,8 +79,8 @@ resources SettingsResources {
         DockPanel [ LastChildFill = true, Margin = (0,7,0,7) ] {
             BrushPicker [ DockPanel.Dock = Right, Width = 220, Brush = $Setting.Value, VerticalAlignment = Center ]
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Style = @BodyLarge,  Text = $Label,       Foreground = @OnSurface ]
-                TextBlock [ Style = @BodySmall,  Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                TextBlock [ Style = @Body,  Text = $Label,       Foreground = @Fg1 ]
+                TextBlock [ Style = @BodySm,  Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
@@ -91,16 +91,16 @@ resources SettingsResources {
                        ItemsSource = $Choices, SelectedItem = $Setting.Value,
                        VerticalAlignment = Center ]
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Style = @BodyLarge,  Text = $Label,       Foreground = @OnSurface ]
-                TextBlock [ Style = @BodySmall,  Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                TextBlock [ Style = @Body,  Text = $Label,       Foreground = @Fg1 ]
+                TextBlock [ Style = @BodySm,  Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
 
     DataTemplate [ DataType = FilePathSettingRow ] {
         StackPanel [ Orientation = Vertical, Margin = (0,7,0,7) ] {
-            TextBlock [ Style = @BodyLarge,  Text = $Label,       Foreground = @OnSurface ]
-            TextBlock [ Style = @BodySmall,  Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+            TextBlock [ Style = @Body,  Text = $Label,       Foreground = @Fg1 ]
+            TextBlock [ Style = @BodySm,  Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
             DockPanel [ LastChildFill = true, Margin = (0,4,0,0) ] {
                 Button  [ DockPanel.Dock = Right, Variant = Outlined, Command = $BrowseCommand, Margin = (8,0,0,0) ] {
                     TextBlock [ Text = "Browse…" ]

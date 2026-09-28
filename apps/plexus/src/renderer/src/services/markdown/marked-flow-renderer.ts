@@ -115,7 +115,7 @@ function quoteBlocks(tok: Tokens.Blockquote, ctx: MarkdownRenderContext): Block[
         {
             block.Margin = new Thickness(12, 0, 0, 8)
             block.FontStyle = FontStyle.Italic                          // inherited by inline runs
-            bindTheme(block, TextElement.ForegroundKey, 'OnSurfaceVariant')   // muted
+            bindTheme(block, TextElement.ForegroundKey, 'Fg2')   // muted
             out.push(block)
         }
     }
@@ -221,8 +221,8 @@ function tableBlock(tok: Tokens.Table, ctx: MarkdownRenderContext): Table
     const table = new Table()
     table.Margin = blockGap()
     table.LastColumnFills = true
-    bindTheme(table, Table.BorderBrushKey, 'OutlineVariant')
-    bindTheme(table, Table.HeaderBackgroundKey, 'SurfaceContainerHigh')
+    bindTheme(table, Table.BorderBrushKey, 'Border')
+    bindTheme(table, Table.HeaderBackgroundKey, 'Bg2')
 
     const aligns = tok.align.map(toAlignment)
     table.AddChild(tableRow(tok.header, aligns, true, ctx))
@@ -273,7 +273,7 @@ function ruleBlock(): Paragraph
     const rule = new Border()
     rule.Height = 1
     rule.Width = 640
-    bindTheme(rule, Border.FillKey, 'OutlineVariant')
+    bindTheme(rule, Border.FillKey, 'Border')
     p.AddChild(new InlineUIContainer(rule))
     return p
 }

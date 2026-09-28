@@ -70,10 +70,10 @@ describe('highlightCode', () => {
 
 describe('codeScopeToToken', () => {
     test('maps common scopes onto theme tokens', () => {
-        expect(codeScopeToToken('keyword')).toBe('Primary')
-        expect(codeScopeToToken('string')).toBe('Tertiary')
-        expect(codeScopeToToken('number')).toBe('Secondary')
-        expect(codeScopeToToken('comment')).toBe('OnSurfaceVariant')
+        expect(codeScopeToToken('keyword')).toBe('ControlAccent')
+        expect(codeScopeToToken('string')).toBe('AccentCyan')
+        expect(codeScopeToToken('number')).toBe('AccentPlum')
+        expect(codeScopeToToken('comment')).toBe('Fg2')
     })
 
     test('undefined scope and unknown scopes fall through to default', () => {

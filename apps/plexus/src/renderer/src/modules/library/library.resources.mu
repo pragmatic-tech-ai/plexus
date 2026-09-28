@@ -26,10 +26,10 @@ resources LibraryResources {
     HierarchicalDataTemplate x:key="LibraryNodeTemplate" [ DataType = LibraryTreeNode, itemsselector = Children ] {
         Border [ Fill = #00000000, IsDraggable = $IsDraggable, OnDragStart = $BeginDragData ] {
             StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
-                Shape [ Geometry = @Libraries, Fill = @OnSurfaceVariant, Width = 14, Height = 14,
+                Shape [ Geometry = @Libraries, Fill = @Fg2, Width = 14, Height = 14,
                         Margin = (0,0,6,0), VerticalAlignment = Center,
                         Visibility = $IsLibrary << ToVisibility ]
-                TextBlock [ Text = $Name, Style = @BodyMedium, Foreground = @OnSurface, VerticalAlignment = Center ]
+                TextBlock [ Text = $Name, Style = @Body, Foreground = @Fg1, VerticalAlignment = Center ]
             }
         }
         when ( $IsLibrary = true ) { ContextMenuService.ContextMenu = @LibraryContextMenu; }
@@ -49,8 +49,8 @@ resources LibraryResources {
     DataTemplate [ DataType = LibraryTreeNode ] {
         StackPanel [ Orientation = Vertical ] {
             ContentControl [ Content = $Icon, ContentTemplateSelector = @TodlVisualSelector, VisualContextScope.Context = VisualContext.Tile, Width = @ToolboxItemWidth, Height = @ToolboxItemHeight ]
-            TextBlock [ Text = $Display, Style = @BodyMedium, Foreground = @OnSurface, TextWrapping = Wrap, Margin = (0,4,0,0) ]
-            TextBlock [ Text = $Concept, Style = @BodySmall, Foreground = @OnSurfaceVariant, TextWrapping = Wrap, Margin = (0,2,0,0) ]
+            TextBlock [ Text = $Display, Style = @Body, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,4,0,0) ]
+            TextBlock [ Text = $Concept, Style = @BodySm, Foreground = @Fg2, TextWrapping = Wrap, Margin = (0,2,0,0) ]
         }
     }
 
@@ -66,7 +66,7 @@ resources LibraryResources {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
             // Preview pane — docked at the bottom, shown when a class is selected.
             Border [ DockPanel.Dock = Bottom, Visibility = $HasPreview << ToVisibility,
-                     Fill = @SurfaceContainerHigh, CornerRadius = 6, Padding = (8), Margin = (0,8,0,0) ] {
+                     Fill = @Bg2, CornerRadius = 6, Padding = (8), Margin = (0,8,0,0) ] {
                 // Host the selected NODE via a ContentControl (not a bare
                 // ContentPresenter): the ContentControl keeps its own DataContext
                 // (this panel service), so Content = $PreviewData keeps tracking the
@@ -77,12 +77,12 @@ resources LibraryResources {
                 ContentControl [ Content = $PreviewData ]
             }
             // Loading state — docked at the top while discovery runs.
-            TextBlock [ DockPanel.Dock = Top, Style = @BodyMedium, Text = "Loading libraries…",
-                        Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
+            TextBlock [ DockPanel.Dock = Top, Style = @Body, Text = "Loading libraries…",
+                        Foreground = @Fg2, TextWrapping = Wrap,
                         Visibility = $IsLoading << ToVisibility ]
             // Empty state — docked at the top.
-            TextBlock [ DockPanel.Dock = Top, Style = @BodyMedium, Text = "No published libraries yet.",
-                        Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
+            TextBlock [ DockPanel.Dock = Top, Style = @Body, Text = "No published libraries yet.",
+                        Foreground = @Fg2, TextWrapping = Wrap,
                         Visibility = $IsEmpty << ToVisibility ]
             // The tree fills the remaining space.
             TreeView [ Indent = 14,

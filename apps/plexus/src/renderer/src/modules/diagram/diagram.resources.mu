@@ -84,11 +84,11 @@ resources DiagramResources {
     ItemsPanelTemplate x:key="DiagramCanvasPanel" {
         // Paper + page border track the theme so the drawing surface reads in
         // both light and dark (PaperBrush/PageBorderBrush default to hard white /
-        // light-gray in the framework). @DiagramCanvas / @OutlineVariant are
+        // light-gray in the framework). @DiagramCanvas / @Border are
         // dynamic resources → they re-paint live on a scheme swap. The desk
         // behind the pages is the diagram template's PART_CanvasBg (@DiagramCanvas).
         PaginatedCanvas [ PageWidth = 800, PageHeight = 600,
-                          PaperBrush = @DiagramCanvas, PageBorderBrush = @OutlineVariant ]
+                          PaperBrush = @DiagramCanvas, PageBorderBrush = @Border ]
     }
 
     // ── Canvas — the diagram surface, materialized in-tree ──────────────
@@ -154,21 +154,21 @@ resources DiagramResources {
             FontSizePicker   [ Value = $FontSize, IsEditable = true, Width = 80, Margin = (8,0,0,0), VerticalAlignment = Center ]
             ToolBar [ Margin = (8,0,0,0) ] {
                 ToolBarButton [ Command = $IncreaseFontSizeCommand ] {
-                    Shape [ Geometry = @text_increase, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                    Shape [ Geometry = @text_increase, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
                 ToolBarButton [ Command = $DecreaseFontSizeCommand ] {
-                    Shape [ Geometry = @text_decrease, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                    Shape [ Geometry = @text_decrease, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
             }
             ColorPicker [ ColorHex = $FontColorHex, Margin = (8,0,0,0), VerticalAlignment = Center ]
             // Copy Format (format painter): a real toggle that two-way binds the
             // document's FormatPainterActive (mirrored onto the live canvas) — the
             // same proven pattern as the connector-mode toggle. Checking it arms the
-            // brush; the ToolBarToggleButton's checked chrome fills @Primary and
-            // flips the inherited icon ink to @OnPrimary, so "armed" reads clearly.
+            // brush; the ToolBarToggleButton's checked chrome fills @ControlAccent and
+            // flips the inherited icon ink to @FgOnAccent, so "armed" reads clearly.
             // The icon Shape leaves Fill UNSET so it follows that checked-ink flip
-            // (@OnSurfaceVariant at rest → @OnPrimary when checked) — hardcoding Fill
-            // pins it to the resting ink and it vanishes on the @Primary fill (see
+            // (@Fg2 at rest → @FgOnAccent when checked) — hardcoding Fill
+            // pins it to the resting ink and it vanishes on the @ControlAccent fill (see
             // mural's toolbar-toggle-icon-ink guard). (Select a shape first — arming
             // with nothing selected disarms straight away.)
             ToolBar [ Margin = (8,0,0,0) ] {
@@ -196,7 +196,7 @@ resources DiagramResources {
         StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
             ToolBar {
                 ToolBarButton [ Command = $ActiveView.ZoomOutCommand ] {
-                    Shape [ Geometry = @zoom_out, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                    Shape [ Geometry = @zoom_out, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
             }
             TextBlock
@@ -205,13 +205,13 @@ resources DiagramResources {
                   Width             = 44,
                   TextAlignment     = Center,
                   VerticalAlignment = Center,
-                  Foreground        = @OnSurfaceVariant ]
+                  Foreground        = @Fg2 ]
             ToolBar {
                 ToolBarButton [ Command = $ActiveView.ZoomInCommand ] {
-                    Shape [ Geometry = @zoom_in, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                    Shape [ Geometry = @zoom_in, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
                 ToolBarButton [ Command = $ActiveView.FitCommand ] {
-                    Shape [ Geometry = @fit_screen, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                    Shape [ Geometry = @fit_screen, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
             }
         }
@@ -245,13 +245,13 @@ resources DiagramResources {
                     [ Width             = 8,
                       Height            = 8,
                       CornerRadius      = (4),
-                      Fill        = @OnSurfaceVariant,
+                      Fill        = @Fg2,
                       VerticalAlignment = Center,
                       Margin            = (0,0,6,0) ]
                 TextBlock
                     [ Text              = "Connector",
                       FontSize          = 11,
-                      Foreground        = @OnSurfaceVariant,
+                      Foreground        = @Fg2,
                       VerticalAlignment = Center ]
             }
         }
@@ -450,15 +450,15 @@ resources DiagramResources {
     // the icon fills it. No label — the host draws the caption. (Was built at runtime
     // by visual-library.ts via instantiate(); now compiled here at build time.)
     //
-    // Tile context (toolbox tiles + library preview): a raised @SurfaceContainerHigh
+    // Tile context (toolbox tiles + library preview): a raised @Bg2
     // chip behind the icon. The ROOT is NOT hit-test visible — a tile is drag chrome,
     // so the enclosing Border owns the gesture and the icon must not swallow hit-testing.
     DataTemplate x:key="TodlIconTileTemplate" [DataType = EntityIconVM] {
-        Border [ Fill = @SurfaceContainerHigh, CornerRadius = 6, IsHitTestVisible = false ] {
+        Border [ Fill = @Bg2, CornerRadius = 6, IsHitTestVisible = false ] {
             Grid {
                 Image [ Source = $IconKey << imageKeyConverter, Stretch = Uniform,
                         HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
-                Icon  [ Source = $IconKey << iconKeyConverter, Recolor = false, Foreground = @OnSurface,
+                Icon  [ Source = $IconKey << iconKeyConverter, Recolor = false, Foreground = @Fg1,
                         HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
             }
         }
@@ -471,7 +471,7 @@ resources DiagramResources {
             Grid {
                 Image [ Source = $IconKey << imageKeyConverter, Stretch = Uniform,
                         HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
-                Icon  [ Source = $IconKey << iconKeyConverter, Recolor = false, Foreground = @OnSurface,
+                Icon  [ Source = $IconKey << iconKeyConverter, Recolor = false, Foreground = @Fg1,
                         HorizontalAlignment = Stretch, VerticalAlignment = Stretch ]
             }
         }
@@ -491,8 +491,8 @@ resources DiagramResources {
         Border x:root
             [ IsDraggable     = true,
               OnDragStart     = $BeginDragData,
-              Fill      = @Surface,
-              Stroke     = Pen [ Brush = @OutlineVariant ],
+              Fill      = @Bg1,
+              Stroke     = Pen [ Brush = @Border ],
               CornerRadius    = 4,
               Padding         = (4,8,4,8),
               Margin          = (2,0,2,4),
@@ -506,8 +506,8 @@ resources DiagramResources {
                       HorizontalAlignment = Center ]
                 TextBlock
                     [ Text                = $Label,
-                      Style               = @BodySmall,
-                      Foreground          = @OnSurfaceVariant,
+                      Style               = @BodySm,
+                      Foreground          = @Fg2,
                       TextWrapping        = Wrap,
                       TextAlignment       = Center,
                       HorizontalAlignment = Center,
@@ -526,8 +526,8 @@ resources DiagramResources {
         Border x:root
             [ IsDraggable     = true,
               OnDragStart     = $BeginDragData,
-              Fill      = @Surface,
-              Stroke     = Pen [ Brush = @OutlineVariant ],
+              Fill      = @Bg1,
+              Stroke     = Pen [ Brush = @Border ],
               CornerRadius    = 4,
               Padding         = (4,8,4,8),
               Margin          = (2,0,2,4),
@@ -542,8 +542,8 @@ resources DiagramResources {
                       HorizontalAlignment        = Center ]
                 TextBlock
                     [ Text                = $Label,
-                      Style               = @BodySmall,
-                      Foreground          = @OnSurfaceVariant,
+                      Style               = @BodySm,
+                      Foreground          = @Fg2,
                       TextWrapping        = Wrap,
                       TextAlignment       = Center,
                       HorizontalAlignment = Center,
@@ -587,10 +587,10 @@ resources DiagramResources {
                   HorizontalAlignment        = Center ]
             TextBlock x:name="PART_Title"
                 [ Text                = $Label,
-                  Style               = @BodySmall,
+                  Style               = @BodySm,
                   // Caption ink tracks the theme so it reads on the (now theme-
                   // adaptive) @DiagramCanvas surface in both light and dark.
-                  Foreground          = @OnSurface,
+                  Foreground          = @Fg1,
                   TextWrapping        = Wrap,
                   // Caps the tile width so a long name wraps instead of stretching
                   // the node; the container sizes the box to this wrapped tile.
@@ -646,7 +646,7 @@ resources DiagramResources {
             PART_Title.Margin               = (0,0,0,0);
         }
         // Per-node label text style (Format Shape → Text page, via the VM's
-        // TextStyle adapter). Each property overrides the @BodySmall / @OnSurface /
+        // TextStyle adapter). Each property overrides the @BodySm / @Fg1 /
         // Center defaults ONLY once the user sets it (the DP is undefined until
         // then), so untouched labels — and existing diagrams — are unchanged.
         when ( $LabelFontFamily is set )     { PART_Title.FontFamily = $LabelFontFamily; }
@@ -677,12 +677,12 @@ resources DiagramResources {
                 Border x:name="PART_ChipIcon"
                     [ Width        = 24,
                       Height       = 24,
-                      Fill         = @OnSurfaceVariant,
+                      Fill         = @Fg2,
                       CornerRadius = (4) ]
                 TextBlock x:name="PART_ChipLabel"
                     [ Text                = $Label,
-                      Style               = @BodySmall,
-                      Foreground          = @OnSurface,
+                      Style               = @BodySm,
+                      Foreground          = @Fg1,
                       TextWrapping        = Wrap,
                       MaxWidth            = 160,
                       Margin              = (6,0,0,0),
@@ -720,15 +720,15 @@ resources DiagramResources {
     // default ToggleButton pill) whose leading chevron flips ▸→▾ when expanded
     // (IsChecked). The ContentPresenter shows the ToggleButton's content (title).
     Template x:key="ToolboxAccordionHeaderChrome" [TargetType = ToggleButton] {
-        Border x:name="Root" [ Fill = #00000000, CornerRadius = @ShapeExtraSmall, Padding = (4,6,4,6) ] {
+        Border x:name="Root" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (4,6,4,6) ] {
             DockPanel [ LastChildFill = true ] {
                 TextBlock x:name="Chevron"
-                    [ DockPanel.Dock = Left, Text = "▸", Foreground = @OnSurfaceVariant,
+                    [ DockPanel.Dock = Left, Text = "▸", Foreground = @Fg2,
                       Margin = (0,0,8,0), VerticalAlignment = Center ]
                 ContentPresenter [ VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver ) { Root.Fill = @StateHoverOverlay; }
+        when ( IsMouseOver ) { Root.Fill = @RowHoverFill; }
         when ( IsChecked )   { Chevron.Text = "▾"; }
     }
 
@@ -743,7 +743,7 @@ resources DiagramResources {
                 [ Template            = @ToolboxAccordionHeaderChrome,
                   IsChecked           = $IsExpanded,
                   HorizontalAlignment = Stretch ] {
-                TextBlock [ Text = $Title, Style = @LabelMedium, Foreground = @OnSurfaceVariant ]
+                TextBlock [ Text = $Title, Style = @UiCaption, Foreground = @Fg2 ]
             }
             Border [ Visibility = $IsExpanded << ToVisibility, Padding = (0,4,0,6) ] {
                 ItemsControl [ ItemsSource = $Items, ItemsPanel = @DiagramToolboxPanel ]
@@ -756,14 +756,14 @@ resources DiagramResources {
     // over the selected page's body) solely to give the tab rail a VISIBLE bottom
     // divider — matching the side-pane title rule (@PlexusSideContentPane). The
     // framework rail template already carries a bottom Line, but (like the side
-    // pane) that oriented Line doesn't lay out here; a docked 1dp @Outline Border
+    // pane) that oriented Line doesn't lay out here; a docked 1dp @BorderStrong Border
     // is the reliable rule. We reuse the framework's own @InspectorRailItem (the
     // icon button + selected-tab notch) and @InspectorRailPanel (horizontal stack),
     // so only the rail chrome changes.
     Template x:key="PlexusInspectorRailTemplate" [ TargetType = NavigationRail ] {
-        Border x:name="PART_Border" [ Fill = @Surface, Padding = (5) ] {
+        Border x:name="PART_Border" [ Fill = @Bg1, Padding = (5) ] {
             DockPanel [ LastChildFill = true ] {
-                Border [ DockPanel.Dock = Bottom, Height = 1, Fill = @Outline ]
+                Border [ DockPanel.Dock = Bottom, Height = 1, Fill = @BorderStrong ]
                 ItemsPresenter x:name="PART_ItemsPresenter"
             }
         }

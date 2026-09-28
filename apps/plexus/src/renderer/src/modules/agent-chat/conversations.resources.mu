@@ -23,7 +23,7 @@ resources ConversationsResources {
         Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = 6, Padding = (6,5,6,5) ] {
             ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
         }
-        when ( IsMouseOver ) { PART_Row.Fill = @StateHoverOverlay; }
+        when ( IsMouseOver ) { PART_Row.Fill = @RowHoverFill; }
         when ( IsPressed ) { PART_Row.Fill = @StatePressOverlay; }
     }
 
@@ -32,7 +32,7 @@ resources ConversationsResources {
         Border x:name="PART_Bg" [ Fill = #00000000, CornerRadius = 4, Padding = (3,3,3,3) ] {
             ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
         }
-        when ( IsMouseOver ) { PART_Bg.Fill = @StateHoverOverlay; }
+        when ( IsMouseOver ) { PART_Bg.Fill = @RowHoverFill; }
         when ( IsPressed ) { PART_Bg.Fill = @StatePressOverlay; }
     }
 
@@ -50,21 +50,21 @@ resources ConversationsResources {
             // the text).
             Button [ DockPanel.Dock = Top, Variant = Tonal, Command = $NewConversationCommand,
                      HorizontalAlignment = Stretch, Margin = (0,0,0,8) ] {
-                TextBlock [ Text = "＋ New session", Style = @LabelLarge, TextWrapping = Wrap, HorizontalAlignment = Center ]
+                TextBlock [ Text = "＋ New session", Style = @UiLabel, TextWrapping = Wrap, HorizontalAlignment = Center ]
             }
 
             // Search box — a magnifier + a TextBox two-waying $SearchText, with a
             // placeholder shown (behind the transparent editor) while it's empty.
-            Border [ DockPanel.Dock = Top, Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 8,
+            Border [ DockPanel.Dock = Top, Stroke = Pen [ Brush = @Border ], CornerRadius = 8,
                      Padding = (8,2,8,2), Margin = (0,0,0,8) ] {
                 DockPanel [ LastChildFill = true ] {
-                    Shape [ DockPanel.Dock = Left, Geometry = @Search, Fill = @OnSurfaceVariant,
+                    Shape [ DockPanel.Dock = Left, Geometry = @Search, Fill = @Fg2,
                             Width = 16, Height = 16, VerticalAlignment = Center, Margin = (0,0,6,0) ]
                     // Auto row: hug the field height. Without it the Grid falls back to a
                     // single Star row and greedily fills the pane's remaining height.
                     Grid {
                         RowDefinitions { RowDefinition [ Height = GridLength.Auto ] }
-                        TextBlock [ Text = "Search sessions…", Style = @BodyMedium, Foreground = @OnSurfaceVariant,
+                        TextBlock [ Text = "Search sessions…", Style = @Body, Foreground = @Fg2,
                                     VerticalAlignment = Center, Visibility = $SearchEmpty << ToVisibility ]
                         TextBox [ Text = $SearchText, Variant = Plain, VerticalAlignment = Center,
                                   SelectionBrush = @TextSelectionBrush ]
@@ -77,16 +77,16 @@ resources ConversationsResources {
             Button [ DockPanel.Dock = Top, Variant = Text, Command = $OpenApprovedToolsCommand,
                      HorizontalAlignment = Left, Margin = (0,0,0,8) ] {
                 StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
-                    Shape [ Geometry = @Shield, Fill = @OnSurfaceVariant, Width = 16, Height = 16, VerticalAlignment = Center, Margin = (0,0,6,0) ]
-                    TextBlock [ Text = "Approved tools", Style = @BodyMedium, Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
+                    Shape [ Geometry = @Shield, Fill = @Fg2, Width = 16, Height = 16, VerticalAlignment = Center, Margin = (0,0,6,0) ]
+                    TextBlock [ Text = "Approved tools", Style = @Body, Foreground = @Fg2, VerticalAlignment = Center ]
                 }
             }
 
             ScrollViewer [ HorizontalScrollEnabled = false ] {
                 StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ Style = @LabelSmall, Text = "OPEN", Foreground = @OnSurfaceVariant, Margin = (0,0,0,4), TextWrapping = Wrap ]
+                    TextBlock [ Style = @UiCaption, Text = "OPEN", Foreground = @Fg2, Margin = (0,0,0,4), TextWrapping = Wrap ]
                     ItemsControl [ ItemsSource = $VisibleOpen, ItemsPanel = @VerticalStackPanel, ItemTemplate = @OpenConversationRow ]
-                    TextBlock [ Style = @LabelSmall, Text = "STORED", Foreground = @OnSurfaceVariant, Margin = (0,10,0,4), TextWrapping = Wrap ]
+                    TextBlock [ Style = @UiCaption, Text = "STORED", Foreground = @Fg2, Margin = (0,10,0,4), TextWrapping = Wrap ]
                     ItemsControl [ ItemsSource = $VisibleStored, ItemsPanel = @VerticalStackPanel, ItemTemplate = @StoredConversationRow ]
                 }
             }
@@ -101,16 +101,16 @@ resources ConversationsResources {
         DockPanel [ LastChildFill = true, Margin = (0,1,0,1) ] {
             StackPanel [ DockPanel.Dock = Right, Orientation = Horizontal, VerticalAlignment = Center ] {
                 Button [ Template = @RowIconButton, Command = $BeginRenameCommand, Margin = (2,0,0,0) ] {
-                    Shape [ Geometry = @Edit, Fill = @OnSurfaceVariant, Width = 15, Height = 15 ]
+                    Shape [ Geometry = @Edit, Fill = @Fg2, Width = 15, Height = 15 ]
                 }
                 Button [ Template = @RowIconButton, Command = $CloseCommand, Margin = (2,0,0,0) ] {
-                    Shape [ Geometry = @Close, Fill = @OnSurfaceVariant, Width = 15, Height = 15 ]
+                    Shape [ Geometry = @Close, Fill = @Fg2, Width = 15, Height = 15 ]
                 }
             }
             Button [ Template = @ConversationRowButton, Command = $RevealCommand, HorizontalAlignment = Stretch ] {
                 Grid {
                     RowDefinitions { RowDefinition [ Height = GridLength.Auto ] }
-                    TextBlock [ Text = $Title, Style = @BodyMedium, Foreground = @OnSurface, VerticalAlignment = Center,
+                    TextBlock [ Text = $Title, Style = @Body, Foreground = @Fg1, VerticalAlignment = Center,
                                 TextWrapping = NoWrap, TextTrimming = CharacterEllipsis, Visibility = $IsEditing << EditingToLabelVisibility ]
                     Border [ Style = @RenameKeyStyle, Visibility = $IsEditing << ToVisibility ] {
                         .Behaviors: { FocusOnVisibleBehavior }
@@ -126,18 +126,18 @@ resources ConversationsResources {
     DataTemplate x:key="StoredConversationRow" [ DataType = StoredConversationRow ] {
         DockPanel [ LastChildFill = true, Margin = (0,1,0,1) ] {
             StackPanel [ DockPanel.Dock = Right, Orientation = Horizontal, VerticalAlignment = Center ] {
-                TextBlock [ Text = $TimeAgo, Style = @BodySmall, Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (6,0,2,0) ]
+                TextBlock [ Text = $TimeAgo, Style = @BodySm, Foreground = @Fg2, VerticalAlignment = Center, Margin = (6,0,2,0) ]
                 Button [ Template = @RowIconButton, Command = $BeginRenameCommand, Margin = (2,0,0,0) ] {
-                    Shape [ Geometry = @Edit, Fill = @OnSurfaceVariant, Width = 15, Height = 15 ]
+                    Shape [ Geometry = @Edit, Fill = @Fg2, Width = 15, Height = 15 ]
                 }
                 Button [ Template = @RowIconButton, Command = $DeleteCommand, Margin = (2,0,0,0) ] {
-                    Shape [ Geometry = @Delete, Fill = @OnSurfaceVariant, Width = 15, Height = 15 ]
+                    Shape [ Geometry = @Delete, Fill = @Fg2, Width = 15, Height = 15 ]
                 }
             }
             Button [ Template = @ConversationRowButton, Command = $OpenCommand, HorizontalAlignment = Stretch ] {
                 Grid {
                     RowDefinitions { RowDefinition [ Height = GridLength.Auto ] }
-                    TextBlock [ Text = $Title, Style = @BodyMedium, Foreground = @OnSurface, VerticalAlignment = Center,
+                    TextBlock [ Text = $Title, Style = @Body, Foreground = @Fg1, VerticalAlignment = Center,
                                 TextWrapping = NoWrap, TextTrimming = CharacterEllipsis, Visibility = $IsEditing << EditingToLabelVisibility ]
                     Border [ Style = @RenameKeyStyle, Visibility = $IsEditing << ToVisibility ] {
                         .Behaviors: { FocusOnVisibleBehavior }
@@ -157,7 +157,7 @@ resources ConversationsResources {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
             ItemsControl [ ItemsSource = $Rules, ItemsPanel = @VerticalStackPanel, Visibility = $HasRules << ToVisibility ]
             TextBlock [ Text = "No tools approved yet. When you allow a tool during a chat, it appears here.",
-                        Style = @BodyMedium, Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
+                        Style = @Body, Foreground = @Fg2, TextWrapping = Wrap,
                         Visibility = $HasRules << EditingToLabelVisibility ]
         }
     }

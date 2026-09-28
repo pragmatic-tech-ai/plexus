@@ -10,11 +10,11 @@ resources HelpOverlayResources {
     // The round "?" chip. The adorner arranges it to an 18×18 rect, so the
     // Border just fills; CornerRadius rounds it to a circle.
     Template x:key="HelpHotspotButtonTemplate" [ TargetType = HelpHotspotButton ] {
-        Border x:name="PART_Border" [ Fill = @Primary, CornerRadius = 9 ] {
-            TextBlock [ Text = "?", Foreground = @OnPrimary,
+        Border x:name="PART_Border" [ Fill = @ControlAccent, CornerRadius = 9 ] {
+            TextBlock [ Text = "?", Foreground = @FgOnAccent,
                         HorizontalAlignment = Center, VerticalAlignment = Center, FontSize = 12 ]
         }
-        when ( IsMouseOver ) { PART_Border.Fill = @PrimaryContainer; }
+        when ( IsMouseOver ) { PART_Border.Fill = @BrandGreenSoft; }
     }
 
     Style [ TargetType = HelpHotspotButton ] {
@@ -28,7 +28,7 @@ resources HelpOverlayResources {
     // wraps the scenario RichTextBlock in a ScrollViewer and sets THAT as Content;
     // MaxHeight on the Border caps the card and the ScrollViewer scrolls overflow.
     Template x:key="HelpFlyoutCardTemplate" [ TargetType = HelpFlyoutCard ] {
-        Border [ Fill = @Surface, Stroke = Pen [ Brush = @Outline ], CornerRadius = @ShapeSmall,
+        Border [ Fill = @Bg1, Stroke = Pen [ Brush = @BorderStrong ], CornerRadius = @RadiusMd,
                  Padding = (@Spacing3,@Spacing3,@Spacing3,@Spacing3), MaxHeight = 360 ] {
             ContentPresenter {}
         }

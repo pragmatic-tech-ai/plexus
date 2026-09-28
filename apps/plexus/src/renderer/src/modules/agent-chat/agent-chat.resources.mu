@@ -46,7 +46,7 @@ resources AgentChatResources {
             // a plain Return bubbles (no newline) to the enclosing DockPanel's
             // KeyDown → SubmitCommand trigger; Shift+Return inserts a newline.
             Border [ DockPanel.Dock = Bottom, Margin = (0,8,0,0),
-                     Fill = @SurfaceContainerHigh, Stroke = Pen [ Brush = @OutlineVariant ],
+                     Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
                      CornerRadius = 12, Padding = (10,8,10,8), ClipToBounds = true ] {
                 DockPanel [ LastChildFill = true ] {
                     // Added-context chips — only present when the user has added any.
@@ -64,15 +64,15 @@ resources AgentChatResources {
                         PanelButton [ DockPanel.Dock = Right, Command = $SendCommand, IsEnabled = $CanInput,
                                       Template = @ComposerIconButton, VerticalAlignment = Center,
                                       Visibility = $IsIdle << ToVisibility, Margin = (6,0,0,0) ] {
-                            Shape [ Geometry = @ArrowUpward, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                            Shape [ Geometry = @ArrowUpward, Fill = @Fg2, Width = 16, Height = 16 ]
                         }
                         PanelButton [ DockPanel.Dock = Right, Command = $StopCommand, Template = @ComposerIconButton,
                                       VerticalAlignment = Center, Visibility = $IsBusy << ToVisibility, Margin = (6,0,0,0) ] {
-                            Shape [ Geometry = @Stop, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                            Shape [ Geometry = @Stop, Fill = @Fg2, Width = 16, Height = 16 ]
                         }
                         PanelButton [ DockPanel.Dock = Left, Command = $AddContextCommand, Template = @ComposerIconButton,
                                       VerticalAlignment = Center, Margin = (0,6,0,0) ] {
-                            Shape [ Geometry = @NewFolder, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                            Shape [ Geometry = @NewFolder, Fill = @Fg2, Width = 16, Height = 16 ]
                         }
                         ComboBox [ DockPanel.Dock = Right, ItemsSource = $Models, SelectedItem = $SelectedModel, MaxWidth = 100 ]
                     }
@@ -83,7 +83,7 @@ resources AgentChatResources {
                     // the inner one an unbounded viewport and defeat caret-follow.
                     TextBox [ Text = $Draft, IsEnabled = $CanInput, AcceptsReturn = true,
                               SubmitsOnEnter = true, TextWrapping = Wrap, MaxHeight = 320,
-                              Placeholder = "Ask AI anything…", PlaceholderBrush = @OnSurfaceVariant ]
+                              Placeholder = "Ask AI anything…", PlaceholderBrush = @Fg2 ]
                 }
             }
             // Scrolling transcript fills the rest. AutoScrollToEnd keeps the
@@ -103,15 +103,15 @@ resources AgentChatResources {
     // One added-context chip: a folder glyph + the basename + a ✕ that removes it
     // (RemoveCommand). v1 adds folders, so the folder glyph always fits.
     DataTemplate x:key="ContextChipTemplate" [ DataType = ContextItemVM ] {
-        Border [ Fill = @SurfaceContainerHigh, Stroke = Pen [ Brush = @OutlineVariant ],
+        Border [ Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
                  CornerRadius = 4, Padding = (6,2,4,2), Margin = (0,0,4,4) ] {
             DockPanel [ LastChildFill = true ] {
-                Shape [ DockPanel.Dock = Left, Geometry = @Folder, Fill = @OnSurfaceVariant,
+                Shape [ DockPanel.Dock = Left, Geometry = @Folder, Fill = @Fg2,
                         Width = 12, Height = 12, VerticalAlignment = Center, Margin = (0,4,0,0) ]
                 PanelButton [ DockPanel.Dock = Right, Command = $RemoveCommand, Margin = (4,0,0,0) ] {
-                    Shape [ Geometry = @Close, Fill = @OnSurfaceVariant, Width = 10, Height = 10 ]
+                    Shape [ Geometry = @Close, Fill = @Fg2, Width = 10, Height = 10 ]
                 }
-                TextBlock [ Text = $Name, Style = @BodySmall, Foreground = @OnSurface,
+                TextBlock [ Text = $Name, Style = @BodySm, Foreground = @Fg1,
                             VerticalAlignment = Center, Margin = (4,0,0,0) ]
             }
         }
@@ -122,8 +122,8 @@ resources AgentChatResources {
     // (the 16px icon) so send/stop read as small glyph buttons, not big circles.
     // Keeps the PART_Border / PART_StateLayer contract + hover/press state layers.
     Template x:key="ComposerIconButton" [ TargetType = PanelButton ] {
-        Border x:name="PART_Border" [ Fill = #00000000, CornerRadius = @ShapeSmall ] {
-            Border x:name="PART_StateLayer" [ Fill = #00000000, CornerRadius = @ShapeSmall, Padding = (4,4,4,4) ] {
+        Border x:name="PART_Border" [ Fill = #00000000, CornerRadius = @RadiusMd ] {
+            Border x:name="PART_StateLayer" [ Fill = #00000000, CornerRadius = @RadiusMd, Padding = (4,4,4,4) ] {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
@@ -138,8 +138,8 @@ resources AgentChatResources {
     // tab in main.js only when IsDevelopment.
     DataTemplate [ DataType = TemplateGalleryService ] {
         DockPanel [ LastChildFill = true, Margin = (12,12,12,12) ] {
-            TextBlock [ DockPanel.Dock = Top, Style = @LabelSmall, Margin = (0,0,0,8),
-                        Foreground = @OnSurfaceVariant, TextWrapping = Wrap,
+            TextBlock [ DockPanel.Dock = Top, Style = @UiCaption, Margin = (0,0,0,8),
+                        Foreground = @Fg2, TextWrapping = Wrap,
                         Text = "TEMPLATE GALLERY — dev preview of agent card templates" ]
             ScrollViewer [ HorizontalScrollEnabled = false ] {
                 ItemsControl [ ItemsSource = $Cards, ItemsPanel = @VerticalStackPanel ]
@@ -148,9 +148,9 @@ resources AgentChatResources {
     }
 
     DataTemplate [ DataType = UserMessage ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 8,
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 8,
                  Padding = (10,6,10,6), Margin = (40,3,0,3), ClipToBounds = true ] {
-            TextBlock [ Style = @BodyMedium, Text = $Text, Foreground = @OnSurface, TextWrapping = Wrap ]
+            TextBlock [ Style = @Body, Text = $Text, Foreground = @Fg1, TextWrapping = Wrap ]
         }
     }
 
@@ -159,16 +159,16 @@ resources AgentChatResources {
     // inline + fenced code, lists, quotes, links). Foreground inherits to runs.
     DataTemplate [ DataType = AssistantMessage ] {
         Border [ Padding = (10,6,10,6), Margin = (0,3,40,3) ] {
-            RichTextBlock [ Document = $Document, Foreground = @OnSurface ]
+            RichTextBlock [ Document = $Document, Foreground = @Fg1 ]
         }
     }
 
     // A failed turn: PLAIN text (not a markdown RichTextBlock — raw codes and
-    // stack traces stay verbatim instead of being mangled), tinted @Error. Same
+    // stack traces stay verbatim instead of being mangled), tinted @StateDanger. Same
     // left-bubble geometry as the assistant message.
     DataTemplate [ DataType = ErrorMessage ] {
         Border [ Padding = (10,6,10,6), Margin = (0,3,40,3) ] {
-            TextBlock [ Style = @BodyMedium, Text = $Text, Foreground = @Error, TextWrapping = Wrap ]
+            TextBlock [ Style = @Body, Text = $Text, Foreground = @StateDanger, TextWrapping = Wrap ]
         }
     }
 
@@ -182,7 +182,7 @@ resources AgentChatResources {
                 ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver ) { PART_StateLayer.Fill = @StateHoverOverlay; }
+        when ( IsMouseOver ) { PART_StateLayer.Fill = @RowHoverFill; }
         when ( IsPressed ) { PART_StateLayer.Fill = @StatePressOverlay; }
     }
 
@@ -190,8 +190,8 @@ resources AgentChatResources {
     // command / output in a monospace face. ClipToBounds keeps a long
     // unbreakable token (a path, a hash) from spilling past the rounded corners.
     Style x:key="ToolMonoBox" [ TargetType = Border ] {
-        Fill = @SurfaceContainerHigh;
-        Stroke = Pen [ Brush = @OutlineVariant ];
+        Fill = @Bg2;
+        Stroke = Pen [ Brush = @Border ];
         CornerRadius = 6;
         Padding = (8,6,8,6);
         ClipToBounds = true;
@@ -202,41 +202,41 @@ resources AgentChatResources {
     // the IN (command / input) and OUT (captured result) mono blocks. Starts
     // collapsed — $IsCollapsed shows the ▸ caret, $IsExpanded reveals the body.
     DataTemplate [ DataType = ToolActivity ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 8,
-                 Fill = @SurfaceContainerLow, Padding = (4), Margin = (0,3,20,3), ClipToBounds = true ] {
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 8,
+                 Fill = @Bg1, Padding = (4), Margin = (0,3,20,3), ClipToBounds = true ] {
             StackPanel [ Orientation = Vertical ] {
                 PanelButton [ Command = $ToggleCommand, Template = @ToolHeaderButton, HorizontalAlignment = Stretch ] {
                     DockPanel [ LastChildFill = true ] {
-                        TextBlock [ DockPanel.Dock = Right, Style = @BodySmall, Text = $Status,
-                                    Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (8,0,0,0) ]
+                        TextBlock [ DockPanel.Dock = Right, Style = @BodySm, Text = $Status,
+                                    Foreground = @Fg2, VerticalAlignment = Center, Margin = (8,0,0,0) ]
                         TextBlock [ DockPanel.Dock = Left, Text = "▸", Visibility = $IsCollapsed << ToVisibility,
-                                    Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,6,0) ]
+                                    Foreground = @Fg2, VerticalAlignment = Center, Margin = (0,0,6,0) ]
                         TextBlock [ DockPanel.Dock = Left, Text = "▾", Visibility = $IsExpanded << ToVisibility,
-                                    Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,6,0) ]
-                        TextBlock [ DockPanel.Dock = Left, Style = @LabelLarge, Text = $Name,
-                                    Foreground = @OnSurface, VerticalAlignment = Center ]
+                                    Foreground = @Fg2, VerticalAlignment = Center, Margin = (0,0,6,0) ]
+                        TextBlock [ DockPanel.Dock = Left, Style = @UiLabel, Text = $Name,
+                                    Foreground = @Fg1, VerticalAlignment = Center ]
                         // Fill slot — clipped so a long description is cut at the
                         // status boundary instead of painting over "done".
                         Border [ ClipToBounds = true, Fill = #00000000,
                                  Visibility = $HasDescription << ToVisibility, Margin = (8,0,8,0) ] {
-                            TextBlock [ Style = @BodySmall, Text = $Description,
-                                        Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
+                            TextBlock [ Style = @BodySm, Text = $Description,
+                                        Foreground = @Fg2, VerticalAlignment = Center ]
                         }
                     }
                 }
                 StackPanel [ Orientation = Vertical, Visibility = $IsExpanded << ToVisibility, Margin = (2,4,2,2) ] {
                     StackPanel [ Orientation = Vertical, Visibility = $HasCommand << ToVisibility ] {
-                        TextBlock [ Style = @LabelSmall, Text = "IN", Foreground = @OnSurfaceVariant, Margin = (0,0,0,2), TextWrapping = Wrap ]
+                        TextBlock [ Style = @UiCaption, Text = "IN", Foreground = @Fg2, Margin = (0,0,0,2), TextWrapping = Wrap ]
                         Border [ Style = @ToolMonoBox ] {
-                            TextBlock [ Style = @BodySmall, FontFamily = "Consolas", Text = $Command,
-                                        Foreground = @OnSurface, TextWrapping = Wrap ]
+                            TextBlock [ Style = @BodySm, FontFamily = "Consolas", Text = $Command,
+                                        Foreground = @Fg1, TextWrapping = Wrap ]
                         }
                     }
                     StackPanel [ Orientation = Vertical, Visibility = $HasOutput << ToVisibility, Margin = (0,6,0,0) ] {
-                        TextBlock [ Style = @LabelSmall, Text = "OUT", Foreground = @OnSurfaceVariant, Margin = (0,0,0,2), TextWrapping = Wrap ]
+                        TextBlock [ Style = @UiCaption, Text = "OUT", Foreground = @Fg2, Margin = (0,0,0,2), TextWrapping = Wrap ]
                         Border [ Style = @ToolMonoBox ] {
-                            TextBlock [ Style = @BodySmall, FontFamily = "Consolas", Text = $Output,
-                                        Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                            TextBlock [ Style = @BodySm, FontFamily = "Consolas", Text = $Output,
+                                        Foreground = @Fg2, TextWrapping = Wrap ]
                         }
                     }
                 }
@@ -250,9 +250,9 @@ resources AgentChatResources {
     // Submit means its own template. Used by the card's Submit.
     Template x:key="CompactButton" [ TargetType = Button ] {
         Border x:name="PART_Border"
-            [ Fill           = @Primary,
+            [ Fill           = @ControlAccent,
               CornerRadius         = $$CornerRadius,
-              TextBlock.Foreground = @OnPrimary,
+              TextBlock.Foreground = @FgOnAccent,
               TextBlock.FontFamily = @LabelLargeFont,
               TextBlock.FontWeight = @LabelLargeWeight,
               TextBlock.FontSize = @LabelLargeSize,
@@ -275,8 +275,8 @@ resources AgentChatResources {
     // pending ($IsPending) it shows the questions + a Submit (enabled once every
     // question has a selection); after answering it collapses to a compact recap.
     DataTemplate [ DataType = QuestionCard ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 10,
-                 Fill = @SurfaceContainer, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 10,
+                 Fill = @Bg2, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
             StackPanel [ Orientation = Vertical ] {
                 StackPanel [ Orientation = Vertical, Visibility = $IsPending << ToVisibility ] {
                     ItemsControl [ ItemsSource = $Questions, ItemsPanel = @VerticalStackPanel ]
@@ -286,7 +286,7 @@ resources AgentChatResources {
                     }
                 }
                 TextBlock [ Text = $AnswerSummary, Visibility = $IsAnswered << ToVisibility,
-                            Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                            Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
@@ -297,13 +297,13 @@ resources AgentChatResources {
     // ring at the right; on 10s expiry the card auto-approves once. Collapses to a
     // recap after answering.
     DataTemplate [ DataType = ToolApprovalCard ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 10,
-                 Fill = @SurfaceContainer, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 10,
+                 Fill = @Bg2, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
             StackPanel [ Orientation = Vertical ] {
                 StackPanel [ Orientation = Vertical, Visibility = $IsPending << ToVisibility ] {
-                    TextBlock [ Text = $ToolName, Foreground = @OnSurface, Style = @BodyMedium, TextWrapping = Wrap ]
+                    TextBlock [ Text = $ToolName, Foreground = @Fg1, Style = @Body, TextWrapping = Wrap ]
                     Border [ Style = @ToolMonoBox, Visibility = $HasCommand << ToVisibility, Margin = (0,6,0,0) ] {
-                        TextBlock [ FontFamily = "Consolas", Text = $Command, Foreground = @OnSurface, TextWrapping = Wrap ]
+                        TextBlock [ FontFamily = "Consolas", Text = $Command, Foreground = @Fg1, TextWrapping = Wrap ]
                     }
                     // Buttons then the countdown ring, laid out left-to-right so the
                     // ring sits just right of Deny and stays inside the card border
@@ -323,7 +323,7 @@ resources AgentChatResources {
                     }
                 }
                 TextBlock [ Text = $Recap, Visibility = $IsAnswered << ToVisibility,
-                            Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                            Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
@@ -331,15 +331,15 @@ resources AgentChatResources {
     // A proposed model patch (Skills #4): summary + op list, Apply/Reject while
     // pending, an Undo affordance once applied, and validation problems inline.
     DataTemplate [ DataType = ModelPatchCard ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 10,
-                 Fill = @SurfaceContainer, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 10,
+                 Fill = @Bg2, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Text = $Summary, Foreground = @OnSurface, Style = @BodyMedium, TextWrapping = Wrap ]
+                TextBlock [ Text = $Summary, Foreground = @Fg1, Style = @Body, TextWrapping = Wrap ]
                 Border [ Style = @ToolMonoBox, Margin = (0,6,0,0) ] {
-                    TextBlock [ FontFamily = "Consolas", Text = $OpText, Foreground = @OnSurface, TextWrapping = Wrap ]
+                    TextBlock [ FontFamily = "Consolas", Text = $OpText, Foreground = @Fg1, TextWrapping = Wrap ]
                 }
                 TextBlock [ Text = $ProblemText, Visibility = $HasProblems << ToVisibility,
-                            Foreground = @Error, TextWrapping = Wrap, Margin = (0,6,0,0) ]
+                            Foreground = @StateDanger, TextWrapping = Wrap, Margin = (0,6,0,0) ]
                 StackPanel [ Orientation = Horizontal, Margin = (0,10,0,0), Visibility = $IsPending << ToVisibility ] {
                     PanelButton [ Command = $AcceptCommand, Template = @CompactButton, Margin = (0,0,6,0) ] {
                         TextBlock [ Text = "Apply", TextWrapping = Wrap ]
@@ -349,27 +349,27 @@ resources AgentChatResources {
                     }
                 }
                 StackPanel [ Orientation = Horizontal, Margin = (0,10,0,0), Visibility = $IsApplied << ToVisibility ] {
-                    TextBlock [ Text = "Applied", Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (0,0,8,0) ]
+                    TextBlock [ Text = "Applied", Foreground = @Fg2, VerticalAlignment = Center, Margin = (0,0,8,0) ]
                     PanelButton [ Command = $UndoCommand, Template = @CompactButton ] {
                         TextBlock [ Text = "Undo", TextWrapping = Wrap ]
                     }
                 }
-                TextBlock [ Text = "Rejected", Visibility = $IsRejected << ToVisibility, Foreground = @OnSurfaceVariant ]
+                TextBlock [ Text = "Rejected", Visibility = $IsRejected << ToVisibility, Foreground = @Fg2 ]
             }
         }
     }
 
     // ── session-recovery card ───────────────────────────────────────────────────
     // The CLI lost this conversation's session (AgentEventKind.SessionLost). While
-    // pending, a warning message (tinted @Error like an error bubble) + two choices:
+    // pending, a warning message (tinted @StateDanger like an error bubble) + two choices:
     // Start fresh (clears the conversation) or Continue (replay the stored transcript
     // to the agent as context). Collapses to a one-line summary after choosing.
     DataTemplate [ DataType = SessionRecoveryCard ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 10,
-                 Fill = @SurfaceContainer, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 10,
+                 Fill = @Bg2, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
             StackPanel [ Orientation = Vertical ] {
                 StackPanel [ Orientation = Vertical, Visibility = $IsPending << ToVisibility ] {
-                    TextBlock [ Text = $Message, Foreground = @Error, Style = @BodyMedium, TextWrapping = Wrap ]
+                    TextBlock [ Text = $Message, Foreground = @StateDanger, Style = @Body, TextWrapping = Wrap ]
                     StackPanel [ Orientation = Horizontal, Margin = (0,10,0,0) ] {
                         PanelButton [ Command = $StartFreshCommand, Template = @CompactButton, Margin = (0,0,6,0) ] {
                             TextBlock [ Text = "Start fresh", TextWrapping = Wrap ]
@@ -380,7 +380,7 @@ resources AgentChatResources {
                     }
                 }
                 TextBlock [ Text = $Choice, Visibility = $IsDone << ToVisibility,
-                            Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                            Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
@@ -391,7 +391,7 @@ resources AgentChatResources {
             PanelButton [ DockPanel.Dock = Right, Command = $RevokeCommand, Template = @CompactButton, Margin = (8,0,0,0) ] {
                 TextBlock [ Text = "Revoke", TextWrapping = Wrap ]
             }
-            TextBlock [ FontFamily = "Consolas", Text = $Label, Foreground = @OnSurface, VerticalAlignment = Center, TextWrapping = Wrap ]
+            TextBlock [ FontFamily = "Consolas", Text = $Label, Foreground = @Fg1, VerticalAlignment = Center, TextWrapping = Wrap ]
         }
     }
 
@@ -400,12 +400,12 @@ resources AgentChatResources {
     // Project form ($Form → DataTemplate[NewProjectDialogModel]) while pending;
     // after Create/Cancel it collapses to a one-line recap.
     DataTemplate [ DataType = NewProjectCard ] {
-        Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 10,
-                 Fill = @SurfaceContainer, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
+        Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 10,
+                 Fill = @Bg2, Padding = (12,10,12,12), Margin = (0,4,20,4), ClipToBounds = true ] {
             StackPanel [ Orientation = Vertical ] {
                 ContentControl [ Content = $Form, Visibility = $IsPending << ToVisibility ]
                 TextBlock [ Text = $ResultSummary, Visibility = $IsDone << ToVisibility,
-                            Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                            Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
@@ -416,11 +416,11 @@ resources AgentChatResources {
     // independent-toggle list. Exactly one is visible per question.
     DataTemplate [ DataType = QuestionVM ] {
         StackPanel [ Orientation = Vertical, Margin = (0,0,0,12) ] {
-            Border [ HorizontalAlignment = Left, Fill = @SurfaceContainerHigh, CornerRadius = 4,
+            Border [ HorizontalAlignment = Left, Fill = @Bg2, CornerRadius = 4,
                      Padding = (6,1,6,1), Margin = (0,0,0,4) ] {
-                TextBlock [ Style = @BodySmall, Text = $Header, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                TextBlock [ Style = @BodySm, Text = $Header, Foreground = @Fg2, TextWrapping = Wrap ]
             }
-            TextBlock [ Text = $Question, Foreground = @OnSurface, TextWrapping = Wrap, Margin = (0,0,0,6) ]
+            TextBlock [ Text = $Question, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,0,0,6) ]
             // Single-select: labelled radio rows. SelectedItem two-ways back to
             // the VM's SelectedOption; each row hosts the OptionVM and renders
             // it through the DataTemplate[OptionVM] below.
@@ -440,9 +440,9 @@ resources AgentChatResources {
     // RadioButtonItem (single-select) slots it as its Content automatically.
     DataTemplate [ DataType = OptionVM ] {
         StackPanel [ Orientation = Vertical ] {
-            TextBlock [ Text = $Label, Foreground = @OnSurface, TextWrapping = Wrap ]
+            TextBlock [ Text = $Label, Foreground = @Fg1, TextWrapping = Wrap ]
             TextBlock [ Text = $Description, Visibility = $HasDescription << ToVisibility,
-                        Style = @BodySmall, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                        Style = @BodySm, Foreground = @Fg2, TextWrapping = Wrap ]
         }
     }
 
@@ -458,9 +458,9 @@ resources AgentChatResources {
             Checkbox [ DockPanel.Dock = Left, IsChecked = $IsSelected,
                        VerticalAlignment = Top, Margin = (0,2,8,0) ]
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Text = $Label, Foreground = @OnSurface, TextWrapping = Wrap ]
+                TextBlock [ Text = $Label, Foreground = @Fg1, TextWrapping = Wrap ]
                 TextBlock [ Text = $Description, Visibility = $HasDescription << ToVisibility,
-                            Style = @BodySmall, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                            Style = @BodySm, Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }

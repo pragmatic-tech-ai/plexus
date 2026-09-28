@@ -5,7 +5,7 @@
 // (services/document-tabs/document-tabs.resources.mu):
 //
 //   * the FACE is a regular Button restyled with @ProblemsTriggerChrome — the
-//     same pill @SurfaceContainerHigh surface + @OnSurfaceVariant hover/press
+//     same pill @Bg2 surface + @Fg2 hover/press
 //     state layers as that dropdown's @TabOverflowTrigger, but hosting the
 //     problem summary ($SummaryText) instead of a three-dots glyph;
 //   * each popup ROW reuses @TabMenuRowButton verbatim — the same left-aligned,
@@ -39,18 +39,18 @@ resources ProblemsResources {
         Button x:name="PART_Trigger" [ Template = @ProblemsTriggerChrome ] {
             StackPanel x:name="PART_TriggerStack" [ Orientation = Horizontal, VerticalAlignment = Center ] {
                 TextBlock x:name="PART_HeaderText"
-                    [ Style = @LabelMedium, Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
+                    [ Style = @UiCaption, Foreground = @Fg2, VerticalAlignment = Center ]
             }
         }
     }
 
     // Face chrome — mirrors document-tabs' @TabOverflowTrigger (pill
-    // @SurfaceContainerHigh surface, @OnSurfaceVariant state layers), sized for a
+    // @Bg2 surface, @Fg2 state layers), sized for a
     // text summary rather than a single glyph. ContentPresenter shows the
     // trigger's PART_TriggerStack.
     Template x:key="ProblemsTriggerChrome" [ TargetType = Button ] {
-        Border x:name="PART_Primary" [ Fill = @SurfaceContainerHigh, CornerRadius = @ShapeFull ] {
-            Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @ShapeFull, Padding = (10,3,10,3) ] {
+        Border x:name="PART_Primary" [ Fill = @Bg2, CornerRadius = @RadiusPill ] {
+            Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @RadiusPill, Padding = (10,3,10,3) ] {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
@@ -67,15 +67,15 @@ resources ProblemsResources {
 
     // Panel-consistent chrome for the severity toggles: the same transparent
     // surface + hover/press state layers a PanelButton uses, but as a ToggleButton
-    // hosting its count. A checked (filter-on) toggle fills with @SecondaryContainer;
+    // hosting its count. A checked (filter-on) toggle fills with @SurfaceSelected;
     // unchecked (filter hidden) dims so the "off" state reads at a glance.
     Template x:key="PanelToggle" [ TargetType = ToggleButton ] {
-        Border x:name="PART_Border" [ Fill = #00000000, CornerRadius = @ShapeSmall ] {
-            Border x:name="PART_StateLayer" [ Fill = #00000000, CornerRadius = @ShapeSmall, Padding = (8,3,8,3) ] {
+        Border x:name="PART_Border" [ Fill = #00000000, CornerRadius = @RadiusMd ] {
+            Border x:name="PART_StateLayer" [ Fill = #00000000, CornerRadius = @RadiusMd, Padding = (8,3,8,3) ] {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
-        when ( IsChecked = true ) { PART_StateLayer.Fill = @SecondaryContainer; }
+        when ( IsChecked = true ) { PART_StateLayer.Fill = @SurfaceSelected; }
         when ( IsChecked = false ) { PART_Border.Opacity = @DisabledContentOpacity; }
         when ( IsMouseOver ) { PART_StateLayer.Fill = @OnSurfaceVariantHoverLayer; }
         when ( IsPressed ) { PART_StateLayer.Fill = @OnSurfaceVariantPressLayer; }
@@ -92,34 +92,34 @@ resources ProblemsResources {
             ClickAwayScrim x:name="PART_Scrim"
             Border x:name="PART_PopupContainer"
                 [ Width = $PopupWidth,
-                  Fill = @SurfaceContainerHigh, Stroke = Pen [ Brush = @OutlineVariant ],
-                  CornerRadius = @ShapeExtraSmall, Effect = @Elevation2, Padding = (0) ] {
+                  Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
+                  CornerRadius = @RadiusLg, Effect = @ShadowMd, Padding = (0) ] {
                 DockPanel [ LastChildFill = true ] {
                     // Header + toolbar (docked Top).
                     DockPanel [ DockPanel.Dock = Top, LastChildFill = true, Margin = (8,6,8,6) ] {
                         // Right cluster: copy-all + clear (panel buttons).
                         StackPanel [ DockPanel.Dock = Right, Orientation = Horizontal, VerticalAlignment = Center ] {
                             PanelButton [ Command = $CopyAllCommand, Margin = (4,0,0,0) ] {
-                                Shape [ Geometry = @Copy, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                                Shape [ Geometry = @Copy, Fill = @Fg2, Width = 16, Height = 16 ]
                             }
                             PanelButton [ Command = $ClearFiltersCommand, Margin = (4,0,0,0) ] {
-                                Shape [ Geometry = @FilterOff, Fill = @OnSurfaceVariant, Width = 16, Height = 16 ]
+                                Shape [ Geometry = @FilterOff, Fill = @Fg2, Width = 16, Height = 16 ]
                             }
                         }
                         // Left cluster: title + severity toggles + filter box.
                         StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
-                            TextBlock [ Text = "Problems", Style = @TitleMedium, Foreground = @Primary, VerticalAlignment = Center, Margin = (0,0,12,0) ]
+                            TextBlock [ Text = "Problems", Style = @UiLabel, Foreground = @ControlAccent, VerticalAlignment = Center, Margin = (0,0,12,0) ]
                             ToggleButton [ Template = @PanelToggle, IsChecked = $ShowErrors, VerticalAlignment = Center, Margin = (0,0,4,0) ] {
-                                TextBlock [ Text = $ErrorCount, Style = @LabelMedium, Foreground = @OnSurfaceVariant ]
+                                TextBlock [ Text = $ErrorCount, Style = @UiCaption, Foreground = @Fg2 ]
                             }
                             ToggleButton [ Template = @PanelToggle, IsChecked = $ShowWarnings, VerticalAlignment = Center, Margin = (0,0,12,0) ] {
-                                TextBlock [ Text = $WarningCount, Style = @LabelMedium, Foreground = @OnSurfaceVariant ]
+                                TextBlock [ Text = $WarningCount, Style = @UiCaption, Foreground = @Fg2 ]
                             }
                             TextBox [ Text = $FilterText, Variant = Plain, MinWidth = 120, VerticalAlignment = Center ]
                         }
                     }
                     // Hairline separating the header/toolbar from the list.
-                    Border [ DockPanel.Dock = Top, Height = 1, Fill = @OutlineVariant ]
+                    Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border ]
                     // Capped, virtualized list (fills the remainder).
                     ScrollViewer [ MaxHeight = $ListMaxHeight, HorizontalScrollEnabled = false ] {
                         ItemsControl [ ItemsSource = $Rows, ItemsPanel = @ProblemsListPanel ]
@@ -136,12 +136,12 @@ resources ProblemsResources {
     DataTemplate [ DataType = ProblemsRow ] {
         DockPanel [ LastChildFill = true ] {
             PanelButton [ DockPanel.Dock = Left, Command = $CopyCommand, VerticalAlignment = Center, Margin = (4,0,8,0) ] {
-                Shape [ Geometry = @Copy, Fill = @OnSurfaceVariant, Width = 14, Height = 14 ]
+                Shape [ Geometry = @Copy, Fill = @Fg2, Width = 14, Height = 14 ]
             }
             Button [ Template = @TabMenuRowButton, Command = $ActivateCommand, HorizontalAlignment = Stretch, MinWidth = 240 ] {
                 DockPanel [ LastChildFill = true ] {
-                    TextBlock [ DockPanel.Dock = Right, Text = $Detail, Foreground = @OnSurfaceVariant, VerticalAlignment = Center, Margin = (12,0,0,0) ]
-                    TextBlock [ Text = $Label, Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ DockPanel.Dock = Right, Text = $Detail, Foreground = @Fg2, VerticalAlignment = Center, Margin = (12,0,0,0) ]
+                    TextBlock [ Text = $Label, Foreground = @Fg1, VerticalAlignment = Center ]
                 }
             }
         }

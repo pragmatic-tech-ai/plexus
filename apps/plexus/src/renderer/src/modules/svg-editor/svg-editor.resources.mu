@@ -19,13 +19,13 @@ resources SvgEditorResources {
     DataTemplate [ DataType = SvgDocument ] {
         DockPanel [ LastChildFill = true ] {
             // Bottom tab strip: Visual | XML.
-            Border [ DockPanel.Dock = Bottom, Fill = @SurfaceContainerHigh, Padding = (6,3,6,3) ] {
+            Border [ DockPanel.Dock = Bottom, Fill = @Bg2, Padding = (6,3,6,3) ] {
                 StackPanel [ Orientation = Horizontal ] {
                     Button [ Command = $ShowVisualCommand, Margin = (0,0,4,0) ] {
-                        TextBlock [ Text = "Visual", Style = @LabelMedium, Foreground = @OnSurface ]
+                        TextBlock [ Text = "Visual", Style = @UiCaption, Foreground = @Fg1 ]
                     }
                     Button [ Command = $ShowTextCommand ] {
-                        TextBlock [ Text = "XML", Style = @LabelMedium, Foreground = @OnSurface ]
+                        TextBlock [ Text = "XML", Style = @UiCaption, Foreground = @Fg1 ]
                     }
                 }
             }
@@ -45,9 +45,9 @@ resources SvgEditorResources {
             DockPanel [ LastChildFill = true ] {
                 Border [ DockPanel.Dock = Right, Width = 264,
                          Visibility = $HasSelection << ToVisibility,
-                         Fill = @SurfaceContainerHigh, Padding = (10,10,10,10) ] {
+                         Fill = @Bg2, Padding = (10,10,10,10) ] {
                     StackPanel [ DataContext = $SelectionStyle, Orientation = Vertical ] {
-                        TextBlock [ Text = "Format Shape", Style = @LabelLarge, Foreground = @OnSurface, Margin = (0,0,0,8) ]
+                        TextBlock [ Text = "Format Shape", Style = @UiLabel, Foreground = @Fg1, Margin = (0,0,0,8) ]
                         ShapeFormatControl [ Fill = $Fill, Stroke = $Stroke, ShowCaps = false ]
                     }
                 }

@@ -30,16 +30,16 @@ resources BackgroundWorkResources {
         Button x:name="PART_Trigger" [ Template = @BackgroundWorkTriggerChrome ] {
             StackPanel x:name="PART_TriggerStack" [ Orientation = Horizontal, VerticalAlignment = Center ] {
                 TextBlock x:name="PART_HeaderText"
-                    [ Style = @LabelMedium, Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
+                    [ Style = @UiCaption, Foreground = @Fg2, VerticalAlignment = Center ]
             }
         }
     }
 
-    // Face chrome — a pill @SurfaceContainerHigh surface with @OnSurfaceVariant
+    // Face chrome — a pill @Bg2 surface with @Fg2
     // hover/press state layers (same shape as the Problems dock trigger).
     Template x:key="BackgroundWorkTriggerChrome" [ TargetType = Button ] {
-        Border x:name="PART_Primary" [ Fill = @SurfaceContainerHigh, CornerRadius = @ShapeFull ] {
-            Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @ShapeFull, Padding = (10,3,10,3) ] {
+        Border x:name="PART_Primary" [ Fill = @Bg2, CornerRadius = @RadiusPill ] {
+            Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @RadiusPill, Padding = (10,3,10,3) ] {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
@@ -56,20 +56,20 @@ resources BackgroundWorkResources {
             ClickAwayScrim x:name="PART_Scrim"
             Border x:name="PART_PopupContainer"
                 [ Width = 420,
-                  Fill = @SurfaceContainerHigh, Stroke = Pen [ Brush = @OutlineVariant ],
-                  CornerRadius = @ShapeExtraSmall, Effect = @Elevation2, Padding = (0) ] {
+                  Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
+                  CornerRadius = @RadiusLg, Effect = @ShadowMd, Padding = (0) ] {
                 DockPanel [ LastChildFill = true ] {
                     // Header: title + Clear-completed.
                     DockPanel [ DockPanel.Dock = Top, LastChildFill = true, Margin = (8,6,8,6) ] {
                         // A normal Text button (sizes to its label; PanelButton is a
                         // fixed-size IconButton that clipped "Clear completed").
                         Button [ DockPanel.Dock = Right, Variant = Text, Command = $ClearCompletedCommand, VerticalAlignment = Center ] {
-                            TextBlock [ Text = "Clear completed", Style = @LabelMedium, Foreground = @OnSurfaceVariant ]
+                            TextBlock [ Text = "Clear completed", Style = @UiCaption, Foreground = @Fg2 ]
                         }
-                        TextBlock [ Text = "Background Tasks", Style = @TitleMedium, Foreground = @Primary, VerticalAlignment = Center ]
+                        TextBlock [ Text = "Background Tasks", Style = @UiLabel, Foreground = @ControlAccent, VerticalAlignment = Center ]
                     }
                     // Hairline separating the header from the list.
-                    Border [ DockPanel.Dock = Top, Height = 1, Fill = @OutlineVariant ]
+                    Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border ]
                     // The task list (fills the remainder), capped in height.
                     ScrollViewer [ MaxHeight = 320, HorizontalScrollEnabled = false ] {
                         ItemsControl [ ItemsSource = $Tasks, ItemsPanel = @VerticalStackPanel ]
@@ -84,22 +84,22 @@ resources BackgroundWorkResources {
     DataTemplate [ DataType = TaskHandle ] {
         DockPanel [ LastChildFill = true, Margin = (4,4,4,4) ] {
             PanelButton [ DockPanel.Dock = Right, Command = $CancelCommand, VerticalAlignment = Top, Margin = (6,0,0,0) ] {
-                Shape [ Geometry = @Close, Fill = @OnSurfaceVariant, Width = 12, Height = 12 ]
+                Shape [ Geometry = @Close, Fill = @Fg2, Width = 12, Height = 12 ]
             }
             StackPanel [ Orientation = Vertical ] {
                 Button [ Template = @TabMenuRowButton, Command = $OpenOutputCommand, HorizontalAlignment = Stretch, MinWidth = 320 ] {
-                    TextBlock [ Text = $Title, Foreground = @OnSurface, VerticalAlignment = Center ]
+                    TextBlock [ Text = $Title, Foreground = @Fg1, VerticalAlignment = Center ]
                 }
                 ProgressIndicator [ Value = $Progress, IsIndeterminate = $IsIndeterminate, Height = 4,
                                     Margin = (0,2,0,2), Visibility = $IsRunning << ToVisibility ]
-                TextBlock [ Text = $Note, Foreground = @OnSurfaceVariant, Style = @LabelMedium ]
-                TextBlock [ Text = $Error, Foreground = @Error, Style = @LabelMedium,
+                TextBlock [ Text = $Note, Foreground = @Fg2, Style = @UiCaption ]
+                TextBlock [ Text = $Error, Foreground = @StateDanger, Style = @UiCaption,
                             Visibility = $Error << ToVisibility ]
                 // Re-run affordance for skill runs (Skills #4): re-opens the input
                 // form prefilled with this run's inputs.
                 Button [ Template = @TabMenuRowButton, Command = $RerunCommand, HorizontalAlignment = Left,
                          Margin = (0,2,0,0), Visibility = $HasRerun << ToVisibility ] {
-                    TextBlock [ Text = "Re-run", Foreground = @Primary, Style = @LabelMedium ]
+                    TextBlock [ Text = "Re-run", Foreground = @ControlAccent, Style = @UiCaption ]
                 }
             }
         }
@@ -110,7 +110,7 @@ resources BackgroundWorkResources {
     DataTemplate [ DataType = TaskOutputDocument ] {
         ScrollViewer {
             TextBlock [ Text = $Handle.Output, FontFamily = "monospace", FontSize = 12,
-                        Foreground = @OnSurface, Margin = (8,8,8,8) ]
+                        Foreground = @Fg1, Margin = (8,8,8,8) ]
         }
     }
 }

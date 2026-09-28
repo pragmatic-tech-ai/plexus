@@ -391,13 +391,13 @@ export class CodeEditor extends DomHost
     // mount — a runtime theme switch won't live-update the editor.
     private defineMuralTheme(): string
     {
-        const surface        = this.themeColor('Surface')
-        const onSurface      = this.themeColor('OnSurface')
-        const onSurfaceVar   = this.themeColor('OnSurfaceVariant')
-        const primary        = this.themeColor('Primary')
-        const outlineVariant = this.themeColor('OutlineVariant')
-        const container      = this.themeColor('SurfaceContainer')
-        const containerHigh  = this.themeColor('SurfaceContainerHighest')
+        const surface        = this.themeColor('Bg1')
+        const onSurface      = this.themeColor('Fg1')
+        const onSurfaceVar   = this.themeColor('Fg2')
+        const primary        = this.themeColor('ControlAccent')
+        const outlineVariant = this.themeColor('Border')
+        const container      = this.themeColor('Bg2')
+        const containerHigh  = this.themeColor('Bg2')
 
         const colors: Record<string, string> = {}
         const set = (key: string, c: Color | undefined): void => { if (c !== undefined) colors[key] = c.ToHex() }
