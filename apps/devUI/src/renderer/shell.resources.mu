@@ -20,7 +20,7 @@
 
 resources AppShell {
     Template x:key="TodlAppShell" [TargetType = ViewerShell] {
-        Border [ Fill = @Surface ] {
+        Border [ Fill = @Bg1 ] {
             DockPanel [ LastChildFill = true ] {
                 // Header band — the shared PragmaticWindowChrome title bar
                 // (@PragmaticTitleBar is a ControlTemplate, so a ContentControl
@@ -33,9 +33,9 @@ resources AppShell {
                 // Status band (footer) — hosts the shared colour-scheme picker
                 // (ThemeSelector talks to ThemeManager directly, no DataContext),
                 // right-aligned, with a hairline divider above.
-                Border x:name="PART_StatusHost" [ DockPanel.Dock = Bottom, Fill = @Surface ] {
+                Border x:name="PART_StatusHost" [ DockPanel.Dock = Bottom, Fill = @Bg1 ] {
                     DockPanel [ LastChildFill = false ] {
-                        Line [ DockPanel.Dock = Top, Orientation = Horizontal, Stroke = (@OutlineVariant, 1) ]
+                        Line [ DockPanel.Dock = Top, Orientation = Horizontal, Stroke = (@Border, 1) ]
                         ThemeSelector [ DockPanel.Dock = Right, VerticalAlignment = Center, Margin = (0,4,8,4) ]
                     }
                 }

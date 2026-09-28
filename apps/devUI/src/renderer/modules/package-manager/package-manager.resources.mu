@@ -47,7 +47,7 @@ resources PackageManagerResources {
                 ComboBox  [ ItemsSource = $Versions, SelectedItem = $SelectedVersion, HorizontalAlignment = Stretch ]
             }
             TextBlock [ Text = "This permanently removes the package from the registry and cannot be undone.",
-                        TextWrapping = Wrap, Foreground = @Error ]
+                        TextWrapping = Wrap, Foreground = @StateDanger ]
         }
     }
 
@@ -62,12 +62,12 @@ resources PackageManagerResources {
 
     // The Diagram's canvas panel — a paginated canvas the Diagram's ScrollViewer
     // tracks as the laid-out nodes extend past the initial page. Paper + page
-    // border use the scheme-adaptive @DiagramCanvas / @OutlineVariant tokens
+    // border use the scheme-adaptive @DiagramCanvas / @Border tokens
     // (PaginatedCanvas otherwise hardcodes white paper), so the surface follows
     // the active scheme — dark in MaterialDark instead of a white sheet.
     ItemsPanelTemplate x:key="GraphCanvasPanel" {
         PaginatedCanvas [ PageWidth = 2000, PageHeight = 2000,
-                          PaperBrush = @DiagramCanvas, PageBorderBrush = @OutlineVariant ]
+                          PaperBrush = @DiagramCanvas, PageBorderBrush = @Border ]
     }
 
     // The central content-host view for a compiled model.json graph: a header row
@@ -81,10 +81,10 @@ resources PackageManagerResources {
         // Tab strip.
         StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (8,6,8,4) ] {
             ToggleButton [ IsChecked = $ShowVisual, Margin = (0,0,6,0) ] {
-                TextBlock [ Text = "Visual", Foreground = @OnSurface ]
+                TextBlock [ Text = "Visual", Foreground = @Fg1 ]
             }
             ToggleButton [ IsChecked = $ShowText ] {
-                TextBlock [ Text = "Text", Foreground = @OnSurface ]
+                TextBlock [ Text = "Text", Foreground = @Fg1 ]
             }
         }
         // Body — both panes stacked; exactly one is visible.
@@ -92,10 +92,10 @@ resources PackageManagerResources {
             // Visual: tier-filter toggles over the graph Diagram.
             DockPanel [ LastChildFill = true, Visibility = $ShowVisual << ToVisibility ] {
                 StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (8,4,8,6) ] {
-                    TextBlock [ Text = "Tiers:", Foreground = @OnSurface, VerticalAlignment = Center, Margin = (0,0,8,0) ]
-                    ToggleButton [ IsChecked = $ShowMeta, Margin = (0,0,8,0) ] { TextBlock [ Text = "Meta", Foreground = @OnSurface ] }
-                    ToggleButton [ IsChecked = $ShowOntology, Margin = (0,0,8,0) ] { TextBlock [ Text = "Ontology", Foreground = @OnSurface ] }
-                    ToggleButton [ IsChecked = $ShowInstance ] { TextBlock [ Text = "Instance", Foreground = @OnSurface ] }
+                    TextBlock [ Text = "Tiers:", Foreground = @Fg1, VerticalAlignment = Center, Margin = (0,0,8,0) ]
+                    ToggleButton [ IsChecked = $ShowMeta, Margin = (0,0,8,0) ] { TextBlock [ Text = "Meta", Foreground = @Fg1 ] }
+                    ToggleButton [ IsChecked = $ShowOntology, Margin = (0,0,8,0) ] { TextBlock [ Text = "Ontology", Foreground = @Fg1 ] }
+                    ToggleButton [ IsChecked = $ShowInstance ] { TextBlock [ Text = "Instance", Foreground = @Fg1 ] }
                 }
                 Diagram
                     [ ItemsSource                  = $Nodes,

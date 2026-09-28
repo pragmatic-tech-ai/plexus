@@ -9,8 +9,8 @@
 // This is the bare shell scaffold: one placeholder Home capability. Real
 // capabilities are added as modules, each contributing a rail entry + a service
 // + its DataTemplate.
-import Material from "@pragmatic-tech-ai/mural/resources/material"
-import MaterialDark from "@pragmatic-tech-ai/mural/resources/material"
+import Pragmatic from "@pragmatic-tech-ai/mural/resources/pragmatic"
+import PragmaticDark from "@pragmatic-tech-ai/mural/resources/pragmatic"
 
 // Shared registry client (window.todl bridge wrapper) — a root service.
 import RegistryClient from "./services/registry/registry-client.ts"
@@ -51,7 +51,7 @@ import PackageManagerResources from "./modules/package-manager/package-manager.r
 import PackageCompilerResources from "./modules/package-compiler/package-compiler.resources.mu"
 import ConnectionsResources from "./modules/connections/connections.resources.mu"
 
-Application [ Theme = Material, Scheme = MaterialDark ] {
+Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
     .services: {
         RegistryClient
         // devUI's title feed (active capability → "TODL"), bound to the shared
