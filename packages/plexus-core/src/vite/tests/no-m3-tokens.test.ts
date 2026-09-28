@@ -7,7 +7,7 @@ class M3TokenScan
 {
     private static readonly MuTokens: readonly string[] =
     [
-        'OnSurfaceVariant', 'OnSurface', 'SurfaceContainerHigh', 'SurfaceContainerLow',
+        'OnSurfaceVariant', 'OnSurface', 'SurfaceContainerHighest', 'SurfaceContainerHigh', 'SurfaceContainerLow',
         'SurfaceContainer', 'Surface', 'PrimaryContainer', 'OnPrimary', 'Primary',
         'SecondaryContainer', 'OutlineVariant', 'Outline', 'Error', 'StateHoverOverlay',
         'ShapeExtraSmall', 'ShapeSmall', 'ShapeFull', 'BodyLarge', 'BodyMedium',
