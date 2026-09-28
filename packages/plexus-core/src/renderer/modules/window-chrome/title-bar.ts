@@ -17,8 +17,8 @@ import { SolidColorBrush } from '@pragmatic-tech-ai/mural/visual-engine'
 // The header strip paints the shared @Surface chrome tone, inked
 // @OnSurfaceVariant — the WCO caption buttons match those so the caption strip
 // and the mural header (and the rest of the flat frame) read as one surface.
-const BG_TOKEN     = 'Surface'
-const SYMBOL_TOKEN = 'OnSurfaceVariant'
+const BG_TOKEN     = 'Bg1'
+const SYMBOL_TOKEN = 'Fg2'
 
 // The preload bridge (window.api.titlebar) — untyped here (main.js-style access);
 // absent when running outside Electron (e.g. a plain browser preview).

@@ -43,7 +43,7 @@ export class MuralRendererConfig
             '@pragmatic-tech-ai/mural/framework',
             '@pragmatic-tech-ai/mural/visual-engine',
             '@pragmatic-tech-ai/mural/tooling',
-            '@pragmatic-tech-ai/mural/resources/material',
+            '@pragmatic-tech-ai/mural/resources/pragmatic',
             '@pragmatic-tech-ai/fresco',
             '@pragmatic-tech-ai/todl',
             '@pragmatic-tech-ai/todl/domain',

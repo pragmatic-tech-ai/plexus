@@ -169,10 +169,10 @@ resources ProjectExplorerResources {
         Border x:root [ Fill = #00000000, ContextMenuService.ContextMenu = @NodeContextMenu ] {
             .Behaviors: { TreeDragDropBehavior }
             StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
-                Shape [ Geometry = $Kind << KindToGeometry, Fill = @OnSurfaceVariant,
+                Shape [ Geometry = $Kind << KindToGeometry, Fill = @Fg2,
                         Width = 16, Height = 16, Margin = (0,0,6,0), VerticalAlignment = Center ]
                 // Static label — hidden while the row is in rename mode.
-                TextBlock [ Text = $Name, Style = @BodyMedium, VerticalAlignment = Center,
+                TextBlock [ Text = $Name, Style = @Body, VerticalAlignment = Center,
                             Visibility = $IsEditing << EditingToLabelVisibility ]
                 // Lazy rename slot — empty until this row enters edit mode. A
                 // ContentPresenter (not ContentControl) so ContentTemplate is a
@@ -202,7 +202,7 @@ resources ProjectExplorerResources {
         Border x:root [ Fill = #00000000, HorizontalAlignment = Stretch,
                         ContextMenuService.ContextMenu = @ProjectContextMenu ] {
             .Behaviors: { TreeDragDropBehavior }
-            TextBlock [ Style = @LabelLarge, Text = $Name, Foreground = @OnSurfaceVariant,
+            TextBlock [ Style = @UiLabel, Text = $Name, Foreground = @Fg2,
                         VerticalAlignment = Center ]
         }
     }
@@ -213,17 +213,17 @@ resources ProjectExplorerResources {
         DockPanel [ LastChildFill = true, Margin = (8,8,8,8) ] {
             StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,8) ] {
                 PanelButton [ Margin = (0,0,4,0), Command = $OpenProjectCommand ] {
-                    Shape [ Geometry = @Folder, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                    Shape [ Geometry = @Folder, Fill = @Fg2, Width = 20, Height = 20 ]
                 }
                 PanelButton [ Command = $NewProjectCommand ] {
-                    Shape [ Geometry = @NewFolder, Fill = @OnSurfaceVariant, Width = 20, Height = 20 ]
+                    Shape [ Geometry = @NewFolder, Fill = @Fg2, Width = 20, Height = 20 ]
                 }
             }
 
             // Hairline separating the command bar from the project tree.
-            Border [ DockPanel.Dock = Top, Height = 1, Fill = @OutlineVariant, Margin = (0,0,0,8) ]
+            Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border, Margin = (0,0,0,8) ]
 
-            TextBlock [ DockPanel.Dock = Bottom, Style = @BodySmall, Text = $Status, Foreground = @OnSurfaceVariant,
+            TextBlock [ DockPanel.Dock = Bottom, Style = @BodySm, Text = $Status, Foreground = @Fg2,
                         TextWrapping = Wrap, Margin = (0,8,0,0) ]
 
             // The whole project list is ONE TreeView (roots = open projects,
@@ -253,11 +253,11 @@ resources ProjectExplorerResources {
     DataTemplate [ DataType = ProjectTypeChoice ] {
         Button [ Template = @ListRowButton, Command = $SelectCommand, HorizontalAlignment = Stretch, Margin = (0,1,0,1) ] {
             DockPanel [ LastChildFill = true ] {
-                TextBlock [ DockPanel.Dock = Left, Text = $Marker, Foreground = @Primary,
+                TextBlock [ DockPanel.Dock = Left, Text = $Marker, Foreground = @ControlAccent,
                             Margin = (0,0,10,0), VerticalAlignment = Top ]
                 StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ Style = @BodyLarge, Text = $Title, Foreground = @OnSurface ]
-                    TextBlock [ Style = @BodySmall, Text = $Description, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                    TextBlock [ Style = @Body, Text = $Title, Foreground = @Fg1 ]
+                    TextBlock [ Style = @BodySm, Text = $Description, Foreground = @Fg2, TextWrapping = Wrap ]
                 }
             }
         }
@@ -277,7 +277,7 @@ resources ProjectExplorerResources {
         DockPanel [ LastChildFill = true, Margin = (0,2,0,2) ] {
             Switch [ DockPanel.Dock = Left, IsChecked = $IsSelected, Margin = (0,0,8,0),
                      Visibility = $IsLeaf << ToVisibility ]
-            TextBlock [ Text = $Label, Style = @BodyMedium, Foreground = @OnSurface, VerticalAlignment = Center ]
+            TextBlock [ Text = $Label, Style = @Body, Foreground = @Fg1, VerticalAlignment = Center ]
         }
     }
 
@@ -289,16 +289,16 @@ resources ProjectExplorerResources {
 
     DataTemplate [ DataType = NewProjectDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = "Project type", Foreground = @OnSurface, Margin = (0,0,0,4) ]
-            Border [ Stroke = Pen [ Brush = @OutlineVariant ], CornerRadius = 6,
+            TextBlock [ Style = @Body, Text = "Project type", Foreground = @Fg1, Margin = (0,0,0,4) ]
+            Border [ Stroke = Pen [ Brush = @Border ], CornerRadius = 6,
                      Padding = (4,4,4,4), Margin = (0,0,0,14) ] {
                 ItemsControl [ ItemsSource = $Types, ItemsPanel = @VerticalStackPanel ]
             }
 
-            TextBlock [ Style = @BodyLarge, Text = "Name", Foreground = @OnSurface ]
+            TextBlock [ Style = @Body, Text = "Name", Foreground = @Fg1 ]
             TextBox [ Text = $Name, Margin = (0,4,0,14) ]
 
-            TextBlock [ Style = @BodyLarge, Text = "Location", Foreground = @OnSurface ]
+            TextBlock [ Style = @Body, Text = "Location", Foreground = @Fg1 ]
             DockPanel [ LastChildFill = true, Margin = (0,4,0,8) ] {
                 Button [ DockPanel.Dock = Right, Variant = Outlined, Command = $BrowseCommand, Margin = (8,0,0,0) ] {
                     TextBlock [ Text = "Browse…" ]
@@ -313,14 +313,14 @@ resources ProjectExplorerResources {
             // (zero valid). Capped at 300dp so a large catalog scrolls in place.
             Border [ Visibility = $ShowReferences << ToVisibility, Margin = (0,4,0,8) ] {
                 StackPanel [ Orientation = Vertical ] {
-                    TextBlock [ Style = @BodyLarge, Text = "References", Foreground = @OnSurface ]
+                    TextBlock [ Style = @Body, Text = "References", Foreground = @Fg1 ]
                     TreeView [ Indent = 16, ItemsSource = $Roots, ItemTemplate = @ReferenceNodeTemplate,
                                ItemContainerStyle = @ReferenceTreeItemStyle,
                                MaxHeight = 300, Margin = (0,4,0,0) ]
                 }
             }
 
-            TextBlock [ Style = @BodySmall, Text = $Error, Foreground = @Error, TextWrapping = Wrap, Margin = (0,0,0,10) ]
+            TextBlock [ Style = @BodySm, Text = $Error, Foreground = @StateDanger, TextWrapping = Wrap, Margin = (0,0,0,10) ]
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
@@ -337,12 +337,12 @@ resources ProjectExplorerResources {
     // offers libraries (architecture); a library project edits its meta-models alone.
     DataTemplate [ DataType = ManageReferencesDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = "References", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+            TextBlock [ Style = @Body, Text = "References", Foreground = @Fg1, Margin = (0,0,0,4) ]
             TreeView [ Indent = 16, ItemsSource = $Roots, ItemTemplate = @ReferenceNodeTemplate,
                        ItemContainerStyle = @ReferenceTreeItemStyle, MaxHeight = 300 ]
 
             Border [ Visibility = $ShowLibraries << ToVisibility ] {
-                TextBlock [ Style = @BodySmall, Text = $EmptyLibrariesLabel, Foreground = @OnSurfaceVariant,
+                TextBlock [ Style = @BodySm, Text = $EmptyLibrariesLabel, Foreground = @Fg2,
                             TextWrapping = Wrap, Margin = (0,2,0,0) ]
             }
 
@@ -359,7 +359,7 @@ resources ProjectExplorerResources {
     // as the action ("Delete"); it's Filled to sit as the primary affordance.
     DataTemplate [ DataType = ConfirmDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = $Message, Foreground = @OnSurface, TextWrapping = Wrap, Margin = (0,0,0,16) ]
+            TextBlock [ Style = @Body, Text = $Message, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,0,0,16) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
                 Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = $ConfirmLabel ] }
@@ -369,13 +369,13 @@ resources ProjectExplorerResources {
 
     DataTemplate [ DataType = SetVersionDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodySmall, Text = $Current, Foreground = @OnSurfaceVariant, Margin = (0,0,0,2) ]
+            TextBlock [ Style = @BodySm, Text = $Current, Foreground = @Fg2, Margin = (0,0,0,2) ]
             TextBox [ Text = $NewVersion, Margin = (0,0,0,6) ]
             StackPanel [ Orientation = Horizontal, Margin = (0,0,0,4) ] {
                 Checkbox [ IsChecked = $Publish ]
-                TextBlock [ Text = "Publish after setting", Foreground = @OnSurface, VerticalAlignment = Center, Margin = (6,0,0,0) ]
+                TextBlock [ Text = "Publish after setting", Foreground = @Fg1, VerticalAlignment = Center, Margin = (6,0,0,0) ]
             }
-            TextBlock [ Style = @BodySmall, Text = $Error, Foreground = @Error, Margin = (0,0,0,10) ]
+            TextBlock [ Style = @BodySm, Text = $Error, Foreground = @StateDanger, Margin = (0,0,0,10) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
                 Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Set Version" ] }
@@ -389,10 +389,10 @@ resources ProjectExplorerResources {
     // is than the widest one. This template stretches the content full-width and
     // left-aligns it, keeping a subtle hover/press state layer for the click.
     Template x:key="ListRowButton" [ TargetType = Button ] {
-        Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = @ShapeExtraSmall, Padding = (8,6,8,6) ] {
+        Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (8,6,8,6) ] {
             ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
         }
-        when ( IsMouseOver ) { PART_Row.Fill = @StateHoverOverlay; }
+        when ( IsMouseOver ) { PART_Row.Fill = @RowHoverFill; }
         when ( IsPressed ) { PART_Row.Fill = @StatePressOverlay; }
     }
 
@@ -400,23 +400,23 @@ resources ProjectExplorerResources {
     DataTemplate [ DataType = RecentProjectItem ] {
         Button [ Template = @ListRowButton, Command = $OpenCommand, HorizontalAlignment = Stretch, Margin = (0,1,0,1) ] {
             StackPanel [ Orientation = Vertical ] {
-                TextBlock [ Style = @BodyLarge, Text = $Name, Foreground = @OnSurface ]
+                TextBlock [ Style = @Body, Text = $Name, Foreground = @Fg1 ]
                 // Path shown compactly (intermediate directories → `..`) so long
                 // recents don't wrap; the full path stays in the model.
-                TextBlock [ Style = @BodySmall, Text = $Path << ShortenPath, Foreground = @OnSurfaceVariant, TextWrapping = Wrap ]
+                TextBlock [ Style = @BodySm, Text = $Path << ShortenPath, Foreground = @Fg2, TextWrapping = Wrap ]
             }
         }
     }
 
     DataTemplate [ DataType = OpenProjectDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @BodyLarge, Text = "Recent", Foreground = @OnSurface, Margin = (0,0,0,4) ]
+            TextBlock [ Style = @Body, Text = "Recent", Foreground = @Fg1, Margin = (0,0,0,4) ]
             // The recents list scrolls within a bounded height so a long MRU can't
             // grow the dialog past the viewport; the header and actions stay fixed.
             ScrollViewer [ MaxHeight = 360, VerticalScrollEnabled = true, HorizontalScrollEnabled = false ] {
                 ItemsControl [ ItemsSource = $Recents, ItemsPanel = @VerticalStackPanel ]
             }
-            TextBlock [ Style = @BodySmall, Text = $EmptyLabel, Foreground = @OnSurfaceVariant, Margin = (0,2,0,0) ]
+            TextBlock [ Style = @BodySm, Text = $EmptyLabel, Foreground = @Fg2, Margin = (0,2,0,0) ]
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Outlined, Command = $BrowseCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Browse…" ] }

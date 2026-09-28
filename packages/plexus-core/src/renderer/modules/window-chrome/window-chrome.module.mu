@@ -33,15 +33,15 @@ shell module PragmaticWindowChrome {
         // for want of its default style. The app mounts it via
         // `HeaderContent = ContentControl [ Template = @PragmaticTitleBar ]`.
         Template x:key="PragmaticTitleBar" [ TargetType = ContentControl ] {
-            Border [ Height = 32, Fill = @Surface ] {
+            Border [ Height = 32, Fill = @Bg1 ] {
                 DockPanel [ LastChildFill = true ] {
                     // Brand box — the app supplies @WindowBrand (its mark), drawn in
                     // the 48×32 chrome-toned box.
-                    Border [ DockPanel.Dock = Left, Width = 48, Fill = @Surface ] {
+                    Border [ DockPanel.Dock = Left, Width = 48, Fill = @Bg1 ] {
                         ContentControl [ Template = @WindowBrand ]
                     }
                     // 1dp divider continuing the rail's right edge up through the strip.
-                    Line [ DockPanel.Dock = Left, Orientation = Vertical, Stroke = (@OutlineVariant, 1) ]
+                    Line [ DockPanel.Dock = Left, Orientation = Vertical, Stroke = (@Border, 1) ]
                     // File menu — click-to-open dropdown; items come from the app's
                     // @WindowMenuItems slot. MenuButton self-manages open/close.
                     MenuButton
@@ -54,7 +54,7 @@ shell module PragmaticWindowChrome {
                     // keeps it clear of the ~138dp caption buttons.
                     TextBlock
                         [ Text              = $service(TitleService).Title,
-                          Foreground        = @OnSurfaceVariant,
+                          Foreground        = @Fg2,
                           FontSize          = 12,
                           VerticalAlignment = Center,
                           Margin            = (12,0,140,0) ]
@@ -68,15 +68,15 @@ shell module PragmaticWindowChrome {
             Button x:name="PART_Trigger" [ Template = @FileMenuTriggerChrome ] {
                 StackPanel x:name="PART_TriggerStack" [ Orientation = Horizontal, VerticalAlignment = Center ] {
                     TextBlock x:name="PART_HeaderText"
-                        [ FontSize = 12, Foreground = @OnSurfaceVariant, VerticalAlignment = Center ]
+                        [ FontSize = 12, Foreground = @Fg2, VerticalAlignment = Center ]
                 }
             }
         }
 
-        // Flat rectangular menu-bar button face with @OnSurfaceVariant hover/press layers.
+        // Flat rectangular menu-bar button face with @Fg2 hover/press layers.
         Template x:key="FileMenuTriggerChrome" [ TargetType = Button ] {
-            Border x:name="PART_Primary" [ Fill = #00000000, CornerRadius = @ShapeExtraSmall ] {
-                Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @ShapeExtraSmall, Padding = (10,4,10,4) ] {
+            Border x:name="PART_Primary" [ Fill = #00000000, CornerRadius = @RadiusSm ] {
+                Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (10,4,10,4) ] {
                     ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
                 }
             }
@@ -89,19 +89,19 @@ shell module PragmaticWindowChrome {
         // submenu chevron pinned right. Hover/press/disabled use the same
         // OnSurfaceVariant state layers as the File trigger.
         Template x:key="CompactMenuItemRow" [ TargetType = MenuItem ] {
-            Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = @ShapeExtraSmall, Padding = (10,4,10,4) ] {
+            Border x:name="PART_Row" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (10,4,10,4) ] {
                 DockPanel [ LastChildFill = true ] {
                     Shape x:name="PART_Chevron"
                         [ DockPanel.Dock   = Right,
                           Geometry          = @ChevronRight,
-                          Fill              = @OnSurfaceVariant,
+                          Fill              = @Fg2,
                           Width             = 5,
                           Height            = 10,
                           Margin            = (12,0,0,0),
                           VerticalAlignment = Center,
                           Visibility        = Collapsed ]
-                    TextBlock x:name="PART_Gesture" [ DockPanel.Dock = Right, Foreground = @OnSurfaceVariant ]
-                    TextBlock x:name="PART_Label"   [ Foreground = @OnSurface ]
+                    TextBlock x:name="PART_Gesture" [ DockPanel.Dock = Right, Foreground = @Fg2 ]
+                    TextBlock x:name="PART_Label"   [ Foreground = @Fg1 ]
                 }
             }
             when ( IsMouseOver )       { PART_Row.Fill = @OnSurfaceVariantHoverLayer; }
@@ -118,8 +118,8 @@ shell module PragmaticWindowChrome {
             MenuPopupHost x:name="PART_PopupHost" {
                 ClickAwayScrim x:name="PART_Scrim"
                 Border x:name="PART_PopupContainer"
-                    [ Fill = @SurfaceContainerHigh, Stroke = Pen [ Brush = @OutlineVariant ],
-                      CornerRadius = @ShapeExtraSmall, Effect = @Elevation2, Padding = (4) ] {
+                    [ Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
+                      CornerRadius = @RadiusLg, Effect = @ShadowMd, Padding = (4) ] {
                     ContentControl [ Template = @WindowMenuItems ]
                 }
             }

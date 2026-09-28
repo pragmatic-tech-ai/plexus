@@ -12,7 +12,7 @@ describe('MuralRendererConfig', () => {
         const ex = MuralRendererConfig.optimizeDepsExclude()
         expect(ex).toContain('@pragmatic-tech-ai/mural')
         expect(ex).toContain('@pragmatic-tech-ai/mural/runtime')
-        expect(ex).toContain('@pragmatic-tech-ai/mural/resources/material')
+        expect(ex).toContain('@pragmatic-tech-ai/mural/resources/pragmatic')
         expect(ex).toContain('@pragmatic-tech-ai/fresco')
     })
 })
