@@ -148,7 +148,7 @@ resources ProjectExplorerResources {
         Border {
             .Behaviors: { FocusOnVisibleBehavior }
             TextBox [ Text = $EditingName, Variant = Plain, MinWidth = 80, VerticalAlignment = Center,
-                      SelectionBrush = @TextSelectionBrush ]
+                      SelectionBrush = @TextSelectionBg ]
         }
     }
 
@@ -393,7 +393,7 @@ resources ProjectExplorerResources {
             ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
         }
         when ( IsMouseOver ) { PART_Row.Fill = @RowHoverFill; }
-        when ( IsPressed ) { PART_Row.Fill = @StatePressOverlay; }
+        when ( IsPressed ) { PART_Row.Fill = @Bg3; }
     }
 
     // One recent-projects row: click to open (OpenCommand closes with its path).

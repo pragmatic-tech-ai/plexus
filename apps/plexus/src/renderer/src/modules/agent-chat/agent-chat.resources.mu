@@ -127,8 +127,8 @@ resources AgentChatResources {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver ) { PART_StateLayer.Fill = @OnSurfaceVariantHoverLayer; }
-        when ( IsPressed ) { PART_StateLayer.Fill = @OnSurfaceVariantPressLayer; }
+        when ( IsMouseOver ) { PART_StateLayer.Fill = @RowHoverFill; }
+        when ( IsPressed ) { PART_StateLayer.Fill = @Bg3; }
     }
 
     // ── Template Gallery (dev-only) ─────────────────────────────────────────────
@@ -183,7 +183,7 @@ resources AgentChatResources {
             }
         }
         when ( IsMouseOver ) { PART_StateLayer.Fill = @RowHoverFill; }
-        when ( IsPressed ) { PART_StateLayer.Fill = @StatePressOverlay; }
+        when ( IsPressed ) { PART_StateLayer.Fill = @Bg3; }
     }
 
     // Mono block used for both IN and OUT — a tinted, outlined box with the
@@ -253,11 +253,11 @@ resources AgentChatResources {
             [ Fill           = @ControlAccent,
               CornerRadius         = $$CornerRadius,
               TextBlock.Foreground = @FgOnAccent,
-              TextBlock.FontFamily = @LabelLargeFont,
-              TextBlock.FontWeight = @LabelLargeWeight,
-              TextBlock.FontSize = @LabelLargeSize,
-              TextBlock.LineHeight = @LabelLargeLineHeight,
-              TextBlock.LetterSpacing = @LabelLargeTracking ] {
+              TextBlock.FontFamily = @FontSans,
+              TextBlock.FontWeight = @UiLabelWeight,
+              TextBlock.FontSize = @UiLabelSize,
+              TextBlock.LineHeight = @UiLabelLineHeight,
+              TextBlock.LetterSpacing = @UiLabelTracking ] {
             Border x:name="PART_StateLayer"
                 [ Fill   = #00000000,
                   CornerRadius = $$CornerRadius,
@@ -265,9 +265,9 @@ resources AgentChatResources {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver ) { PART_StateLayer.Fill = @OnPrimaryHoverLayer; }
-        when ( IsPressed ) { PART_StateLayer.Fill = @OnPrimaryPressLayer; }
-        when ( IsEnabled = false ) { PART_Border.Opacity = @DisabledContentOpacity; }
+        when ( IsMouseOver ) { PART_StateLayer.Fill = @ActionPrimaryHover; }
+        when ( IsPressed ) { PART_StateLayer.Fill = @ActionPrimaryPress; }
+        when ( IsEnabled = false ) { PART_Border.Opacity = @OpacityDisabled; }
     }
 
     // ── AskUserQuestion card ────────────────────────────────────────────────────

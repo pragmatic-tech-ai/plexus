@@ -62,12 +62,12 @@ resources PackageManagerResources {
 
     // The Diagram's canvas panel — a paginated canvas the Diagram's ScrollViewer
     // tracks as the laid-out nodes extend past the initial page. Paper + page
-    // border use the scheme-adaptive @DiagramCanvas / @Border tokens
+    // border use the scheme-adaptive @CanvasBg / @Border tokens
     // (PaginatedCanvas otherwise hardcodes white paper), so the surface follows
     // the active scheme — dark in MaterialDark instead of a white sheet.
     ItemsPanelTemplate x:key="GraphCanvasPanel" {
         PaginatedCanvas [ PageWidth = 2000, PageHeight = 2000,
-                          PaperBrush = @DiagramCanvas, PageBorderBrush = @Border ]
+                          PaperBrush = @CanvasBg, PageBorderBrush = @Border ]
     }
 
     // The central content-host view for a compiled model.json graph: a header row

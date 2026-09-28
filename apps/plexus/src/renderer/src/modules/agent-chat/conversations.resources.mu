@@ -24,7 +24,7 @@ resources ConversationsResources {
             ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
         }
         when ( IsMouseOver ) { PART_Row.Fill = @RowHoverFill; }
-        when ( IsPressed ) { PART_Row.Fill = @StatePressOverlay; }
+        when ( IsPressed ) { PART_Row.Fill = @Bg3; }
     }
 
     // Small transparent icon button for the per-row Rename / Close / Delete actions.
@@ -33,7 +33,7 @@ resources ConversationsResources {
             ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
         }
         when ( IsMouseOver ) { PART_Bg.Fill = @RowHoverFill; }
-        when ( IsPressed ) { PART_Bg.Fill = @StatePressOverlay; }
+        when ( IsPressed ) { PART_Bg.Fill = @Bg3; }
     }
 
     // KeyDown on the inline rename editor → RenameKeyCommand (Return commits,
@@ -67,7 +67,7 @@ resources ConversationsResources {
                         TextBlock [ Text = "Search sessions…", Style = @Body, Foreground = @Fg2,
                                     VerticalAlignment = Center, Visibility = $SearchEmpty << ToVisibility ]
                         TextBox [ Text = $SearchText, Variant = Plain, VerticalAlignment = Center,
-                                  SelectionBrush = @TextSelectionBrush ]
+                                  SelectionBrush = @TextSelectionBg ]
                     }
                 }
             }
@@ -114,7 +114,7 @@ resources ConversationsResources {
                                 TextWrapping = NoWrap, TextTrimming = CharacterEllipsis, Visibility = $IsEditing << EditingToLabelVisibility ]
                     Border [ Style = @RenameKeyStyle, Visibility = $IsEditing << ToVisibility ] {
                         .Behaviors: { FocusOnVisibleBehavior }
-                        TextBox [ Text = $EditTitle, Variant = Plain, VerticalAlignment = Center, SelectionBrush = @TextSelectionBrush ]
+                        TextBox [ Text = $EditTitle, Variant = Plain, VerticalAlignment = Center, SelectionBrush = @TextSelectionBg ]
                     }
                 }
             }
@@ -141,7 +141,7 @@ resources ConversationsResources {
                                 TextWrapping = NoWrap, TextTrimming = CharacterEllipsis, Visibility = $IsEditing << EditingToLabelVisibility ]
                     Border [ Style = @RenameKeyStyle, Visibility = $IsEditing << ToVisibility ] {
                         .Behaviors: { FocusOnVisibleBehavior }
-                        TextBox [ Text = $EditTitle, Variant = Plain, VerticalAlignment = Center, SelectionBrush = @TextSelectionBrush ]
+                        TextBox [ Text = $EditTitle, Variant = Plain, VerticalAlignment = Center, SelectionBrush = @TextSelectionBg ]
                     }
                 }
             }

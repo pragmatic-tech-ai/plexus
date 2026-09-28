@@ -43,9 +43,9 @@ resources BackgroundWorkResources {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver ) { PART_PrimaryState.Fill = @OnSurfaceVariantHoverLayer; }
-        when ( IsPressed ) { PART_PrimaryState.Fill = @OnSurfaceVariantPressLayer; }
-        when ( IsEnabled = false ) { PART_Primary.Opacity = @DisabledContentOpacity; }
+        when ( IsMouseOver ) { PART_PrimaryState.Fill = @RowHoverFill; }
+        when ( IsPressed ) { PART_PrimaryState.Fill = @Bg3; }
+        when ( IsEnabled = false ) { PART_Primary.Opacity = @OpacityDisabled; }
     }
 
     // The popup: preserves the MenuButton popup contract (MenuPopupHost = PART_PopupHost,

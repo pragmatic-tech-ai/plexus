@@ -84,11 +84,11 @@ resources DiagramResources {
     ItemsPanelTemplate x:key="DiagramCanvasPanel" {
         // Paper + page border track the theme so the drawing surface reads in
         // both light and dark (PaperBrush/PageBorderBrush default to hard white /
-        // light-gray in the framework). @DiagramCanvas / @Border are
+        // light-gray in the framework). @CanvasBg / @Border are
         // dynamic resources → they re-paint live on a scheme swap. The desk
-        // behind the pages is the diagram template's PART_CanvasBg (@DiagramCanvas).
+        // behind the pages is the diagram template's PART_CanvasBg (@CanvasBg).
         PaginatedCanvas [ PageWidth = 800, PageHeight = 600,
-                          PaperBrush = @DiagramCanvas, PageBorderBrush = @Border ]
+                          PaperBrush = @CanvasBg, PageBorderBrush = @Border ]
     }
 
     // ── Canvas — the diagram surface, materialized in-tree ──────────────
@@ -589,7 +589,7 @@ resources DiagramResources {
                 [ Text                = $Label,
                   Style               = @BodySm,
                   // Caption ink tracks the theme so it reads on the (now theme-
-                  // adaptive) @DiagramCanvas surface in both light and dark.
+                  // adaptive) @CanvasBg surface in both light and dark.
                   Foreground          = @Fg1,
                   TextWrapping        = Wrap,
                   // Caps the tile width so a long name wraps instead of stretching

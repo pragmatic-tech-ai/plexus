@@ -41,7 +41,7 @@ resources DocumentTabsResources {
             ContentPresenter [ HorizontalAlignment = Stretch, VerticalAlignment = Center ]
         }
         when ( IsMouseOver ) { PART_Row.Fill = @RowHoverFill; }
-        when ( IsPressed ) { PART_Row.Fill = @StatePressOverlay; }
+        when ( IsPressed ) { PART_Row.Fill = @Bg3; }
     }
 
     // ── ⋯ dropdown flyout rows (host TabMenu, resolved by implicit type) ────────
@@ -95,9 +95,9 @@ resources DocumentTabsResources {
                 }
             }
         }
-        when ( PART_Primary.IsMouseOver ) { PART_PrimaryState.Fill = @OnSurfaceVariantHoverLayer; }
-        when ( PART_Primary.IsPressed ) { PART_PrimaryState.Fill = @OnSurfaceVariantPressLayer; }
-        when ( IsEnabled = false ) { PART_Primary.Opacity = @DisabledContentOpacity; }
+        when ( PART_Primary.IsMouseOver ) { PART_PrimaryState.Fill = @RowHoverFill; }
+        when ( PART_Primary.IsPressed ) { PART_PrimaryState.Fill = @Bg3; }
+        when ( IsEnabled = false ) { PART_Primary.Opacity = @OpacityDisabled; }
     }
 
     // An explicit keyed Style set on the tab-strip ⋯ button so it gets the

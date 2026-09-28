@@ -54,9 +54,9 @@ resources ProblemsResources {
                 ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver ) { PART_PrimaryState.Fill = @OnSurfaceVariantHoverLayer; }
-        when ( IsPressed ) { PART_PrimaryState.Fill = @OnSurfaceVariantPressLayer; }
-        when ( IsEnabled = false ) { PART_Primary.Opacity = @DisabledContentOpacity; }
+        when ( IsMouseOver ) { PART_PrimaryState.Fill = @RowHoverFill; }
+        when ( IsPressed ) { PART_PrimaryState.Fill = @Bg3; }
+        when ( IsEnabled = false ) { PART_Primary.Opacity = @OpacityDisabled; }
     }
 
     // The list's virtualizing panel — a fixed row height keeps virtualization
@@ -76,9 +76,9 @@ resources ProblemsResources {
             }
         }
         when ( IsChecked = true ) { PART_StateLayer.Fill = @SurfaceSelected; }
-        when ( IsChecked = false ) { PART_Border.Opacity = @DisabledContentOpacity; }
-        when ( IsMouseOver ) { PART_StateLayer.Fill = @OnSurfaceVariantHoverLayer; }
-        when ( IsPressed ) { PART_StateLayer.Fill = @OnSurfaceVariantPressLayer; }
+        when ( IsChecked = false ) { PART_Border.Opacity = @OpacityDisabled; }
+        when ( IsMouseOver ) { PART_StateLayer.Fill = @RowHoverFill; }
+        when ( IsPressed ) { PART_StateLayer.Fill = @Bg3; }
     }
 
     // The popup control template. Preserves the MenuButton popup contract (root

@@ -29,7 +29,7 @@ resources HelpOverlayResources {
     // MaxHeight on the Border caps the card and the ScrollViewer scrolls overflow.
     Template x:key="HelpFlyoutCardTemplate" [ TargetType = HelpFlyoutCard ] {
         Border [ Fill = @Bg1, Stroke = Pen [ Brush = @BorderStrong ], CornerRadius = @RadiusMd,
-                 Padding = (@Spacing3,@Spacing3,@Spacing3,@Spacing3), MaxHeight = 360 ] {
+                 Padding = (@Space3,@Space3,@Space3,@Space3), MaxHeight = 360 ] {
             ContentPresenter {}
         }
     }

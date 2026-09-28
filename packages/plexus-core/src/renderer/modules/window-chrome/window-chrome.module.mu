@@ -80,8 +80,8 @@ shell module PragmaticWindowChrome {
                     ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
                 }
             }
-            when ( IsMouseOver ) { PART_PrimaryState.Fill = @OnSurfaceVariantHoverLayer; }
-            when ( IsPressed )   { PART_PrimaryState.Fill = @OnSurfaceVariantPressLayer; }
+            when ( IsMouseOver ) { PART_PrimaryState.Fill = @RowHoverFill; }
+            when ( IsPressed )   { PART_PrimaryState.Fill = @Bg3; }
         }
 
         // Compact menu row for the icon-less File menu: no 24dp leading-icon gutter,
@@ -104,10 +104,10 @@ shell module PragmaticWindowChrome {
                     TextBlock x:name="PART_Label"   [ Foreground = @Fg1 ]
                 }
             }
-            when ( IsMouseOver )       { PART_Row.Fill = @OnSurfaceVariantHoverLayer; }
-            when ( IsSubmenuOpen )     { PART_Row.Fill = @OnSurfaceVariantHoverLayer; }
-            when ( IsPressed )         { PART_Row.Fill = @OnSurfaceVariantPressLayer; }
-            when ( IsEnabled = false ) { PART_Row.Opacity = @DisabledContentOpacity; }
+            when ( IsMouseOver )       { PART_Row.Fill = @RowHoverFill; }
+            when ( IsSubmenuOpen )     { PART_Row.Fill = @RowHoverFill; }
+            when ( IsPressed )         { PART_Row.Fill = @Bg3; }
+            when ( IsEnabled = false ) { PART_Row.Opacity = @OpacityDisabled; }
         }
 
         // The File dropdown: MenuPopupHost = PART_PopupHost, a PART_Scrim ClickAwayScrim,

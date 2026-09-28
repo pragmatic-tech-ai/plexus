@@ -13,6 +13,9 @@ class M3TokenScan
         'ShapeExtraSmall', 'ShapeSmall', 'ShapeFull', 'BodyLarge', 'BodyMedium',
         'BodySmall', 'TitleMedium', 'TitleSmall', 'LabelLarge', 'LabelMedium',
         'LabelSmall', 'Elevation2',
+        'OnSurfaceVariantHoverLayer', 'OnSurfaceVariantPressLayer', 'OnPrimaryHoverLayer', 'OnPrimaryPressLayer',
+        'StatePressOverlay', 'TextSelectionBrush', 'DiagramCanvas', 'DisabledContentOpacity', 'Spacing[0-9]+',
+        'LabelLargeSize', 'LabelLargeLineHeight', 'LabelLargeTracking', 'LabelLargeWeight', 'LabelLargeFont',
     ];
 
     // .ts theme-key resolver call sites where an M3 name would be a live token key.
