@@ -19,7 +19,7 @@ function fakeConn()
   }
 }
 
-test('AttachProject resolves bases through SolutionBaseResolver (local-first), not resolveBases', async () => {
+test('AttachProject resolves bases through SolutionBaseResolver (local-first)', async () => {
   const provider = new ServiceProvider()
   const doc = toJSON(check([{ uri: 'p.todl', text: 'namespace ea { concept ViaResolver { label : string; } }' }]).model)
   let called = false

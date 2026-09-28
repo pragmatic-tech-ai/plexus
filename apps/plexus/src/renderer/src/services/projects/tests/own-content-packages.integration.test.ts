@@ -1,11 +1,12 @@
 import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { compilePackage, checkAgainst, PackageKind, Severity, type PackageRef } from '@pragmatic-tech-ai/todl'
+import { compilePackage, checkAgainst, PackageKind, PackageStoreKey, SolutionBaseResolver, Severity, type PackageRef } from '@pragmatic-tech-ai/todl'
 
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PACKAGES_BACKEND_ID } from '../packages-backend.js'
-import { resolveBases } from '../base-resolver.js'
+import { PlexusPackageStore } from '../storage-service-backends.js'
 
 // End-to-end acceptance for own-content-only packages: publish a meta-model and a
 // library as OWN-ONLY documents, then resolve their closure TRANSITIVELY and
@@ -39,6 +40,9 @@ function env(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorag
   const packages = new FakeStorage('fake://packages')
   registry.Register(PACKAGES_BACKEND_ID, () => packages)
   provider.registerInstance(StorageService.Key, registry)
+  // The published-package store SolutionBaseResolver reads through (its inner()
+  // fallback): a PlexusPackageStore over that same packages backend.
+  provider.registerInstance(PackageStoreKey, new PlexusPackageStore(provider))
   return { provider, meta: packages, libs: packages }
 }
 
@@ -65,9 +69,16 @@ describe('own-content packages: publish own-only → resolve transitively → va
     expect(libDoc.dependencies).toEqual(deps)
     await libs.WriteText('lib/0.1.0/model.json', JSON.stringify(libDoc))
 
-    // The architecture project binds ONLY the library — its meta-model is pulled in
-    // transitively via the library's recorded dependency.
-    const { bases, problems } = await resolveBases(provider, { libraries: [{ id: 'lib', version: '0.1.0' }] })
+    // The architecture project binds ONLY the library (declared in its manifest) —
+    // its meta-model is pulled in transitively via the library's recorded dependency.
+    // Resolve through the production consume path: SolutionBaseResolver.ResolveBasesFor
+    // reads the consumer's manifest bindings, then walks the published closure. No open
+    // producers here, so it's the pure published fallback (inner() → PlexusPackageStore).
+    const consumer = new FakeStorage('C:/arch')
+    await consumer.WriteText(
+      PROJECT_MANIFEST_FILENAME,
+      JSON.stringify({ type: 'architecture', name: 'sys', libraries: [{ id: 'lib', version: '0.1.0' }] }))
+    const { bases, problems } = await new SolutionBaseResolver(provider).ResolveBasesFor(consumer)
     expect(problems).toEqual([])
     // Both own-only docs reassembled.
     const ids = bases.flatMap((b) => b.nodes.map((n) => n.id))
