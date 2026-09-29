@@ -15,13 +15,17 @@ const HEIGHT_KEY = 'diagram.page.height'
 const DEFAULT_SIZE   = 20
 const DEFAULT_WIDTH  = 2000
 const DEFAULT_HEIGHT = 2000
-// The diagram page background is the theme's @DiagramCanvas token (light
-// #FDFDFD / dark #2A2A2E). The grid lines are that colour shifted 10% toward
+// The diagram page background is the theme's @CanvasBg token (Pragmatic light
+// #F4F4F1 / dark #111112). The grid lines are that colour shifted 10% toward
 // CONTRAST — lighter on a dark page, darker on a light one — so the grid stays
 // a subtle-but-visible tint of the paper in every theme (a strict "lighten"
-// would vanish on a near-white light page).
-const CANVAS_TOKEN   = 'DiagramCanvas'
-const CANVAS_FALLBACK = '#FDFDFD'
+// would vanish on a near-white light page). NOTE: the token is @CanvasBg — the
+// Pragmatic name for what the retired Material theme called @DiagramCanvas; the
+// framework's own PART_CanvasBg paper fills @CanvasBg too (see mural's
+// controls-diagram-chrome test). Reading the old name here left the grid painting
+// on the CANVAS_FALLBACK instead of the themed paper (washed-out white surface).
+const CANVAS_TOKEN   = 'CanvasBg'
+const CANVAS_FALLBACK = '#F4F4F1'
 const GRID_STEP      = 0.1
 
 // App-scoped observer that drives the diagram canvas background from settings.
@@ -29,10 +33,10 @@ const GRID_STEP      = 0.1
 // (its ItemsPanel) and applies two things:
 //   * Page size — PageWidth / PageHeight from the page settings.
 //   * Grid — when "Show grid" is on, sets PaperBrush to a grid PatternBrush
-//     whose background is the theme page colour (@DiagramCanvas) and whose
+//     whose background is the theme page colour (@CanvasBg) and whose
 //     lines are that colour lightened 10% — so the grid is a subtle,
 //     theme-adaptive tint of the paper, with no user-set colour. When off, it
-//     CLEARS the PaperBrush so the template's @DiagramCanvas dynamic-resource
+//     CLEARS the PaperBrush so the template's @CanvasBg dynamic-resource
 //     paper re-applies.
 //
 // Reactive on three axes: a settings change (show / size / page size) and a
@@ -130,7 +134,7 @@ export class DiagramCanvasService extends ServiceBase
         canvas.PageWidth  = typeof widthVal  === 'number' && widthVal  > 0 ? widthVal  : DEFAULT_WIDTH
         canvas.PageHeight = typeof heightVal === 'number' && heightVal > 0 ? heightVal : DEFAULT_HEIGHT
 
-        // Grid. Off → drop the local PaperBrush so the template's @DiagramCanvas
+        // Grid. Off → drop the local PaperBrush so the template's @CanvasBg
         // dynamic-resource paper re-applies (theme-adaptive again).
         if (settings.Get(SHOW_KEY) === false)
         {
@@ -145,7 +149,7 @@ export class DiagramCanvasService extends ServiceBase
         // (lighter on a dark page, darker on a light one). The pattern's
         // background is that same page colour, so the page keeps its theme paper
         // and the grid reads as a subtle tint of it.
-        const bg   = this.pageBackground()
+        const bg   = DiagramCanvasService.PageBackgroundColor()
         const line = Color.Lerp(bg, isDark(bg) ? Color.White : Color.Black, GRID_STEP)
 
         const brush = new PatternBrush(PatternKind.Grid, line)
@@ -155,9 +159,12 @@ export class DiagramCanvasService extends ServiceBase
         canvas.PaperBrush = brush
     }
 
-    // The diagram page background colour from the active theme (@DiagramCanvas),
-    // or a light-paper fallback before the theme is registered.
-    private pageBackground(): Color
+    // The diagram page background colour from the active theme (@CanvasBg), or a
+    // light-paper fallback before the theme is registered. Static + public: it
+    // reads only Application.current and module constants (no instance state), and
+    // exposing it lets the token wiring be unit-tested without standing up the whole
+    // settings/canvas observer.
+    public static PageBackgroundColor(): Color
     {
         const res = Application.current?.Resources.Resolve(CANVAS_TOKEN)
         return res instanceof SolidColorBrush ? res.Color : Color.FromHex(CANVAS_FALLBACK)
