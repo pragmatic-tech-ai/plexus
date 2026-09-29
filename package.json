@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "license": "Apache-2.0",
   "author": "Pragmatic Lab <evgen.napryaglo@gmail.com>",
-  "description": "Plexus monorepo — shared plexus-core package + Electron apps (plexus, devUI).",
+  "description": "Plexus monorepo \u2014 shared plexus-core package + Electron apps (plexus, devUI).",
   "workspaces": [
     "packages/*",
     "apps/*"
@@ -16,5 +16,8 @@
     "build": "npm run build:core && npm run build -w @pragmatic-tech-ai/plexus --if-present && npm run build -w @pragmatic-tech-ai/devui --if-present",
     "test": "npm run test --workspaces --if-present",
     "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "overrides": {
+    "@pragmatic-tech-ai/mural": "^0.57.0"
   }
 }
