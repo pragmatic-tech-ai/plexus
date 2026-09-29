@@ -9,11 +9,19 @@
 // the diagram module's generic DiagramDocumentFactory (resolved by extension).
 
 import ModelPatchApplier from "./services/model-patch-applier.js"
+import ArchActionContributor from "./services/arch-action-contributor.js"
 
 shell module ArchitectureProjectsModule [ Name = "Architecture Projects" ] {
     .services: {
         // Applies agent-proposed model patches to this project's ArchModel (Skills #4).
         ModelPatchApplier
+        ArchActionContributor
+    }
+
+    // "Edit Viewpoints…" on a .diagram row in an architecture project — the
+    // INodeCommandContributor replacement on the hierarchy action seam.
+    .hierarchyActions: {
+        HierarchyActionDefinition [ ActionKeys = ["diagram"], Contributor = ArchActionContributor, Order = 100 ]
     }
 
     // Diagram-toolbar command: edit the diagram's governing viewpoints. Rides the

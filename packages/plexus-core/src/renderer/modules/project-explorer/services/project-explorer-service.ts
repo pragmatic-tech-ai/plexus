@@ -775,6 +775,14 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // Create a new file of the project's primary format inside `parentFolder`
     // (project-relative; '' = the project root) and open it. The name is the
     // format kind, auto-numbered to dodge collisions (foo → foo-2).
+    // The live OpenProject a member is projected onto, or undefined (unresolved / closed).
+    // App-side action contributors (arch Edit-Viewpoints, diagram export) resolve it to
+    // reach the op-based open/render pipeline from a member row.
+    public ProjectedOpFor(member: SolutionMember): OpenProject | undefined
+    {
+        return this.projected.get(member)
+    }
+
     // ── IContentMutations: member-keyed wrappers ────────────────────────────
     // Each resolves the member's projected OpenProject then delegates to the existing
     // op-based method, so open-doc relocation / close-guard / factory dialogs are reused.
