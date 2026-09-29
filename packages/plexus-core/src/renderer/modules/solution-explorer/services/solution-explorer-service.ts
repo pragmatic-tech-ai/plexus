@@ -98,6 +98,7 @@ export class SolutionExplorerService extends Observable
         this.offFiles?.()
         this.listing?.dispose()
         this.files?.dispose()
+        this.model?.dispose()   // drop the model's registry subscription (else it leaks + re-realizes on swap)
         this.offListing = undefined
         this.offFiles = undefined
         this.listing = undefined

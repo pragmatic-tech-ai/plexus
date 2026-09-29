@@ -8,13 +8,18 @@ import { iconKeyForKind } from '../../../projects/project-node-icon.js'
 // project family and the solution root get the folder glyph as a P2 placeholder (a real
 // project/solution icon is a P4/registry concern). One home for the mapping, referenced
 // by the converter below and unit-tested directly (no Application needed).
-export function glyphKeyForIconKey(iconKey: string): string
+export class IconKeyGlyphs
 {
-    switch (iconKey)
+    private static readonly FolderGlyph = 'Folder'
+
+    public static For(iconKey: string): string
     {
-        case NodeKey.Solution: return 'Folder'
-        case NodeKey.Project:  return 'Folder'
-        default:               return iconKeyForKind(iconKey as ProjectNodeKind)
+        switch (iconKey)
+        {
+            case NodeKey.Solution: return IconKeyGlyphs.FolderGlyph
+            case NodeKey.Project:  return IconKeyGlyphs.FolderGlyph
+            default:               return iconKeyForKind(iconKey as ProjectNodeKind)
+        }
     }
 }
 
@@ -22,5 +27,5 @@ export function glyphKeyForIconKey(iconKey: string): string
 // a one-shot resolve out of the mounted resource dictionary (undefined until it mounts,
 // in which case the Shape paints nothing).
 export const IconKeyToGeometry: ValueConverter = {
-    convert: (iconKey: unknown) => Application.current?.Resources.Resolve(glyphKeyForIconKey(iconKey as string)),
+    convert: (iconKey: unknown) => Application.current?.Resources.Resolve(IconKeyGlyphs.For(iconKey as string)),
 }
