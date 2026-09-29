@@ -63,6 +63,7 @@ import { ProjectNode } from '../../../projects/project.js'
 import type { Project } from '../../../projects/project.js'
 import { OpenProject } from '../../../projects/open-project.js'
 import { VersionPart, bumpVersion } from '../../../projects/semver-bump.js'
+import type { IContentMutations } from './content-mutations.js'
 import { SetVersionDialogModel, type SetVersionResult } from '../../../projects/set-version-dialog-model.js'
 import { NewItemChoice } from '../../../projects/new-item-choice.js'
 import { OpenProjectsStore } from '../../../projects/open-projects-store.js'
@@ -140,7 +141,7 @@ function subtreeContains(root: ProjectNode, node: ProjectNode): boolean
     return false
 }
 
-export class ProjectExplorerService extends ServiceBase implements IProjectTreeHost
+export class ProjectExplorerService extends ServiceBase implements IProjectTreeHost, IContentMutations
 {
     public static readonly Key = new ServiceKey<ProjectExplorerService>('ProjectExplorerService')
 
@@ -774,6 +775,145 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // Create a new file of the project's primary format inside `parentFolder`
     // (project-relative; '' = the project root) and open it. The name is the
     // format kind, auto-numbered to dodge collisions (foo → foo-2).
+    // ── IContentMutations: member-keyed wrappers ────────────────────────────
+    // Each resolves the member's projected OpenProject then delegates to the existing
+    // op-based method, so open-doc relocation / close-guard / factory dialogs are reused.
+    // A member with no projected op (not resolved / already closed) is a no-op.
+    public async RenameMemberFile(member: SolutionMember, path: string, newName: string): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.renameFile(op, path, newName)
+    }
+
+    public async DeleteMemberFile(member: SolutionMember, path: string): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.deleteFile(op, path)
+    }
+
+    public async NewFileForMember(member: SolutionMember, folder: string, format: ProjectFileFormat): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.newFileIn(op, folder, format)
+    }
+
+    public async NewFolderForMember(member: SolutionMember, folder: string, _name: string): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.newFolderIn(op, folder)   // auto-names "New Folder" (numbered on collision)
+    }
+
+    public async ImportFilesForMember(member: SolutionMember, target: string): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.importFilesInto(op, target)
+    }
+
+    public async ImportFolderForMember(member: SolutionMember, target: string): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.importFolderInto(op, target)
+    }
+
+    public async MoveMemberNodes(member: SolutionMember, paths: readonly string[], destPath: string): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op === undefined) return
+        for (const path of paths)
+        {
+            const target = destPath === '' ? basename(path) : joinRel(destPath, basename(path))
+            if (target !== path) await this.relocatePath(op, path, target)
+        }
+    }
+
+    public async PublishMember(member: SolutionMember): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.publishProject(op)
+    }
+
+    public async BumpMemberVersion(member: SolutionMember, part: VersionPart): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.bumpVersion(op, part)
+    }
+
+    public async SetMemberVersion(member: SolutionMember): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.setVersionDialog(op)
+    }
+
+    public async ManageMemberReferences(member: SolutionMember): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.manageReferences(op)
+    }
+
+    public RefreshMemberBases(member: SolutionMember): void
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) this.refreshBases(op)
+    }
+
+    public async UpdateMemberAgentMetadata(member: SolutionMember): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.updateAgentMetadata(op)
+    }
+
+    public async CloseMember(member: SolutionMember): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) await this.closeProject(op)
+    }
+
+    public FormatsFor(member: SolutionMember): readonly ProjectFileFormat[]
+    {
+        return this.projected.get(member)?.Factory.formats ?? []
+    }
+
+    public IsVersionedMember(member: SolutionMember): boolean
+    {
+        const op = this.projected.get(member)
+        return op !== undefined && isVersioned(op.Factory)
+    }
+
+    public CanRefreshBasesMember(member: SolutionMember): boolean
+    {
+        const op = this.projected.get(member)
+        return op !== undefined && op.Factory.requiresMetaModel === true
+    }
+
+    public SupportsScaffoldMember(member: SolutionMember): boolean
+    {
+        const op = this.projected.get(member)
+        return op !== undefined && supportsScaffold(op.Factory)
+    }
+
+    // Extracted rename core (path-based): the storage rename + open-doc repoint that
+    // commitRename does, minus the ProjectNode/editing-label bookkeeping (the Solution
+    // Explorer row repaints authoritatively from the content store's ContentUpdated).
+    private async renameFile(op: OpenProject, path: string, newName: string): Promise<void>
+    {
+        const proposed = newName.trim()
+        if (proposed === '' || proposed === basename(path)) return
+        if (/[\\/]/.test(proposed)) { this.Status = "A name can't contain a path separator."; return }
+        const dest = joinRel(parentOf(path), proposed)
+        if (await op.Storage.Exists(dest)) { this.Status = `"${proposed}" already exists.`; return }
+        await this.relocatePath(op, path, dest)
+    }
+
+    // Extracted delete core (path-based): close-guard BEFORE the disk delete (spec §7 —
+    // an open editor must not be orphaned), then the recursive storage delete. The row
+    // disappears when the content store's watcher emits ContentRemoved.
+    private async deleteFile(op: OpenProject, path: string): Promise<void>
+    {
+        if (path === '') return
+        this.closeDocumentsUnder(op, path)
+        await op.Storage.Delete(path)
+    }
+
     private async newFileIn(op: OpenProject, parentFolder = '', format: ProjectFileFormat | undefined = op.Factory.formats[0]): Promise<void>
     {
         if (format === undefined) { this.Status = 'This project type has no file format.'; return }

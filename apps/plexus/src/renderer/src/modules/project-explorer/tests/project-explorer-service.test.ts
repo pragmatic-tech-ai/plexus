@@ -1847,3 +1847,25 @@ test('OpenMemberFile is a no-op when the member has no projected OpenProject', a
     await service.OpenMemberFile(orphan, 'core.todl', ProjectNodeKind.Todl)
     expect(rec.opened).toEqual([])
 })
+
+// ── P3/P4: member-keyed IContentMutations surface (Task 9) ───────────────────
+test('RenameMemberFile resolves the projected op and renames via storage', async () => {
+    const { service, priv, manager } = makeExplorer()
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('a.todl', '')
+    await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
+    const member = manager.Members.ToArray().at(-1)!
+    await service.RenameMemberFile(member, 'a.todl', 'b.todl')
+    expect(await storage.Exists('a.todl')).toBe(false)
+    expect(await storage.Exists('b.todl')).toBe(true)
+})
+
+test('IsVersionedMember reflects the member factory', async () => {
+    const { service, priv, manager } = makeExplorer()
+    await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
+    expect(service.IsVersionedMember(manager.Members.ToArray().at(-1)!)).toBe(false)
+
+    const versioned = { ...fakeProjectFactory(), getVersion: async () => '1.0.0', setVersion: async () => {} } as unknown as IProjectFactory
+    await priv.addOpenProject(projectWith('B', 'C:/b'), versioned, new FakeStorage('C:/b'))
+    expect(service.IsVersionedMember(manager.Members.ToArray().at(-1)!)).toBe(true)
+})
