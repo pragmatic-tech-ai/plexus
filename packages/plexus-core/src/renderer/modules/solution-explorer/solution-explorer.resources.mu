@@ -14,6 +14,9 @@ import HierarchyItemVM from "@pragmatic-tech-ai/mural/framework/hierarchy"
 import HierarchyAction from "@pragmatic-tech-ai/mural/framework/hierarchy"
 import IconKeyToGeometry from "./services/icon-key-to-geometry.js"
 import EditingToLabelVisibility from "../../projects/project-node-icon.js"
+import HierarchySelectionBehavior from "./behaviors/hierarchy-selection-behavior.js"
+import HierarchyKeyBehavior from "./behaviors/hierarchy-key-behavior.js"
+import HierarchyDragDropBehavior from "./behaviors/hierarchy-drag-drop-behavior.js"
 
 resources SolutionExplorerResources {
 
@@ -41,6 +44,7 @@ resources SolutionExplorerResources {
     HierarchicalDataTemplate x:key="HierarchyItemTemplate"
         [ DataType = HierarchyItemVM, itemsselector = Children ] {
         Border x:root [ Fill = #00000000, ContextMenuService.ContextMenu = @HierarchyContextMenu ] {
+            .Behaviors: { HierarchyDragDropBehavior }
             StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
                 Shape [ Geometry = $IconKey << IconKeyToGeometry, Fill = @Fg2,
                         Width = 16, Height = 16, Margin = (0,0,6,0), VerticalAlignment = Center ]
@@ -84,7 +88,9 @@ resources SolutionExplorerResources {
             // scroll region. IsVirtualizing realizes only the rows in the viewport.
             TreeView [ Indent = 14, IsVirtualizing = true,
                        ItemsSource = $Tree.Roots, ItemTemplate = @HierarchyItemTemplate,
-                       SelectionMode = Extended, AllowMarqueeSelection = true ]
+                       SelectionMode = Extended, AllowMarqueeSelection = true ] {
+                .Behaviors: { HierarchySelectionBehavior HierarchyKeyBehavior }
+            }
         }
     }
 }

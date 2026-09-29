@@ -66,7 +66,7 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         if (!isProjectRow)
         {
             out.push(HierarchyAction.Separator())
-            out.push(HierarchyAction.Command(FileTreeContributor.RenameLabel, (c) => c.Anchor.BeginEdit()))
+            out.push(HierarchyAction.Command(FileTreeContributor.RenameLabel, () => vm.BeginEdit()))
             out.push(HierarchyAction.Command(FileTreeContributor.DeleteLabel, () => void this.DeleteNode(vm)))
         }
         return out
