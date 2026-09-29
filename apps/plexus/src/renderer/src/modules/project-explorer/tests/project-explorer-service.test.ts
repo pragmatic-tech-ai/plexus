@@ -9,7 +9,7 @@ import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/
 import { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import {
     Project, ProjectNode as DataProjectNode, ProjectNodeKind, ProjectFactoryRegistryKey,
-    SolutionManagerService, SolutionMember, SolutionBaseResolver, ProjectType,
+    SolutionManagerService, SolutionMember, SolutionMemberStatus, SolutionBaseResolver, ProjectType,
     type IPackageRegistry, type PublishablePackage,
 } from '@pragmatic-tech-ai/todl'
 import { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
@@ -287,6 +287,11 @@ function attachAddOpenProject(
             const member = new SolutionMember({ path: project.RootPath, type })
             member.Project = project
             member.Storage = storage
+            // P1 made SolutionMember.IsResolved === (Status === Resolved). The real
+            // Solution.OpenOne sets this on a successful open; this harness bypasses
+            // OpenOne (it seeds Project/Storage directly), so mark it Resolved too or the
+            // service's member-sync waits forever for a 'Project' change that never fires.
+            member.Status = SolutionMemberStatus.Resolved
             manager.Members.Add(member)
             await memberSyncTaskFor(service, member)
             const op = service.OpenProjects.ToArray().find((o) => o.Folder === project.RootPath)
@@ -568,6 +573,7 @@ test('a member added to ActiveSolution.Members is projected into OpenProjects; A
     const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
     member.Project = projectWith('A', 'C:/a')
     member.Storage = new FakeStorage('C:/a')
+    member.Status = SolutionMemberStatus.Resolved
 
     manager.Members.Add(member)
     await memberSyncTaskFor(service, member)
@@ -591,6 +597,7 @@ test('a member removed from ActiveSolution.Members drops it from OpenProjects; D
     const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
     member.Project = projectWith('A', 'C:/a')
     member.Storage = new FakeStorage('C:/a')
+    member.Status = SolutionMemberStatus.Resolved
     manager.Members.Add(member)
     await memberSyncTaskFor(service, member)
     expect(service.OpenProjects.Count).toBe(1)
@@ -610,9 +617,11 @@ test('two members that resolve to the same folder project only once (dedupe by f
     const memberA = new SolutionMember({ path: 'C:/a', type: 'todl-a' })
     memberA.Project = projectWith('A', 'C:/a')
     memberA.Storage = new FakeStorage('C:/a')
+    memberA.Status = SolutionMemberStatus.Resolved
     const memberB = new SolutionMember({ path: 'C:/a', type: 'todl-b' })
     memberB.Project = projectWith('A2', 'C:/a')   // same folder as memberA
     memberB.Storage = new FakeStorage('C:/a')
+    memberB.Status = SolutionMemberStatus.Resolved
 
     manager.Members.Add(memberA)
     await memberSyncTaskFor(service, memberA)
@@ -641,6 +650,7 @@ test('a member resolving to an already-claimed folder AFTER waiting is still ded
     const memberB = new SolutionMember({ path: 'C:/a', type: 'todl-b' })
     memberB.Project = projectWith('B', 'C:/a')   // already resolved before being added — projects immediately
     memberB.Storage = new FakeStorage('C:/a')
+    memberB.Status = SolutionMemberStatus.Resolved
     manager.Members.Add(memberB)
     await memberSyncTaskFor(service, memberB)
 
@@ -648,8 +658,10 @@ test('a member resolving to an already-claimed folder AFTER waiting is still ded
     expect(service.OpenProjects.ToArray()[0]!.Name).toBe('B')   // B won the folder first
 
     // Resolve A now — its post-wait re-check (line ~423) must find the folder
-    // already taken and skip building, rather than double-projecting it.
+    // already taken and skip building, rather than double-projecting it. Set Status
+    // before Project so IsResolved is true when waitForResolution's 'Project' handler runs.
     memberA.Storage = new FakeStorage('C:/a')
+    memberA.Status = SolutionMemberStatus.Resolved
     memberA.Project = projectWith('A', 'C:/a')
     await taskA
 
@@ -698,6 +710,7 @@ test('closing a project prunes its member-sync bookkeeping (no unbounded growth 
     const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
     member.Project = projectWith('A', 'C:/a')
     member.Storage = new FakeStorage('C:/a')
+    member.Status = SolutionMemberStatus.Resolved
     manager.Members.Add(member)
     await memberSyncTaskFor(service, member)
     expect(memberSyncTaskFor(service, member)).toBeDefined()
@@ -724,6 +737,7 @@ test('a rejected openStore.Remove during close still prunes the member-sync book
     const member = new SolutionMember({ path: 'C:/a', type: 'todl' })
     member.Project = projectWith('A', 'C:/a')
     member.Storage = new FakeStorage('C:/a')
+    member.Status = SolutionMemberStatus.Resolved
     manager.Members.Add(member)
     await memberSyncTaskFor(service, member)
     const op = service.OpenProjects.ToArray()[0]!
@@ -1807,4 +1821,29 @@ test('updateAgentMetadata refreshes a stale scaffold doc', async () => {
     const op = await priv.addOpenProject(projectWith('A', 'C:/a'), factory, storage)
     await priv.updateAgentMetadata(op)
     expect(await storage.ReadText('.claude/todl-manual.md')).toMatch(/namespace/)   // refreshed
+})
+
+test('OpenMemberFile opens (or re-activates) a file tab for a resolved member', async () => {
+    const { service, priv, rec, manager } = makeExplorer()
+    await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
+    const member = manager.Members.ToArray().at(-1)!
+
+    await service.OpenMemberFile(member, 'core.todl', ProjectNodeKind.Todl)
+    expect(rec.opened).toEqual(['core.todl'])
+})
+
+test('OpenMemberFile is a no-op for a folder kind', async () => {
+    const { service, priv, rec, manager } = makeExplorer()
+    await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
+    const member = manager.Members.ToArray().at(-1)!
+
+    await service.OpenMemberFile(member, 'src', ProjectNodeKind.Folder)
+    expect(rec.opened).toEqual([])
+})
+
+test('OpenMemberFile is a no-op when the member has no projected OpenProject', async () => {
+    const { service, rec } = makeExplorer()
+    const orphan = new SolutionMember({ path: 'C:/none', type: 'test-type-x' })
+    await service.OpenMemberFile(orphan, 'core.todl', ProjectNodeKind.Todl)
+    expect(rec.opened).toEqual([])
 })

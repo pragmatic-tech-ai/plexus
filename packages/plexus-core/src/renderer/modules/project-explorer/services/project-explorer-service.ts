@@ -91,7 +91,7 @@ import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
-import { ProjectEventKind, ProjectEventsKey, ProjectType, SolutionBaseResolver, SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import type { SolutionMember, ProjectManifest } from '@pragmatic-tech-ai/todl'
 import { MemberProjection } from './member-projection.js'
 
@@ -1553,6 +1553,33 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (factory === undefined) return undefined
         // openDocument re-activates an already-open tab (no duplicate).
         return this.openDocument(op, path, factory)
+    }
+
+    // Open (or re-activate) a file in the given member's project — the entry point the
+    // Solution Explorer's open-on-activate calls. Folder kinds are a no-op; a file with no
+    // registered editor falls back to the OS on local storage. Reuses openDocument's dedupe.
+    // A no-op when the member isn't projected onto an OpenProject.
+    public async OpenMemberFile(member: SolutionMember, path: string, kind: ProjectNodeKind): Promise<void>
+    {
+        if (kind === ProjectNodeKind.Folder) return
+        const op = this.projected.get(member)
+        if (op === undefined) return
+        const factory = this.resolveDocumentFactory(extname(path))
+        try
+        {
+            if (factory !== undefined)
+            {
+                await this.openDocument(op, path, factory)
+            }
+            else if (isLocalFileAccess(op.Storage))
+            {
+                await op.Storage.OpenExternal(path)
+            }
+        }
+        catch (e)
+        {
+            this.Status = `Open failed: ${(e as Error).message}`
+        }
     }
 
     // The already-open document for (project, project-relative path), if any.
