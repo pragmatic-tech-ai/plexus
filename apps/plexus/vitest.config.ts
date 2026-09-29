@@ -70,13 +70,18 @@ export default defineConfig({
                     // extends mural values; inline it so Vite routes its mural imports
                     // through the dist aliases instead of Node picking mural's src.
                     /@pragmatic-tech-ai\/plexus-core/,
-                    // mural's compiled markup (dist/resources/**/*.mu.js) self-imports
+                    // mural's compiled markup (build/**/*.mu.js) self-imports its own
                     // `@pragmatic-tech-ai/mural/basic|runtime`. Left external, Node
                     // resolves that self-reference with vitest's injected
                     // `--conditions development` → mural's src/*.ts ("Stripping types
                     // is currently unsupported … under node_modules"). Inline the
                     // compiled-markup subtree so Vite routes the self-imports through
                     // the dist aliases; the rest of mural stays external (cycle intact).
+                    // The theme barrel (dist/resources/**) is the external ENTRY that
+                    // RELATIVELY imports the build markup below; inline it too, or Node
+                    // resolves the whole subtree (incl. the .mu.js self-imports) natively
+                    // and picks the development condition before Vite ever sees it.
+                    /@pragmatic-tech-ai\/mural\/dist\/resources\//,
                     /@pragmatic-tech-ai\/mural\/build\//,
                 ],
             },
