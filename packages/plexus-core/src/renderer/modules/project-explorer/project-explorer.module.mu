@@ -1,18 +1,19 @@
-// project-explorer.module.mu â€” the Project Explorer module.
+// project-explorer.module.mu — the Project Explorer LIFECYCLE module (P2+).
 //
-// A ShellModule: a capability provider added to the shell via a `.modules:`
-// block on the Application. Its capability is one root-nav entry (Name + Icon)
-// whose content is service-backed â€” the `.services:` block registers the
-// service, the Capability names it via `ServiceKey`, and a shared
-// `DataTemplate [DataType = PlexusPanelService]` (in panels.resources.mu) renders it in the
-// left panel. See services/panels/panel-services.ts and diagram.module.mu.
+// As of the Solution Hierarchy P2 migration this module registers
+// ProjectExplorerService as a plain service only — it no longer contributes a
+// panel Capability. The left-panel tree is now the Solution Explorer
+// (solution-explorer.module.mu, whose Capability names SolutionExplorerService).
+// ProjectExplorerService survives here because it still owns project lifecycle:
+// open/close/restore session, the New/Open-project commands (delegated to by the
+// Solution Explorer's command bar via pass-through getters), and OpenMemberFile
+// (the Solution Explorer's open-on-activate entry point). A services-only module
+// (`module`, not `shell module`), composed by adding it to an app's `.modules:`.
 
 import ProjectExplorerService from "./services/project-explorer-service.js"
 
-shell module ProjectExplorerModule [ Name = "Project Explorer" ] {
+module ProjectExplorerModule {
     .services: {
         ProjectExplorerService
     }
-
-    Capability [ Name = "Project Explorer", Icon = @ProjectExplorer, ServiceKey = ProjectExplorerService ]
 }

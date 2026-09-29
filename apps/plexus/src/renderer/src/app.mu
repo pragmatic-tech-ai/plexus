@@ -36,7 +36,18 @@ import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 import DiagramModule from "./modules/diagram/diagram.module.mu.js"
 import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
+// Project Explorer is now a LIFECYCLE service only (open/close/restore + the
+// New/Open commands + OpenMemberFile) — its panel Capability was retired in the
+// Solution Hierarchy P2 migration. The left-panel tree is the Solution Explorer.
 import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
+// The Solution Explorer module — its Capability is the left-panel tree (a
+// HierarchyModel over the active solution's members + their file trees), backed
+// by SolutionExplorerService. Registered after ProjectExplorerModule so the
+// lifecycle service it delegates to is composed.
+import SolutionExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.module.mu.js"
+// The keyed hierarchy-contributor registry (mural framework): SolutionExplorerService
+// resolves it to register its per-solution ProjectsListing + FileTree contributors.
+import HierarchyContributorRegistry from "@pragmatic-tech-ai/mural/framework/hierarchy"
 // TODL's project-system module (browser-safe, main barrel): the three built-in
 // project TYPES (meta-model / library / architecture) + the ONE registry that
 // indexes them under ProjectFactoryRegistryKey, the build-system + generator
@@ -135,6 +146,11 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 // Project Explorer view — the generic project tree + command bar
 // (DataTemplate[ProjectExplorerService] + recursive DataTemplate[ProjectNode]).
 import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
+// Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
+// + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
+// [HierarchyItemVM]. ProjectExplorerResources is still merged below for its Open/New
+// project + reference/confirm DIALOG templates, which the surviving commands present.
+import SolutionExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.resources.mu.js"
 
 // Meta-models capability panel: the published-meta-models virtualized tree
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
@@ -247,6 +263,11 @@ import SettingsContributionKey from "@pragmatic-tech-ai/mural/framework"
 // NavigationService.Key to override it).
 Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
     .services: {
+        // Keyed hierarchy-contributor registry (mural framework) — the Solution
+        // Explorer's HierarchyModel resolves it and registers its per-solution
+        // contributors imperatively. Root-registered so the single instance is
+        // shared across every HierarchyModel the capability rebuilds.
+        HierarchyContributorRegistry
         EnvironmentService
         // Live viewport (window) height, bindable + resize-reactive. The Problems
         // popup derives its 30% list cap from this.
@@ -424,7 +445,13 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Solution engine module (todl): SolutionManagerService + settings registry
         // (no project types — those come from TodlProjectSystemModule above).
         SolutionServicesEngine
+        // Project Explorer LIFECYCLE service (no Capability). Composed before the
+        // Solution Explorer, which delegates its command bar to this service.
         ProjectExplorerModule
+        // Solution Explorer — the left-panel tree Capability (replaces the retired
+        // Project Explorer panel). Backed by SolutionExplorerService over a
+        // HierarchyModel of the active solution's members + file trees.
+        SolutionExplorerModule
         MetaModelModule
         LibraryModule
         McpClientModule
@@ -527,8 +554,15 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Layout pipeline builder view (DataTemplate[LayoutInspector]).
         merge LayoutInspectorResources
 
-        // Project Explorer tree + command bar (DataTemplate[ProjectExplorerService]).
+        // Project Explorer DIALOG templates (New/Open project, references, confirm,
+        // set-version) — still presented by the surviving New/Open-project commands.
+        // Its DataTemplate[ProjectExplorerService] panel view is now dormant (no
+        // Capability points at it); the Solution Explorer resources render the panel.
         merge ProjectExplorerResources
+
+        // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +
+        // HierarchicalDataTemplate[HierarchyItemVM].
+        merge SolutionExplorerResources
 
         // Meta-models capability panel (DataTemplate[MetaModelsService] + rows).
         merge MetaModelResources

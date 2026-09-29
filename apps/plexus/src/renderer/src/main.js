@@ -27,6 +27,7 @@ import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme
 import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
 import { BackgroundWorkService } from './modules/background-work/services/background-work-service.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-service.js'
 import { FileWatchService } from './services/file-watch/file-watch-service.js'
 import { EditorReloadService } from './services/file-watch/editor-reload-service.js'
@@ -261,6 +262,16 @@ try {
     if (explorer !== undefined) {
         explorer.Start()
         void explorer.RestoreSession()
+    }
+
+    // Start the Solution Explorer capability AFTER the project explorer's Start()
+    // (which wires the member-sync) and RestoreSession() — so the active solution
+    // and its members exist when the Solution Explorer subscribes to ActiveSolution
+    // and builds its HierarchyTreeVM. Same deferral reason as ProjectExplorer.Start:
+    // the solution-engine seams are registered above, not in the ctor.
+    const solutionExplorer = app.Services.get(SolutionExplorerService.Key)
+    if (solutionExplorer !== undefined) {
+        solutionExplorer.Start()
     }
 
     // Right panel dock: restore stored conversations into the Conversations panel,
