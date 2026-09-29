@@ -7,7 +7,7 @@ import {
     ProjectContentStore, ProjectContentProvider, ContentNodeKey, ProjectNodeKind,
     SolutionMember, SolutionMemberStatus, type ProjectContentNode,
 } from '@pragmatic-tech-ai/todl'
-import type { IContentMutations } from '../../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 
 // Type guard (the `is<X>` free-function house-style exception): a tree row whose Data is
 // a solution member, used by MemberOf to find the owning member climbing from any node.

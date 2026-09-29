@@ -1,7 +1,7 @@
 import { HierarchyAction, NodeKey, type IHierarchyActionContributor, type HierarchyItemVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { VersionPart } from '../../../projects/semver-bump.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
-import type { IContentMutations } from '../../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 
 // Contributes the project-lifecycle context-menu actions for a member (project) row —
 // Close / Publish / Bump Version ▸ / Set Version… / Manage References… / Refresh Bases /
