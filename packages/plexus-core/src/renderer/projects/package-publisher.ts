@@ -1,9 +1,7 @@
 import { type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { type IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { BuildSystemRegistryKey, LocalNpmRegistry, PackageStoreKey, SolutionManagerService } from '@pragmatic-tech-ai/todl'
-import { parseManifest } from '@pragmatic-tech-ai/todl/package-manager'
+import { BuildSystemRegistryKey, LocalNpmRegistry, PackageStoreKey, SolutionManagerService, TodlProjectBuildManager, parseManifest } from '@pragmatic-tech-ai/todl'
 import { Severity, type BuildDiagnostic } from '@pragmatic-tech-ai/todl/build-system-core'
-import { TodlProjectBuildManager } from '@pragmatic-tech-ai/todl/todl-build-system'
 
 import { PROJECT_MANIFEST_FILENAME } from './project-factory.js'
 import { InMemoryBuildStorage } from './in-memory-build-storage.js'

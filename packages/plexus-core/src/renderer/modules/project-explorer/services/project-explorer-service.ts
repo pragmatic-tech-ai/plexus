@@ -92,8 +92,7 @@ import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtim
 import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 import { ProjectEventKind, ProjectEventsKey, ProjectType, SolutionBaseResolver, SolutionManagerService } from '@pragmatic-tech-ai/todl'
-import type { SolutionMember } from '@pragmatic-tech-ai/todl'
-import type { ProjectManifest } from '@pragmatic-tech-ai/todl/package-manager'
+import type { SolutionMember, ProjectManifest } from '@pragmatic-tech-ai/todl'
 import { MemberProjection } from './member-projection.js'
 
 // The result of CreateProject — the tool outcome minus its correlation id.
