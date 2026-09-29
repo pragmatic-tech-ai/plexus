@@ -276,6 +276,10 @@ function attachAddOpenProject(
     service: ProjectExplorerService, manager: FakeSolutionManager, factories: FakeProjectFactoryRegistry,
 ): ProjectExplorerService & Pick<ExplorerPrivates, 'addOpenProject'>
 {
+    // subscribeToManager is no longer done in the ctor (it now runs from the host's
+    // Start() after the solution seams are wired) — the harness starts it here so the
+    // member-sync projection is live for every explorer test.
+    service.Start()
     return Object.assign(service, {
         addOpenProject: async (project: Project, factory: IProjectFactory, storage: FakeStorage): Promise<OpenProject> => {
             const type = `test-type-${syntheticMemberType++}`
@@ -944,6 +948,9 @@ test('RestoreSession reopens folders that exist and prunes missing ones', async 
     provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
 
     const service = new ProjectExplorerService(provider)
+    // Mirror the host boot order: Start() (member-sync subscription) before
+    // RestoreSession, since the ctor no longer subscribes.
+    service.Start()
     await service.RestoreSession()
 
     // C:/b pruned (missing manifest); C:/a kept (it has a manifest, even though

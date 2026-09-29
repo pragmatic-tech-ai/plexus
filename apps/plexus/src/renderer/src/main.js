@@ -250,8 +250,18 @@ try {
 
     // Restore the previous session's open projects into the explorer (skips
     // folders whose project manifest is gone). Fire-and-forget after mount.
+    // Start() is what subscribes the explorer to the manager's Members — it is
+    // deliberately NOT in the ctor (the explorer is a mounted Capability, so its
+    // ctor runs during app.initialize above, before the solution-engine seams are
+    // registered; building the manager there threw "no service registered for
+    // SolutionStorageProviderRegistry"). Called here, after the seams are wired and
+    // the manager is resolved, and BEFORE RestoreSession — so the member-sync
+    // subscription is live to catch the members session-restore adds.
     const explorer = app.Services.get(ProjectExplorerService.Key)
-    if (explorer !== undefined) void explorer.RestoreSession()
+    if (explorer !== undefined) {
+        explorer.Start()
+        void explorer.RestoreSession()
+    }
 
     // Right panel dock: restore stored conversations into the Conversations panel,
     // then open one starter conversation as the initial Chat tab. Constructing the

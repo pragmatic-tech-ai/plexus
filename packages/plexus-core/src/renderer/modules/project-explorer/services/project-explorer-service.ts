@@ -200,6 +200,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // itself is synchronous and can't be awaited directly.
     private readonly memberSyncTasks = new Map<SolutionMember, Promise<void>>()
     private membersUnsubscribe: (() => void) | undefined
+    // Guards Start() against a double subscription — the host calls it once, but a
+    // second call (e.g. a test that re-runs setup) must be a no-op.
+    private started = false
 
     // The open reloadable document whose resolved OS path matches `absPath`, if
     // any — for the file-watch editor-reload consumer. Matches a watcher-reported
@@ -226,6 +229,22 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         this._newProjectCommand = new RelayCommand(() => void this.newProject())
         this._treeKeyCommand = new RelayCommand((arg) => this.handleTreeKeyGlobal(arg as KeyEventArgs))
         this.memberProjection = new MemberProjection(provider)
+    }
+
+    // Begin projecting the active solution's Members into the tree. Kept OUT of the
+    // constructor on purpose: this service is a mounted Capability, so its view (and
+    // thus this ctor) runs during app.initialize — BEFORE the host has registered the
+    // solution engine's collaborator seams (StorageRegistryKey / PromptServiceKey /
+    // PackageSourceKey). subscribeToManager builds the real SolutionManagerService,
+    // whose ctor getRequired's those seams; doing it in the ctor threw
+    // "no service registered for SolutionStorageProviderRegistry" at boot. The host
+    // calls Start() once, after wiring the seams and resolving the manager, and before
+    // RestoreSession — so the member-sync subscription is live to catch the members
+    // session-restore adds. Idempotent: a second call is a no-op.
+    public Start(): void
+    {
+        if (this.started) return
+        this.started = true
         this.subscribeToManager()
     }
 

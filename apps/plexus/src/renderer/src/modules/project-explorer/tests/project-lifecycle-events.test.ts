@@ -89,6 +89,10 @@ class LifecycleHarness
         const events = this.Provider.getRequired(ProjectEventsKey) as unknown as { Subscribe(h: (e: ProjectEvent) => Promise<void>): void }
         events.Subscribe(async (e) => { this.Raised.push(e.Kind) })
         this.Service = new ProjectExplorerService(this.Provider)
+        // subscribeToManager moved out of the ctor (the host calls Start() after
+        // wiring the solution seams); start it here so this harness's member-sync
+        // projection is live, as it was when the ctor did the subscribing.
+        this.Service.Start()
     }
 
     public get Privates(): ExplorerPrivates
