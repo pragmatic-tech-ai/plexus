@@ -19,6 +19,7 @@ export class SolutionExplorerService extends Observable
 {
     public static readonly Key = new ServiceKey<SolutionExplorerService>('SolutionExplorerService')
     private static readonly TreeProp = 'Tree'
+    private static readonly HasNoSolutionProp = 'HasNoSolution'
     private static readonly RootCaptionFallback = 'Solution'
 
     private _tree: HierarchyTreeVM | undefined
@@ -35,6 +36,10 @@ export class SolutionExplorerService extends Observable
     }
 
     public get Tree(): HierarchyTreeVM | undefined { return this._tree }
+
+    // Drives the panel's empty-state text via the existing ToVisibility converter (true ->
+    // Visible), so no null-to-visibility converter is invented. True when no solution is open.
+    public get HasNoSolution(): boolean { return this._tree === undefined }
 
     // Command pass-throughs so the panel's DataContext (this service) still exposes the
     // surviving Open/New-project lifecycle commands (ProjectExplorerService owns them).
@@ -104,6 +109,7 @@ export class SolutionExplorerService extends Observable
     {
         this._tree = tree
         this.RaisePropertyChanged(SolutionExplorerService.TreeProp, undefined, undefined)
+        this.RaisePropertyChanged(SolutionExplorerService.HasNoSolutionProp, undefined, undefined)
     }
 
     public dispose(): void
