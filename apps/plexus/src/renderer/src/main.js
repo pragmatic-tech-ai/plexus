@@ -98,6 +98,18 @@ try {
     app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionBaseResolver.Key))
     app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
     app.Services.register(ProjectTreeHostKey, (p) => p.getRequired(ProjectExplorerService.Key))
+    // Solution engine collaborators must be REGISTERED up front — before the eager
+    // service block below — because several of those services resolve
+    // ProjectExplorerService (via ProjectTreeHostKey), whose ctor builds
+    // SolutionManagerService, which getRequired's these seams. SolutionServicesEngine
+    // (app.mu .modules) already registered SolutionManagerService.Key +
+    // ProjectFactoryRegistryKey; SolutionStudioSeams adds the generic host seams
+    // (PromptServiceKey over DialogService, StorageRegistryKey over StorageService);
+    // PackageSourceKey is app-specific (RendererPackageSource, over the same
+    // published-packages backend PlexusPackageStore reads). All are lazy factories —
+    // registering here constructs nothing; the singletons are resolved further below.
+    SolutionStudioSeams.Register(app.Services)
+    app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
     // The shell chrome (title strip + @Surface) has mounted; drop the boot
     // splash once the browser has flushed a real frame. Double-rAF: the first
     // callback runs before paint, the second after — so we never reveal a blank
@@ -220,21 +232,15 @@ try {
     // the autosave settings registered with their defaults).
     globalThis.__getSetting = (k) => app.Services.get(ApplicationSettings.Key)?.Get(k)
 
-    // Solution engine collaborators: SolutionManagerService.Key is registered by
-    // SolutionServicesEngine (app.mu's .modules: block) but stays dormant until its
-    // remaining host seams are wired — SolutionStudioSeams supplies the generic ones
-    // (PromptServiceKey over DialogService, StorageRegistryKey over StorageService);
-    // PackageSourceKey is app-specific (RendererPackageSource, over the same
-    // published-packages backend PlexusPackageStore reads). Resolved once here —
-    // before the explorer restores its session below — so the ambient untitled
-    // solution ActiveSolution chain is live from boot.
-    SolutionStudioSeams.Register(app.Services)
-    app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
+    // Construct the solution engine singletons now — their collaborators were
+    // registered up front (above), and the eager service block may already have
+    // constructed SolutionManagerService via the explorer; resolving here just
+    // returns that same singleton (or builds it once if nothing did yet), before
+    // the explorer restores its session below, so the ambient untitled solution's
+    // ActiveSolution/Members chain is live from boot. SolutionBaseResolver likewise —
+    // its own ActiveSolution/Members subscription must be live before session
+    // restore; BaseResolverKey resolves this SAME singleton.
     app.Services.get(SolutionManagerService.Key)
-    // Base resolution (retired WorkspaceBaseResolver — W3b Task 5): construct
-    // SolutionBaseResolver now, after the solution engine wiring just above, so
-    // its own ActiveSolution/Members subscription is live before session restore.
-    // BaseResolverKey (registered above) resolves this SAME singleton.
     app.Services.get(SolutionBaseResolver.Key)
     // Now that both the language client and SolutionBaseResolver are resolved,
     // subscribe once to the resolver's StaleMemberIds push (W3b Task 6): a producer
