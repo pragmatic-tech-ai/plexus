@@ -42,4 +42,25 @@ describe('SkillActionContributor', () =>
         await tick()
         expect(run!.Children.Count).toBe(0)   // empty catalog → empty submenu, no throw, no spinner-forever
     })
+
+    it('a rejecting discovery leaves an empty, usable submenu and raises no unhandled rejection', async () =>
+    {
+        const rejections: unknown[] = []
+        const onUnhandled = (e: unknown): void => { rejections.push(e) }
+        process.on('unhandledRejection', onUnhandled)
+        try
+        {
+            const catalog = { discoverAll: async () => { throw new Error('unreadable project folder') }, forProject: () => [] }
+            const runner = { run: async () => {} }
+            const svc = new SkillActionContributor(providerWith(catalog, runner))
+            const [run] = svc.ActionsFor(memberRowVm(archMember()))
+            await tick()
+            expect(run!.Children.Count).toBe(0)
+            expect(rejections, `unhandled rejection escaped fill(): ${rejections.map(String).join()}`).toHaveLength(0)
+        }
+        finally
+        {
+            process.off('unhandledRejection', onUnhandled)
+        }
+    })
 })

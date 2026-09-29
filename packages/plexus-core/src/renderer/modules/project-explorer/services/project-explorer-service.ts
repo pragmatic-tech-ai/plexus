@@ -830,7 +830,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         for (const path of paths)
         {
             const target = destPath === '' ? basename(path) : joinRel(destPath, basename(path))
-            if (target !== path) await this.relocatePath(op, path, target)
+            if (target === path) continue
+            // Never silently overwrite a same-named entry in the destination (rename
+            // guards the same way) — skip the collision and report it.
+            if (await op.Storage.Exists(target)) { this.Status = `"${basename(path)}" already exists in the destination.`; continue }
+            await this.relocatePath(op, path, target)
         }
     }
 
@@ -912,14 +916,52 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         await this.relocatePath(op, path, dest)
     }
 
-    // Extracted delete core (path-based): close-guard BEFORE the disk delete (spec §7 —
-    // an open editor must not be orphaned), then the recursive storage delete. The row
-    // disappears when the content store's watcher emits ContentRemoved.
+    // Extracted delete core (path-based): confirm first (the recursive folder delete
+    // is irreversible — the restored editing UX always prompted), then close-guard
+    // BEFORE the disk delete (spec §7 — an open editor must not be orphaned), then the
+    // recursive storage delete. The row disappears when the store's watcher emits
+    // ContentRemoved.
     private async deleteFile(op: OpenProject, path: string): Promise<void>
     {
         if (path === '') return
+        if (!(await this.confirmDeletePath(op, path))) return
         this.closeDocumentsUnder(op, path)
         await op.Storage.Delete(path)
+    }
+
+    // Confirm a Solution-Explorer delete before touching disk — the path-based sibling
+    // of confirmDelete (the ProjectNode surface). Detects folder-vs-file from the
+    // storage listing so the prompt names the recursion, and reuses deleteMessageFor so
+    // both delete surfaces read identically. Declined → nothing is deleted.
+    private async confirmDeletePath(op: OpenProject, path: string): Promise<boolean>
+    {
+        const entries = await op.Storage.List(parentOf(path))
+        const isFolder = entries.find((e) => e.Name === basename(path))?.IsDirectory ?? false
+        const message = ProjectExplorerService.deleteMessageFor(basename(path), isFolder)
+        const vm = new ConfirmDialogModel(message, 'Delete', (r) => this.dialogs.Close(r))
+        return (await this.dialogs.Show<boolean>({ Title: 'Delete', Content: vm, Width: 420 })) === true
+    }
+
+    // The single-item delete confirmation text — the one home for this wording, shared
+    // by the ProjectNode confirm (deleteMessage) and the path-based confirmDeletePath.
+    private static deleteMessageFor(name: string, isFolder: boolean): string
+    {
+        return isFolder
+            ? `Delete folder "${name}" and its contents? This can't be undone.`
+            : `Delete "${name}"? This can't be undone.`
+    }
+
+    // The confirmation prompt for a ProjectNode delete, phrased to the selection: a
+    // single file/folder (contents included) or an N-item batch. Always warns it's
+    // permanent — deletion has no undo (consistent with rename).
+    private static deleteMessage(nodes: readonly ProjectNode[]): string
+    {
+        if (nodes.length === 1)
+        {
+            const node = nodes[0]!
+            return ProjectExplorerService.deleteMessageFor(node.Name, node.Kind === 'folder')
+        }
+        return `Delete these ${nodes.length} items? This can't be undone.`
     }
 
     private async newFileIn(op: OpenProject, parentFolder = '', format: ProjectFileFormat | undefined = op.Factory.formats[0]): Promise<void>
@@ -1169,7 +1211,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // go too), or a multi-item batch. A scrim dismiss resolves undefined → false.
     private async confirmDelete(nodes: readonly ProjectNode[]): Promise<boolean>
     {
-        const message = deleteMessage(nodes)
+        const message = ProjectExplorerService.deleteMessage(nodes)
         const vm = new ConfirmDialogModel(message, 'Delete', (r) => this.dialogs.Close(r))
         const confirmed = await this.dialogs.Show<boolean>({ Title: 'Delete', Content: vm, Width: 420 })
         return confirmed === true
@@ -1934,20 +1976,6 @@ function topLevelNodes(nodes: readonly ProjectNode[]): ProjectNode[]
     return nodes.filter((n) => !nodes.some((other) => other !== n && n.Path.startsWith(other.Path + '/')))
 }
 
-// The confirmation prompt for a delete, phrased to the selection: a single file,
-// a single folder (contents included), or an N-item batch. Always warns it's
-// permanent — deletion has no undo (consistent with rename).
-function deleteMessage(nodes: readonly ProjectNode[]): string
-{
-    if (nodes.length === 1)
-    {
-        const node = nodes[0]!
-        return node.Kind === 'folder'
-            ? `Delete folder "${node.Name}" and its contents? This can't be undone.`
-            : `Delete "${node.Name}"? This can't be undone.`
-    }
-    return `Delete these ${nodes.length} items? This can't be undone.`
-}
 
 // A project-relative name for `fileName` that doesn't collide with an existing
 // entry: returns it as-is when free, else the first free `stem-N.ext` (N ≥ 2),

@@ -185,6 +185,10 @@ interface ExplorerPrivates
     setVersionDialog(op: OpenProject): Promise<void>
     updateAgentMetadata(op: OpenProject): Promise<void>
     manageReferences(op: OpenProject): Promise<void>
+    // The Solution-Explorer mutation façade + its path-based cores.
+    deleteFile(op: OpenProject, path: string): Promise<void>
+    memberFor(op: OpenProject): SolutionMember | undefined
+    MoveMemberNodes(member: SolutionMember, paths: readonly string[], destPath: string): Promise<void>
 }
 
 // A fake DialogService: Show records the shown content and resolves the preset
@@ -1481,6 +1485,50 @@ test('the Delete key does nothing while a rename editor is open', async () => {
 
     expect(await storage.Exists('core.todl')).toBe(true)   // not deleted
     expect(del.Handled).toBe(false)
+})
+
+// ── Solution-Explorer mutation façade: delete confirmation + move collision ──
+// The row-menu / Delete-key path routes through the path-based deleteFile and the
+// member-keyed MoveMemberNodes, NOT the legacy ProjectNode deleteNodes/moveNodes.
+// These must carry the same safety guards the legacy UX had.
+
+test('deleteFile confirms before the disk delete; a declined confirm leaves the file', async () => {
+    const { priv, shownDialogs } = makeExplorer(null, false)   // dialog resolves "not confirmed"
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('core.todl', 'x')
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
+
+    await priv.deleteFile(op, 'core.todl')
+
+    expect(shownDialogs.length).toBe(1)                        // a confirm was shown
+    expect(await storage.Exists('core.todl')).toBe(true)       // and the decline kept the file
+})
+
+test('deleteFile deletes on a confirmed dialog', async () => {
+    const { priv } = makeExplorer(null, true)                  // dialog resolves "confirmed"
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('core.todl', 'x')
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
+
+    await priv.deleteFile(op, 'core.todl')
+
+    expect(await storage.Exists('core.todl')).toBe(false)
+})
+
+test('MoveMemberNodes does not overwrite a same-named file already in the destination', async () => {
+    const { priv } = makeExplorer()
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('a.todl', 'ROOT')
+    await storage.WriteText('sub/a.todl', 'DEST')
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
+    const member = priv.memberFor(op)!
+
+    await priv.MoveMemberNodes(member, ['a.todl'], 'sub')
+
+    // The collision must be refused: the destination file keeps its content and the
+    // source stays put — never a silent overwrite of the destination.
+    expect(await storage.ReadText('sub/a.todl')).toBe('DEST')
+    expect(await storage.Exists('a.todl')).toBe(true)
 })
 
 test('deleting the project root is refused (no dialog, nothing removed)', async () => {

@@ -32,11 +32,21 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyAct
         const catalog = this.Provider.get(SkillCatalog.Key)
         const runner = this.Provider.get(SkillRunner.Key)
         if (catalog === undefined || runner === undefined) return
-        await catalog.discoverAll([folder])
-        const skills = catalog.forProject(folder)
-        for (const c of SkillChoiceBuilder.fromSkills(skills, (s) => { void runner.run(s, folder, member.Title) }))
+        // Discovery is I/O and can reject (an unreadable project folder). A failure must
+        // leave the submenu usable-and-empty, never surface as an unhandled rejection off
+        // the fire-and-forget caller.
+        try
         {
-            run.Children.Add(HierarchyAction.Command(c.Label, () => c.Command.Execute()))
+            await catalog.discoverAll([folder])
+            const skills = catalog.forProject(folder)
+            for (const c of SkillChoiceBuilder.fromSkills(skills, (s) => { void runner.run(s, folder, member.Title) }))
+            {
+                run.Children.Add(HierarchyAction.Command(c.Label, () => c.Command.Execute()))
+            }
+        }
+        catch
+        {
+            // Empty submenu — the failure is the agent runner's to report on invocation.
         }
     }
 }
