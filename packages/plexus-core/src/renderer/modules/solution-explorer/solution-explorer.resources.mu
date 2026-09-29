@@ -11,20 +11,48 @@
 
 import SolutionExplorerService from "./services/solution-explorer-service.js"
 import HierarchyItemVM from "@pragmatic-tech-ai/mural/framework/hierarchy"
+import HierarchyAction from "@pragmatic-tech-ai/mural/framework/hierarchy"
 import IconKeyToGeometry from "./services/icon-key-to-geometry.js"
+import EditingToLabelVisibility from "../../projects/project-node-icon.js"
 
 resources SolutionExplorerResources {
 
+    // One context-menu entry. Recurses via Children (an ObservableCollection) for
+    // submenus (Add New, Run Agent/Skill, Export, Bump Version); a separator action
+    // (IsSeparator) renders as a disabled divider row.
+    DataTemplate x:key="HierarchyActionTemplate" [ DataType = HierarchyAction ] {
+        MenuItem [ Header = $Label, Command = $Invoke,
+                   ItemsControl.ItemsSource  = $Children,
+                   ItemsControl.ItemTemplate = @HierarchyActionTemplate ]
+    }
+
+    // The row's right-click menu: the VM's ContextActions (owner base + keyed
+    // contributor additions, resolved lazily when the menu opens).
+    ContextMenu x:key="HierarchyContextMenu"
+        [ ItemsControl.ItemsSource  = $ContextActions,
+          ItemsControl.ItemTemplate = @HierarchyActionTemplate ] { }
+
     // One hierarchy row: leading icon (IconKey → geometry via IconKeyToGeometry) +
-    // caption, in a transparent Border. itemsselector = Children recurses the
-    // template down the tree.
+    // caption, in a transparent Border carrying the right-click HierarchyContextMenu.
+    // itemsselector = Children recurses the template down the tree. The caption hides
+    // while the row is in rename mode; a persistent Plain TextBox (revealed by
+    // Visibility, focused by FocusOnVisibleBehavior on each transition to Visible)
+    // edits EditingName in place.
     HierarchicalDataTemplate x:key="HierarchyItemTemplate"
         [ DataType = HierarchyItemVM, itemsselector = Children ] {
-        Border x:root [ Fill = #00000000 ] {
+        Border x:root [ Fill = #00000000, ContextMenuService.ContextMenu = @HierarchyContextMenu ] {
             StackPanel [ Orientation = Horizontal, VerticalAlignment = Center ] {
                 Shape [ Geometry = $IconKey << IconKeyToGeometry, Fill = @Fg2,
                         Width = 16, Height = 16, Margin = (0,0,6,0), VerticalAlignment = Center ]
-                TextBlock [ Text = $Caption, Style = @Body, VerticalAlignment = Center ]
+                TextBlock [ Text = $Caption, Style = @Body, VerticalAlignment = Center,
+                            Visibility = $IsEditing << EditingToLabelVisibility ]
+                // In-place rename editor: the Border is revealed by Visibility and
+                // FocusOnVisibleBehavior focuses the TextBox on each transition to Visible.
+                Border [ Visibility = $IsEditing << ToVisibility ] {
+                    .Behaviors: { FocusOnVisibleBehavior }
+                    TextBox [ Text = $EditingName, Variant = Plain, MinWidth = 80,
+                              VerticalAlignment = Center, SelectionBrush = @TextSelectionBg ]
+                }
             }
         }
     }
