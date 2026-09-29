@@ -87,6 +87,16 @@ const todlShimPlugin: Plugin = {
             // no mural import.
             `export { ProjectType } from ${p('solution-services/package-manager/manifest.js')}`,
             `export { SolutionBaseResolver } from ${p('solution-services/solution-manager/engine/solution-base-resolver.js')}`,
+            // P2 (solution-hierarchy): the Solution Explorer contributors/capability consume
+            // the P1 content store + provider and member status/kind. ProjectContentProvider
+            // imports @pragmatic-tech-ai/mural/framework/hierarchy, which the mural dist alias
+            // resolves + externalizes (native load, cycle intact) — same as any other mural value.
+            `export { Solution } from ${p('solution-services/solution-manager/engine/solution.js')}`,
+            `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
+            `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,
+            `export { ProjectContentProvider } from ${p('solution-services/project-services/content/project-content-provider.js')}`,
+            `export { ProjectContentNode } from ${p('solution-services/project-services/content/content-node.js')}`,
+            `export { ContentNodeKey } from ${p('solution-services/project-services/content/content-node-key.js')}`,
         ].join('\n')
     },
 }
