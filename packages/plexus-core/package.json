@@ -22,6 +22,8 @@
     "./renderer/file-watch/*": "./dist/renderer/file-watch/*",
     "./renderer/modules/project-explorer": "./dist/renderer/modules/project-explorer/index.js",
     "./renderer/modules/project-explorer/*": "./dist/renderer/modules/project-explorer/*",
+    "./renderer/modules/solution-explorer": "./dist/renderer/modules/solution-explorer/index.js",
+    "./renderer/modules/solution-explorer/*": "./dist/renderer/modules/solution-explorer/*",
     "./renderer/modules/solution-studio": "./dist/renderer/modules/solution-studio/index.js",
     "./renderer/modules/solution-studio/*": "./dist/renderer/modules/solution-studio/*",
     "./shared/*.js": "./dist/shared/*.js"
