@@ -37,4 +37,11 @@ describe('IconKeyGlyphs.For', () =>
             expect(IconKeyGlyphs.For(ReferenceNodeKey.Leaf + suffix).length).toBeGreaterThan(0)
         }
     })
+
+    it('tolerates an undefined icon key (the tree binds it before some rows have one)', () =>
+    {
+        // The row template converts HierarchyItemVM.IconKey, which is undefined for some
+        // rows; For must not throw (a throw crashes every row's render → the tree never builds).
+        expect(() => IconKeyGlyphs.For(undefined as unknown as string)).not.toThrow()
+    })
 })

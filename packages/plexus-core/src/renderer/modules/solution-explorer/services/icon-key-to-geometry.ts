@@ -19,7 +19,9 @@ export class IconKeyGlyphs
     public static For(iconKey: string): string
     {
         // Reference leaves carry a resolution suffix (…-live / -published / -unresolved).
-        if (iconKey.startsWith(ReferenceNodeKey.Leaf)) return IconKeyGlyphs.ReferenceLeafGlyph
+        // Guard the type: the row template binds HierarchyItemVM.IconKey, which is undefined
+        // for some rows — a bare .startsWith there would throw and crash every row's render.
+        if (typeof iconKey === 'string' && iconKey.startsWith(ReferenceNodeKey.Leaf)) return IconKeyGlyphs.ReferenceLeafGlyph
         switch (iconKey)
         {
             case NodeKey.Solution:      return IconKeyGlyphs.FolderGlyph

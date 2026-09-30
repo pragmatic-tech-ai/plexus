@@ -12,7 +12,9 @@ function fakeFiles()
     const fileChild = HierarchyItemId.Mint()
     const provider: IHierarchyProvider = {
         ProviderId: 'files',
-        ObserveChildren: (node, sink) => { asked.push(node); sink(new ChildAdded(fileChild, { Key: 'file', Caption: 'a.todl', IconKey: 'file', ExtObject: {}, Severity: NodeSeverity.Ok })); return () => {} },
+        // Emits its child asynchronously, like the real content provider (store I/O) — so
+        // the composite's microtask-scheduled References node lands first.
+        ObserveChildren: (node, sink) => { asked.push(node); queueMicrotask(() => sink(new ChildAdded(fileChild, { Key: 'file', Caption: 'a.todl', IconKey: 'file', ExtObject: {}, Severity: NodeSeverity.Ok }))); return () => {} },
         GetProperty: (id, p) => { asked.push(id); return p === HierarchyPropertyId.Caption ? 'a.todl' : undefined },
         GetCanonicalName: () => 'a.todl',
         ParseCanonicalName: () => HierarchyItemId.Nil,
@@ -44,13 +46,14 @@ function fakeRefs()
 
 describe('ProjectBranchesProvider', () =>
 {
-    it('emits References as child[0] on the root, then forwards file children', () =>
+    it('emits References as child[0] on the root, then forwards file children', async () =>
     {
         const files = fakeFiles()
         const refs = fakeRefs()
         const p = new ProjectBranchesProvider(files.provider, refs as never)
         const added: HierarchyItemId[] = []
         p.ObserveChildren(HierarchyItemId.Root, (c) => { if (c instanceof ChildAdded) added.push(c.Id) })
+        await new Promise((r) => setTimeout(r, 5))   // initial children arrive async (microtask), as in the real model
         expect(added[0]).toBe(refs.root)         // References first
         expect(added).toContain(files.fileChild) // then files
     })

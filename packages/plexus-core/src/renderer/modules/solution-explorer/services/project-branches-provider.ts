@@ -27,7 +27,15 @@ export class ProjectBranchesProvider implements IHierarchyProvider
         if (this.refs.Owns(node)) return this.refs.ObserveChildren(node, sink)
         // The first non-refs node observed is the project root; References leads its children.
         if (this.rootId === undefined) this.rootId = node
-        if (node === this.rootId) sink(new ChildAdded(this.refs.ReferencesRootId(), this.refs.ReferencesRootNode()))
+        // Emit References asynchronously: the model assigns entry.dispose to the RESULT of
+        // this call, so a synchronous sink() would run patch() while entry.dispose is still
+        // undefined and be dropped. A microtask fires after the subscription is recorded
+        // (the same async-initial-children contract ProjectContentProvider relies on).
+        if (node === this.rootId)
+        {
+            const refs = this.refs
+            queueMicrotask(() => sink(new ChildAdded(refs.ReferencesRootId(), refs.ReferencesRootNode())))
+        }
         return this.files.ObserveChildren(node, sink)
     }
 
