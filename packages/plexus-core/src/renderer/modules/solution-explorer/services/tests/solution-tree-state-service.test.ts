@@ -32,6 +32,28 @@ class FakeBags implements IBagPersister
     }
 }
 
+// Same store, but counts every durable SetValue so a test can assert that a guarded restore
+// performs no writes at all. Seed writes are zeroed out by the test before Start().
+class CountingBags extends FakeBags
+{
+    public writes = 0
+    public override Bag(kind: string, id: string): IPropertyBag
+    {
+        const inner = super.Bag(kind, id)
+        return new Proxy(inner, {
+            get: (target, prop, receiver) =>
+            {
+                if (prop === 'SetValue')
+                {
+                    return (...args: unknown[]) => { this.writes++; return (target as unknown as { SetValue: (...a: unknown[]) => unknown }).SetValue(...args) }
+                }
+                const value = Reflect.get(target, prop, receiver)
+                return typeof value === 'function' ? value.bind(target) : value
+            },
+        })
+    }
+}
+
 // A solution tree with two keyed member roots (segments p1/p2), each expandable with one keyed child.
 function makeTree(): { tree: HierarchyTreeVM }
 {
@@ -113,5 +135,67 @@ describe('SolutionTreeStateService — restore', () =>
         const { tree } = makeTree()
         expect(() => new SolutionTreeStateService(tree, titledSolution(), new FakeBags()).Start()).not.toThrow()
         expect(tree.Roots.Get(0)!.IsExpanded).toBe(false)
+    })
+})
+
+describe('SolutionTreeStateService — restore is one-shot (never fights the user)', () =>
+{
+    it('does not re-expand a subtree the user collapsed after the initial restore', () =>
+    {
+        const bags = new FakeBags()
+        const seed = bags.Bag('solution-tree-state', 'C:/sol')
+        seed.SetValue('expanded', ['solution/p1', 'solution/p1/core.todl'])
+        seed.SetValue('selection', [])
+        seed.SetValue('anchor', '')
+
+        const { tree } = makeTree()
+        new SolutionTreeStateService(tree, titledSolution(), bags).Start()
+
+        const p1 = tree.Roots.Get(0)!
+        expect(p1.IsExpanded).toBe(true)
+        expect(p1.Children.ToArray()[0]!.IsExpanded).toBe(true)   // core.todl restored open
+
+        p1.Collapse()
+        p1.Expand()                                               // user re-expands p1 by hand
+
+        const child = p1.Children.ToArray()[0]!                   // freshly re-realized core.todl
+        expect(p1.IsExpanded).toBe(true)
+        expect(child.IsExpanded).toBe(false)                      // NOT snapped back open by the stale seed
+    })
+})
+
+describe('SolutionTreeStateService — bookkeeping does not leak across expand/collapse churn', () =>
+{
+    it('releases the disposers for VMs that leave the tree on collapse', () =>
+    {
+        const { tree } = makeTree()
+        const svc = new SolutionTreeStateService(tree, titledSolution(), new FakeBags())
+        svc.Start()
+
+        const before = svc.TrackedVmCount
+        const p1 = tree.Roots.Get(0)!
+        p1.Expand()
+        p1.Collapse()
+        expect(svc.TrackedVmCount).toBe(before)                   // round-trip leaves nothing tracked behind
+    })
+})
+
+describe('SolutionTreeStateService — restore stays fully guarded', () =>
+{
+    it('writes nothing to the durable store while restoring a nested keyed expansion', () =>
+    {
+        const bags = new CountingBags()
+        const seed = bags.Bag('solution-tree-state', 'C:/sol')
+        seed.SetValue('expanded', ['solution/p1', 'solution/p1/core.todl'])
+        seed.SetValue('selection', [])
+        seed.SetValue('anchor', '')
+        bags.writes = 0                                           // ignore the seed writes
+
+        const { tree } = makeTree()
+        new SolutionTreeStateService(tree, titledSolution(), bags).Start()
+
+        expect(tree.Roots.Get(0)!.IsExpanded).toBe(true)
+        expect(tree.Roots.Get(0)!.Children.ToArray()[0]!.IsExpanded).toBe(true)
+        expect(bags.writes).toBe(0)                               // no premature save during the guarded restore
     })
 })
