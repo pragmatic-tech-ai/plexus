@@ -45,6 +45,9 @@ export class HierarchyExpansionBehavior extends Behavior
         const c = container as ExpandableContainer
         const vm = item as ExpandableVm | undefined
         if (vm === undefined || typeof vm.IsExpanded !== 'boolean') return
+        // Drop any prior subscription for this container first — a recycled container reaching
+        // Wire again without an intervening clear must not leave the old VM driving it.
+        this.Unwire(container)
         if (c.IsExpanded !== vm.IsExpanded) c.IsExpanded = vm.IsExpanded
         const sub = vm.PropertyChanged(HierarchyExpansionBehavior.IsExpandedProp).subscribe(() =>
         {

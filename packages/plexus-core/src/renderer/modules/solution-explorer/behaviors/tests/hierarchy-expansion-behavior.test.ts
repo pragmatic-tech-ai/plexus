@@ -33,4 +33,18 @@ describe('HierarchyExpansionBehavior', () =>
         vm.Set(true)
         expect(container.IsExpanded).toBe(false)     // no longer synced
     })
+
+    it('re-wiring a container drops the old VM subscription', () =>
+    {
+        const b = new HierarchyExpansionBehavior()
+        const first = new FakeVm(false)
+        const second = new FakeVm(false)
+        const container = { IsExpanded: false }
+        b.Wire(container, first)
+        b.Wire(container, second)     // recycled onto a new VM without an intervening clear
+        first.Set(true)
+        expect(container.IsExpanded).toBe(false)     // the stale first VM no longer drives it
+        second.Set(true)
+        expect(container.IsExpanded).toBe(true)      // the current VM does
+    })
 })
