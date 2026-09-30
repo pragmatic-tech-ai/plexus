@@ -294,9 +294,10 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         return (await this.Connections.ActiveConnectionFor(member))?.Id
     }
 
-    // The member whose project produces `consumerId` (a meta-model/library manifest id), via
-    // the base resolver's ProducedIdOf over each projected member's storage. Undefined when
-    // none matches (e.g. an architecture consumer, which carries no manifest id).
+    // The member whose project carries `consumerId`, via the base resolver's ConsumerIdOf over
+    // each projected member's storage — a producer's package id, or an architecture's name
+    // (todl 0.38.7 threads the name so architecture consumers are no longer resolution-anonymous).
+    // Undefined when none matches.
     private async memberForConsumerId(consumerId: string): Promise<SolutionMember | undefined>
     {
         const cached = this.consumerIdCache.get(consumerId)
@@ -305,7 +306,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (resolver === undefined) return undefined
         for (const [member, op] of this.projected)
         {
-            if (await resolver.ProducedIdOf(op.Storage) === consumerId)
+            if (await resolver.ConsumerIdOf(op.Storage) === consumerId)
             {
                 this.consumerIdCache.set(consumerId, member)   // positive only; cleared on projected change
                 return member
