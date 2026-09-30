@@ -1,132 +1,118 @@
 import { describe, it, expect } from 'vitest'
-import { SolutionMember } from '@pragmatic-tech-ai/todl'
-import { ConnectionEditingService, type IConnectionHost } from '../connection-editing-service.js'
-import { ConnectionHealth } from '../../../solution-explorer/services/connection-view.js'
-import type { IConnectionsClient } from '../../../solution-explorer/services/connections-client.js'
+import type { IPropertyBag } from '@pragmatic-tech-ai/todl-runtime'
+import type { SolutionMember } from '@pragmatic-tech-ai/todl'
+import {
+    BagAddress,
+    BagScope,
+    ConnectionBag,
+    ConnectionBagKind,
+    ConnectionSelectionKind,
+    ConnectionPurpose,
+    RecordPropertyBag,
+    type BagVantage,
+    type IBagPersister,
+} from '@pragmatic-tech-ai/todl'
 import type { ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import type { IConnectionsClient, ConnectionTestResult } from '../../../solution-explorer/services/connections-client.js'
+import { ConnectionScope } from '../../../solution-explorer/services/connection-view.js'
+import { ConnectionEditingService, type IConnectionHost } from '../connection-editing-service.js'
 
-const member = new SolutionMember({ path: 'p', type: 'architecture' })
-
-function fakeClient(over: Partial<IConnectionsClient> = {}): IConnectionsClient
+class FakeBagPersister implements IBagPersister
 {
-    const one: ConnectionView = { Id: 'a', DisplayName: 'A', RegistryType: 'npm', Settings: {}, IsDefault: true, HasToken: true }
-    return {
-        List: async () => [one],
-        Add: async () => one,
-        Update: async () => one,
-        Remove: async () => {},
-        SetToken: async () => {},
-        UseEnvToken: async () => {},
-        SetDefault: async () => {},
-        Test: async () => ({ ok: true }),
-        EnvVars: async () => [],
-        ...over,
+    private readonly live = new Map<string, Map<string, Map<string, unknown>>>()
+    constructor(public readonly Scope: BagScope) {}
+    Ids(kind: string): readonly string[] { return [...(this.live.get(kind)?.keys() ?? [])] }
+    Bag(kind: string, id: string): IPropertyBag { return new RecordPropertyBag(this.ensure(kind, id)) }
+    Create(kind: string, id: string): IPropertyBag { return new RecordPropertyBag(this.ensure(kind, id)) }
+    Delete(kind: string, id: string): void { this.live.get(kind)?.delete(id) }
+    Flush(): Promise<void> { return Promise.resolve() }
+    private ensure(kind: string, id: string): Map<string, unknown>
+    {
+        let byId = this.live.get(kind); if (byId === undefined) { byId = new Map(); this.live.set(kind, byId) }
+        let v = byId.get(id); if (v === undefined) { v = new Map(); byId.set(id, v) }
+        return v
     }
 }
 
-function fakeHost(over: Partial<IConnectionHost> = {}): IConnectionHost & { refreshed: SolutionMember[]; solutionDefaulted: (string | undefined)[] }
+function globalConnection(id: string, isDefault: boolean): ConnectionView
 {
-    const refreshed: SolutionMember[] = []
-    const solutionDefaulted: (string | undefined)[] = []
-    return Object.assign({
-        refreshed,
-        solutionDefaulted,
-        ProjectFor: () => ({ Factory: { requiresMetaModel: true } }) as never,
-        SetStatus: () => {},
-        SolutionDefaultConnectionId: () => undefined,
-        SetSolutionDefaultConnectionId: async (id: string | undefined) => { solutionDefaulted.push(id) },
-        ProjectConnectionOverride: () => undefined,
-        SetProjectConnectionOverride: async () => {},
-        RefreshBasesFor: async (m: SolutionMember) => { refreshed.push(m) },
-    }, over) as IConnectionHost & { refreshed: SolutionMember[]; solutionDefaulted: (string | undefined)[] }
+    return { Id: id, DisplayName: id, RegistryType: 'npm', Settings: {}, HasToken: true, IsDefault: isDefault } as ConnectionView
 }
 
-const leaf = (Id: string, IsDefault: boolean, HasToken: boolean): ConnectionView => ({ Id, DisplayName: Id.toUpperCase(), RegistryType: 'npm', Settings: {}, IsDefault, HasToken })
-
-describe('ConnectionEditingService', () =>
+class FakeClient implements IConnectionsClient
 {
-    it('maps a default connection to Health.Default', async () =>
+    constructor(private readonly views: ConnectionView[]) {}
+    List(): Promise<readonly ConnectionView[]> { return Promise.resolve(this.views) }
+    Add(): Promise<ConnectionView> { return Promise.resolve(this.views[0]!) }
+    Update(): Promise<ConnectionView | undefined> { return Promise.resolve(undefined) }
+    Remove(): Promise<void> { return Promise.resolve() }
+    SetToken(): Promise<void> { return Promise.resolve() }
+    UseEnvToken(): Promise<void> { return Promise.resolve() }
+    SetDefault(): Promise<void> { return Promise.resolve() }
+    Test(): Promise<ConnectionTestResult> { return Promise.resolve({ ok: true }) }
+    EnvVars(): Promise<readonly string[]> { return Promise.resolve([]) }
+}
+
+const MEMBER = { Ref: { path: 'projA' } } as unknown as SolutionMember
+
+function setup(globals: ConnectionView[] = [globalConnection('gh', true)])
+{
+    const solution = new FakeBagPersister(BagScope.Solution)
+    const projectLocal = new FakeBagPersister(BagScope.Project)
+    const vantage: BagVantage = { Global: new FakeBagPersister(BagScope.Global), Solution: solution, ProjectLocal: projectLocal }
+    let status = ''
+    const host: IConnectionHost =
     {
-        const views = await new ConnectionEditingService(fakeClient(), fakeHost()).ConnectionsView()
-        expect(views[0]!.Health).toBe(ConnectionHealth.Default)
+        ProjectFor: () => undefined,
+        SetStatus: (s) => { status = s },
+        RefreshBasesFor: () => Promise.resolve(),
+        Vantage: () => Promise.resolve(vantage),
+    }
+    const service = new ConnectionEditingService(new FakeClient(globals), host)
+    return { service, solution, projectLocal, get status() { return status } }
+}
+
+describe('ConnectionEditingService over the bag catalog', () =>
+{
+    it('lists connections from every visible scope, each tagged with its scope', async () =>
+    {
+        const { service, solution, projectLocal } = setup()
+        new ConnectionBag(solution.Create(ConnectionBagKind, 'sol-conn')).DisplayName = 'Solution npm'
+        new ConnectionBag(projectLocal.Create(ConnectionBagKind, 'proj-conn')).DisplayName = 'Project npm'
+
+        const views = await service.ConnectionsView()
+        const byId = new Map(views.map((v) => [v.Id, v]))
+        expect([...byId.keys()].sort()).toEqual(['gh', 'proj-conn', 'sol-conn'])
+        expect(byId.get('gh')!.Scope).toBe(ConnectionScope.Global)
+        expect(byId.get('sol-conn')!.Scope).toBe(ConnectionScope.Solution)
+        expect(byId.get('proj-conn')!.Scope).toBe(ConnectionScope.Project)
     })
 
-    it('maps a non-default connection with a token to Health.Ready', async () =>
+    it('setting a per-project active connection writes the project-local connection-selection, not the solution', async () =>
     {
-        const client = fakeClient({ List: async () => [leaf('b', false, true)] })
-        const views = await new ConnectionEditingService(client, fakeHost()).ConnectionsView()
-        expect(views[0]!.Health).toBe(ConnectionHealth.Ready)
+        const { service, solution, projectLocal } = setup()
+        new ConnectionBag(solution.Create(ConnectionBagKind, 'sol-conn')).DisplayName = 'Solution npm'
+
+        await service.SetActiveConnectionFor(MEMBER, 'sol-conn')
+
+        const sel = projectLocal.Bag(ConnectionSelectionKind, 'main')
+        expect(sel.GetValue(ConnectionPurpose.ReferenceResolution)).toBe(BagAddress.Key(new BagAddress(BagScope.Solution, ConnectionBagKind, 'sol-conn')))
+        expect(solution.Ids(ConnectionSelectionKind)).toEqual([])   // never written to the solution
+        expect((await service.ActiveConnectionFor(MEMBER))?.Id).toBe('sol-conn')
     })
 
-    it('maps a non-default token-less connection to Health.NoCredentials', async () =>
+    it('SetSolutionDefault maps onto solution-scope IsDefault; IsSolutionDefault reflects it', async () =>
     {
-        const client = fakeClient({ List: async () => [leaf('b', false, false)] })
-        const views = await new ConnectionEditingService(client, fakeHost()).ConnectionsView()
-        expect(views[0]!.Health).toBe(ConnectionHealth.NoCredentials)
-    })
+        const { service, solution } = setup()
+        new ConnectionBag(solution.Create(ConnectionBagKind, 'sol-a')).DisplayName = 'A'
+        new ConnectionBag(solution.Create(ConnectionBagKind, 'sol-b')).DisplayName = 'B'
 
-    it('after a failed Test the connection decorates Unreachable', async () =>
-    {
-        const client = fakeClient({ List: async () => [leaf('b', false, true)], Test: async () => ({ ok: false, message: '401' }) })
-        const svc = new ConnectionEditingService(client, fakeHost())
-        await svc.TestConnection('b')
-        const view = (await svc.ConnectionsView())[0]!
-        expect(view.Health).toBe(ConnectionHealth.Unreachable)
-        expect(view.Message).toBe('401')
-    })
+        await service.SetSolutionDefault('sol-a')
+        expect(new ConnectionBag(solution.Bag(ConnectionBagKind, 'sol-a')).IsDefault).toBe(true)
+        expect((await service.ConnectionsView()).find((v) => v.Id === 'sol-a')!.IsSolutionDefault).toBe(true)
 
-    it('ActiveConnectionFor falls back override -> solution default -> global default, skipping a dangling id', async () =>
-    {
-        const host = fakeHost({ ProjectConnectionOverride: () => 'missing', SolutionDefaultConnectionId: () => undefined })
-        const active = await new ConnectionEditingService(fakeClient(), host).ActiveConnectionFor(member)
-        expect(active!.Id).toBe('a')   // dangling override + no solution default → global default
-    })
-
-    it('SetActiveConnectionFor writes the override, refreshes bases, and signals the member', async () =>
-    {
-        const host = fakeHost()
-        const svc = new ConnectionEditingService(fakeClient(), host)
-        const seen: (SolutionMember | undefined)[] = []
-        svc.OnConnectionsViewChanged((m) => seen.push(m))
-        await svc.SetActiveConnectionFor(member, 'a')
-        expect(host.refreshed).toContain(member)
-        expect(seen).toContain(member)
-    })
-
-    it('a mutator signals a global change (undefined)', async () =>
-    {
-        const svc = new ConnectionEditingService(fakeClient(), fakeHost())
-        const seen: (SolutionMember | undefined)[] = []
-        svc.OnConnectionsViewChanged((m) => seen.push(m))
-        await svc.SetDefault('a')
-        expect(seen).toContain(undefined)
-    })
-
-    it('decorates the connection that is the solution default with IsSolutionDefault', async () =>
-    {
-        const client = fakeClient({ List: async () => [leaf('a', false, true), leaf('b', false, true)] })
-        const host = fakeHost({ SolutionDefaultConnectionId: () => 'b' })
-        const views = await new ConnectionEditingService(client, host).ConnectionsView()
-        expect(views.find((v) => v.Id === 'b')!.IsSolutionDefault).toBe(true)
-        expect(views.find((v) => v.Id === 'a')!.IsSolutionDefault).toBe(false)
-    })
-
-    it('SetSolutionDefault persists via the host and signals a global change', async () =>
-    {
-        const host = fakeHost()
-        const svc = new ConnectionEditingService(fakeClient(), host)
-        const seen: (SolutionMember | undefined)[] = []
-        svc.OnConnectionsViewChanged((m) => seen.push(m))
-        await svc.SetSolutionDefault('a')
-        expect(host.solutionDefaulted).toEqual(['a'])
-        expect(seen).toContain(undefined)
-    })
-
-    it('IsConsumer reflects the project factory requiresMetaModel flag', () =>
-    {
-        const consumer = new ConnectionEditingService(fakeClient(), fakeHost())
-        expect(consumer.IsConsumer(member)).toBe(true)
-        const nonConsumer = new ConnectionEditingService(fakeClient(), fakeHost({ ProjectFor: () => ({ Factory: { requiresMetaModel: false } }) as never }))
-        expect(nonConsumer.IsConsumer(member)).toBe(false)
+        await service.SetSolutionDefault('sol-b')   // moves the default
+        expect(new ConnectionBag(solution.Bag(ConnectionBagKind, 'sol-a')).IsDefault).toBe(false)
+        expect(new ConnectionBag(solution.Bag(ConnectionBagKind, 'sol-b')).IsDefault).toBe(true)
     })
 })

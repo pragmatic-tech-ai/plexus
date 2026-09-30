@@ -20,14 +20,26 @@ export enum ConnectionHealth
     Unreachable,    // the last on-demand Test failed
 }
 
+// Which hierarchy scope a connection is defined at. Global connections are the app-wide inventory
+// (the secret/registry authority); Solution/Project connections are property bags overlaid by the
+// active solution or one of its projects. Mirrors todl's BagScope, kept local so the view seam does
+// not depend on todl's enum.
+export enum ConnectionScope
+{
+    Global,
+    Solution,
+    Project,
+}
+
 // The decorated per-connection row the tree renders (never carries a token).
 export interface ConnectionLeafView
 {
     readonly Id: string
     readonly DisplayName: string
     readonly RegistryType: string
-    readonly IsDefault: boolean            // the GLOBAL default (connections.json)
-    readonly IsSolutionDefault: boolean    // the active solution's default (solution.json)
+    readonly Scope: ConnectionScope        // which scope the connection is defined at
+    readonly IsDefault: boolean            // the GLOBAL default (the connection inventory's default)
+    readonly IsSolutionDefault: boolean    // the active solution's default (solution-scope IsDefault)
     readonly HasToken: boolean
     readonly Health: ConnectionHealth
     readonly Message?: string   // the Test error, when Unreachable

@@ -100,6 +100,13 @@ const todlShimPlugin: Plugin = {
             // and record-property-bag (imports only todl-runtime) are both mural-free.
             `export { BagAddress, BagScope, ProjectStore } from ${p('solution-services/property-bags/bag-address.js')}`,
             `export { RecordPropertyBag } from ${p('solution-services/property-bags/record-property-bag.js')}`,
+            `export { BagCatalog } from ${p('solution-services/property-bags/bag-catalog.js')}`,
+            `export { SolutionBagPersister } from ${p('solution-services/property-bags/solution-bag-persister.js')}`,
+            `export { ProjectSharedBagPersister, ProjectLocalBagPersister } from ${p('solution-services/property-bags/project-bag-persisters.js')}`,
+            // connection-bag / connection-resolution import mural/framework VALUES (SettingDefinition,
+            // SettingKind) — the mural dist alias resolves + externalizes them (native load, cycle intact).
+            `export { ConnectionBag, ConnectionBagKind, TokenSource } from ${p('solution-services/property-bags/connection-bag.js')}`,
+            `export { ConnectionResolution, ConnectionPurpose, ConnectionSelectionKind } from ${p('solution-services/property-bags/connection-resolution.js')}`,
             `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
             `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,
             `export { ProjectContentProvider } from ${p('solution-services/project-services/content/project-content-provider.js')}`,
