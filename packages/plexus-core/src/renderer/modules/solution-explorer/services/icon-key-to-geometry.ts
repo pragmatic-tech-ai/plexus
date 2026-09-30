@@ -2,6 +2,7 @@ import { Application, type ValueConverter } from '@pragmatic-tech-ai/mural/runti
 import { NodeKey } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { type ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import { iconKeyForKind } from '../../../projects/project-node-icon.js'
+import { ReferenceNodeKey } from './reference-node-key.js'
 
 // The hierarchy row's leading glyph key for a HierarchyNode.IconKey. Content-node keys
 // (folder/file/diagram/todl) reuse the existing project-node glyph mapping; the coarse
@@ -11,14 +12,21 @@ import { iconKeyForKind } from '../../../projects/project-node-icon.js'
 export class IconKeyGlyphs
 {
     private static readonly FolderGlyph = 'Folder'
+    // Reference leaves reuse the file glyph as a P5a placeholder — a dedicated
+    // reference glyph (and a live/published/unresolved split) is a theme concern.
+    private static readonly ReferenceLeafGlyph = 'File'
 
     public static For(iconKey: string): string
     {
+        // Reference leaves carry a resolution suffix (…-live / -published / -unresolved).
+        if (iconKey.startsWith(ReferenceNodeKey.Leaf)) return IconKeyGlyphs.ReferenceLeafGlyph
         switch (iconKey)
         {
-            case NodeKey.Solution: return IconKeyGlyphs.FolderGlyph
-            case NodeKey.Project:  return IconKeyGlyphs.FolderGlyph
-            default:               return iconKeyForKind(iconKey as ProjectNodeKind)
+            case NodeKey.Solution:      return IconKeyGlyphs.FolderGlyph
+            case NodeKey.Project:       return IconKeyGlyphs.FolderGlyph
+            case NodeKey.References:     return IconKeyGlyphs.FolderGlyph
+            case ReferenceNodeKey.Group: return IconKeyGlyphs.FolderGlyph
+            default:                    return iconKeyForKind(iconKey as ProjectNodeKind)
         }
     }
 }

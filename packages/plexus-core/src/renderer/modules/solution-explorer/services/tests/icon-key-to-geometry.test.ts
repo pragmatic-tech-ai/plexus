@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { NodeKey } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { ContentNodeKey } from '@pragmatic-tech-ai/todl'
 import { IconKeyGlyphs } from '../icon-key-to-geometry.js'
+import { ReferenceNodeKey } from '../reference-node-key.js'
 
 describe('IconKeyGlyphs.For', () =>
 {
@@ -21,5 +22,19 @@ describe('IconKeyGlyphs.For', () =>
     it('a todl file gets its own glyph, distinct from a plain file', () =>
     {
         expect(IconKeyGlyphs.For(ContentNodeKey.Todl)).not.toEqual(IconKeyGlyphs.For(ContentNodeKey.File))
+    })
+
+    it('the References branch keys map to the folder glyph', () =>
+    {
+        expect(IconKeyGlyphs.For(NodeKey.References)).toBe('Folder')
+        expect(IconKeyGlyphs.For(ReferenceNodeKey.Group)).toBe('Folder')
+    })
+
+    it('every reference leaf resolution variant maps to a non-empty glyph', () =>
+    {
+        for (const suffix of ['-live', '-published', '-unresolved'])
+        {
+            expect(IconKeyGlyphs.For(ReferenceNodeKey.Leaf + suffix).length).toBeGreaterThan(0)
+        }
     })
 })
