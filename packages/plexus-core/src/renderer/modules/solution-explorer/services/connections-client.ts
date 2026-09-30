@@ -6,6 +6,7 @@
  * browser-safe todl subpath — no fs/network/secrets reach the renderer, and a token is
  * never returned (only `ConnectionView.HasToken`).
  */
+import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
 
 export interface ConnectionTestResult
@@ -26,3 +27,7 @@ export interface IConnectionsClient
     Test(id: string): Promise<ConnectionTestResult>
     EnvVars(): Promise<readonly string[]>
 }
+
+// DI token the connection consumers (ConnectionEditingService, via ProjectExplorerService)
+// resolve the client under; apps/plexus registers a concrete impl over window.api.connections.
+export const ConnectionsClientKey = new ServiceKey<IConnectionsClient>('IConnectionsClient')

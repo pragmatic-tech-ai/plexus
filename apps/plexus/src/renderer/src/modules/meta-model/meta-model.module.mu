@@ -15,7 +15,7 @@
 
 import MetaModelsService from "./services/meta-models-service.js"
 import TodlDocumentFactory from "./services/todl-document-factory.js"
-import PlexusPackageStore from "../../services/projects/storage-service-backends.js"
+import ConnectionAwarePlexusPackageStore from "../../services/projects/storage-service-backends.js"
 
 shell module MetaModelModule [ Name = "Meta-model" ] {
     .services: {
@@ -23,10 +23,12 @@ shell module MetaModelModule [ Name = "Meta-model" ] {
         TodlDocumentFactory
         // The producer seam the relocated (todl) meta-model + library factories
         // resolve at publish time — the single StorageService-backed package store,
-        // registered here (app-global DI) under todl's PackageStoreKey. Presentation
-        // baking is TODL's own: TodlProjectSystemModule registers the default baker
-        // under PresentationBakerKey and the composed build resolves it at bake time.
-        PlexusPackageStore
+        // registered here (app-global DI) under todl's PackageStoreKey. The
+        // connection-aware wrapper reads locally first and, on a base-resolution miss,
+        // fetches the ref from the consuming project's effective connection (P5b).
+        // Presentation baking is TODL's own: TodlProjectSystemModule registers the
+        // default baker under PresentationBakerKey and the composed build resolves it.
+        ConnectionAwarePlexusPackageStore
     }
 
     Capability [ Name = "Meta-models", Icon = @MetaModels, ServiceKey = MetaModelsService ]
