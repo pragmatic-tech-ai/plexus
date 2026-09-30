@@ -279,14 +279,22 @@ into `RemoveMember` or kept as the projected-only fast path.
 
 `ProjectsListingContributor` already contributes unresolved member rows with
 severity (`LoadFailed` → Error, `UnknownType` → Warning) and marks them
-non-expandable. For "Remove from Solution" to have subjects, such rows must
-remain visible rather than being silently auto-dropped. **Design requirement:**
-a member that is present in `ActiveSolution.Members` and shown in the tree must
-be user-removable via this action regardless of its `SolutionMemberStatus`. If
-implementation reveals that `ProjectExplorerService.dropUnresolvedMember`
-auto-removes a class of member the user should be able to see and remove, the
-executor rules on narrowing that auto-drop so those rows persist for the user
-— recorded as a ruling. (Flagged as an open question for review below.)
+non-expandable. Today, however, `ProjectExplorerService.onMemberAdded`
+**auto-drops** any member that settles unresolved (its `else` branch calls
+`dropUnresolvedMember`, which removes it from `ActiveSolution.Members`), so such
+a member never survives long enough to be seen or removed.
+
+**Decision (settled in review): stop auto-dropping.** `onMemberAdded` no longer
+removes a member that settles unresolved — it leaves it in
+`ActiveSolution.Members`, unprojected, so `ProjectsListingContributor` renders
+it as a non-expandable error/warning row that the user can then remove via
+"Remove from Solution". Concretely, the `dropUnresolvedMember(member)` call in
+`onMemberAdded`'s unresolved branch is removed; the member simply stays. The
+"removed while waiting" case (a member removed during `waitForResolution`)
+already has the member gone by the time the wait unblocks, so removing the drop
+call is a no-op there. `dropUnresolvedMember` is deleted if it has no remaining
+callers. This is the "errors for the Solution Hierarchy" half of P6b: broken
+members are shown, not silently discarded.
 
 ---
 
@@ -335,6 +343,8 @@ TDD throughout. Test homes follow house style (`tests/` next to source).
   removes membership.
 - `RemoveMember` on a non-projected (unresolved) member removes it from
   `Members` directly.
+- A member that settles unresolved is **not** auto-dropped — it stays in
+  `ActiveSolution.Members` (so it renders as an error/warning row).
 - The action label reads "Remove from Solution" and is present on member rows.
 
 ## Cross-repo / publish impact
@@ -356,13 +366,10 @@ TDD throughout. Test homes follow house style (`tests/` next to source).
 - A separate "unload" (keep-membership-but-close) concept — explicitly rejected.
 - Using `Reveal` to force async provider descent — the reactive path covers restore.
 
-## Open questions for review
+## Resolved in review
 
-1. **Auto-drop of unresolved members (Section 4).** Should P6b narrow
-   `ProjectExplorerService.dropUnresolvedMember` so unresolved members stay
-   visible and user-removable, or are the only unresolved rows that reach the
-   tree ones the auto-drop already leaves alone? This determines whether Unit D
-   includes a small change to the projection path or is purely additive.
-2. **Canonical-name separator.** `/` is proposed; confirm no keyed `Key`
-   value contains `/` in a way that would collide (provider segments are
-   treated as opaque and are the provider's own concern).
+1. **Auto-drop of unresolved members.** Decided: P6b stops the auto-drop so
+   unresolved members stay visible and user-removable (Section 4). Unit D
+   therefore includes the small `onMemberAdded` change.
+2. **Canonical-name separator.** Decided: `/`, with provider-contributed
+   segments treated as opaque (Section 1).
