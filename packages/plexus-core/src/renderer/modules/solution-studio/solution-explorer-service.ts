@@ -6,7 +6,7 @@ import {
 import { type IActivatable } from '@pragmatic-tech-ai/mural/framework';
 import {
     SolutionManagerService,
-    SolutionSettingsRegistry,
+    BagDefinitionRegistry,
     SolutionTreeVM,
     SolutionMemberNodeVM,
     type SolutionSettingBag,
@@ -87,7 +87,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     }
 
     private readonly manager: SolutionManagerService;
-    private readonly settings: SolutionSettingsRegistry;
+    private readonly settings: BagDefinitionRegistry;
     private readonly storageRegistry: StorageService;
     private readonly workspace: ISolutionWorkspaceHost;
     private tree: SolutionTreeVM | undefined; // hold a ref so its VMs aren't GC'd
@@ -96,7 +96,7 @@ export class SolutionExplorerService extends ServiceBase implements IActivatable
     {
         super(provider);
         this.manager = provider.getRequired(SolutionManagerService.Key);
-        this.settings = provider.getRequired(SolutionSettingsRegistry.Key);
+        this.settings = provider.getRequired(BagDefinitionRegistry.Key);
         this.storageRegistry = provider.getRequired(StorageService.Key);
         this.workspace = provider.getRequired(SolutionWorkspaceHostKey);
 

@@ -1,11 +1,11 @@
 import { SettingDefinition, SettingKind } from "@pragmatic-tech-ai/mural/framework";
-import { SettingBagDefinition, SolutionSettingsRegistry } from "@pragmatic-tech-ai/todl";
+import { SettingBagDefinition, BagDefinitionRegistry } from "@pragmatic-tech-ai/todl";
 import { CONNECTION_BAG_ID, CONNECTION_BAG_TITLE, CONNECTION_ID_KEY, CONNECTION_FIELDS } from "./connection-fields.js";
 
 // The solution's cross-project CONNECTION assignment: which registry connection
 // its members compile / compose / publish against. Stored as a single
 // connection-ID reference (the connection's URL/scope/token live in the
-// Connections manager). Persisted in solution.json via the SolutionSettingsRegistry.
+// Connections manager). Persisted in solution.json via the BagDefinitionRegistry.
 export class ConnectionBag
 {
   static readonly Id = CONNECTION_BAG_ID;
@@ -20,7 +20,7 @@ export class ConnectionBag
     );
   }
 
-  static contribute(registry: SolutionSettingsRegistry): void
+  static contribute(registry: BagDefinitionRegistry): void
   {
     registry.Contribute(ConnectionBag.definition());
   }

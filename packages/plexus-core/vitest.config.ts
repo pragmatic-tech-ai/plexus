@@ -96,6 +96,10 @@ const todlShimPlugin: Plugin = {
             // choices in solution.json via a `connections` setting bag. SettingBagDefinition
             // imports only a TYPE from mural (SettingDefinition) — mural-free at runtime.
             `export { SettingBagDefinition } from ${p('solution-services/solution-manager/engine/setting-bag-definition.js')}`,
+            // P6a (property bags): the scope-based bag subsystem. bag-address (pure enums + class)
+            // and record-property-bag (imports only todl-runtime) are both mural-free.
+            `export { BagAddress, BagScope, ProjectStore } from ${p('solution-services/property-bags/bag-address.js')}`,
+            `export { RecordPropertyBag } from ${p('solution-services/property-bags/record-property-bag.js')}`,
             `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
             `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,
             `export { ProjectContentProvider } from ${p('solution-services/project-services/content/project-content-provider.js')}`,
