@@ -84,6 +84,8 @@ import { planNodeMoves } from '../../../projects/node-move.js'
 import { ConfirmDialogModel } from '../../../dialogs/confirm-dialog-model.js'
 import { DocumentCloseGuard } from '../../../documents/document-close-guard.js'
 import { ManageReferencesDialogModel } from '../../../projects/manage-references-dialog-model.js'
+import { ReferenceEditingService } from './reference-editing-service.js'
+import type { IReferenceView } from '../../solution-explorer/services/reference-view.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
 import { PackagePublisher } from '../../../projects/package-publisher.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
@@ -186,6 +188,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // "── Solution member sync ──" section below, which is the sole mutator of
     // OpenProjects. Builds a member into an OpenProject (Task 3).
     private readonly memberProjection: MemberProjection
+    // The References-branch read/mutate/signal seam (Solution Explorer's References node),
+    // sharing this service's manifest + resolver access and lifecycle bus.
+    private readonly references: ReferenceEditingService
     // The live OpenProject for each currently-projected member.
     private readonly projected = new Map<SolutionMember, OpenProject>()
     // A member observed still unresolved (SolutionManagerService.OpenProject
@@ -230,7 +235,15 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         this._newProjectCommand = new RelayCommand(() => void this.newProject())
         this._treeKeyCommand = new RelayCommand((arg) => this.handleTreeKeyGlobal(arg as KeyEventArgs))
         this.memberProjection = new MemberProjection(provider)
+        this.references = new ReferenceEditingService(provider, {
+            ProjectFor: (m) => this.projected.get(m),
+            SetStatus: (s) => { this.Status = s },
+            RaiseReferencesChanged: (s) => this.raiseLifecycleEvent(ProjectEventKind.ReferencesChanged, s),
+        })
     }
+
+    // The Solution Explorer's References branch reads and mutates through this seam.
+    public get References(): IReferenceView { return this.references }
 
     // Begin projecting the active solution's Members into the tree. Kept OUT of the
     // constructor on purpose: this service is a mounted Capability, so its view (and
@@ -1603,13 +1616,14 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const result = await this.dialogs.Show<BaseBindings>({ Title: 'Manage References', Content: vm, Width: 480 })
         if (result === undefined) return
 
-        // Apply the edited bindings, preserving every other manifest field.
-        manifest.metaModels = [...(result.metaModels ?? [])]
-        if (offersLibraries) manifest.libraries = [...(result.libraries ?? [])]
-        await op.Storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify(manifest, null, 2))
-        await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
-        this.Status = `Updated references for ${op.Name}.`
-        await this.raiseLifecycleEvent(ProjectEventKind.ReferencesChanged, op.Storage)
+        // Apply the edited bindings through the shared write tail (write preserving other
+        // fields → RefreshBases → status → ReferencesChanged → repaint the tree), so the
+        // modal and the inline tree edits are one path.
+        await this.references.WriteReferencesFor(op, (b) =>
+        {
+            b.metaModels = [...(result.metaModels ?? [])]
+            if (offersLibraries) b.libraries = [...(result.libraries ?? [])]
+        })
     }
 
     // Announce a project lifecycle moment on TODL's ProjectEvents bus (registered by

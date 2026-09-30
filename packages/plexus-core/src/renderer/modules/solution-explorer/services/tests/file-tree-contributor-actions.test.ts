@@ -6,8 +6,25 @@ import {
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { Solution, SolutionMemberStatus, type SolutionMember, type ProjectContentNode, type ProjectFileFormat } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from '../file-tree-contributor.js'
+import { ProjectBranchesProvider } from '../project-branches-provider.js'
+import type { IReferenceView } from '../reference-view.js'
 import type { IContentMutations } from '../../../project-explorer/services/content-mutations.js'
 import type { ProjectContentProvider } from '@pragmatic-tech-ai/todl'
+
+// A no-op reference view — enough for ReferencesProvider construction (it subscribes on
+// OnReferencesViewChanged) and the composite wiring; behavior is exercised elsewhere.
+function fakeReferenceView(): IReferenceView
+{
+    return {
+        ReferencesViewFor: async () => undefined,
+        AvailableReferencesFor: async () => [],
+        AvailableVersionsFor: async () => [],
+        AddMemberReference: async () => {},
+        RemoveMemberReference: async () => {},
+        SetMemberReferenceVersion: async () => {},
+        OnReferencesViewChanged: () => ({ dispose() {} }),
+    }
+}
 
 const tick = () => new Promise((r) => setTimeout(r, 10))
 
@@ -85,6 +102,16 @@ describe('FileTreeContributor actions + façade', () =>
         del.Invoke.Execute()
         await Promise.resolve()
         expect(mutations.deleted).toEqual([[member, 'a.todl'], [member, 'dir']])
+    })
+
+    it('Contribute returns a cached ProjectBranchesProvider once a reference view is set', async () =>
+    {
+        const { contributor, member } = await fileHarness()
+        contributor.SetReferenceView(fakeReferenceView())
+        const first = (contributor.Contribute(memberNode(member)) as ProviderContribution).Provider
+        const again = (contributor.Contribute(memberNode(member)) as ProviderContribution).Provider
+        expect(first).toBeInstanceOf(ProjectBranchesProvider)
+        expect(again).toBe(first)   // identity cached (the model's attachProvider guards by identity)
     })
 
     it('CanDrop delegates to the member provider CanAccept', async () =>

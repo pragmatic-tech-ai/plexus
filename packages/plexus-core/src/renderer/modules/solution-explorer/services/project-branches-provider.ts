@@ -13,8 +13,8 @@ import type { ReferencesProvider } from './references-provider.js'
 // nesting needs — no framework change.
 export class ProjectBranchesProvider implements IHierarchyProvider
 {
-    public readonly ProviderId = ProjectBranchesProvider.Id
     private static readonly Id = 'plexus.project-branches'
+    public readonly ProviderId = ProjectBranchesProvider.Id
 
     private rootId: HierarchyItemId | undefined
 

@@ -15,8 +15,8 @@ import { ReferenceResolution, type IReferenceView, type MemberReferencesView, ty
 // ChildUpdated (leaf id kept, keyed by kind@id), an add/remove a ChildAdded/ChildRemoved.
 export class ReferencesProvider implements IHierarchyProvider
 {
-    public readonly ProviderId = ReferencesProvider.Id
     private static readonly Id = 'plexus.references'
+    public readonly ProviderId = ReferencesProvider.Id
     private static readonly RootCaption = 'References'
     private static readonly MetaModelsGroupLabel = 'Meta-models'
     private static readonly LibrariesGroupLabel = 'Libraries'

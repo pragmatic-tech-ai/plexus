@@ -5,13 +5,16 @@ import {
     type HierarchyHost, type HierarchyAction, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    SolutionManagerService, type Solution, type SolutionMember, type ProjectContentNode,
+    SolutionManagerService, ProjectType, type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
 } from '@pragmatic-tech-ai/todl'
+import type { BaseRef } from '../../../projects/base-binding.js'
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
 import { ProjectsListingContributor } from './projects-listing-contributor.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { ProjectActionsContributor } from './project-actions-contributor.js'
+import { ReferenceActionsContributor } from './reference-actions-contributor.js'
+import { ReferenceNodeKey } from './reference-node-key.js'
 
 // The Solution Explorer capability: owns one HierarchyModel per open solution, follows
 // ActiveSolution, seeds the root, registers the two contributors imperatively (they close
@@ -33,6 +36,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private offFiles: (() => void) | undefined
     private offFileActions: (() => void) | undefined
     private offProjectActions: (() => void) | undefined
+    private offReferenceActions: (() => void) | undefined
     private activeOff: { dispose(): void } | undefined
 
     constructor(private readonly provider: IServiceProvider)
@@ -88,15 +92,23 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const actionRegistry = this.provider.getRequired(HierarchyActionContributorRegistry.Key)
         this.actionRegistry = actionRegistry
         this.files.SetMutations(this.explorer)
+        this.files.SetReferenceView(this.explorer.References)
         this.offFileActions = actionRegistry.RegisterInstance(this.files)
         this.offProjectActions = actionRegistry.RegisterInstance(new ProjectActionsContributor(this.explorer))
+        this.offReferenceActions = actionRegistry.RegisterInstance(new ReferenceActionsContributor(this.explorer.References))
         this.setTree(new HierarchyTreeVM(this.model, root, this))
     }
 
     // ── HierarchyHost ────────────────────────────────────────────────────────
     public Activate(vm: HierarchyItemVM): void { void this.onActivate(vm) }
     public CommitRename(vm: HierarchyItemVM, newName: string): void { void this.files?.RenameNode(vm, newName) }
-    public Delete(vm: HierarchyItemVM): void { void this.files?.DeleteFrom(vm, this._tree?.Selection.ToArray() ?? []) }
+    // Delete dispatches by node family: a reference leaf removes references (selection-aware,
+    // reversible manifest edit — no confirm); every other row is a file delete as before.
+    public Delete(vm: HierarchyItemVM): void
+    {
+        if (vm.Key === ReferenceNodeKey.Leaf) void this.removeReferenceSelection(vm)
+        else void this.files?.DeleteFrom(vm, this._tree?.Selection.ToArray() ?? [])
+    }
     public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
     {
         if (this.actionRegistry === undefined) return []
@@ -108,6 +120,22 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     public CanDrop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): boolean { return this.files?.CanDrop(target, dragged) ?? false }
     public Drop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): void { this.files?.Drop(target, dragged) }
     public OnItemRemoved(vm: HierarchyItemVM): void { this._tree?.Deselect(vm) }
+
+    // Remove the reference leaf (or, when it is part of the live multi-selection, every
+    // selected reference leaf) via the reference view — the key-Delete peer of the menu Remove.
+    private async removeReferenceSelection(anchor: HierarchyItemVM): Promise<void>
+    {
+        const member = FileTreeContributor.MemberOf(anchor)
+        if (member === undefined) return
+        const view = this.explorer.References
+        const selection = (this._tree?.Selection.ToArray() ?? []).filter((vm) => vm.Key === ReferenceNodeKey.Leaf)
+        const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
+        for (const vm of targets)
+        {
+            const leaf = vm.Data as { kind: ProjectType; ref: BaseRef }
+            await view.RemoveMemberReference(member, leaf.kind, leaf.ref)
+        }
+    }
 
     private async onActivate(vm: HierarchyItemVM): Promise<void>
     {
@@ -127,6 +155,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.offFiles?.()
         this.offFileActions?.()
         this.offProjectActions?.()
+        this.offReferenceActions?.()
         this.listing?.dispose()
         this.files?.dispose()
         this.model?.dispose()   // drop the model's registry subscription (else it leaks + re-realizes on swap)
@@ -134,6 +163,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.offFiles = undefined
         this.offFileActions = undefined
         this.offProjectActions = undefined
+        this.offReferenceActions = undefined
         this.listing = undefined
         this.files = undefined
         this.actionRegistry = undefined

@@ -8,6 +8,9 @@ import {
     SolutionMember, SolutionMemberStatus, type ProjectContentNode,
 } from '@pragmatic-tech-ai/todl'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
+import { ReferencesProvider } from './references-provider.js'
+import { ProjectBranchesProvider } from './project-branches-provider.js'
+import type { IReferenceView } from './reference-view.js'
 
 // Type guard (the `is<X>` free-function house-style exception): a tree row whose Data is
 // a solution member, used by MemberOf to find the owning member climbing from any node.
@@ -39,9 +42,15 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
 
     private readonly stores = new Map<SolutionMember, ProjectContentStore>()
     private readonly providers = new Map<SolutionMember, ProjectContentProvider>()
+    // When a reference view is set, each resolved member row is contributed as a
+    // ProjectBranchesProvider (References + files) instead of the bare content provider;
+    // cached per member so a repeated Contribute returns the same instance (identity guard).
+    private readonly branches = new Map<SolutionMember, ProjectBranchesProvider>()
     private mutations: IContentMutations | undefined
+    private referenceView: IReferenceView | undefined
 
     public SetMutations(m: IContentMutations): void { this.mutations = m }
+    public SetReferenceView(view: IReferenceView): void { this.referenceView = view }
 
     // The base file actions for a content/project row, closing over the resolved member +
     // the mutation façade. New Folder / Add New ▸ format / Import… / Rename / Delete; the
@@ -149,10 +158,19 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
             provider = new ProjectContentProvider(store)
             this.providers.set(member, provider)
         }
-        return new ProviderContribution(provider)
+        // No reference view wired (e.g. isolated file-tree tests) → the bare content
+        // provider, unchanged. Otherwise wrap it in a composite that leads with References.
+        if (this.referenceView === undefined) return new ProviderContribution(provider)
+        let composite = this.branches.get(member)
+        if (composite === undefined)
+        {
+            composite = new ProjectBranchesProvider(provider, new ReferencesProvider(member, this.referenceView))
+            this.branches.set(member, composite)
+        }
+        return new ProviderContribution(composite)
     }
 
-    // Release one member's store + provider when that member row is pruned.
+    // Release one member's store + provider (and any composite) when its row is pruned.
     public Release(member: SolutionMember): void
     {
         const store = this.stores.get(member)
@@ -161,13 +179,17 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
             store.dispose()
             this.stores.delete(member)
         }
+        this.branches.get(member)?.dispose()
+        this.branches.delete(member)
         this.providers.delete(member)
     }
 
     public dispose(): void
     {
         for (const store of this.stores.values()) store.dispose()
+        for (const composite of this.branches.values()) composite.dispose()
         this.stores.clear()
         this.providers.clear()
+        this.branches.clear()
     }
 }

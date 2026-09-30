@@ -108,10 +108,12 @@ export class ReferenceEditingService implements IReferenceView
             list.map((r) => (r.id === id ? { id, version } : r))))
     }
 
-    // The single write tail — used by the three mutators and by the modal's confirm.
-    public async WriteReferences(member: SolutionMember, mutate: (bindings: BaseBindings) => void): Promise<void>
+    // The single write tail for an already-resolved OpenProject — used by the modal's
+    // confirm so it shares the mutators' path (fires the view-changed signal so the tree
+    // repaints; affected is undefined → every References provider re-fetches from disk).
+    public async WriteReferencesFor(op: OpenProject, mutate: (bindings: BaseBindings) => void): Promise<void>
     {
-        await this.writeReferences(member, mutate)
+        await this.writeForOp(op, mutate, undefined)
     }
 
     public dispose(): void { this.staleOff?.dispose() }
@@ -120,6 +122,11 @@ export class ReferenceEditingService implements IReferenceView
     {
         const op = this.host.ProjectFor(member)
         if (op === undefined) return
+        await this.writeForOp(op, mutate, member)
+    }
+
+    private async writeForOp(op: OpenProject, mutate: (bindings: BaseBindings) => void, affected: SolutionMember | undefined): Promise<void>
+    {
         const manifest = await this.readManifest(op.Storage)
         const offersLibraries = op.Factory.offersLibraries === true
         const bindings: BaseBindings = { metaModels: manifest.metaModels, libraries: manifest.libraries }
@@ -130,7 +137,7 @@ export class ReferenceEditingService implements IReferenceView
         await this.provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
         this.host.SetStatus(ReferenceEditingService.UpdatedStatusPrefix + op.Name + '.')
         await this.host.RaiseReferencesChanged(op.Storage)
-        this.fire(member)
+        this.fire(affected)
     }
 
     private mutateList(bindings: BaseBindings, kind: ProjectType, fn: (list: readonly BaseRef[]) => readonly BaseRef[]): void
