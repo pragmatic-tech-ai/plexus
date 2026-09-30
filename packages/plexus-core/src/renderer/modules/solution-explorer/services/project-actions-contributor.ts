@@ -4,12 +4,12 @@ import { FileTreeContributor } from './file-tree-contributor.js'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 
 // Contributes the project-lifecycle context-menu actions for a member (project) row —
-// Close / Publish / Bump Version ▸ / Set Version… / Manage References… / Refresh Bases /
-// Update Agent Metadata — routed to the IContentMutations façade (the re-typed
-// ProjectExplorerService). Producer-only actions are canExecute-gated.
+// Remove from Solution / Publish / Bump Version ▸ / Set Version… / Manage References… /
+// Refresh Bases / Update Agent Metadata — routed to the IContentMutations façade (the
+// re-typed ProjectExplorerService). Producer-only actions are canExecute-gated.
 export class ProjectActionsContributor implements IHierarchyActionContributor
 {
-    private static readonly CloseLabel = 'Close Project'
+    private static readonly RemoveLabel = 'Remove from Solution'
     private static readonly PublishLabel = 'Publish'
     private static readonly BumpVersionLabel = 'Bump Version'
     private static readonly MajorLabel = 'Major'
@@ -39,7 +39,7 @@ export class ProjectActionsContributor implements IHierarchyActionContributor
         bump.Children.Add(HierarchyAction.Command(ProjectActionsContributor.PatchLabel, () => void m.BumpMemberVersion(member, VersionPart.Patch), { canExecute: versioned }))
 
         return [
-            HierarchyAction.Command(ProjectActionsContributor.CloseLabel, () => void m.CloseMember(member)),
+            HierarchyAction.Command(ProjectActionsContributor.RemoveLabel, () => void m.RemoveMember(member)),
             HierarchyAction.Separator(),
             HierarchyAction.Command(ProjectActionsContributor.PublishLabel, () => void m.PublishMember(member), { canExecute: versioned }),
             bump,

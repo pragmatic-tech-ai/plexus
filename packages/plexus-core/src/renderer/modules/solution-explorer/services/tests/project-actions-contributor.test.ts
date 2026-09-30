@@ -4,10 +4,11 @@ import { Solution, type SolutionMember, type ProjectFileFormat } from '@pragmati
 import { ProjectActionsContributor } from '../project-actions-contributor.js'
 import type { IContentMutations } from '../../../project-explorer/services/content-mutations.js'
 
-function fakeMutations(over: Partial<IContentMutations> = {}): IContentMutations & { closed: SolutionMember[] }
+function fakeMutations(over: Partial<IContentMutations> = {}): IContentMutations & { closed: SolutionMember[]; removed: SolutionMember[] }
 {
     const rec = {
         closed: [] as SolutionMember[],
+        removed: [] as SolutionMember[],
         RenameMemberFile: async () => {}, DeleteMemberFiles: async () => {},
         NewFileForMember: async () => {}, NewFolderForMember: async () => {},
         ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
@@ -16,11 +17,12 @@ function fakeMutations(over: Partial<IContentMutations> = {}): IContentMutations
         ManageMemberReferences: async () => {}, RefreshMemberBases: () => {},
         UpdateMemberAgentMetadata: async () => {},
         CloseMember: async (m: SolutionMember) => { rec.closed.push(m) },
+        RemoveMember: async (m: SolutionMember) => { rec.removed.push(m) },
         FormatsFor: (): readonly ProjectFileFormat[] => [], IsVersionedMember: () => false,
         CanRefreshBasesMember: () => false, SupportsScaffoldMember: () => false,
         ...over,
     }
-    return rec as IContentMutations & { closed: SolutionMember[] }
+    return rec as IContentMutations & { closed: SolutionMember[]; removed: SolutionMember[] }
 }
 
 function memberRowVm(member: SolutionMember): HierarchyItemVM
@@ -51,11 +53,11 @@ describe('ProjectActionsContributor', () =>
         expect(plain.ActionsFor(ctxFor(vm)).find((a) => a.Label === 'Publish')!.Invoke.CanExecute()).toBe(false)
     })
 
-    it('Close routes to mutations.CloseMember with the row member', () =>
+    it('Remove from Solution routes to mutations.RemoveMember with the row member', () =>
     {
         const member = someMember()
         const m = fakeMutations()
-        new ProjectActionsContributor(m).ActionsFor(ctxFor(memberRowVm(member))).find((a) => a.Label === 'Close Project')!.Invoke.Execute()
-        expect(m.closed.at(-1)).toBe(member)
+        new ProjectActionsContributor(m).ActionsFor(ctxFor(memberRowVm(member))).find((a) => a.Label === 'Remove from Solution')!.Invoke.Execute()
+        expect(m.removed.at(-1)).toBe(member)
     })
 })
