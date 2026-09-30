@@ -173,20 +173,29 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         // the active-connection row (P5b) then the References node (P5a). A non-consumer (e.g. a
         // meta-model), or a context with neither view wired (isolated file-tree tests), gets the
         // bare content provider — no leading rows. The composite is cached per member (identity
-        // guard for attachProvider).
-        const leading = this.leadingBranchesFor(member)
-        if (leading.length === 0) return new ProviderContribution(provider)
+        // guard for attachProvider). The branch objects subscribe to their views in their ctors,
+        // so they are built ONLY on a cache miss — deciding the need from IsConsumer here (a pure
+        // check) avoids constructing-then-discarding leaking subscriptions on every re-Contribute.
+        if (!this.wantsLeadingBranches(member)) return new ProviderContribution(provider)
         let composite = this.branches.get(member)
         if (composite === undefined)
         {
-            composite = new ProjectBranchesProvider(provider, leading)
+            composite = new ProjectBranchesProvider(provider, this.leadingBranchesFor(member))
             this.branches.set(member, composite)
         }
         return new ProviderContribution(composite)
     }
 
+    // Whether a member leads with per-project branches — a pure predicate (no construction/
+    // subscription), so it is safe to call on every Contribute including cache hits.
+    private wantsLeadingBranches(member: SolutionMember): boolean
+    {
+        return (this.connectionView?.IsConsumer(member) ?? false) || (this.referenceView?.IsConsumer(member) ?? false)
+    }
+
     // The ordered leading branches for a consumer member: active-connection row then References.
-    // Empty for a non-consumer or when the relevant view is not wired.
+    // Empty for a non-consumer or when the relevant view is not wired. Constructs (and thereby
+    // subscribes) the branches, so call it ONLY on a cache miss (see Contribute).
     private leadingBranchesFor(member: SolutionMember): LeadingBranch[]
     {
         const leading: LeadingBranch[] = []
