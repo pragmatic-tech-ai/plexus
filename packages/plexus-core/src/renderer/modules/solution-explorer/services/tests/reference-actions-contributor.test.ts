@@ -10,18 +10,19 @@ const tick = () => new Promise((r) => setTimeout(r, 10))
 const member = new SolutionMember({ path: 'p', type: 'architecture' })
 
 // A fake IReferenceView recording mutator calls, with stub read methods.
-function fakeView(overrides: Partial<IReferenceView> = {}): IReferenceView & { removed: [ProjectType, string][]; added: [ProjectType, string][]; versioned: [ProjectType, string, string][] }
+function fakeView(overrides: Partial<IReferenceView> = {}): IReferenceView & { removed: [SolutionMember, ProjectType, string][]; added: [ProjectType, string][]; versioned: [ProjectType, string, string][] }
 {
-    const removed: [ProjectType, string][] = []
+    const removed: [SolutionMember, ProjectType, string][] = []
     const added: [ProjectType, string][] = []
     const versioned: [ProjectType, string, string][] = []
     const base = {
         removed, added, versioned,
+        IsConsumer: () => true,
         ReferencesViewFor: async () => undefined,
         AvailableReferencesFor: async (): Promise<readonly BaseRef[]> => [{ id: 'core', version: '1.0.0' }],
         AvailableVersionsFor: async (): Promise<readonly string[]> => ['1.1.0', '1.0.0'],
         AddMemberReference: async (_m: SolutionMember, k: ProjectType, r: BaseRef) => { added.push([k, r.id]) },
-        RemoveMemberReference: async (_m: SolutionMember, k: ProjectType, r: BaseRef) => { removed.push([k, r.id]) },
+        RemoveMemberReference: async (m: SolutionMember, k: ProjectType, r: BaseRef) => { removed.push([m, k, r.id]) },
         SetMemberReferenceVersion: async (_m: SolutionMember, k: ProjectType, id: string, v: string) => { versioned.push([k, id, v]) },
         OnReferencesViewChanged: () => ({ dispose() {} }),
     }
@@ -75,7 +76,22 @@ describe('ReferenceActionsContributor', () =>
         const remove = c.ActionsFor(ctx(a, [a, b])).find((x) => x.Label === 'Remove')!
         remove.Invoke.Execute()
         await tick()
-        expect(v.removed.sort()).toEqual([[ProjectType.Library, 'ui'], [ProjectType.MetaModel, 'core']])
+        expect(v.removed.map(([, k, id]) => [k, id]).sort()).toEqual([[ProjectType.Library, 'ui'], [ProjectType.MetaModel, 'core']])
+    })
+
+    it('Remove across a selection spanning two projects removes each ref from its OWN member', async () =>
+    {
+        const v = fakeView()
+        const c = new ReferenceActionsContributor(v)
+        const member2 = new SolutionMember({ path: 'q', type: 'architecture' })
+        const underMember2 = (leaf: HierarchyItemVM) => vm(leaf.Key, (leaf as unknown as { Data: unknown }).Data, vm(NodeKey.Project, member2))
+        const a = withMember(vm(ReferenceNodeKey.Leaf, { kind: ProjectType.MetaModel, ref: { id: 'core', version: '1.0.0' } }))
+        const b = underMember2(vm(ReferenceNodeKey.Leaf, { kind: ProjectType.MetaModel, ref: { id: 'shared', version: '2.0.0' } }))
+        const remove = c.ActionsFor(ctx(a, [a, b])).find((x) => x.Label === 'Remove')!
+        remove.Invoke.Execute()
+        await tick()
+        expect(v.removed).toContainEqual([member, ProjectType.MetaModel, 'core'])
+        expect(v.removed).toContainEqual([member2, ProjectType.MetaModel, 'shared'])   // its own member, not the anchor's
     })
 
     it('an empty Add submenu shows a single disabled item', async () =>

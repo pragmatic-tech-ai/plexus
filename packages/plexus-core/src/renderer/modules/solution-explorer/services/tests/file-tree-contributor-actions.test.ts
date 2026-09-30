@@ -13,9 +13,10 @@ import type { ProjectContentProvider } from '@pragmatic-tech-ai/todl'
 
 // A no-op reference view — enough for ReferencesProvider construction (it subscribes on
 // OnReferencesViewChanged) and the composite wiring; behavior is exercised elsewhere.
-function fakeReferenceView(): IReferenceView
+function fakeReferenceView(isConsumer = true): IReferenceView
 {
     return {
+        IsConsumer: () => isConsumer,
         ReferencesViewFor: async () => undefined,
         AvailableReferencesFor: async () => [],
         AvailableVersionsFor: async () => [],
@@ -104,6 +105,17 @@ describe('FileTreeContributor actions + façade', () =>
         expect(mutations.deleted).toEqual([[member, 'a.todl'], [member, 'dir']])
     })
 
+    it('Delete skips a non-content row (a References/group/leaf) caught in a multi-selection', async () =>
+    {
+        const { contributor, member, fileVm, memberRowVm, mutations } = await fileHarness()
+        // A synthetic reference row: its Data has no Path (unlike a content node). It must be
+        // dropped, never mapped to an undefined path passed into the delete.
+        const refNode = fakeVm({ references: true }, memberRowVm, undefined)
+        await contributor.DeleteFrom(fileVm, [fileVm, refNode])
+        await Promise.resolve()
+        expect(mutations.deleted).toEqual([[member, 'a.todl']])   // only the real file
+    })
+
     it('Contribute returns a cached ProjectBranchesProvider once a reference view is set', async () =>
     {
         const { contributor, member } = await fileHarness()
@@ -112,6 +124,14 @@ describe('FileTreeContributor actions + façade', () =>
         const again = (contributor.Contribute(memberNode(member)) as ProviderContribution).Provider
         expect(first).toBeInstanceOf(ProjectBranchesProvider)
         expect(again).toBe(first)   // identity cached (the model's attachProvider guards by identity)
+    })
+
+    it('a non-consumer member gets NO composite (no References node) — the bare content provider', async () =>
+    {
+        const { contributor, member } = await fileHarness()
+        contributor.SetReferenceView(fakeReferenceView(false))   // IsConsumer → false
+        const provider = (contributor.Contribute(memberNode(member)) as ProviderContribution).Provider
+        expect(provider).not.toBeInstanceOf(ProjectBranchesProvider)
     })
 
     it('CanDrop delegates to the member provider CanAccept', async () =>

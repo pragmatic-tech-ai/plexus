@@ -54,6 +54,12 @@ describe('ReferenceEditingService', () =>
         expect(await service.ReferencesViewFor(member)).toBeUndefined()
     })
 
+    it('IsConsumer follows the factory requiresMetaModel gate (drives whether a References node shows)', async () =>
+    {
+        expect((await harnessWith({ requiresMetaModel: true })).service.IsConsumer(member)).toBe(true)
+        expect((await harnessWith({ requiresMetaModel: false })).service.IsConsumer(member)).toBe(false)
+    })
+
     it('ReferencesViewFor omits Libraries and classifies resolution for a library project', async () =>
     {
         const { service, member } = await harnessWith({

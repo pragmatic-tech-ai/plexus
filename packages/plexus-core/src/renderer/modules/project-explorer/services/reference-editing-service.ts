@@ -49,6 +49,12 @@ export class ReferenceEditingService implements IReferenceView
         return { dispose: () => { this.handlers.delete(handler) } }
     }
 
+    public IsConsumer(member: SolutionMember): boolean
+    {
+        const op = this.host.ProjectFor(member)
+        return op !== undefined && op.Factory.requiresMetaModel === true
+    }
+
     public async ReferencesViewFor(member: SolutionMember): Promise<MemberReferencesView | undefined>
     {
         const op = this.host.ProjectFor(member)

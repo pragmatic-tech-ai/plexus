@@ -100,7 +100,13 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         const member = FileTreeContributor.MemberOf(anchor)
         if (member === undefined || this.mutations === undefined) return
         const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
-        const paths = targets.filter((vm) => vm.Data !== member).map((vm) => (vm.Data as ProjectContentNode).Path)
+        // Only content rows have a Path: exclude the member row and any non-content row
+        // (e.g. a References/group/leaf node caught in a mixed multi-selection) — mapping
+        // their Path would pass undefined into the delete.
+        const paths = targets
+            .filter((vm) => vm.Data !== member)
+            .map((vm) => (vm.Data as ProjectContentNode).Path)
+            .filter((p): p is string => typeof p === 'string')
         await this.mutations.DeleteMemberFiles(member, paths)
     }
 
@@ -158,9 +164,10 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
             provider = new ProjectContentProvider(store)
             this.providers.set(member, provider)
         }
-        // No reference view wired (e.g. isolated file-tree tests) → the bare content
-        // provider, unchanged. Otherwise wrap it in a composite that leads with References.
-        if (this.referenceView === undefined) return new ProviderContribution(provider)
+        // No reference view wired (e.g. isolated file-tree tests), or the member is not a
+        // references consumer (e.g. a meta-model project) → the bare content provider, so no
+        // References node is surfaced. Otherwise wrap it in a composite that leads with References.
+        if (this.referenceView === undefined || !this.referenceView.IsConsumer(member)) return new ProviderContribution(provider)
         let composite = this.branches.get(member)
         if (composite === undefined)
         {

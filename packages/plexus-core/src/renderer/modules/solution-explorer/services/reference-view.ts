@@ -39,6 +39,10 @@ export interface MemberReferencesView
 // References…" routes through the same tail, so it fires the signal too.
 export interface IReferenceView
 {
+    // Whether the member is a references consumer (architecture / library) — the
+    // synchronous gate the composite uses to decide whether to surface a References node
+    // at all. A non-consumer (e.g. a meta-model project) gets no References node.
+    IsConsumer(member: SolutionMember): boolean
     // The declared references for a member, annotated with resolution; undefined when the
     // member is not a references consumer (no References node is shown at all).
     ReferencesViewFor(member: SolutionMember): Promise<MemberReferencesView | undefined>

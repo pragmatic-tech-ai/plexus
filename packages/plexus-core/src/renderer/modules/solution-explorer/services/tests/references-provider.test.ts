@@ -20,6 +20,7 @@ function fakeView(view: MemberReferencesView | undefined): IReferenceView & { fi
     let handler: ((m: SolutionMember | undefined) => void) | undefined
     return {
         fire: (m) => handler?.(m),
+        IsConsumer: () => view !== undefined,
         ReferencesViewFor: async () => view,
         AvailableReferencesFor: async () => [],
         AvailableVersionsFor: async () => [],

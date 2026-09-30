@@ -107,6 +107,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     public Delete(vm: HierarchyItemVM): void
     {
         if (vm.Key === ReferenceNodeKey.Leaf) void this.removeReferenceSelection(vm)
+        else if (vm.Key === NodeKey.References || vm.Key === ReferenceNodeKey.Group) { /* synthetic rows — not deletable */ }
         else void this.files?.DeleteFrom(vm, this._tree?.Selection.ToArray() ?? [])
     }
     public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
@@ -125,13 +126,14 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // selected reference leaf) via the reference view — the key-Delete peer of the menu Remove.
     private async removeReferenceSelection(anchor: HierarchyItemVM): Promise<void>
     {
-        const member = FileTreeContributor.MemberOf(anchor)
-        if (member === undefined) return
         const view = this.explorer.References
         const selection = (this._tree?.Selection.ToArray() ?? []).filter((vm) => vm.Key === ReferenceNodeKey.Leaf)
         const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
         for (const vm of targets)
         {
+            // Each leaf removed from its own member's manifest (a selection may span projects).
+            const member = FileTreeContributor.MemberOf(vm)
+            if (member === undefined) continue
             const leaf = vm.Data as { kind: ProjectType; ref: BaseRef }
             await view.RemoveMemberReference(member, leaf.kind, leaf.ref)
         }

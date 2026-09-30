@@ -114,12 +114,14 @@ export class ReferenceActionsContributor implements IHierarchyActionContributor
     private async removeFrom(context: HierarchyActionContext): Promise<void>
     {
         const anchor = context.Anchor
-        const member = FileTreeContributor.MemberOf(anchor)
-        if (member === undefined) return
         const leaves = context.Selection.filter((vm) => vm.Key === ReferenceNodeKey.Leaf)
         const targets = leaves.includes(anchor) && leaves.length > 0 ? leaves : [anchor]
         for (const vm of targets)
         {
+            // Resolve each leaf's OWN member — a selection can span projects, and each
+            // reference must be removed from the manifest that declares it.
+            const member = FileTreeContributor.MemberOf(vm)
+            if (member === undefined) continue
             const leaf = vm.Data as LeafData
             await this.view.RemoveMemberReference(member, leaf.kind, leaf.ref)
         }
