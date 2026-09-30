@@ -1,5 +1,5 @@
 import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import { HierarchyAction, NodeKey, type IHierarchyActionContributor, type HierarchyItemVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { HierarchyAction, NodeKey, type IHierarchyActionContributor, type HierarchyActionContext } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { FileTreeContributor } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { SkillCatalog } from './skill-catalog.js'
@@ -18,9 +18,9 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyAct
 
     public readonly ActionKeys = [NodeKey.Project]
 
-    public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
+    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
     {
-        const member = FileTreeContributor.MemberOf(vm)
+        const member = FileTreeContributor.MemberOf(context.Anchor)
         if (member?.Storage === undefined) return []
         const run = HierarchyAction.Command(SkillActionContributor.RunLabel, () => {})
         void this.fill(run, member.Storage.Root, member)

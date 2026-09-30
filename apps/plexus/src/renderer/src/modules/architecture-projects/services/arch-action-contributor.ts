@@ -1,5 +1,5 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { HierarchyAction, type IHierarchyActionContributor, type HierarchyItemVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { HierarchyAction, type IHierarchyActionContributor, type HierarchyActionContext } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { FileTreeContributor } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { ContentNodeKey, type ProjectContentNode } from '@pragmatic-tech-ai/todl'
@@ -22,8 +22,9 @@ export class ArchActionContributor extends ServiceBase implements IHierarchyActi
 
     public readonly ActionKeys = [ContentNodeKey.Diagram]
 
-    public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
+    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
     {
+        const vm = context.Anchor
         const member = FileTreeContributor.MemberOf(vm)
         const node = vm.Data as ProjectContentNode | undefined
         if (member === undefined || node === undefined) return []

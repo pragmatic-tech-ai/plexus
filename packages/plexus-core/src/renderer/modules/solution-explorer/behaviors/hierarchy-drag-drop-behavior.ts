@@ -16,17 +16,17 @@ interface DropHost
     Drop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): void
 }
 
-// The `is<X>` type-guard free-function house-style exception.
-function asDropHost(dc: unknown): DropHost | undefined
-{
-    const h = dc as Partial<DropHost> | undefined
-    return h !== undefined && typeof h.CanDrop === 'function' && typeof h.Drop === 'function' ? (h as DropHost) : undefined
-}
-
 export class HierarchyDragDropBehavior extends Behavior
 {
     // The DataObject format key the dragged HierarchyItemVM set travels under.
     private static readonly ItemsFormat = 'plexus/hierarchy-items'
+
+    // Structural narrowing of a DataContext to the drop host (the capability service).
+    private static asDropHost(dc: unknown): DropHost | undefined
+    {
+        const h = dc as Partial<DropHost> | undefined
+        return h !== undefined && typeof h.CanDrop === 'function' && typeof h.Drop === 'function' ? (h as DropHost) : undefined
+    }
 
     private visual: Visual | undefined
     private readonly onOver = (a: unknown): void => this.over(a as DragEventArgs)
@@ -76,6 +76,9 @@ export class HierarchyDragDropBehavior extends Behavior
         const target = this.visual?.DataContext
         const host = this.hostOf(this.visual)
         if (dragged === undefined || !(target instanceof HierarchyItemVM) || host === undefined) return
+        // Re-assert CanDrop at drop time (defense-in-depth): the over() gate set the
+        // effect, but a data mutation must not rely on that alone if state changed.
+        if (!host.CanDrop(target, dragged)) return
         host.Drop(target, dragged)
         a.Handled = true
     }
@@ -87,7 +90,7 @@ export class HierarchyDragDropBehavior extends Behavior
         let cur: Visual | undefined = from
         while (cur !== undefined)
         {
-            const host = asDropHost(cur.DataContext)
+            const host = HierarchyDragDropBehavior.asDropHost(cur.DataContext)
             if (host !== undefined) return host
             cur = cur.GetVisualParent()
         }

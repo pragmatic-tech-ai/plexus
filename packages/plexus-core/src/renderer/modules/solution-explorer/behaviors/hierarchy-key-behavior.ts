@@ -8,7 +8,8 @@ import { Behavior, Key, type KeyEventArgs, Visual } from '@pragmatic-tech-ai/mur
 //   * F2      → Anchor.BeginEdit()
 //   * Return  → Anchor.CommitEdit()   (only while editing)
 //   * Escape  → Anchor.CancelEdit()   (only while editing)
-//   * Delete  → host.Delete(vm) for each selected row (not while a rename editor is open)
+//   * Delete  → host.Delete(anchor) ONCE (the host deletes the whole selection under one
+//              confirm); inert while a rename editor is open
 interface HierarchyEditable
 {
     BeginEdit(): void
@@ -23,24 +24,24 @@ interface HierarchyKeyTarget
     Delete(vm: unknown): void
 }
 
-// The `is<X>` type-guard free-function house-style exception.
-function asKeyTarget(dc: unknown): HierarchyKeyTarget | undefined
-{
-    const t = dc as Partial<HierarchyKeyTarget> | undefined
-    return t !== undefined && typeof t.Delete === 'function' ? (t as HierarchyKeyTarget) : undefined
-}
-
 export class HierarchyKeyBehavior extends Behavior
 {
     private _visual: Visual | undefined
     private _onKey: ((args: unknown) => void) | undefined
+
+    // Structural narrowing of a DataContext to the key target (the capability host).
+    private static asKeyTarget(dc: unknown): HierarchyKeyTarget | undefined
+    {
+        const t = dc as Partial<HierarchyKeyTarget> | undefined
+        return t !== undefined && typeof t.Delete === 'function' ? (t as HierarchyKeyTarget) : undefined
+    }
 
     public override OnAttached(visual: Visual): void
     {
         this._visual = visual
         const onKey = (args: unknown): void =>
         {
-            const target = asKeyTarget(this._visual?.DataContext)
+            const target = HierarchyKeyBehavior.asKeyTarget(this._visual?.DataContext)
             if (target === undefined) return
             const k = args as KeyEventArgs
             const anchor = target.Tree?.Anchor
@@ -58,9 +59,9 @@ export class HierarchyKeyBehavior extends Behavior
                 case Key.Delete:
                 {
                     if (anchor?.IsEditing === true) return   // Delete edits text while renaming
-                    const selected = target.Tree?.Selection.ToArray() ?? []
-                    for (const vm of selected) target.Delete(vm)
-                    if (selected.length > 0) k.Handled = true
+                    // One call: the host deletes the whole selection (the anchor is part of
+                    // it) under a single confirm — same choke point as the menu Delete.
+                    if (anchor !== undefined) { target.Delete(anchor); k.Handled = true }
                     return
                 }
                 default:

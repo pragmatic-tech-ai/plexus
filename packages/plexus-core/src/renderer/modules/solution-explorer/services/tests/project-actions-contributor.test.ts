@@ -8,7 +8,7 @@ function fakeMutations(over: Partial<IContentMutations> = {}): IContentMutations
 {
     const rec = {
         closed: [] as SolutionMember[],
-        RenameMemberFile: async () => {}, DeleteMemberFile: async () => {},
+        RenameMemberFile: async () => {}, DeleteMemberFiles: async () => {},
         NewFileForMember: async () => {}, NewFolderForMember: async () => {},
         ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
         MoveMemberNodes: async () => {}, PublishMember: async () => {},
@@ -28,6 +28,12 @@ function memberRowVm(member: SolutionMember): HierarchyItemVM
     return { Data: member, Parent: undefined, Key: NodeKey.Project, Severity: NodeSeverity.Ok } as unknown as HierarchyItemVM
 }
 
+// The menu-open context a contributor now receives (anchor row + selection snapshot).
+function ctxFor(vm: HierarchyItemVM): { Anchor: HierarchyItemVM; Selection: readonly HierarchyItemVM[] }
+{
+    return { Anchor: vm, Selection: [vm] }
+}
+
 function someMember(): SolutionMember
 {
     return new Solution('S').AddMember('./p', 'architecture')
@@ -41,15 +47,15 @@ describe('ProjectActionsContributor', () =>
         const versioned = new ProjectActionsContributor(fakeMutations({ IsVersionedMember: () => true }))
         const plain = new ProjectActionsContributor(fakeMutations({ IsVersionedMember: () => false }))
         const vm = memberRowVm(member)
-        expect(versioned.ActionsFor(vm).find((a) => a.Label === 'Publish')!.Invoke.CanExecute()).toBe(true)
-        expect(plain.ActionsFor(vm).find((a) => a.Label === 'Publish')!.Invoke.CanExecute()).toBe(false)
+        expect(versioned.ActionsFor(ctxFor(vm)).find((a) => a.Label === 'Publish')!.Invoke.CanExecute()).toBe(true)
+        expect(plain.ActionsFor(ctxFor(vm)).find((a) => a.Label === 'Publish')!.Invoke.CanExecute()).toBe(false)
     })
 
     it('Close routes to mutations.CloseMember with the row member', () =>
     {
         const member = someMember()
         const m = fakeMutations()
-        new ProjectActionsContributor(m).ActionsFor(memberRowVm(member)).find((a) => a.Label === 'Close Project')!.Invoke.Execute()
+        new ProjectActionsContributor(m).ActionsFor(ctxFor(memberRowVm(member))).find((a) => a.Label === 'Close Project')!.Invoke.Execute()
         expect(m.closed.at(-1)).toBe(member)
     })
 })

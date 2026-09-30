@@ -1,4 +1,4 @@
-import { HierarchyAction, NodeKey, type IHierarchyActionContributor, type HierarchyItemVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { HierarchyAction, NodeKey, type IHierarchyActionContributor, type HierarchyActionContext } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { VersionPart } from '../../../projects/semver-bump.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
@@ -26,9 +26,9 @@ export class ProjectActionsContributor implements IHierarchyActionContributor
     {
     }
 
-    public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
+    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
     {
-        const member = FileTreeContributor.MemberOf(vm)
+        const member = FileTreeContributor.MemberOf(context.Anchor)
         if (member === undefined) return []
         const m = this.mutations
         const versioned = () => m.IsVersionedMember(member)

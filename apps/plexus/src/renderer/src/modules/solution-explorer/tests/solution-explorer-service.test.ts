@@ -30,7 +30,7 @@ class FakeExplorer
     public readonly closed: SolutionMember[] = []
     public async OpenMemberFile(m: SolutionMember, path: string, kind: ProjectNodeKind): Promise<void> { this.opened.push([m, path, kind]) }
     public async RenameMemberFile(m: SolutionMember, p: string, n: string): Promise<void> { this.renamed.push([m, p, n]) }
-    public async DeleteMemberFile(m: SolutionMember, p: string): Promise<void> { this.deleted.push([m, p]) }
+    public async DeleteMemberFiles(m: SolutionMember, ps: readonly string[]): Promise<void> { for (const p of ps) this.deleted.push([m, p]) }
     public async NewFileForMember(): Promise<void> {}
     public async NewFolderForMember(): Promise<void> {}
     public async ImportFilesForMember(): Promise<void> {}

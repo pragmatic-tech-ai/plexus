@@ -10,7 +10,10 @@ import type { VersionPart } from '../../../projects/semver-bump.js'
 export interface IContentMutations
 {
     RenameMemberFile(member: SolutionMember, path: string, newName: string): Promise<void>
-    DeleteMemberFile(member: SolutionMember, path: string): Promise<void>
+    // Delete one or more files/folders under a member in a single operation: ONE
+    // confirmation for the whole batch (a single item names it; N items say "these N"),
+    // then the recursive disk deletes. The menu Delete and the Delete key both route here.
+    DeleteMemberFiles(member: SolutionMember, paths: readonly string[]): Promise<void>
     NewFileForMember(member: SolutionMember, folder: string, format: ProjectFileFormat): Promise<void>
     NewFolderForMember(member: SolutionMember, folder: string, name: string): Promise<void>
     ImportFilesForMember(member: SolutionMember, target: string): Promise<void>

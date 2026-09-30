@@ -186,7 +186,7 @@ interface ExplorerPrivates
     updateAgentMetadata(op: OpenProject): Promise<void>
     manageReferences(op: OpenProject): Promise<void>
     // The Solution-Explorer mutation façade + its path-based cores.
-    deleteFile(op: OpenProject, path: string): Promise<void>
+    deleteFiles(op: OpenProject, paths: readonly string[]): Promise<void>
     memberFor(op: OpenProject): SolutionMember | undefined
     MoveMemberNodes(member: SolutionMember, paths: readonly string[], destPath: string): Promise<void>
 }
@@ -1492,27 +1492,41 @@ test('the Delete key does nothing while a rename editor is open', async () => {
 // member-keyed MoveMemberNodes, NOT the legacy ProjectNode deleteNodes/moveNodes.
 // These must carry the same safety guards the legacy UX had.
 
-test('deleteFile confirms before the disk delete; a declined confirm leaves the file', async () => {
+test('deleteFiles confirms before the disk delete; a declined confirm leaves the files', async () => {
     const { priv, shownDialogs } = makeExplorer(null, false)   // dialog resolves "not confirmed"
     const storage = new FakeStorage('C:/a')
     await storage.WriteText('core.todl', 'x')
     const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
 
-    await priv.deleteFile(op, 'core.todl')
+    await priv.deleteFiles(op, ['core.todl'])
 
     expect(shownDialogs.length).toBe(1)                        // a confirm was shown
     expect(await storage.Exists('core.todl')).toBe(true)       // and the decline kept the file
 })
 
-test('deleteFile deletes on a confirmed dialog', async () => {
+test('deleteFiles deletes on a confirmed dialog', async () => {
     const { priv } = makeExplorer(null, true)                  // dialog resolves "confirmed"
     const storage = new FakeStorage('C:/a')
     await storage.WriteText('core.todl', 'x')
     const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
 
-    await priv.deleteFile(op, 'core.todl')
+    await priv.deleteFiles(op, ['core.todl'])
 
     expect(await storage.Exists('core.todl')).toBe(false)
+})
+
+test('deleteFiles deletes a whole batch under ONE confirm', async () => {
+    const { priv, shownDialogs } = makeExplorer(null, true)
+    const storage = new FakeStorage('C:/a')
+    await storage.WriteText('a.todl', 'x')
+    await storage.WriteText('b.todl', 'y')
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
+
+    await priv.deleteFiles(op, ['a.todl', 'b.todl'])
+
+    expect(shownDialogs.length).toBe(1)                        // ONE prompt for the whole batch
+    expect(await storage.Exists('a.todl')).toBe(false)
+    expect(await storage.Exists('b.todl')).toBe(false)
 })
 
 test('MoveMemberNodes does not overwrite a same-named file already in the destination', async () => {

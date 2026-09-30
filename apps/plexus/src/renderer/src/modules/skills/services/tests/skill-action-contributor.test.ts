@@ -37,7 +37,7 @@ describe('SkillActionContributor', () =>
         const catalog = { discoverAll: async () => {}, forProject: () => [] }
         const runner = { run: async () => {} }
         const svc = new SkillActionContributor(providerWith(catalog, runner))
-        const [run] = svc.ActionsFor(memberRowVm(archMember()))
+        const [run] = svc.ActionsFor({ Anchor: memberRowVm(archMember()), Selection: [] })
         expect(run!.Label).toBe('Run Agent / Skill')
         await tick()
         expect(run!.Children.Count).toBe(0)   // empty catalog → empty submenu, no throw, no spinner-forever
@@ -53,7 +53,7 @@ describe('SkillActionContributor', () =>
             const catalog = { discoverAll: async () => { throw new Error('unreadable project folder') }, forProject: () => [] }
             const runner = { run: async () => {} }
             const svc = new SkillActionContributor(providerWith(catalog, runner))
-            const [run] = svc.ActionsFor(memberRowVm(archMember()))
+            const [run] = svc.ActionsFor({ Anchor: memberRowVm(archMember()), Selection: [] })
             await tick()
             expect(run!.Children.Count).toBe(0)
             expect(rejections, `unhandled rejection escaped fill(): ${rejections.map(String).join()}`).toHaveLength(0)

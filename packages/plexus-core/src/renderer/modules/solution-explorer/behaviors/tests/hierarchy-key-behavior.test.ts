@@ -54,12 +54,13 @@ describe('HierarchyKeyBehavior', () =>
         expect(anchor.calls).toEqual(['commit', 'cancel'])
     })
 
-    it('Delete calls host.Delete for each selected row', () =>
+    it('Delete calls host.Delete ONCE with the anchor (the host deletes the whole selection under one confirm)', () =>
     {
-        const a = {}; const b = {}
-        const { press, deleted } = harness(fakeAnchor(), [a, b])
-        press(Key.Delete)
-        expect(deleted).toEqual([a, b])
+        const anchor = fakeAnchor()
+        const { press, deleted } = harness(anchor, [{}, {}])
+        const args = press(Key.Delete)
+        expect(deleted).toEqual([anchor])   // a single call; the host expands to the live selection
+        expect(args.Handled).toBe(true)
     })
 
     it('Delete is inert while a rename editor is open', () =>

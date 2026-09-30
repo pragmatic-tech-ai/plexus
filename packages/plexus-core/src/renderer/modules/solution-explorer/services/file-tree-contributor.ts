@@ -1,7 +1,7 @@
 import {
     NodeContribution, ProviderContribution, NodeKey, HierarchyAction, HierarchyItemsDrop,
     type IHierarchyContributor, type IHierarchyActionContributor,
-    type HierarchyNode, type HierarchyContribution, type HierarchyItemVM,
+    type HierarchyNode, type HierarchyContribution, type HierarchyItemVM, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
     ProjectContentStore, ProjectContentProvider, ContentNodeKey, ProjectNodeKind,
@@ -46,8 +46,9 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
     // The base file actions for a content/project row, closing over the resolved member +
     // the mutation façade. New Folder / Add New ▸ format / Import… / Rename / Delete; the
     // project row omits Rename/Delete (its file ops target the project root folder).
-    public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
+    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
     {
+        const vm = context.Anchor
         const member = FileTreeContributor.MemberOf(vm)
         const mutations = this.mutations
         if (member === undefined || mutations === undefined) return []
@@ -67,23 +68,31 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         {
             out.push(HierarchyAction.Separator())
             out.push(HierarchyAction.Command(FileTreeContributor.RenameLabel, () => vm.BeginEdit()))
-            out.push(HierarchyAction.Command(FileTreeContributor.DeleteLabel, () => void this.DeleteNode(vm)))
+            // Delete is selection-aware (matches the Delete key): the context carries the
+            // live selection snapshot, so deleting a row that is part of a multi-selection
+            // deletes the whole set under one confirm.
+            out.push(HierarchyAction.Command(FileTreeContributor.DeleteLabel, (ctx) => void this.DeleteFrom(ctx.Anchor, ctx.Selection), { context }))
         }
         return out
     }
 
-    // Façade the host calls for inline F2 rename + key-path Delete — same mutation path
-    // as the menu actions (one home for file mutation).
+    // Façade the host calls for inline F2 rename — same mutation path as the menu actions.
     public async RenameNode(vm: HierarchyItemVM, name: string): Promise<void>
     {
         const member = FileTreeContributor.MemberOf(vm)
         if (member !== undefined && this.mutations !== undefined) await this.mutations.RenameMemberFile(member, (vm.Data as ProjectContentNode).Path, name)
     }
 
-    public async DeleteNode(vm: HierarchyItemVM): Promise<void>
+    // The single delete choke point for BOTH the menu action and the Delete key: delete
+    // the whole selection when `anchor` is part of it, else just `anchor` — one batch
+    // (one confirm) via the mutation façade. The member row itself (no Path) is excluded.
+    public async DeleteFrom(anchor: HierarchyItemVM, selection: readonly HierarchyItemVM[]): Promise<void>
     {
-        const member = FileTreeContributor.MemberOf(vm)
-        if (member !== undefined && this.mutations !== undefined) await this.mutations.DeleteMemberFile(member, (vm.Data as ProjectContentNode).Path)
+        const member = FileTreeContributor.MemberOf(anchor)
+        if (member === undefined || this.mutations === undefined) return
+        const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
+        const paths = targets.filter((vm) => vm.Data !== member).map((vm) => (vm.Data as ProjectContentNode).Path)
+        await this.mutations.DeleteMemberFiles(member, paths)
     }
 
     public CanDrop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): boolean

@@ -2,7 +2,7 @@ import { Observable, ServiceKey, type IServiceProvider, type ICommand } from '@p
 import {
     HierarchyModel, HierarchyTreeVM, type HierarchyItemVM,
     HierarchyContributorRegistry, HierarchyActionContributorRegistry, NodeKey, NodeSeverity,
-    type HierarchyHost, type HierarchyAction,
+    type HierarchyHost, type HierarchyAction, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
     SolutionManagerService, type Solution, type SolutionMember, type ProjectContentNode,
@@ -96,8 +96,15 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // ── HierarchyHost ────────────────────────────────────────────────────────
     public Activate(vm: HierarchyItemVM): void { void this.onActivate(vm) }
     public CommitRename(vm: HierarchyItemVM, newName: string): void { void this.files?.RenameNode(vm, newName) }
-    public Delete(vm: HierarchyItemVM): void { void this.files?.DeleteNode(vm) }
-    public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[] { return this.actionRegistry?.ActionsFor(vm.Key, vm) ?? [] }
+    public Delete(vm: HierarchyItemVM): void { void this.files?.DeleteFrom(vm, this._tree?.Selection.ToArray() ?? []) }
+    public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
+    {
+        if (this.actionRegistry === undefined) return []
+        // Snapshot the live selection at menu-open: the Anchor is the right-clicked row,
+        // the Selection is what a selection-aware action (Delete) operates on.
+        const context: HierarchyActionContext = { Anchor: vm, Selection: this._tree?.Selection.ToArray() ?? [] }
+        return this.actionRegistry.ActionsFor(vm.Key, context)
+    }
     public CanDrop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): boolean { return this.files?.CanDrop(target, dragged) ?? false }
     public Drop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): void { this.files?.Drop(target, dragged) }
     public OnItemRemoved(vm: HierarchyItemVM): void { this._tree?.Deselect(vm) }
