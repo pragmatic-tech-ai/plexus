@@ -21,6 +21,7 @@ function fakeView(list: ConnectionLeafView[]): IConnectionView & { fire: () => v
         SetToken: async () => {},
         UseEnvToken: async () => {},
         SetDefault: async () => {},
+        SetSolutionDefault: async () => {},
         RemoveConnection: async () => {},
         TestConnection: async () => ({ ok: true }),
         IsConsumer: () => true,
@@ -33,6 +34,7 @@ function fakeView(list: ConnectionLeafView[]): IConnectionView & { fire: () => v
 const leaf = (Id: string, Health: ConnectionHealth): ConnectionLeafView => ({
     Id, DisplayName: Id, RegistryType: 'npm',
     IsDefault: Health === ConnectionHealth.Default,
+    IsSolutionDefault: false,
     HasToken: Health !== ConnectionHealth.NoCredentials,
     Health,
     Message: Health === ConnectionHealth.Unreachable ? '401' : undefined,

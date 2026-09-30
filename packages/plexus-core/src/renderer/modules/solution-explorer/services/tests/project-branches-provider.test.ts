@@ -58,6 +58,32 @@ describe('ProjectBranchesProvider', () =>
         expect(added).toContain(files.fileChild) // then files
     })
 
+    it('does not subscribe or emit a leading root when disposed before the microtask runs', async () =>
+    {
+        const files = fakeFiles()
+        const root = HierarchyItemId.Mint()
+        let rootSubs = 0
+        const branch: LeadingBranch = {
+            Owns: (id) => id === root,
+            RootId: () => root,
+            RootNode: () => ({ Key: 'active', Caption: 'active', IconKey: 'active', ExtObject: {}, Severity: NodeSeverity.Ok }),
+            ObserveChildren: () => () => {},
+            GetProperty: () => undefined,
+            GetCanonicalName: () => 'active',
+            ParseCanonicalName: () => HierarchyItemId.Nil,
+            CanAccept: () => false,
+            OnRootChanged: () => { rootSubs += 1; return { dispose() { rootSubs -= 1 } } },
+            dispose: () => {},
+        }
+        const p = new ProjectBranchesProvider(files.provider, [branch])
+        const added: HierarchyItemId[] = []
+        const off = p.ObserveChildren(HierarchyItemId.Root, (c) => { if (c instanceof ChildAdded) added.push(c.Id) })
+        off()                                    // dispose BEFORE the queued microtask fires
+        await new Promise((r) => setTimeout(r, 5))
+        expect(rootSubs).toBe(0)                 // no OnRootChanged subscription orphaned
+        expect(added).not.toContain(root)        // no ChildAdded emitted into the stale sink
+    })
+
     it('dispatches GetProperty to the owning leading branch, and to files otherwise', () =>
     {
         const files = fakeFiles()

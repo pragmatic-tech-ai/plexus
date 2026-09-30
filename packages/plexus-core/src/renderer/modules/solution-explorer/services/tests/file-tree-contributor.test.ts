@@ -18,6 +18,7 @@ function countingConnectionView(): IConnectionView & { subs: number }
         SetToken: async () => {},
         UseEnvToken: async () => {},
         SetDefault: async () => {},
+        SetSolutionDefault: async () => {},
         RemoveConnection: async () => {},
         TestConnection: async () => ({ ok: true }),
         IsConsumer: () => true,

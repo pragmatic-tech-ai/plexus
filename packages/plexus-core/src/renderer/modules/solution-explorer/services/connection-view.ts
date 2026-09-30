@@ -26,7 +26,8 @@ export interface ConnectionLeafView
     readonly Id: string
     readonly DisplayName: string
     readonly RegistryType: string
-    readonly IsDefault: boolean
+    readonly IsDefault: boolean            // the GLOBAL default (connections.json)
+    readonly IsSolutionDefault: boolean    // the active solution's default (solution.json)
     readonly HasToken: boolean
     readonly Health: ConnectionHealth
     readonly Message?: string   // the Test error, when Unreachable
@@ -40,7 +41,8 @@ export interface IConnectionView
     UpdateConnection(id: string, partial: Partial<ConnectionSpec>): Promise<void>
     SetToken(id: string, token: string): Promise<void>
     UseEnvToken(id: string, varName: string): Promise<void>
-    SetDefault(id: string): Promise<void>
+    SetDefault(id: string): Promise<void>                  // the GLOBAL default
+    SetSolutionDefault(id: string): Promise<void>          // the active solution's default (solution.json)
     RemoveConnection(id: string): Promise<void>
     TestConnection(id: string): Promise<ConnectionTestResult>
     IsConsumer(member: SolutionMember): boolean                                 // sync gate for the active-connection row

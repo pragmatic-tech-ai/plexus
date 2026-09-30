@@ -25,6 +25,7 @@ export interface IConnectionHost
     ProjectFor(member: SolutionMember): HostProject | undefined
     SetStatus(message: string): void
     SolutionDefaultConnectionId(): string | undefined
+    SetSolutionDefaultConnectionId(id: string | undefined): Promise<void>
     ProjectConnectionOverride(member: SolutionMember): string | undefined
     SetProjectConnectionOverride(member: SolutionMember, id: string | undefined): Promise<void>
     RefreshBasesFor(member: SolutionMember): Promise<void>
@@ -80,6 +81,15 @@ export class ConnectionEditingService implements IConnectionView
     public async SetDefault(id: string): Promise<void>
     {
         await this.client.SetDefault(id)
+        this.fire(undefined)
+    }
+
+    // Set the active solution's default connection (solution.json) — the middle effective-
+    // connection tier (override → THIS → global default). Fires the change signal so every
+    // active-connection row re-renders against the new default (spec §Reactivity).
+    public async SetSolutionDefault(id: string): Promise<void>
+    {
+        await this.host.SetSolutionDefaultConnectionId(id)
         this.fire(undefined)
     }
 
@@ -145,6 +155,7 @@ export class ConnectionEditingService implements IConnectionView
             DisplayName: v.DisplayName,
             RegistryType: v.RegistryType,
             IsDefault: v.IsDefault,
+            IsSolutionDefault: v.Id === this.host.SolutionDefaultConnectionId(),
             HasToken: v.HasToken,
             Health: health,
         }

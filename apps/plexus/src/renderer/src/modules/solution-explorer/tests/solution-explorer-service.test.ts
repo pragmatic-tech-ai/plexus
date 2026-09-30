@@ -60,6 +60,7 @@ class FakeExplorer
         SetToken: async () => {},
         UseEnvToken: async () => {},
         SetDefault: async () => {},
+        SetSolutionDefault: async () => {},
         RemoveConnection: async () => {},
         TestConnection: async () => ({ ok: true }),
         IsConsumer: () => false,

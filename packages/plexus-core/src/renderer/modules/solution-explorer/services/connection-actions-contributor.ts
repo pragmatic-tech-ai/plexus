@@ -25,6 +25,7 @@ interface LeafData
 {
     readonly id: string
     readonly isDefault: boolean
+    readonly isSolutionDefault: boolean
 }
 
 // Contributes the Connections-branch context-menu actions, routed to IConnectionView + the
@@ -38,6 +39,7 @@ export class ConnectionActionsContributor implements IHierarchyActionContributor
     private static readonly EditLabel = 'Edit…'
     private static readonly TestLabel = 'Test'
     private static readonly MakeDefaultLabel = 'Make Default'
+    private static readonly MakeSolutionDefaultLabel = 'Make Solution Default'
     private static readonly RemoveLabel = 'Remove'
     private static readonly ActiveLabel = 'Active connection'
     private static readonly SolutionDefaultLabel = '(solution default)'
@@ -63,6 +65,7 @@ export class ConnectionActionsContributor implements IHierarchyActionContributor
                     HierarchyAction.Command(ConnectionActionsContributor.EditLabel, () => this.launcher.OpenEdit(leaf.id)),
                     HierarchyAction.Command(ConnectionActionsContributor.TestLabel, () => void this.view.TestConnection(leaf.id)),
                     HierarchyAction.Command(ConnectionActionsContributor.MakeDefaultLabel, () => void this.view.SetDefault(leaf.id), { canExecute: () => !leaf.isDefault }),
+                    HierarchyAction.Command(ConnectionActionsContributor.MakeSolutionDefaultLabel, () => void this.view.SetSolutionDefault(leaf.id), { canExecute: () => !leaf.isSolutionDefault }),
                     this.removeAction(context),
                 ]
             }

@@ -8,15 +8,16 @@ import { ConnectionHealth, type IConnectionView, type ConnectionLeafView } from 
 const tick = () => new Promise((r) => setTimeout(r, 10))
 const member = new SolutionMember({ path: 'p', type: 'architecture' })
 
-function fakeView(over: Partial<IConnectionView> = {}): IConnectionView & { removed: string[]; defaulted: string[]; tested: string[]; active: [SolutionMember, string | undefined][] }
+function fakeView(over: Partial<IConnectionView> = {}): IConnectionView & { removed: string[]; defaulted: string[]; solutionDefaulted: string[]; tested: string[]; active: [SolutionMember, string | undefined][] }
 {
     const removed: string[] = []
     const defaulted: string[] = []
+    const solutionDefaulted: string[] = []
     const tested: string[] = []
     const active: [SolutionMember, string | undefined][] = []
     const list: ConnectionLeafView[] = [
-        { Id: 'a', DisplayName: 'A', RegistryType: 'npm', IsDefault: true, HasToken: true, Health: ConnectionHealth.Default },
-        { Id: 'b', DisplayName: 'B', RegistryType: 'npm', IsDefault: false, HasToken: true, Health: ConnectionHealth.Ready },
+        { Id: 'a', DisplayName: 'A', RegistryType: 'npm', IsDefault: true, IsSolutionDefault: false, HasToken: true, Health: ConnectionHealth.Default },
+        { Id: 'b', DisplayName: 'B', RegistryType: 'npm', IsDefault: false, IsSolutionDefault: false, HasToken: true, Health: ConnectionHealth.Ready },
     ]
     const base: IConnectionView = {
         ConnectionsView: async () => list,
@@ -26,6 +27,7 @@ function fakeView(over: Partial<IConnectionView> = {}): IConnectionView & { remo
         SetToken: async () => {},
         UseEnvToken: async () => {},
         SetDefault: async (id) => { defaulted.push(id) },
+        SetSolutionDefault: async (id) => { solutionDefaulted.push(id) },
         RemoveConnection: async (id) => { removed.push(id) },
         TestConnection: async (id) => { tested.push(id); return { ok: true } },
         IsConsumer: () => true,
@@ -33,7 +35,7 @@ function fakeView(over: Partial<IConnectionView> = {}): IConnectionView & { remo
         SetActiveConnectionFor: async (m, id) => { active.push([m, id]) },
         OnConnectionsViewChanged: () => ({ dispose() {} }),
     }
-    return Object.assign(base, { removed, defaulted, tested, active }, over) as never
+    return Object.assign(base, { removed, defaulted, solutionDefaulted, tested, active }, over) as never
 }
 
 function fakeLauncher(): IConnectionEditorLauncher & { opened: (string | undefined)[] }
@@ -49,7 +51,7 @@ function vm(key: string, data: unknown, parent?: HierarchyItemVM): HierarchyItem
 // Give a row a project parent whose Data is the member, so MemberOf resolves it.
 const underMember = (v: HierarchyItemVM): HierarchyItemVM => vm(v.Key, (v as unknown as { Data: unknown }).Data, vm(NodeKey.Project, member))
 const ctx = (anchor: HierarchyItemVM, selection: HierarchyItemVM[] = [anchor]): HierarchyActionContext => ({ Anchor: anchor, Selection: selection })
-const leaf = (id: string, isDefault: boolean) => underMember(vm(ConnectionNodeKey.Leaf, { id, isDefault }))
+const leaf = (id: string, isDefault: boolean, isSolutionDefault = false) => underMember(vm(ConnectionNodeKey.Leaf, { id, isDefault, isSolutionDefault }))
 
 describe('ConnectionActionsContributor', () =>
 {
@@ -63,11 +65,21 @@ describe('ConnectionActionsContributor', () =>
         expect(launcher.opened).toEqual([undefined])
     })
 
-    it('a leaf offers Edit…, Test, Make Default, Remove', () =>
+    it('a leaf offers Edit…, Test, Make Default, Make Solution Default, Remove', () =>
     {
         const c = new ConnectionActionsContributor(fakeView(), fakeLauncher())
         const labels = c.ActionsFor(ctx(leaf('b', false))).map((a) => a.Label)
-        expect(labels).toEqual(expect.arrayContaining(['Edit…', 'Test', 'Make Default', 'Remove']))
+        expect(labels).toEqual(expect.arrayContaining(['Edit…', 'Test', 'Make Default', 'Make Solution Default', 'Remove']))
+    })
+
+    it('Make Solution Default sets the solution default and is non-executable on the current one', () =>
+    {
+        const v = fakeView()
+        const c = new ConnectionActionsContributor(v, fakeLauncher())
+        c.ActionsFor(ctx(leaf('b', false))).find((a) => a.Label === 'Make Solution Default')!.Invoke.Execute()
+        expect(v.solutionDefaulted).toEqual(['b'])
+        const onCurrent = c.ActionsFor(ctx(leaf('b', false, true))).find((a) => a.Label === 'Make Solution Default')!
+        expect(onCurrent.Invoke.CanExecute()).toBe(false)
     })
 
     it('Make Default is non-executable on the connection that is already default', () =>

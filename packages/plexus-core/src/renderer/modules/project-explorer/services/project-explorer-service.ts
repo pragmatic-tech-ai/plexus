@@ -202,6 +202,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private overrides: SolutionConnectionOverrides | undefined
     // The live OpenProject for each currently-projected member.
     private readonly projected = new Map<SolutionMember, OpenProject>()
+    // Positive consumerId → member cache for memberForConsumerId (a hot path on connection
+    // base-resolution misses); cleared whenever the projected set changes.
+    private readonly consumerIdCache = new Map<string, SolutionMember>()
     // A member observed still unresolved (SolutionManagerService.OpenProject
     // appends to Members synchronously, then resolves the member's Project/
     // Storage afterwards — see todl's Solution.AddMember/OpenOne) — the pending
@@ -287,11 +290,17 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // none matches (e.g. an architecture consumer, which carries no manifest id).
     private async memberForConsumerId(consumerId: string): Promise<SolutionMember | undefined>
     {
+        const cached = this.consumerIdCache.get(consumerId)
+        if (cached !== undefined) return cached
         const resolver = this.Provider.get(SolutionBaseResolver.Key)
         if (resolver === undefined) return undefined
         for (const [member, op] of this.projected)
         {
-            if (await resolver.ProducedIdOf(op.Storage) === consumerId) return member
+            if (await resolver.ProducedIdOf(op.Storage) === consumerId)
+            {
+                this.consumerIdCache.set(consumerId, member)   // positive only; cleared on projected change
+                return member
+            }
         }
         return undefined
     }
@@ -312,6 +321,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             ProjectFor: (m) => this.projected.get(m),
             SetStatus: (s) => { this.Status = s },
             SolutionDefaultConnectionId: () => this.connectionOverrides().Default(),
+            SetSolutionDefaultConnectionId: (id) => this.connectionOverrides().SetDefault(id),
             ProjectConnectionOverride: (m) => this.connectionOverrides().OverrideFor(m.Ref.path),
             SetProjectConnectionOverride: (m, id) => this.connectionOverrides().SetOverrideFor(m.Ref.path, id),
             RefreshBasesFor: async (m) => { this.RefreshMemberBases(m) },
@@ -587,6 +597,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         this.wireNodes(op.Root, op)
         this.OpenProjects.Add(op)
         this.projected.set(member, op)
+        this.consumerIdCache.clear()   // membership changed → consumerId map may differ
         // Register the project for whole-project live validation (populates the
         // Problems dock even before any file is opened).
         void this.Provider.get(LiveValidationKey)?.AttachProject(op.Project.RootPath, op.Project.Name, op.Storage)
@@ -621,6 +632,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             this.Provider.get(LiveValidationKey)?.DetachProject(op.Storage)
             this.OpenProjects.Remove(op)
             this.projected.delete(member)
+            this.consumerIdCache.clear()   // membership changed → invalidate the consumerId map
             await this.openStore.Remove(op.Folder)
             this.Status = `Closed ${op.Name}.`
         }

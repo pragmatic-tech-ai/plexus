@@ -8,9 +8,9 @@
  * The resolve path used by reference resolution is added in Task 8, where its consumer
  * (PublishedBases) fixes the exact shape.
  */
-import { PackageRegistryClient } from '@pragmatic-tech-ai/todl/package-manager'
+import { PackageRegistryClient, TarReader } from '@pragmatic-tech-ai/todl/package-manager'
 import type { PackageManagerService, ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager'
-import type { SourcedPackage } from '@pragmatic-tech-ai/todl'
+import type { SourcedPackage, PackageResource } from '@pragmatic-tech-ai/todl'
 
 export interface ConnectionTestResult
 {
@@ -21,6 +21,11 @@ export interface ConnectionTestResult
 export class ConnectionsBridge
 {
     private static readonly FallbackId = 'connection'
+    // Tarball layout (mirrors the engine's own publish/read prefixes): the compiled model
+    // and the package-relative resource tree (icons, presentation assets) live under these.
+    private static readonly ModelPath = 'package/model.json'
+    private static readonly ResourcePrefix = 'package/resources/'
+    private static readonly Decoder = new TextDecoder()
 
     constructor(private readonly service: PackageManagerService)
     {
@@ -88,17 +93,27 @@ export class ConnectionsBridge
     }
 
     // Resolve a published package from a connection's registry as a SourcedPackage
-    // (model.json document + its recorded deps), mirroring the local store's own shape.
-    // Best-effort: any failure (unreachable registry, missing package, non-TODL) returns
-    // undefined so the caller degrades to local-first, never hangs or throws.
+    // (model.json document + its recorded deps + its resource tree), mirroring the local
+    // store's own shape. The raw tarball is read once and its resources are carried through
+    // as bytes — a byte-faithful path, so binary assets (icons) survive rather than a lossy
+    // text round-trip. Best-effort: any failure (unreachable registry, missing package,
+    // non-TODL) returns undefined so the caller degrades to local-first, never hangs or throws.
     public async Resolve(id: string, version: string, connectionId?: string): Promise<SourcedPackage | undefined>
     {
         try
         {
             const registry = await this.service.RegistryFor(connectionId)
-            const contents = await new PackageRegistryClient(registry).getContents({ name: id, version })
-            const document = JSON.parse(contents.rawModel) as { nodes: unknown[]; edges: unknown[]; dependencies?: SourcedPackage['Dependencies'] }
-            return { Document: document as unknown as SourcedPackage['Document'], Dependencies: document.dependencies ?? [] }
+            const tarball = await new PackageRegistryClient(registry).getContent({ name: id, version })
+            const entries = TarReader.read(tarball)
+            const modelBytes = entries.find((e) => e.path === ConnectionsBridge.ModelPath)?.bytes
+            if (modelBytes === undefined) return undefined
+            const document = JSON.parse(ConnectionsBridge.Decoder.decode(modelBytes)) as { nodes: unknown[]; edges: unknown[]; dependencies?: SourcedPackage['Dependencies'] }
+            const resources: PackageResource[] = entries
+                .filter((e) => e.path.startsWith(ConnectionsBridge.ResourcePrefix))
+                .map((e) => ({ path: e.path.slice(ConnectionsBridge.ResourcePrefix.length), bytes: e.bytes }))
+            const sourced: SourcedPackage = { Document: document as unknown as SourcedPackage['Document'], Dependencies: document.dependencies ?? [] }
+            if (resources.length > 0) sourced.resources = resources
+            return sourced
         }
         catch
         {

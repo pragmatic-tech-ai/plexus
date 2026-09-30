@@ -51,6 +51,10 @@ export class ProjectBranchesProvider implements IHierarchyProvider
         // its children.
         if (this.rootId === undefined) this.rootId = node
         const rootSubs: Disposable[] = []
+        // Guards the deferred work against a dispose that beats the microtask: the model can
+        // observe-then-collapse in the same tick, and without this the microtask would still
+        // subscribe OnRootChanged (orphaned) and emit ChildAdded into a stale sink.
+        let disposed = false
         if (node === this.rootId)
         {
             const leading = this.leading
@@ -60,12 +64,13 @@ export class ProjectBranchesProvider implements IHierarchyProvider
             // async-initial-children contract ProjectContentProvider relies on).
             queueMicrotask(() =>
             {
+                if (disposed) return
                 for (const b of leading) sink(new ChildAdded(b.RootId(), b.RootNode()))
                 for (const b of leading) rootSubs.push(b.OnRootChanged(() => sink(new ChildUpdated(b.RootId(), b.RootNode()))))
             })
         }
         const filesOff = this.files.ObserveChildren(node, sink)
-        return () => { filesOff(); for (const s of rootSubs) s.dispose() }
+        return () => { disposed = true; filesOff(); for (const s of rootSubs) s.dispose() }
     }
 
     public GetProperty(id: HierarchyItemId, prop: HierarchyPropertyId): unknown

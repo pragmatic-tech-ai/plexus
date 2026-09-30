@@ -24,18 +24,21 @@ function fakeClient(over: Partial<IConnectionsClient> = {}): IConnectionsClient
     }
 }
 
-function fakeHost(over: Partial<IConnectionHost> = {}): IConnectionHost & { refreshed: SolutionMember[] }
+function fakeHost(over: Partial<IConnectionHost> = {}): IConnectionHost & { refreshed: SolutionMember[]; solutionDefaulted: (string | undefined)[] }
 {
     const refreshed: SolutionMember[] = []
+    const solutionDefaulted: (string | undefined)[] = []
     return Object.assign({
         refreshed,
+        solutionDefaulted,
         ProjectFor: () => ({ Factory: { requiresMetaModel: true } }) as never,
         SetStatus: () => {},
         SolutionDefaultConnectionId: () => undefined,
+        SetSolutionDefaultConnectionId: async (id: string | undefined) => { solutionDefaulted.push(id) },
         ProjectConnectionOverride: () => undefined,
         SetProjectConnectionOverride: async () => {},
         RefreshBasesFor: async (m: SolutionMember) => { refreshed.push(m) },
-    }, over) as IConnectionHost & { refreshed: SolutionMember[] }
+    }, over) as IConnectionHost & { refreshed: SolutionMember[]; solutionDefaulted: (string | undefined)[] }
 }
 
 const leaf = (Id: string, IsDefault: boolean, HasToken: boolean): ConnectionView => ({ Id, DisplayName: Id.toUpperCase(), RegistryType: 'npm', Settings: {}, IsDefault, HasToken })
@@ -96,6 +99,26 @@ describe('ConnectionEditingService', () =>
         const seen: (SolutionMember | undefined)[] = []
         svc.OnConnectionsViewChanged((m) => seen.push(m))
         await svc.SetDefault('a')
+        expect(seen).toContain(undefined)
+    })
+
+    it('decorates the connection that is the solution default with IsSolutionDefault', async () =>
+    {
+        const client = fakeClient({ List: async () => [leaf('a', false, true), leaf('b', false, true)] })
+        const host = fakeHost({ SolutionDefaultConnectionId: () => 'b' })
+        const views = await new ConnectionEditingService(client, host).ConnectionsView()
+        expect(views.find((v) => v.Id === 'b')!.IsSolutionDefault).toBe(true)
+        expect(views.find((v) => v.Id === 'a')!.IsSolutionDefault).toBe(false)
+    })
+
+    it('SetSolutionDefault persists via the host and signals a global change', async () =>
+    {
+        const host = fakeHost()
+        const svc = new ConnectionEditingService(fakeClient(), host)
+        const seen: (SolutionMember | undefined)[] = []
+        svc.OnConnectionsViewChanged((m) => seen.push(m))
+        await svc.SetSolutionDefault('a')
+        expect(host.solutionDefaulted).toEqual(['a'])
         expect(seen).toContain(undefined)
     })
 
