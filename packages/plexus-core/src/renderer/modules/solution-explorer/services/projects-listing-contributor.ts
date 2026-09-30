@@ -40,6 +40,7 @@ export class ProjectsListingContributor implements IHierarchyContributor
                 Severity: ProjectsListingContributor.severityOf(m),
                 Error: m.Error,
                 IsExpandable: m.Status === SolutionMemberStatus.Resolved,
+                CanonicalSegment: m.Ref.path,
             })
         }
         return new NodeContribution(nodes)

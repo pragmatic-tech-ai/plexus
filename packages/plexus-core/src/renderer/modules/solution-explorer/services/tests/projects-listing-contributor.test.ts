@@ -51,6 +51,18 @@ describe('ProjectsListingContributor', () =>
         c.dispose()
     })
 
+    it('stamps each member row with a stable CanonicalSegment = the member Ref.path', () =>
+    {
+        const sol = new Solution('S')
+        const a = sol.AddMember('./projA', 'architecture')
+        const b = sol.AddMember('packages/projB', 'architecture')
+        const c = new ProjectsListingContributor(sol, registry())
+        const nodes = c.Contribute(rootNode()).Nodes
+        expect(nodes[0]!.CanonicalSegment).toBe(a.Ref.path)
+        expect(nodes[1]!.CanonicalSegment).toBe(b.Ref.path)
+        c.dispose()
+    })
+
     it('notifies the registry when a member is added', () =>
     {
         const sol = new Solution('S')
