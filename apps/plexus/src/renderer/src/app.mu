@@ -45,6 +45,9 @@ import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modul
 // by SolutionExplorerService. Registered after ProjectExplorerModule so the
 // lifecycle service it delegates to is composed.
 import SolutionExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.module.mu.js"
+// The P5b Connections wiring: registers the renderer connections client (over
+// window.api.connections) and the editor-dialog launcher the Solution Explorer resolves.
+import ConnectionsModule from "./modules/connections/connections.module.mu.js"
 // The keyed hierarchy-contributor registry (mural framework): SolutionExplorerService
 // resolves it to register its per-solution ProjectsListing + FileTree contributors.
 import HierarchyContributorRegistry from "@pragmatic-tech-ai/mural/framework/hierarchy"
@@ -152,6 +155,8 @@ import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/mo
 // [HierarchyItemVM]. ProjectExplorerResources is still merged below for its Open/New
 // project + reference/confirm DIALOG templates, which the surviving commands present.
 import SolutionExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.resources.mu.js"
+// The connection editor dialog's DataTemplate (ConnectionEditorDialogModel).
+import ConnectionsResources from "./modules/connections/connections.resources.mu.js"
 
 // Meta-models capability panel: the published-meta-models virtualized tree
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
@@ -443,6 +448,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Project Explorer LIFECYCLE service (no Capability). Composed before the
         // Solution Explorer, which delegates its command bar to this service.
         ProjectExplorerModule
+        // Connections wiring (client + editor launcher) — before the Solution Explorer,
+        // which resolves both when its tree builds.
+        ConnectionsModule
         // Solution Explorer — the left-panel tree Capability (replaces the retired
         // Project Explorer panel). Backed by SolutionExplorerService over a
         // HierarchyModel of the active solution's members + file trees.
@@ -558,6 +566,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +
         // HierarchicalDataTemplate[HierarchyItemVM].
         merge SolutionExplorerResources
+        merge ConnectionsResources
 
         // Meta-models capability panel (DataTemplate[MetaModelsService] + rows).
         merge MetaModelResources

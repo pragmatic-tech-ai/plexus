@@ -5,6 +5,8 @@ import { SolutionManagerService, Solution, SolutionMemberStatus, type SolutionMe
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/services/project-explorer-service.js'
 import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-explorer-service.js'
+import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
+import { type IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
 
 // A minimal SolutionManagerService stand-in: an observable ActiveSolution the capability
 // subscribes to, plus a setter to drive open/close/swap.
@@ -47,6 +49,30 @@ class FakeExplorer
     public IsVersionedMember(): boolean { return false }
     public CanRefreshBasesMember(): boolean { return false }
     public SupportsScaffoldMember(): boolean { return false }
+    // P5b: the Solution Explorer resolves the connection view through the explorer. A minimal
+    // stand-in — an empty connection list, non-consumer members (no per-project active rows).
+    public get Connections(): IConnectionView { return FakeExplorer.connections }
+    private static readonly connections: IConnectionView = {
+        ConnectionsView: async () => [],
+        EnvVars: async () => [],
+        AddConnection: async () => {},
+        UpdateConnection: async () => {},
+        SetToken: async () => {},
+        UseEnvToken: async () => {},
+        SetDefault: async () => {},
+        RemoveConnection: async () => {},
+        TestConnection: async () => ({ ok: true }),
+        IsConsumer: () => false,
+        ActiveConnectionFor: async () => undefined,
+        SetActiveConnectionFor: async () => {},
+        OnConnectionsViewChanged: () => ({ dispose: () => {} }),
+    }
+}
+
+// Records editor-launch requests; the Connections actions contributor needs a launcher.
+function fakeLauncher(): IConnectionEditorLauncher
+{
+    return { OpenNew: () => {}, OpenEdit: () => {} }
 }
 
 function make(): { svc: SolutionExplorerService; manager: FakeManager; explorer: FakeExplorer }
@@ -60,6 +86,7 @@ function make(): { svc: SolutionExplorerService; manager: FakeManager; explorer:
     provider.registerInstance(HierarchyContributorRegistry.Key, registry)
     provider.registerInstance(HierarchyActionContributorRegistry.Key, actionRegistry)
     provider.registerInstance(ProjectExplorerService.Key, explorer as unknown as ProjectExplorerService)
+    provider.registerInstance(ConnectionEditorLauncherKey, fakeLauncher())
     return { svc: new SolutionExplorerService(provider), manager, explorer }
 }
 
@@ -84,7 +111,9 @@ describe('SolutionExplorerService', () =>
         expect(svc.Tree).toBeUndefined()
         manager.SetActive(solutionWith('a', 'b'))
         expect(svc.Tree).toBeInstanceOf(HierarchyTreeVM)
-        expect(svc.Tree!.Roots.Count).toBe(2)
+        // The global Connections branch leads the two member rows.
+        expect(svc.Tree!.Roots.Count).toBe(3)
+        expect(svc.Tree!.Roots.Get(0)!.Caption).toBe('Connections')
     })
 
     it('closing the solution clears Tree', () =>
@@ -106,7 +135,7 @@ describe('SolutionExplorerService', () =>
         manager.SetActive(solutionWith('x', 'y'))
         expect(svc.Tree).not.toBe(first)
         expect(first.Roots.Count).toBe(0)          // prior tree torn down
-        expect(svc.Tree!.Roots.Count).toBe(2)
+        expect(svc.Tree!.Roots.Count).toBe(3)      // Connections + two members
     })
 
     it('activating a member row (not a file) does not call OpenMemberFile', () =>
@@ -114,7 +143,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Tree!.Roots.Get(0)!
+        const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
         memberRow.OnActivate()
         expect(explorer.opened).toHaveLength(0)   // a member row's Data is a SolutionMember, not a file
     })
@@ -135,7 +164,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Tree!.Roots.Get(0)!
+        const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
         expect(svc.ActionsFor(memberRow).some((a) => a.Label === 'Close Project')).toBe(true)
     })
 
@@ -144,7 +173,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Tree!.Roots.Get(0)!
+        const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
         const member = manager.ActiveSolution!.Members.Get(0)
         const fileVm = { Data: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: {} } as unknown as HierarchyItemVM
         svc.CommitRename(fileVm, 'b.todl')

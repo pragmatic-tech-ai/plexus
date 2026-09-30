@@ -3,6 +3,7 @@ import { NodeKey } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { type ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import { iconKeyForKind } from '../../../projects/project-node-icon.js'
 import { ReferenceNodeKey } from './reference-node-key.js'
+import { ConnectionNodeKey } from './connection-node-key.js'
 
 // The hierarchy row's leading glyph key for a HierarchyNode.IconKey. Content-node keys
 // (folder/file/diagram/todl) reuse the existing project-node glyph mapping; the coarse
@@ -12,23 +13,28 @@ import { ReferenceNodeKey } from './reference-node-key.js'
 export class IconKeyGlyphs
 {
     private static readonly FolderGlyph = 'Folder'
-    // Reference leaves reuse the file glyph as a P5a placeholder — a dedicated
-    // reference glyph (and a live/published/unresolved split) is a theme concern.
+    // Reference/connection leaves reuse the file glyph as a placeholder — a dedicated
+    // glyph (and the resolution/health split) is a theme concern.
     private static readonly ReferenceLeafGlyph = 'File'
+    private static readonly ConnectionLeafGlyph = 'File'
 
     public static For(iconKey: string): string
     {
-        // Reference leaves carry a resolution suffix (…-live / -published / -unresolved).
+        // Reference leaves carry a resolution suffix (…-live / -published / -unresolved) and
+        // connection leaves a health suffix (…-default / -ready / -nocreds / -unreachable).
         // Guard the type: the row template binds HierarchyItemVM.IconKey, which is undefined
         // for some rows — a bare .startsWith there would throw and crash every row's render.
         if (typeof iconKey === 'string' && iconKey.startsWith(ReferenceNodeKey.Leaf)) return IconKeyGlyphs.ReferenceLeafGlyph
+        if (typeof iconKey === 'string' && iconKey.startsWith(ConnectionNodeKey.Leaf)) return IconKeyGlyphs.ConnectionLeafGlyph
         switch (iconKey)
         {
-            case NodeKey.Solution:      return IconKeyGlyphs.FolderGlyph
-            case NodeKey.Project:       return IconKeyGlyphs.FolderGlyph
-            case NodeKey.References:     return IconKeyGlyphs.FolderGlyph
-            case ReferenceNodeKey.Group: return IconKeyGlyphs.FolderGlyph
-            default:                    return iconKeyForKind(iconKey as ProjectNodeKind)
+            case NodeKey.Solution:       return IconKeyGlyphs.FolderGlyph
+            case NodeKey.Project:        return IconKeyGlyphs.FolderGlyph
+            case NodeKey.References:      return IconKeyGlyphs.FolderGlyph
+            case ReferenceNodeKey.Group:  return IconKeyGlyphs.FolderGlyph
+            case NodeKey.Connections:     return IconKeyGlyphs.FolderGlyph
+            case ConnectionNodeKey.Active: return IconKeyGlyphs.FolderGlyph
+            default:                     return iconKeyForKind(iconKey as ProjectNodeKind)
         }
     }
 }

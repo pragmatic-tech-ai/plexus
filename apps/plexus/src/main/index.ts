@@ -12,6 +12,16 @@ import {
 import { registerAgentHandlers } from './agent.js'
 import { registerTodlServerHandlers } from './todl/register.js'
 import { TITLE_BAR_HEIGHT } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
+import {
+  PackageEngine,
+  FileConnectionStore,
+  EncryptedSecretStore,
+  ConnectionTokenStore,
+  ProcessEnvironmentVariables,
+  SafeStorageEncryptor,
+} from '@pragmatic-tech-ai/plexus-core/main/connections'
+import { ConnectionsBridge } from './connections/connections-bridge.js'
+import { ConnectionsIpc } from './connections/register-connections-ipc.js'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
 // the native caption strip to that scheme's title-bar surface + glyph ink; the
@@ -139,6 +149,17 @@ app.whenReady().then(async () => {
   // Window chrome: re-tint the native caption buttons (WCO) when the renderer's
   // theme changes.
   registerWindowHandlers()
+  // Package-registry connections: the connection authority (PackageManagerService +
+  // encrypted secret store) composed from the shared plexus-core module with this app's
+  // own userData + safeStorage. The renderer drives it over the connections:* channels;
+  // tokens never leave main.
+  const userData = app.getPath('userData')
+  const connectionsEngine = new PackageEngine({
+    connectionStore: new FileConnectionStore(userData),
+    secretStore: new EncryptedSecretStore(new ConnectionTokenStore(userData, new SafeStorageEncryptor())),
+    environment: new ProcessEnvironmentVariables(process.env),
+  })
+  ConnectionsIpc.Register(new ConnectionsBridge(connectionsEngine.Service))
 
   createWindow()
   Updater.init()

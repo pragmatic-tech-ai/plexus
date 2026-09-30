@@ -8,14 +8,10 @@
  */
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-
-/** The encryption seam. `available()` gates writing to disk. */
-export interface Encryptor
-{
-  available(): boolean;
-  encrypt(plain: string): Buffer;
-  decrypt(cipher: Buffer): string;
-}
+// The encryption seam now lives in plexus-core (one audited copy, shared with the engine
+// stores); re-exported here so this legacy migration store's consumers keep importing it.
+import type { Encryptor } from "@pragmatic-tech-ai/plexus-core/main/connections";
+export type { Encryptor } from "@pragmatic-tech-ai/plexus-core/main/connections";
 
 const TOKEN_FILE = "registry-token.bin";
 
@@ -41,18 +37,18 @@ export class TokenStore
   {
     if (this.memoryToken.length > 0) return this.memoryToken;
     if (!existsSync(this.path)) return "";
-    return this.encryptor.decrypt(readFileSync(this.path));
+    return this.encryptor.Decrypt(readFileSync(this.path));
   }
 
   setToken(token: string): void
   {
-    if (!this.encryptor.available())
+    if (!this.encryptor.IsAvailable())
     {
       this.memoryToken = token; // session-only fallback; never write plaintext
       return;
     }
     mkdirSync(this.userDataDir, { recursive: true });
-    writeFileSync(this.path, this.encryptor.encrypt(token));
+    writeFileSync(this.path, this.encryptor.Encrypt(token));
     this.memoryToken = "";
   }
 

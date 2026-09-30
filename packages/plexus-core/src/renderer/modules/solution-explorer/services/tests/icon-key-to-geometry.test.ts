@@ -3,6 +3,7 @@ import { NodeKey } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { ContentNodeKey } from '@pragmatic-tech-ai/todl'
 import { IconKeyGlyphs } from '../icon-key-to-geometry.js'
 import { ReferenceNodeKey } from '../reference-node-key.js'
+import { ConnectionNodeKey } from '../connection-node-key.js'
 
 describe('IconKeyGlyphs.For', () =>
 {
@@ -35,6 +36,20 @@ describe('IconKeyGlyphs.For', () =>
         for (const suffix of ['-live', '-published', '-unresolved'])
         {
             expect(IconKeyGlyphs.For(ReferenceNodeKey.Leaf + suffix).length).toBeGreaterThan(0)
+        }
+    })
+
+    it('the Connections branch + active-connection keys map to the folder glyph', () =>
+    {
+        expect(IconKeyGlyphs.For(NodeKey.Connections)).toBe('Folder')
+        expect(IconKeyGlyphs.For(ConnectionNodeKey.Active)).toBe('Folder')
+    })
+
+    it('every connection leaf health variant maps to a non-empty glyph', () =>
+    {
+        for (const suffix of ['-default', '-ready', '-nocreds', '-unreachable'])
+        {
+            expect(IconKeyGlyphs.For(ConnectionNodeKey.Leaf + suffix).length).toBeGreaterThan(0)
         }
     })
 

@@ -7,11 +7,13 @@ import { RegistryBridge } from "../registry-bridge.js";
 import { type Encryptor } from "../token-store.js";
 import { TokenStore } from "../token-store.js";
 import { SettingsStore } from "../settings-store.js";
-import { ConnectionTokenStore } from "../connection-token-store.js";
-import { FileConnectionStore } from "../engine/file-connection-store.js";
-import { EncryptedSecretStore } from "../engine/encrypted-secret-store.js";
-import { ProcessEnvironmentVariables } from "../engine/process-environment-variables.js";
-import { PackageEngine } from "../engine/package-engine.js";
+import {
+  ConnectionTokenStore,
+  FileConnectionStore,
+  EncryptedSecretStore,
+  ProcessEnvironmentVariables,
+  PackageEngine,
+} from "@pragmatic-tech-ai/plexus-core/main/connections";
 import { LegacyRegistryMigration } from "../engine/legacy-registry-migration.js";
 import {
   LocalPackageStore,
@@ -26,9 +28,9 @@ const enc = new TextEncoder();
 
 class PlainEncryptor implements Encryptor
 {
-  available() { return true; }
-  encrypt(p: string) { return Buffer.from(p, "utf8"); }
-  decrypt(c: Buffer) { return c.toString("utf8"); }
+  IsAvailable() { return true; }
+  Encrypt(p: string) { return Buffer.from(p, "utf8"); }
+  Decrypt(c: Buffer) { return c.toString("utf8"); }
 }
 
 // An in-memory npm registry + GitHub org API for the seeded default connection:

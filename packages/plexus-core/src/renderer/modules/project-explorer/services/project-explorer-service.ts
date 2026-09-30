@@ -86,6 +86,10 @@ import { DocumentCloseGuard } from '../../../documents/document-close-guard.js'
 import { ManageReferencesDialogModel } from '../../../projects/manage-references-dialog-model.js'
 import { ReferenceEditingService } from './reference-editing-service.js'
 import type { IReferenceView } from '../../solution-explorer/services/reference-view.js'
+import { ConnectionEditingService, type IConnectionHost } from './connection-editing-service.js'
+import { SolutionConnectionOverrides } from './solution-connection-overrides.js'
+import type { IConnectionView } from '../../solution-explorer/services/connection-view.js'
+import { ConnectionsClientKey } from '../../solution-explorer/services/connections-client.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
 import { PackagePublisher } from '../../../projects/package-publisher.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
@@ -191,6 +195,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // The References-branch read/mutate/signal seam (Solution Explorer's References node),
     // sharing this service's manifest + resolver access and lifecycle bus.
     private readonly references: ReferenceEditingService
+    // The Connections-branch read/mutate/signal seam + the per-project override store, built
+    // lazily on first access (they need the connections client + solution manager, which are
+    // wired after this ctor runs at boot).
+    private connections: ConnectionEditingService | undefined
+    private overrides: SolutionConnectionOverrides | undefined
     // The live OpenProject for each currently-projected member.
     private readonly projected = new Map<SolutionMember, OpenProject>()
     // A member observed still unresolved (SolutionManagerService.OpenProject
@@ -244,6 +253,70 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
 
     // The Solution Explorer's References branch reads and mutates through this seam.
     public get References(): IReferenceView { return this.references }
+
+    // The Solution Explorer's Connections branch + per-project active-connection row read and
+    // mutate through this seam. Built lazily: the connections client (window.api.connections)
+    // is registered after this ctor runs during boot. The IConnectionHost bridges to the
+    // per-project override store (solution.json), the status line, project membership, and
+    // base re-resolution (LiveValidation) when a member's active connection changes.
+    public get Connections(): IConnectionView
+    {
+        if (this.connections === undefined)
+        {
+            const client = this.Provider.getRequired(ConnectionsClientKey)
+            this.connections = new ConnectionEditingService(client, this.connectionHost())
+        }
+        return this.connections
+    }
+
+    // The effective connection id a consuming project (identified by its manifest id — the
+    // resolution context's consumerId) resolves its published bases against: its per-project
+    // override, else the solution default, else the global default. Undefined when no member
+    // produces that id or no connection applies (→ the app resolver falls back to the default
+    // connection). This is the app-side IEffectiveConnection the connection-aware package store
+    // consults on a local miss.
+    public async EffectiveConnectionIdForConsumer(consumerId: string): Promise<string | undefined>
+    {
+        const member = await this.memberForConsumerId(consumerId)
+        if (member === undefined) return undefined
+        return (await this.Connections.ActiveConnectionFor(member))?.Id
+    }
+
+    // The member whose project produces `consumerId` (a meta-model/library manifest id), via
+    // the base resolver's ProducedIdOf over each projected member's storage. Undefined when
+    // none matches (e.g. an architecture consumer, which carries no manifest id).
+    private async memberForConsumerId(consumerId: string): Promise<SolutionMember | undefined>
+    {
+        const resolver = this.Provider.get(SolutionBaseResolver.Key)
+        if (resolver === undefined) return undefined
+        for (const [member, op] of this.projected)
+        {
+            if (await resolver.ProducedIdOf(op.Storage) === consumerId) return member
+        }
+        return undefined
+    }
+
+    // The per-project connection overrides for the active solution (persisted in solution.json).
+    private connectionOverrides(): SolutionConnectionOverrides
+    {
+        if (this.overrides === undefined) this.overrides = new SolutionConnectionOverrides(this.manager)
+        return this.overrides
+    }
+
+    // The app collaborators ConnectionEditingService needs but plexus-core resolves through
+    // this service: project membership, the status line, the per-project override store, and
+    // base re-resolution on an active-connection change.
+    private connectionHost(): IConnectionHost
+    {
+        return {
+            ProjectFor: (m) => this.projected.get(m),
+            SetStatus: (s) => { this.Status = s },
+            SolutionDefaultConnectionId: () => this.connectionOverrides().Default(),
+            ProjectConnectionOverride: (m) => this.connectionOverrides().OverrideFor(m.Ref.path),
+            SetProjectConnectionOverride: (m, id) => this.connectionOverrides().SetOverrideFor(m.Ref.path, id),
+            RefreshBasesFor: async (m) => { this.RefreshMemberBases(m) },
+        }
+    }
 
     // Begin projecting the active solution's Members into the tree. Kept OUT of the
     // constructor on purpose: this service is a mounted Capability, so its view (and

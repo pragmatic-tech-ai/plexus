@@ -7,15 +7,19 @@ import { NodeModulesPackageSource } from "./registry/node-modules-package-source
 import { BuildManagerCompiler } from "./registry/build-manager-compiler.js";
 import { TokenStore } from "./registry/token-store.js";
 import { SettingsStore } from "./registry/settings-store.js";
-import { ConnectionTokenStore } from "./registry/connection-token-store.js";
-import { FileConnectionStore } from "./registry/engine/file-connection-store.js";
-import { EncryptedSecretStore } from "./registry/engine/encrypted-secret-store.js";
-import { ProcessEnvironmentVariables } from "./registry/engine/process-environment-variables.js";
-import { PackageEngine } from "./registry/engine/package-engine.js";
 import { LegacyRegistryMigration } from "./registry/engine/legacy-registry-migration.js";
 import { RegistryBridge } from "./registry/registry-bridge.js";
 import { RegistryIpc } from "./registry/register-ipc.js";
-import { SafeStorageEncryptor } from "./registry/safe-storage-encryptor.js";
+// The secret store + engine composition now live in plexus-core (shared with apps/plexus,
+// on-disk layout unchanged); devUI composes from there with its own userData + safeStorage.
+import {
+  ConnectionTokenStore,
+  FileConnectionStore,
+  EncryptedSecretStore,
+  ProcessEnvironmentVariables,
+  PackageEngine,
+  SafeStorageEncryptor,
+} from "@pragmatic-tech-ai/plexus-core/main/connections";
 import { Updater } from "@pragmatic-tech-ai/plexus-core/main/updater";
 import { registerWindowHandlers, registerFileSystemHandlers } from "@pragmatic-tech-ai/plexus-core/main";
 import { TITLE_BAR_HEIGHT } from "@pragmatic-tech-ai/plexus-core/shared/window-api.js";

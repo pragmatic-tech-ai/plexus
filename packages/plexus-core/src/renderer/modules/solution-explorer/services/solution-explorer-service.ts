@@ -15,6 +15,9 @@ import { FileTreeContributor } from './file-tree-contributor.js'
 import { ProjectActionsContributor } from './project-actions-contributor.js'
 import { ReferenceActionsContributor } from './reference-actions-contributor.js'
 import { ReferenceNodeKey } from './reference-node-key.js'
+import { ConnectionsRootContributor } from './connections-root-contributor.js'
+import { ConnectionActionsContributor, ConnectionEditorLauncherKey } from './connection-actions-contributor.js'
+import { ConnectionNodeKey } from './connection-node-key.js'
 
 // The Solution Explorer capability: owns one HierarchyModel per open solution, follows
 // ActiveSolution, seeds the root, registers the two contributors imperatively (they close
@@ -31,12 +34,15 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private model: HierarchyModel | undefined
     private listing: ProjectsListingContributor | undefined
     private files: FileTreeContributor | undefined
+    private connectionsRoot: ConnectionsRootContributor | undefined
     private actionRegistry: HierarchyActionContributorRegistry | undefined
     private offListing: (() => void) | undefined
     private offFiles: (() => void) | undefined
     private offFileActions: (() => void) | undefined
     private offProjectActions: (() => void) | undefined
     private offReferenceActions: (() => void) | undefined
+    private offConnections: (() => void) | undefined
+    private offConnectionActions: (() => void) | undefined
     private activeOff: { dispose(): void } | undefined
 
     constructor(private readonly provider: IServiceProvider)
@@ -84,8 +90,12 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         })
         this.listing = new ProjectsListingContributor(solution, registry)
         this.files = new FileTreeContributor()
+        // The global Connections branch: a keyed node under the Solution root whose subtree is
+        // the flat connection list (leads the project rows). Registered per solution.
+        this.connectionsRoot = new ConnectionsRootContributor(this.explorer.Connections)
         this.offListing = registry.RegisterInstance(this.listing)
         this.offFiles = registry.RegisterInstance(this.files)
+        this.offConnections = registry.RegisterInstance(this.connectionsRoot)
         // The action seam: FileTreeContributor supplies file/project-row actions and
         // ProjectActionsContributor the project-lifecycle ones, both routed to the same
         // ProjectExplorerService (it implements IContentMutations). Registered per solution.
@@ -93,9 +103,12 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.actionRegistry = actionRegistry
         this.files.SetMutations(this.explorer)
         this.files.SetReferenceView(this.explorer.References)
+        this.files.SetConnectionView(this.explorer.Connections)
         this.offFileActions = actionRegistry.RegisterInstance(this.files)
         this.offProjectActions = actionRegistry.RegisterInstance(new ProjectActionsContributor(this.explorer))
         this.offReferenceActions = actionRegistry.RegisterInstance(new ReferenceActionsContributor(this.explorer.References))
+        const launcher = this.provider.getRequired(ConnectionEditorLauncherKey)
+        this.offConnectionActions = actionRegistry.RegisterInstance(new ConnectionActionsContributor(this.explorer.Connections, launcher))
         this.setTree(new HierarchyTreeVM(this.model, root, this))
     }
 
@@ -107,7 +120,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     public Delete(vm: HierarchyItemVM): void
     {
         if (vm.Key === ReferenceNodeKey.Leaf) void this.removeReferenceSelection(vm)
+        else if (vm.Key === ConnectionNodeKey.Leaf) void this.removeConnectionSelection(vm)
         else if (vm.Key === NodeKey.References || vm.Key === ReferenceNodeKey.Group) { /* synthetic rows — not deletable */ }
+        else if (vm.Key === NodeKey.Connections || vm.Key === ConnectionNodeKey.Active) { /* synthetic rows — not deletable */ }
         else void this.files?.DeleteFrom(vm, this._tree?.Selection.ToArray() ?? [])
     }
     public ActionsFor(vm: HierarchyItemVM): readonly HierarchyAction[]
@@ -139,6 +154,20 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         }
     }
 
+    // Remove the connection leaf (or, when part of the live multi-selection, every selected
+    // connection leaf) via the connection view — the key-Delete peer of the menu Remove.
+    private async removeConnectionSelection(anchor: HierarchyItemVM): Promise<void>
+    {
+        const view = this.explorer.Connections
+        const selection = (this._tree?.Selection.ToArray() ?? []).filter((vm) => vm.Key === ConnectionNodeKey.Leaf)
+        const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
+        for (const vm of targets)
+        {
+            const leaf = vm.Data as { id: string }
+            await view.RemoveConnection(leaf.id)
+        }
+    }
+
     private async onActivate(vm: HierarchyItemVM): Promise<void>
     {
         const content = vm.Data as ProjectContentNode | undefined
@@ -155,19 +184,25 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this._tree?.dispose()
         this.offListing?.()
         this.offFiles?.()
+        this.offConnections?.()
         this.offFileActions?.()
         this.offProjectActions?.()
         this.offReferenceActions?.()
+        this.offConnectionActions?.()
         this.listing?.dispose()
         this.files?.dispose()
+        this.connectionsRoot?.dispose()
         this.model?.dispose()   // drop the model's registry subscription (else it leaks + re-realizes on swap)
         this.offListing = undefined
         this.offFiles = undefined
+        this.offConnections = undefined
         this.offFileActions = undefined
         this.offProjectActions = undefined
         this.offReferenceActions = undefined
+        this.offConnectionActions = undefined
         this.listing = undefined
         this.files = undefined
+        this.connectionsRoot = undefined
         this.actionRegistry = undefined
         this.model = undefined
     }
