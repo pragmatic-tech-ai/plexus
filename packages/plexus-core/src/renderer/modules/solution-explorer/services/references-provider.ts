@@ -42,13 +42,13 @@ export class ReferencesProvider implements IHierarchyProvider
     private rootSink: ((c: HierarchyChange) => void) | undefined
     private currentView: MemberReferencesView | undefined
     private fetched = false
+    private readonly rootChangedHandlers = new Set<() => void>()
     private readonly offChanged: Disposable
 
     constructor(private readonly member: SolutionMember, private readonly view: IReferenceView)
     {
         this.nodeById.set(this.rootId, this.buildRootNode())
-        this.canonicalById.set(this.rootId, ReferencesProvider.RootCanonical)
-        this.canonicalByName.set(ReferencesProvider.RootCanonical, this.rootId)
+        this.setCanonical(this.rootId, ReferencesProvider.RootCanonical)
         this.offChanged = this.view.OnReferencesViewChanged((affected) =>
         {
             if (affected === undefined || affected === this.member) void this.refresh()
@@ -58,6 +58,15 @@ export class ReferencesProvider implements IHierarchyProvider
     public ReferencesRootId(): HierarchyItemId { return this.rootId }
     public ReferencesRootNode(): HierarchyNode { return this.nodeById.get(this.rootId)! }
     public Owns(id: HierarchyItemId): boolean { return this.ownedIds.has(id) }
+
+    // Fires when the References ROOT row's own presentation changes (its rolled-up severity),
+    // so the composite ProjectBranchesProvider re-emits a ChildUpdated for it. The subtree
+    // (groups/leaves) updates through the model directly; this is only the root row.
+    public OnRootChanged(handler: () => void): Disposable
+    {
+        this.rootChangedHandlers.add(handler)
+        return { dispose: () => { this.rootChangedHandlers.delete(handler) } }
+    }
 
     public ObserveChildren(node: HierarchyItemId, sink: (c: HierarchyChange) => void): () => void
     {
@@ -117,6 +126,7 @@ export class ReferencesProvider implements IHierarchyProvider
             const libId = this.ensureGroupId(ProjectType.Library)
             sink(new ChildAdded(libId, this.nodeById.get(libId)!))
         }
+        this.applyRollups()
     }
 
     private async realizeGroup(groupId: HierarchyItemId, kind: ProjectType, sink: (c: HierarchyChange) => void): Promise<void>
@@ -143,6 +153,48 @@ export class ReferencesProvider implements IHierarchyProvider
             if (sink === undefined) continue   // collapsed — rebuilds fresh on next expand
             this.diffGroup(groupId, kind, sink)
         }
+        this.applyRollups()
+    }
+
+    // Recompute rolled-up severity for the root and each known group from the current view
+    // (worst wins: an Unresolved reference → Warning). A changed group emits a ChildUpdated on
+    // the root sink; a changed root fires OnRootChanged so the composite re-emits its row.
+    // Runs off the fetched view (root expanded / refreshed), not eagerly — the tree stays lazy.
+    private applyRollups(): void
+    {
+        const root = this.nodeById.get(this.rootId)
+        if (root !== undefined)
+        {
+            const rootSeverity = ReferencesProvider.severityFor([...this.listFor(ProjectType.MetaModel), ...this.listFor(ProjectType.Library)])
+            if (root.Severity !== rootSeverity)
+            {
+                this.nodeById.set(this.rootId, { ...root, Severity: rootSeverity })
+                this.fireRootChanged()
+            }
+        }
+        for (const [groupId, kind] of this.groupKind)
+        {
+            const group = this.nodeById.get(groupId)
+            if (group === undefined) continue
+            const groupSeverity = ReferencesProvider.severityFor(this.listFor(kind))
+            if (group.Severity === groupSeverity) continue
+            const updated = { ...group, Severity: groupSeverity }
+            this.nodeById.set(groupId, updated)
+            this.rootSink?.(new ChildUpdated(groupId, updated))
+        }
+    }
+
+    private fireRootChanged(): void
+    {
+        for (const handler of this.rootChangedHandlers) handler()
+    }
+
+    private setCanonical(id: HierarchyItemId, canon: string): void
+    {
+        const prev = this.canonicalById.get(id)
+        if (prev !== undefined && prev !== canon) this.canonicalByName.delete(prev)
+        this.canonicalById.set(id, canon)
+        this.canonicalByName.set(canon, id)
     }
 
     private diffGroup(groupId: HierarchyItemId, kind: ProjectType, sink: (c: HierarchyChange) => void): void
@@ -159,7 +211,7 @@ export class ReferencesProvider implements IHierarchyProvider
                 const id = this.leafIds.get(key)!
                 if (ReferencesProvider.displayDiffers(this.nodeById.get(id), node))
                 {
-                    this.nodeById.set(id, node)
+                    this.ensureLeafId(key, groupId, kind, dref)   // refresh node + canonical (repin-safe)
                     sink(new ChildUpdated(id, node))
                 }
             }
@@ -194,8 +246,7 @@ export class ReferencesProvider implements IHierarchyProvider
         this.ownedIds.add(id)
         this.nodeById.set(id, this.buildGroup(kind))
         const canon = `${ReferencesProvider.RootCanonical}/${ReferencesProvider.slugFor(kind)}`
-        this.canonicalById.set(id, canon)
-        this.canonicalByName.set(canon, id)
+        this.setCanonical(id, canon)
         return id
     }
 
@@ -211,8 +262,7 @@ export class ReferencesProvider implements IHierarchyProvider
         this.nodeById.set(id, this.buildLeaf(kind, dref))
         const groupCanon = this.canonicalById.get(groupId) ?? ReferencesProvider.RootCanonical
         const canon = `${groupCanon}/${dref.Ref.id}@${dref.Ref.version}`
-        this.canonicalById.set(id, canon)
-        this.canonicalByName.set(canon, id)
+        this.setCanonical(id, canon)
         return id
     }
 
@@ -260,6 +310,11 @@ export class ReferencesProvider implements IHierarchyProvider
     }
 
     private static leafKey(kind: ProjectType, dref: DeclaredReference): string { return `${kind}@${dref.Ref.id}` }
+
+    private static severityFor(refs: readonly DeclaredReference[]): NodeSeverity
+    {
+        return refs.some((r) => r.Resolution === ReferenceResolution.Unresolved) ? NodeSeverity.Warning : NodeSeverity.Ok
+    }
 
     private static displayDiffers(a: HierarchyNode | undefined, b: HierarchyNode): boolean
     {

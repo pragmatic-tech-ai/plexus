@@ -118,7 +118,7 @@ describe('ReferenceEditingService', () =>
         expect(written.metaModels).toEqual([{ id: 'core', version: '1.5.0' }])
     })
 
-    it('AvailableReferencesFor excludes declared and dedupes; AvailableVersionsFor merges published + live, newest first', async () =>
+    it('AvailableReferencesFor excludes every version of an already-declared id and dedupes; AvailableVersionsFor merges published + live, newest first', async () =>
     {
         const { service, member } = await harnessWith({
             manifest: { type: 'architecture', name: 'a', metaModels: [{ id: 'core', version: '1.0.0' }] },
@@ -126,9 +126,25 @@ describe('ReferenceEditingService', () =>
             workspaceProducers: { [ProjectType.MetaModel]: [{ id: 'other', version: '2.0.0' }] },
         })
         const avail = (await service.AvailableReferencesFor(member, ProjectType.MetaModel)).map((r) => `${r.id}@${r.version}`)
-        expect(avail).not.toContain('core@1.0.0')   // declared
-        expect(avail).toContain('core@1.1.0')
+        expect(avail).not.toContain('core@1.0.0')   // declared (exact)
+        expect(avail).not.toContain('core@1.1.0')   // #6: no other version of an already-declared id (use Set Version)
         expect(avail.filter((k) => k === 'other@2.0.0').length).toBe(1)   // deduped across published+live
+        // Set Version still offers every published version of a declared id.
         expect(await service.AvailableVersionsFor(member, ProjectType.MetaModel, 'core')).toEqual(['1.1.0', '1.0.0'])
+    })
+
+    it('AvailableVersionsFor orders a release above its prerelease and tolerates non-numeric segments', async () =>
+    {
+        const { service, member } = await harnessWith({
+            manifest: { type: 'architecture', name: 'a', metaModels: [] },
+            published: { metaModels: [
+                { id: 'core', version: '1.0.0' },
+                { id: 'core', version: '2.0.0-rc.1' },
+                { id: 'core', version: '2.0.0' },
+                { id: 'core', version: '1.0.0-beta' },
+            ] },
+        })
+        expect(await service.AvailableVersionsFor(member, ProjectType.MetaModel, 'core'))
+            .toEqual(['2.0.0', '2.0.0-rc.1', '1.0.0', '1.0.0-beta'])
     })
 })

@@ -96,6 +96,45 @@ describe('ReferencesProvider', () =>
         expect(kinds).toContain('ChildRemoved')   // x gone
     })
 
+    it('a version repin refreshes the leaf canonical name; the old canonical no longer resolves', async () =>
+    {
+        let current = viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published]], false)
+        const view = fakeView(current)
+        ;(view as { ReferencesViewFor: () => Promise<MemberReferencesView | undefined> }).ReferencesViewFor = async () => current
+        const p = new ReferencesProvider(member, view)
+        const { changes, groups } = await realize(p)
+        const metaGroup = groups[0]!
+        const leafId = (changes.find((x) => x.parent === metaGroup && x.c instanceof ChildAdded)!.c as ChildAdded).Id
+        const oldCanon = p.GetCanonicalName(leafId)
+        expect(oldCanon).toContain('core@1.0.0')
+        current = viewOf([[ref('core', '2.0.0'), ReferenceResolution.Published]], false)
+        view.fire(member)
+        await tick()
+        expect(p.GetCanonicalName(leafId)).toContain('core@2.0.0')
+        expect(p.ParseCanonicalName(oldCanon)).toBe(HierarchyItemId.Nil)
+        expect(p.ParseCanonicalName(p.GetCanonicalName(leafId))).toBe(leafId)
+    })
+
+    it('rolls up an unresolved leaf to a Warning on its group and the References root, clearing when resolved', async () =>
+    {
+        let current = viewOf([[ref('core', '1.0.0'), ReferenceResolution.Unresolved]], false)
+        const view = fakeView(current)
+        ;(view as { ReferencesViewFor: () => Promise<MemberReferencesView | undefined> }).ReferencesViewFor = async () => current
+        const p = new ReferencesProvider(member, view)
+        let rootChanges = 0
+        p.OnRootChanged(() => { rootChanges += 1 })
+        const { groups } = await realize(p)
+        const metaGroup = groups[0]!
+        expect(p.GetProperty(metaGroup, HierarchyPropertyId.Severity)).toBe(NodeSeverity.Warning)
+        expect(p.ReferencesRootNode().Severity).toBe(NodeSeverity.Warning)
+        expect(rootChanges).toBeGreaterThan(0)
+        current = viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published]], false)
+        view.fire(member)
+        await tick()
+        expect(p.GetProperty(metaGroup, HierarchyPropertyId.Severity)).toBe(NodeSeverity.Ok)
+        expect(p.ReferencesRootNode().Severity).toBe(NodeSeverity.Ok)
+    })
+
     it('GetProperty on the References root reports Caption/Key/expandable', () =>
     {
         const p = new ReferencesProvider(member, fakeView(viewOf([])))

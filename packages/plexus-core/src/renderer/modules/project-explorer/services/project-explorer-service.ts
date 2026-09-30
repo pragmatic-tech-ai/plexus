@@ -257,6 +257,15 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // The Solution Explorer's References branch reads and mutates through this seam.
     public get References(): IReferenceView { return this.references }
 
+    // Released when the provider scope tears this service down (app shutdown). The References
+    // editing service holds a stale-bases subscription on SolutionBaseResolver; drop it here so
+    // it does not outlive the scope.
+    public override dispose(): void
+    {
+        this.references.dispose()
+        super.dispose()
+    }
+
     // The Solution Explorer's Connections branch + per-project active-connection row read and
     // mutate through this seam. Built lazily: the connections client (window.api.connections)
     // is registered after this ctor runs during boot. The IConnectionHost bridges to the

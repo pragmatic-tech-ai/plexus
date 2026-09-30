@@ -1931,3 +1931,25 @@ test('IsVersionedMember reflects the member factory', async () => {
     await priv.addOpenProject(projectWith('B', 'C:/b'), versioned, new FakeStorage('C:/b'))
     expect(service.IsVersionedMember(manager.Members.ToArray().at(-1)!)).toBe(true)
 })
+
+test('dispose() releases the References stale-bases subscription (no fire after teardown)', () => {
+    const { service, provider } = makeExplorer()
+    let staleHandler: (() => void) | undefined
+    provider.registerInstance(SolutionBaseResolver.Key, {
+        PropertyChanged: (name: string) => ({
+            subscribe: (h: () => void) => {
+                if (name === 'StaleMemberIds') staleHandler = h
+                return { dispose: () => { if (name === 'StaleMemberIds') staleHandler = undefined } }
+            },
+        }),
+    } as unknown as SolutionBaseResolver)
+
+    let fires = 0
+    service.References.OnReferencesViewChanged(() => { fires += 1 })
+    staleHandler!()                 // resolver announces stale bases → the view refreshes
+    expect(fires).toBe(1)
+
+    service.dispose()
+    staleHandler?.()                // after dispose the subscription is gone → no further fire
+    expect(fires).toBe(1)
+})

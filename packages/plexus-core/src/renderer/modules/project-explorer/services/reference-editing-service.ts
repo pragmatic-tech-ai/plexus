@@ -71,14 +71,16 @@ export class ReferenceEditingService implements IReferenceView
         const op = this.host.ProjectFor(member)
         if (op === undefined) return []
         const manifest = await this.readManifest(op.Storage)
-        const declared = new Set((this.listOf(manifest, kind)).map(ReferenceEditingService.key))
+        const declaredIds = new Set(this.listOf(manifest, kind).map((r) => r.id))
         const candidates = [...await this.published(kind), ...await this.producers(kind)]
         const out: BaseRef[] = []
         const seen = new Set<string>()
         for (const ref of candidates)
         {
             const k = ReferenceEditingService.key(ref)
-            if (declared.has(k) || seen.has(k)) continue
+            // Exclude any version of an already-declared id — changing an existing reference's
+            // version is Set Version's job, not Add's (Add would append a duplicate id).
+            if (declaredIds.has(ref.id) || seen.has(k)) continue
             seen.add(k)
             out.push({ id: ref.id, version: ref.version })
         }
@@ -204,16 +206,35 @@ export class ReferenceEditingService implements IReferenceView
 
     private static key(ref: BaseRef): string { return `${ref.id}@${ref.version}` }
 
+    // Descending semver-ish order (newest first). Splits off any prerelease suffix so a release
+    // outranks its own prerelease (2.0.0 before 2.0.0-rc.1), compares the numeric core segments
+    // (a non-numeric segment counts as 0, never NaN), then orders prereleases lexically.
     private static compareVersionsDesc(a: string, b: string): number
     {
-        const pa = a.split('.').map((n) => Number.parseInt(n, 10))
-        const pb = b.split('.').map((n) => Number.parseInt(n, 10))
-        for (let i = 0; i < Math.max(pa.length, pb.length); i++)
+        const [coreA, preA] = ReferenceEditingService.splitVersion(a)
+        const [coreB, preB] = ReferenceEditingService.splitVersion(b)
+        for (let i = 0; i < Math.max(coreA.length, coreB.length); i++)
         {
-            const diff = (pb[i] ?? 0) - (pa[i] ?? 0)
+            const diff = (coreB[i] ?? 0) - (coreA[i] ?? 0)
             if (diff !== 0) return diff
         }
-        return 0
+        if (preA === preB) return 0
+        if (preA === '') return -1   // a is a full release → sorts before b's prerelease
+        if (preB === '') return 1
+        return preB < preA ? -1 : 1  // higher prerelease first (descending)
+    }
+
+    private static splitVersion(v: string): [number[], string]
+    {
+        const dash = v.indexOf('-')
+        const core = dash === -1 ? v : v.slice(0, dash)
+        const pre = dash === -1 ? '' : v.slice(dash + 1)
+        const parts = core.split('.').map((n) =>
+        {
+            const x = Number.parseInt(n, 10)
+            return Number.isNaN(x) ? 0 : x
+        })
+        return [parts, pre]
     }
 }
 
