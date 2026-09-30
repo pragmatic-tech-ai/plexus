@@ -21,5 +21,6 @@ export class ConnectionsIpc
         ipcMain.handle(ConnectionChannel.SetDefault, (_e, id: string) => bridge.SetDefault(id))
         ipcMain.handle(ConnectionChannel.Test, (_e, id: string) => bridge.Test(id))
         ipcMain.handle(ConnectionChannel.EnvVars, () => bridge.EnvVars())
+        ipcMain.handle(ConnectionChannel.Resolve, (_e, id: string, version: string, connectionId?: string) => bridge.Resolve(id, version, connectionId))
     }
 }

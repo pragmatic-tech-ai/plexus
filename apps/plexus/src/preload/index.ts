@@ -141,6 +141,7 @@ const connections: IConnectionsApi = {
   SetDefault: (id) => ipcRenderer.invoke(ConnectionChannel.SetDefault, id),
   Test: (id) => ipcRenderer.invoke(ConnectionChannel.Test, id),
   EnvVars: () => ipcRenderer.invoke(ConnectionChannel.EnvVars),
+  Resolve: (id, version, connectionId) => ipcRenderer.invoke(ConnectionChannel.Resolve, id, version, connectionId),
 }
 
 const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp, skillContext, connections }

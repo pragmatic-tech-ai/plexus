@@ -8,7 +8,9 @@
  * The resolve path used by reference resolution is added in Task 8, where its consumer
  * (PublishedBases) fixes the exact shape.
  */
+import { PackageRegistryClient } from '@pragmatic-tech-ai/todl/package-manager'
 import type { PackageManagerService, ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager'
+import type { SourcedPackage } from '@pragmatic-tech-ai/todl'
 
 export interface ConnectionTestResult
 {
@@ -82,6 +84,25 @@ export class ConnectionsBridge
         catch (e)
         {
             return { ok: false, message: (e as Error).message }
+        }
+    }
+
+    // Resolve a published package from a connection's registry as a SourcedPackage
+    // (model.json document + its recorded deps), mirroring the local store's own shape.
+    // Best-effort: any failure (unreachable registry, missing package, non-TODL) returns
+    // undefined so the caller degrades to local-first, never hangs or throws.
+    public async Resolve(id: string, version: string, connectionId?: string): Promise<SourcedPackage | undefined>
+    {
+        try
+        {
+            const registry = await this.service.RegistryFor(connectionId)
+            const contents = await new PackageRegistryClient(registry).getContents({ name: id, version })
+            const document = JSON.parse(contents.rawModel) as { nodes: unknown[]; edges: unknown[]; dependencies?: SourcedPackage['Dependencies'] }
+            return { Document: document as unknown as SourcedPackage['Document'], Dependencies: document.dependencies ?? [] }
+        }
+        catch
+        {
+            return undefined
         }
     }
 
