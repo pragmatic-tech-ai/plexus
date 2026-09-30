@@ -3,17 +3,16 @@ import {
     HierarchyItemId, ChildAdded, HierarchyPropertyId, NodeSeverity,
     type HierarchyChange, type IHierarchyProvider,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
-import { ProjectBranchesProvider } from '../project-branches-provider.js'
+import { ProjectBranchesProvider, type LeadingBranch } from '../project-branches-provider.js'
 
-// A fake file provider: on root it emits one file child; records the ids it is asked about.
+// A fake file provider: on root it emits one file child async (like the real content
+// provider, so the composite's microtask-scheduled leading roots land first).
 function fakeFiles()
 {
     const asked: HierarchyItemId[] = []
     const fileChild = HierarchyItemId.Mint()
     const provider: IHierarchyProvider = {
         ProviderId: 'files',
-        // Emits its child asynchronously, like the real content provider (store I/O) — so
-        // the composite's microtask-scheduled References node lands first.
         ObserveChildren: (node, sink) => { asked.push(node); queueMicrotask(() => sink(new ChildAdded(fileChild, { Key: 'file', Caption: 'a.todl', IconKey: 'file', ExtObject: {}, Severity: NodeSeverity.Ok }))); return () => {} },
         GetProperty: (id, p) => { asked.push(id); return p === HierarchyPropertyId.Caption ? 'a.todl' : undefined },
         GetCanonicalName: () => 'a.todl',
@@ -23,57 +22,87 @@ function fakeFiles()
     return { provider, asked, fileChild }
 }
 
-// A fake refs provider standing in for ReferencesProvider (Owns + ReferencesRootId + IHierarchyProvider).
-function fakeRefs()
+// A fake leading branch (a single row) recording disposal.
+function fakeLeading(tag: string): LeadingBranch & { disposed: boolean; root: HierarchyItemId }
 {
     const root = HierarchyItemId.Mint()
-    const owned = new Set<HierarchyItemId>([root])
     let disposed = false
     return {
-        root, owned, get disposed() { return disposed },
-        ReferencesRootId: () => root,
-        ReferencesRootNode: () => ({ Key: 'references', Caption: 'References', IconKey: 'references', ExtObject: {}, Severity: NodeSeverity.Ok, IsExpandable: true }),
-        Owns: (id: HierarchyItemId) => owned.has(id),
-        ProviderId: 'refs',
-        ObserveChildren: (_n: HierarchyItemId, _s: (c: HierarchyChange) => void) => () => {},
-        GetProperty: (_id: HierarchyItemId, p: HierarchyPropertyId) => p === HierarchyPropertyId.Caption ? 'References' : undefined,
-        GetCanonicalName: () => 'references',
+        root, get disposed() { return disposed },
+        Owns: (id) => id === root,
+        RootId: () => root,
+        RootNode: () => ({ Key: tag, Caption: tag, IconKey: tag, ExtObject: {}, Severity: NodeSeverity.Ok }),
+        ObserveChildren: () => () => {},
+        GetProperty: (_id, p) => p === HierarchyPropertyId.Caption ? tag : undefined,
+        GetCanonicalName: () => tag,
         ParseCanonicalName: () => HierarchyItemId.Nil,
         CanAccept: () => false,
+        OnRootChanged: () => ({ dispose() {} }),
         dispose: () => { disposed = true },
     }
 }
 
 describe('ProjectBranchesProvider', () =>
 {
-    it('emits References as child[0] on the root, then forwards file children', async () =>
+    it('emits every leading branch root in order before the file children', async () =>
     {
         const files = fakeFiles()
-        const refs = fakeRefs()
-        const p = new ProjectBranchesProvider(files.provider, refs as never)
+        const a = fakeLeading('references')
+        const b = fakeLeading('active')
+        const p = new ProjectBranchesProvider(files.provider, [a, b])
         const added: HierarchyItemId[] = []
         p.ObserveChildren(HierarchyItemId.Root, (c) => { if (c instanceof ChildAdded) added.push(c.Id) })
-        await new Promise((r) => setTimeout(r, 5))   // initial children arrive async (microtask), as in the real model
-        expect(added[0]).toBe(refs.root)         // References first
+        await new Promise((r) => setTimeout(r, 5))
+        expect(added[0]).toBe(a.root)            // References first
+        expect(added[1]).toBe(b.root)            // active connection second
         expect(added).toContain(files.fileChild) // then files
     })
 
-    it('dispatches GetProperty to refs for refs-owned ids and to files otherwise', () =>
+    it('dispatches GetProperty to the owning leading branch, and to files otherwise', () =>
     {
         const files = fakeFiles()
-        const refs = fakeRefs()
-        const p = new ProjectBranchesProvider(files.provider, refs as never)
-        expect(p.GetProperty(refs.root, HierarchyPropertyId.Caption)).toBe('References')
+        const a = fakeLeading('references')
+        const p = new ProjectBranchesProvider(files.provider, [a])
+        expect(p.GetProperty(a.root, HierarchyPropertyId.Caption)).toBe('references')
         const someFileId = HierarchyItemId.Mint()
         p.GetProperty(someFileId, HierarchyPropertyId.Caption)
         expect(files.asked).toContain(someFileId)
     })
 
-    it('dispose disposes the refs provider', () =>
+    it('dispose disposes every leading branch (no leak)', () =>
     {
-        const refs = fakeRefs()
-        const p = new ProjectBranchesProvider(fakeFiles().provider, refs as never)
+        const a = fakeLeading('references')
+        const b = fakeLeading('active')
+        const p = new ProjectBranchesProvider(fakeFiles().provider, [a, b])
         p.dispose()
-        expect(refs.disposed).toBe(true)
+        expect(a.disposed && b.disposed).toBe(true)
+    })
+
+    it('a leading branch root update is forwarded as a ChildUpdated', async () =>
+    {
+        const files = fakeFiles()
+        const root = HierarchyItemId.Mint()
+        let fireRoot: (() => void) | undefined
+        let caption = 'Active connection: …'
+        const branch: LeadingBranch = {
+            Owns: (id) => id === root,
+            RootId: () => root,
+            RootNode: () => ({ Key: 'active', Caption: caption, IconKey: 'active', ExtObject: {}, Severity: NodeSeverity.Ok }),
+            ObserveChildren: () => () => {},
+            GetProperty: () => undefined,
+            GetCanonicalName: () => 'active',
+            ParseCanonicalName: () => HierarchyItemId.Nil,
+            CanAccept: () => false,
+            OnRootChanged: (h) => { fireRoot = h; return { dispose() { fireRoot = undefined } } },
+            dispose: () => {},
+        }
+        const p = new ProjectBranchesProvider(files.provider, [branch])
+        const changes: HierarchyChange[] = []
+        p.ObserveChildren(HierarchyItemId.Root, (c) => changes.push(c))
+        await new Promise((r) => setTimeout(r, 5))
+        changes.length = 0
+        caption = 'Active connection: npm-public'
+        fireRoot?.()
+        expect(changes.map((c) => c.constructor.name)).toContain('ChildUpdated')
     })
 })

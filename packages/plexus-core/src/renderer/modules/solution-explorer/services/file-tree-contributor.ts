@@ -10,6 +10,7 @@ import {
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 import { ReferencesProvider } from './references-provider.js'
 import { ProjectBranchesProvider } from './project-branches-provider.js'
+import { ReferencesLeadingBranch } from './references-leading-branch.js'
 import type { IReferenceView } from './reference-view.js'
 
 // Type guard (the `is<X>` free-function house-style exception): a tree row whose Data is
@@ -171,7 +172,7 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         let composite = this.branches.get(member)
         if (composite === undefined)
         {
-            composite = new ProjectBranchesProvider(provider, new ReferencesProvider(member, this.referenceView))
+            composite = new ProjectBranchesProvider(provider, [new ReferencesLeadingBranch(new ReferencesProvider(member, this.referenceView))])
             this.branches.set(member, composite)
         }
         return new ProviderContribution(composite)

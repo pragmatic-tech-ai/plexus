@@ -1,16 +1,35 @@
 import {
-    HierarchyItemId, ChildAdded,
-    type IHierarchyProvider, type HierarchyChange, type HierarchyPropertyId, type DropData,
+    HierarchyItemId, ChildAdded, ChildUpdated,
+    type IHierarchyProvider, type HierarchyChange, type HierarchyNode, type HierarchyPropertyId, type DropData,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
-import type { ReferencesProvider } from './references-provider.js'
+import type { Disposable } from '@pragmatic-tech-ai/todl-runtime'
 
-// Composes one project's subtree from two sub-providers so References and the file tree
-// are siblings under the (provider-owned) project node. On the project root it emits the
-// References node first (child[0]), then forwards the file provider's children; every
-// other id dispatches by ownership — refs.Owns(id) → the References provider, else the
-// file provider (including nested file folders, which the file provider owns). The model
-// re-enters ObserveChildren for each provider-owned child, so this dispatch is all the
-// nesting needs — no framework change.
+// A branch that leads a project's file tree — a single row (its RootNode) plus, optionally,
+// a subtree the model realizes under it. References is one such branch (an expandable root
+// with groups/leaves); the per-project active-connection row is another (a single leaf whose
+// caption tracks the effective connection). OnRootChanged lets a branch with a dynamic root
+// (the active-connection row) re-render its own row without touching the file subtree.
+export interface LeadingBranch
+{
+    Owns(id: HierarchyItemId): boolean
+    RootId(): HierarchyItemId
+    RootNode(): HierarchyNode
+    ObserveChildren(node: HierarchyItemId, sink: (c: HierarchyChange) => void): () => void
+    GetProperty(id: HierarchyItemId, prop: HierarchyPropertyId): unknown
+    GetCanonicalName(id: HierarchyItemId): string
+    ParseCanonicalName(name: string): HierarchyItemId
+    CanAccept(target: HierarchyItemId, drop: DropData): boolean
+    OnRootChanged(handler: () => void): Disposable
+    dispose(): void
+}
+
+// Composes one project's subtree from an ordered list of leading branches plus the file
+// provider, so the branches and the file tree are siblings under the (provider-owned) project
+// node. On the project root it emits each leading branch's root in order (child[0], child[1],
+// …), then forwards the file provider's children; every other id dispatches by ownership — the
+// first leading branch that Owns(id), else the file provider (including nested folders it
+// owns). The model re-enters ObserveChildren for each provider-owned child, so this dispatch
+// is all the nesting needs — no framework change.
 export class ProjectBranchesProvider implements IHierarchyProvider
 {
     private static readonly Id = 'plexus.project-branches'
@@ -18,47 +37,76 @@ export class ProjectBranchesProvider implements IHierarchyProvider
 
     private rootId: HierarchyItemId | undefined
 
-    constructor(private readonly files: IHierarchyProvider, private readonly refs: ReferencesProvider)
+    constructor(private readonly files: IHierarchyProvider, private readonly leading: readonly LeadingBranch[])
     {
     }
 
     public ObserveChildren(node: HierarchyItemId, sink: (c: HierarchyChange) => void): () => void
     {
-        if (this.refs.Owns(node)) return this.refs.ObserveChildren(node, sink)
-        // The first non-refs node observed is the project root; References leads its children.
+        for (const b of this.leading)
+        {
+            if (b.Owns(node)) return b.ObserveChildren(node, sink)
+        }
+        // The first non-leading node observed is the project root; the leading branches lead
+        // its children.
         if (this.rootId === undefined) this.rootId = node
-        // Emit References asynchronously: the model assigns entry.dispose to the RESULT of
-        // this call, so a synchronous sink() would run patch() while entry.dispose is still
-        // undefined and be dropped. A microtask fires after the subscription is recorded
-        // (the same async-initial-children contract ProjectContentProvider relies on).
+        const rootSubs: Disposable[] = []
         if (node === this.rootId)
         {
-            const refs = this.refs
-            queueMicrotask(() => sink(new ChildAdded(refs.ReferencesRootId(), refs.ReferencesRootNode())))
+            const leading = this.leading
+            // Emit asynchronously: the model assigns entry.dispose to the RESULT of this call,
+            // so a synchronous sink() would run patch() while entry.dispose is still undefined
+            // and be dropped. A microtask fires after the subscription is recorded (the
+            // async-initial-children contract ProjectContentProvider relies on).
+            queueMicrotask(() =>
+            {
+                for (const b of leading) sink(new ChildAdded(b.RootId(), b.RootNode()))
+                for (const b of leading) rootSubs.push(b.OnRootChanged(() => sink(new ChildUpdated(b.RootId(), b.RootNode()))))
+            })
         }
-        return this.files.ObserveChildren(node, sink)
+        const filesOff = this.files.ObserveChildren(node, sink)
+        return () => { filesOff(); for (const s of rootSubs) s.dispose() }
     }
 
     public GetProperty(id: HierarchyItemId, prop: HierarchyPropertyId): unknown
     {
-        return this.refs.Owns(id) ? this.refs.GetProperty(id, prop) : this.files.GetProperty(id, prop)
+        const owner = this.ownerOf(id)
+        return owner !== undefined ? owner.GetProperty(id, prop) : this.files.GetProperty(id, prop)
     }
 
     public GetCanonicalName(id: HierarchyItemId): string
     {
-        return this.refs.Owns(id) ? this.refs.GetCanonicalName(id) : this.files.GetCanonicalName(id)
+        const owner = this.ownerOf(id)
+        return owner !== undefined ? owner.GetCanonicalName(id) : this.files.GetCanonicalName(id)
     }
 
     public ParseCanonicalName(name: string): HierarchyItemId
     {
-        const fromRefs = this.refs.ParseCanonicalName(name)
-        return fromRefs !== HierarchyItemId.Nil ? fromRefs : this.files.ParseCanonicalName(name)
+        for (const b of this.leading)
+        {
+            const id = b.ParseCanonicalName(name)
+            if (id !== HierarchyItemId.Nil) return id
+        }
+        return this.files.ParseCanonicalName(name)
     }
 
     public CanAccept(target: HierarchyItemId, drop: DropData): boolean
     {
-        return this.refs.Owns(target) ? this.refs.CanAccept(target, drop) : this.files.CanAccept(target, drop)
+        const owner = this.ownerOf(target)
+        return owner !== undefined ? owner.CanAccept(target, drop) : this.files.CanAccept(target, drop)
     }
 
-    public dispose(): void { this.refs.dispose() }
+    public dispose(): void
+    {
+        for (const b of this.leading) b.dispose()
+    }
+
+    private ownerOf(id: HierarchyItemId): LeadingBranch | undefined
+    {
+        for (const b of this.leading)
+        {
+            if (b.Owns(id)) return b
+        }
+        return undefined
+    }
 }
