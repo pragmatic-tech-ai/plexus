@@ -87,3 +87,31 @@ describe('SolutionTreeStateService — persist', () =>
         expect(bags.Ids('solution-tree-state')).toEqual([])   // nothing persisted
     })
 })
+
+describe('SolutionTreeStateService — restore', () =>
+{
+    it('reactively restores expansion and selection, skipping stale names', () =>
+    {
+        const bags = new FakeBags()
+        const seed = bags.Bag('solution-tree-state', 'C:/sol')
+        seed.SetValue('expanded', ['solution/p1'])
+        seed.SetValue('selection', ['solution/p2', 'solution/ghost'])   // ghost no longer exists
+        seed.SetValue('anchor', 'solution/p2')
+
+        const { tree } = makeTree()
+        new SolutionTreeStateService(tree, titledSolution(), bags).Start()
+
+        const [p1, p2] = [tree.Roots.Get(0)!, tree.Roots.Get(1)!]
+        expect(p1.IsExpanded).toBe(true)                 // restored expansion
+        expect(p2.IsExpanded).toBe(false)
+        expect(tree.Selection.ToArray()).toEqual([p2])   // ghost skipped
+        expect(tree.Anchor).toBe(p2)
+    })
+
+    it('builds cleanly when the bag is empty', () =>
+    {
+        const { tree } = makeTree()
+        expect(() => new SolutionTreeStateService(tree, titledSolution(), new FakeBags()).Start()).not.toThrow()
+        expect(tree.Roots.Get(0)!.IsExpanded).toBe(false)
+    })
+})

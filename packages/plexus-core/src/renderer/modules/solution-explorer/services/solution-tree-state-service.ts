@@ -27,6 +27,9 @@ export class SolutionTreeStateService
     private restoring = false
     private disposed = false
     private sessionState: TreeState | undefined   // untitled fallback
+    private restoreState: TreeState | undefined
+    private readonly selectedVms: HierarchyItemVM[] = []
+    private anchorVm: HierarchyItemVM | undefined
 
     constructor(
         private readonly tree: HierarchyTreeVM,
@@ -38,6 +41,7 @@ export class SolutionTreeStateService
 
     public Start(): void
     {
+        this.restoreState = this.readState()
         this.watch()
     }
 
@@ -69,7 +73,32 @@ export class SolutionTreeStateService
         const expansionSub = vm.PropertyChanged('IsExpanded').subscribe(() => this.save())
         const childrenSub = vm.Children.Subscribe(() => { for (const c of vm.Children.ToArray()) this.track(c) })
         this.vmSubs.set(vm, { dispose: () => { expansionSub.dispose(); childrenSub.dispose() } })
+        this.applyRestore(vm)
         for (const c of vm.Children.ToArray()) this.track(c)
+    }
+
+    // Apply persisted state to a VM as it appears. Selection first, so a row that is both
+    // selected and expanded is selected before Expand() cascades child tracking.
+    private applyRestore(vm: HierarchyItemVM): void
+    {
+        const state = this.restoreState
+        if (state === undefined) return
+        const name = vm.CanonicalName
+        if (name === '') return
+        if (state.selection.includes(name))
+        {
+            this.selectedVms.push(vm)
+            if (name === state.anchor) this.anchorVm = vm
+            this.withRestoring(() => this.tree.SyncSelection(this.selectedVms, this.anchorVm ?? this.selectedVms[this.selectedVms.length - 1]))
+        }
+        if (state.expanded.includes(name)) this.withRestoring(() => vm.Expand())
+    }
+
+    private withRestoring(action: () => void): void
+    {
+        this.restoring = true
+        try { action() }
+        finally { this.restoring = false }
     }
 
     private save(): void
@@ -104,6 +133,23 @@ export class SolutionTreeStateService
         bag.SetValue(SolutionTreeStateService.ExpandedProp, state.expanded)
         bag.SetValue(SolutionTreeStateService.SelectionProp, state.selection)
         bag.SetValue(SolutionTreeStateService.AnchorProp, state.anchor)
+    }
+
+    private readState(): TreeState
+    {
+        if (!this.solution.HasLocation) return this.sessionState ?? { expanded: [], selection: [], anchor: '' }
+        const bag = this.bag()
+        const anchor = bag.GetValue(SolutionTreeStateService.AnchorProp)
+        return {
+            expanded: SolutionTreeStateService.asStrings(bag.GetValue(SolutionTreeStateService.ExpandedProp)),
+            selection: SolutionTreeStateService.asStrings(bag.GetValue(SolutionTreeStateService.SelectionProp)),
+            anchor: typeof anchor === 'string' ? anchor : '',
+        }
+    }
+
+    private static asStrings(raw: unknown): string[]
+    {
+        return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
     }
 
     private bag(): IPropertyBag
