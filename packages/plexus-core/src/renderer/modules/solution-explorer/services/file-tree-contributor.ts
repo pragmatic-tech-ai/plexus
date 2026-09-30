@@ -9,9 +9,11 @@ import {
 } from '@pragmatic-tech-ai/todl'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 import { ReferencesProvider } from './references-provider.js'
-import { ProjectBranchesProvider } from './project-branches-provider.js'
+import { ProjectBranchesProvider, type LeadingBranch } from './project-branches-provider.js'
 import { ReferencesLeadingBranch } from './references-leading-branch.js'
+import { ActiveConnectionLeadingBranch } from './active-connection-leading-branch.js'
 import type { IReferenceView } from './reference-view.js'
+import type { IConnectionView } from './connection-view.js'
 
 // Type guard (the `is<X>` free-function house-style exception): a tree row whose Data is
 // a solution member, used by MemberOf to find the owning member climbing from any node.
@@ -49,9 +51,11 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
     private readonly branches = new Map<SolutionMember, ProjectBranchesProvider>()
     private mutations: IContentMutations | undefined
     private referenceView: IReferenceView | undefined
+    private connectionView: IConnectionView | undefined
 
     public SetMutations(m: IContentMutations): void { this.mutations = m }
     public SetReferenceView(view: IReferenceView): void { this.referenceView = view }
+    public SetConnectionView(view: IConnectionView): void { this.connectionView = view }
 
     // The base file actions for a content/project row, closing over the resolved member +
     // the mutation façade. New Folder / Add New ▸ format / Import… / Rename / Delete; the
@@ -165,17 +169,36 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
             provider = new ProjectContentProvider(store)
             this.providers.set(member, provider)
         }
-        // No reference view wired (e.g. isolated file-tree tests), or the member is not a
-        // references consumer (e.g. a meta-model project) → the bare content provider, so no
-        // References node is surfaced. Otherwise wrap it in a composite that leads with References.
-        if (this.referenceView === undefined || !this.referenceView.IsConsumer(member)) return new ProviderContribution(provider)
+        // Consumer members (architecture / library) lead their files with per-project branches:
+        // the active-connection row (P5b) then the References node (P5a). A non-consumer (e.g. a
+        // meta-model), or a context with neither view wired (isolated file-tree tests), gets the
+        // bare content provider — no leading rows. The composite is cached per member (identity
+        // guard for attachProvider).
+        const leading = this.leadingBranchesFor(member)
+        if (leading.length === 0) return new ProviderContribution(provider)
         let composite = this.branches.get(member)
         if (composite === undefined)
         {
-            composite = new ProjectBranchesProvider(provider, [new ReferencesLeadingBranch(new ReferencesProvider(member, this.referenceView))])
+            composite = new ProjectBranchesProvider(provider, leading)
             this.branches.set(member, composite)
         }
         return new ProviderContribution(composite)
+    }
+
+    // The ordered leading branches for a consumer member: active-connection row then References.
+    // Empty for a non-consumer or when the relevant view is not wired.
+    private leadingBranchesFor(member: SolutionMember): LeadingBranch[]
+    {
+        const leading: LeadingBranch[] = []
+        if (this.connectionView !== undefined && this.connectionView.IsConsumer(member))
+        {
+            leading.push(new ActiveConnectionLeadingBranch(member, this.connectionView))
+        }
+        if (this.referenceView !== undefined && this.referenceView.IsConsumer(member))
+        {
+            leading.push(new ReferencesLeadingBranch(new ReferencesProvider(member, this.referenceView)))
+        }
+        return leading
     }
 
     // Release one member's store + provider (and any composite) when its row is pruned.

@@ -92,6 +92,10 @@ const todlShimPlugin: Plugin = {
             // imports @pragmatic-tech-ai/mural/framework/hierarchy, which the mural dist alias
             // resolves + externalizes (native load, cycle intact) — same as any other mural value.
             `export { Solution } from ${p('solution-services/solution-manager/engine/solution.js')}`,
+            // P5b (connections): SolutionConnectionOverrides persists per-project connection
+            // choices in solution.json via a `connections` setting bag. SettingBagDefinition
+            // imports only a TYPE from mural (SettingDefinition) — mural-free at runtime.
+            `export { SettingBagDefinition } from ${p('solution-services/solution-manager/engine/setting-bag-definition.js')}`,
             `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
             `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,
             `export { ProjectContentProvider } from ${p('solution-services/project-services/content/project-content-provider.js')}`,

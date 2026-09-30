@@ -13,9 +13,11 @@ import type { IConnectionsClient, ConnectionTestResult } from '../../solution-ex
 import { ConnectionHealth, type IConnectionView, type ConnectionLeafView } from '../../solution-explorer/services/connection-view.js'
 
 // A project the host resolves for a member — only the factory flag the consumer gate needs.
+// requiresMetaModel is optional to match IProjectFactory (an OpenProject.Factory); the gate
+// treats a missing flag as non-consumer.
 interface HostProject
 {
-    Factory: { requiresMetaModel: boolean }
+    Factory: { requiresMetaModel?: boolean }
 }
 
 export interface IConnectionHost

@@ -2,6 +2,7 @@ import {
     HierarchyAction, NodeKey,
     type IHierarchyActionContributor, type HierarchyActionContext, type HierarchyItemVM,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
@@ -14,6 +15,10 @@ export interface IConnectionEditorLauncher
     OpenNew(): void
     OpenEdit(connectionId: string): void
 }
+
+// DI token the app registers its editor-launcher under; SolutionExplorerService resolves it
+// to build the ConnectionActionsContributor.
+export const ConnectionEditorLauncherKey = new ServiceKey<IConnectionEditorLauncher>('ConnectionEditorLauncher')
 
 // The identity a connection leaf carries as its Data.
 interface LeafData
