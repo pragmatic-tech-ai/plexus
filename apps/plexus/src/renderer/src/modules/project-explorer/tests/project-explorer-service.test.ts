@@ -680,7 +680,7 @@ test('a member resolving to an already-claimed folder AFTER waiting is still ded
 // `!member.IsResolved` instead of settling, so its promise — and everything
 // awaiting it, including this call — never resolved. Also verifies the orphaned
 // member is dropped rather than left stranded in Members forever.
-test('openProjectAt reports "no factory" without hanging, and drops the unresolved member', async () => {
+test('openProjectAt reports "no factory" without hanging, and KEEPS the unresolved member as an error row (P6b)', async () => {
     const { service, priv, manager, store } = makeExplorer()
     let capturedMember: SolutionMember | undefined
 
@@ -696,13 +696,15 @@ test('openProjectAt reports "no factory" without hanging, and drops the unresolv
     }
 
     await priv.openProjectAt('C:/unregistered')
-    await new Promise((r) => setTimeout(r, 0))   // let the drop-unresolved-member cleanup settle
+    await new Promise((r) => setTimeout(r, 0))   // let the member-sync loop settle
 
     expect(service.Status).toBe('No factory for project type "unregistered-type".')
-    expect(service.OpenProjects.Count).toBe(0)
-    expect(manager.Members.ToArray()).toEqual([])
-    expect(memberSyncTaskFor(service, capturedMember!)).toBeUndefined()
-    expect(await store.List()).toEqual([])
+    expect(service.OpenProjects.Count).toBe(0)                            // never projected
+    // P6b: the unresolved member is NO LONGER auto-dropped — it stays so it renders as an
+    // error/warning row the user can remove via RemoveMember.
+    expect(manager.Members.ToArray()).toEqual([capturedMember])
+    expect(memberSyncTaskFor(service, capturedMember!)).toBeDefined()
+    expect(await store.List()).toEqual([])                               // nothing persisted
 })
 
 // Fix round 1: onMemberRemoved now prunes memberSyncTasks for every removed
@@ -1952,4 +1954,34 @@ test('dispose() releases the References stale-bases subscription (no fire after 
     service.dispose()
     staleHandler?.()                // after dispose the subscription is gone → no further fire
     expect(fires).toBe(1)
+})
+
+// ── P6b: Remove from Solution + keep unresolved members visible ─────────────
+
+test('an unresolved member is NOT auto-dropped; it stays in Members', async () => {
+    const { service, manager } = makeExplorer()
+    const member = new SolutionMember({ path: './x', type: 'no-such-type' })
+    manager.Members.Add(member)                  // triggers the member-sync loop
+    member.Status = SolutionMemberStatus.UnknownType
+    member.Project = undefined                   // settles waitForResolution (unresolved)
+    await memberSyncTaskFor(service, member)
+    expect(manager.Members.ToArray()).toContain(member)
+})
+
+test('RemoveMember removes an unresolved member directly', async () => {
+    const { service, manager } = makeExplorer()
+    const member = new SolutionMember({ path: './x', type: 'no-such-type' })
+    manager.Members.Add(member)
+    member.Project = undefined
+    await memberSyncTaskFor(service, member)
+    await service.RemoveMember(member)
+    expect(manager.Members.ToArray()).not.toContain(member)
+})
+
+test('RemoveMember on a projected member routes through the guarded close', async () => {
+    const { service, priv, manager } = makeExplorer()
+    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
+    const member = priv.memberFor(op)!
+    await service.RemoveMember(member)
+    expect(manager.CloseCalls).toContain(member)
 })

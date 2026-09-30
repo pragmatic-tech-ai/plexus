@@ -575,8 +575,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     {
         if (this.findByFolder(this.memberProjection.FolderOf(member)) !== undefined) return
         if (!member.IsResolved) await this.waitForResolution(member)
-        if (member.IsResolved) { await this.projectMember(member); return }
-        this.dropUnresolvedMember(member)
+        if (member.IsResolved) await this.projectMember(member)
+        // Unresolved (unknown type / load failure): leave it in Members so it renders as an
+        // error/warning row the user can remove via RemoveMember. (Formerly auto-dropped.)
     }
 
     // Wait for `member`'s OWN resolution to settle. SolutionManagerService's
@@ -598,16 +599,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             })
             this.pendingResolution.set(member, { subscription, resolve })
         })
-    }
-
-    // A member that settled without ever resolving (no registered factory for its
-    // type) has nothing to project and no way to ever open. Remove it from
-    // Members rather than leaving a permanently-broken entry behind — the
-    // removal fires onMemberRemoved, which is a no-op beyond forgetting this
-    // member's own sync-task bookkeeping (nothing was ever projected for it).
-    private dropUnresolvedMember(member: SolutionMember): void
-    {
-        this.manager.ActiveSolution?.Members.Remove(member)
     }
 
     private async projectMember(member: SolutionMember): Promise<void>
@@ -756,11 +747,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             // awaits the whole open (Solution.OpenOne sets Project exactly once, resolved
             // or not) before returning the member — so a no-factory outcome is reported
             // right away. Waiting on memberSyncTasks first would be wrong: for an
-            // unresolved member, that task's tail runs onMemberAdded's drop-and-forget
-            // cleanup (dropUnresolvedMember), not a projection — nothing to wait for here,
-            // and awaiting it anyway previously hung forever (waitForResolution never
-            // used to settle for a no-factory member — now fixed, but this order is also
-            // just the correct one regardless).
+            // unresolved member, that task just runs onMemberAdded to completion and leaves
+            // the member in place (P6b — it renders as a removable error row), so there is
+            // no projection to wait for here.
             if (!member.IsResolved)
             {
                 this.Status = `No factory for project type "${member.Ref.type}".`
@@ -999,6 +988,17 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     {
         const op = this.projected.get(member)
         if (op !== undefined) await this.closeProject(op)
+    }
+
+    // Remove a member from the solution. A projected member goes through the dirty-tab-guarded
+    // close (which then removes its membership); an unresolved/never-projected member — which
+    // CloseMember no-ops on — is removed from Members directly (the same mechanism the former
+    // auto-drop used), firing the standard onMemberRemoved teardown.
+    public async RemoveMember(member: SolutionMember): Promise<void>
+    {
+        const op = this.projected.get(member)
+        if (op !== undefined) { await this.closeProject(op); return }
+        this.manager.ActiveSolution?.Members.Remove(member)
     }
 
     public FormatsFor(member: SolutionMember): readonly ProjectFileFormat[]

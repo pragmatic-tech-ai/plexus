@@ -26,6 +26,9 @@ export interface IContentMutations
     RefreshMemberBases(member: SolutionMember): void
     UpdateMemberAgentMetadata(member: SolutionMember): Promise<void>
     CloseMember(member: SolutionMember): Promise<void>
+    // Remove a member from the solution: a projected member goes through the dirty-tab-guarded
+    // close; an unresolved/never-projected member is dropped from Members directly.
+    RemoveMember(member: SolutionMember): Promise<void>
     FormatsFor(member: SolutionMember): readonly ProjectFileFormat[]
     IsVersionedMember(member: SolutionMember): boolean
     CanRefreshBasesMember(member: SolutionMember): boolean
