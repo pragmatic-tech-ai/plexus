@@ -157,7 +157,7 @@ export class ConnectionsProvider implements IHierarchyProvider
             Key: ConnectionNodeKey.Leaf,
             Caption: `${v.DisplayName} (${v.RegistryType})`,
             IconKey: ConnectionNodeKey.Leaf + ConnectionsProvider.iconSuffix(v.Health),
-            ExtObject: Object.freeze({ id: v.Id }),
+            ExtObject: Object.freeze({ id: v.Id, isDefault: v.IsDefault }),
             Severity: warning ? NodeSeverity.Warning : NodeSeverity.Ok,
         }
         return error !== undefined ? { ...node, Error: error } : node
