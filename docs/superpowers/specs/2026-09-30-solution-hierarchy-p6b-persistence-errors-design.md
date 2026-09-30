@@ -59,7 +59,7 @@ Four units, across two repos. Each has one responsibility and a narrow seam:
 | Unit | Repo | Responsibility |
 |------|------|----------------|
 | **A. Canonical names** | Mural `hierarchy-model.ts` | Full ancestor-path `CanonicalNameOf` + provider delegation; realize-on-demand `Reveal`. |
-| **B. Programmatic expansion** | Mural `hierarchy-item-vm.ts` + solution-tree template | Observable `IsExpanded` + `Expand()`/`Collapse()` on the row VM; two-way bound to `TreeViewItem.IsExpanded`. |
+| **B. Programmatic expansion** | Mural `hierarchy-item-vm.ts` + Plexus `HierarchyExpansionBehavior` | Observable `IsExpanded` + `Expand()`/`Collapse()` on the row VM; a behavior syncs each `TreeViewItem.IsExpanded` from its VM (data→view). |
 | **C. Tree-state service** | Plexus `solution-explorer` | Persist + reactively restore expansion/selection via `GlobalBagPersister`, keyed by solution path. |
 | **D. Remove from Solution** | Plexus `solution-explorer` + `project-explorer` | Rename the action; `RemoveMember` handling projected and non-projected members. |
 
@@ -141,9 +141,15 @@ programmatically.
 
 ### The seam
 
-Give `HierarchyItemVM` an observable expanded state and programmatic methods,
-and bind `TreeViewItem.IsExpanded` **two-way** to it in the solution-tree
-template — mirroring how `TreeView.SelectedDataItem` is already two-way bound.
+Give `HierarchyItemVM` an observable expanded state and programmatic methods
+(the Mural side), and add a Plexus-side `HierarchyExpansionBehavior` that syncs
+each realized `TreeViewItem.IsExpanded` from its VM's `IsExpanded` — the
+data→view direction the framework currently lacks. This mirrors
+`HierarchySelectionBehavior` (which syncs the other way) and uses the
+`ItemsControl` container-realization hooks (`AddContainerPreparedListener` /
+`AddContainerClearedListener`), so it works with virtualization: a container
+that materializes for an already-expanded VM is expanded on prepare, and a
+later `vm.Expand()` flips the live container.
 
 `HierarchyItemVM` changes:
 
@@ -159,19 +165,20 @@ template — mirroring how `TreeView.SelectedDataItem` is already two-way bound.
   address the state service persists and matches on (mirrors the existing
   `Key` getter).
 
-Template change (solution-tree `HierarchicalDataTemplate` in plexus-core):
-add `IsExpanded={Binding IsExpanded, Mode=TwoWay}` to the `TreeViewItem`.
+Wiring: attach `HierarchyExpansionBehavior` to the solution-tree `TreeView`
+alongside the existing `HierarchySelectionBehavior`.
 
 ### Why the cascade works
 
-Setting `vm.Expand()` raises `IsExpanded` → the two-way binding pushes
-`true` into `TreeViewItem.IsExpanded` → the DP handler calls `OnExpand()` →
+Setting `vm.Expand()` raises `IsExpanded` → the behavior's per-VM listener sets
+the live `TreeViewItem.IsExpanded = true` → the DP handler calls `OnExpand()` →
 children realize → child VMs appear in `Children` → their containers
-materialize and, being two-way bound, pick up each child VM's `IsExpanded` on
-attach. So expanding a node whose children are also in the persisted-expanded
-set cascades automatically. Re-entrancy is bounded by the idempotent
-`expanded` flag (a second `OnExpand` after `Expand` already realized is a
-no-op).
+materialize, and the behavior's container-prepared listener sets each child
+container's `IsExpanded` from its VM. So expanding a node whose children are
+also in the persisted-expanded set cascades automatically. Re-entrancy is
+bounded by the idempotent `expanded` flag (a second `OnExpand` after `Expand`
+already realized is a no-op) and by only writing a container's `IsExpanded`
+when it differs.
 
 ---
 
@@ -324,11 +331,16 @@ TDD throughout. Test homes follow house style (`tests/` next to source).
 - `Reveal` descends and realizes a collapsed keyed target and returns its id;
   returns `Nil` for an unknown name and for an unrealized provider target.
 
-**Mural (Unit B):**
+**Mural (Unit B, VM):**
 - `Expand()`/`Collapse()` toggle `IsExpanded`, realize/release children, and
   raise `PropertyChanged('IsExpanded')`.
 - Framework `OnExpand`/`OnCollapse` keep `IsExpanded` truthful.
 - `CanonicalName` getter returns the model's full path.
+
+**Plexus (Unit B, behavior):**
+- On container-prepared, `HierarchyExpansionBehavior` sets the container's
+  `IsExpanded` from its VM; a later `vm.Expand()` flips the live container.
+- Detaching / container-cleared drops the per-VM subscription (no leak).
 
 **Plexus (Unit C):**
 - Persists expanded + selection + anchor after changes (debounce flushed).
@@ -353,9 +365,11 @@ TDD throughout. Test homes follow house style (`tests/` next to source).
   Plexus (and Fresco/TODL as the workspace requires), `npm install`, rebuild
   plexus-core `dist`. plexus-core's vitest aliases mural → dist, so its tests
   pick up the built change.
-- **Plexus** changes (Units C, D): plexus-core src + the solution-tree template
-  + apps wiring (the state service is constructed where the solution-explorer
-  tree is built). No todl-runtime/TODL source changes expected.
+- **Plexus** changes (Units B-behavior, C, D): plexus-core src — the expansion
+  behavior + its `.mu` attachment, the tree-state service constructed where the
+  solution-explorer tree is built (`SolutionExplorerService.rebuild`), and the
+  Remove action. No app-level wiring and no todl-runtime/TODL source changes
+  expected (`GlobalBagPersisterKey` is already registered from P6a).
 - Follow the standing rule: bump to the newest published versions.
 
 ## Out of scope (YAGNI)
