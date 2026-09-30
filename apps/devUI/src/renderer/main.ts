@@ -10,6 +10,8 @@ import {
     DialogService,
 } from '@pragmatic-tech-ai/mural/framework';
 import { SolutionServicesEngine, SolutionManagerService } from '@pragmatic-tech-ai/todl';
+import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime';
+import { DurableStoreRegistration } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags';
 import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio';
 import { SolutionServicesRegistration } from './modules/solution/solution-services.js';
 import {
@@ -64,11 +66,15 @@ SolutionServicesRegistration.Register(app.Services);
 await document.fonts.ready;
 app.initialize(new HtmlTarget(document.getElementById('app')!));
 
-// Startup solution state: the SolutionManagerService (constructed here) registered
-// its session bag with any SessionStore the host provides, so RestoreSession reopens
-// the previously-active solution — or, when none is remembered (or the host persists
-// no session), creates an empty untitled solution the user can save or discard.
-await app.Services.get(SolutionManagerService.Key)?.RestoreSession();
+// Startup solution state. Register the durable application store BEFORE the manager is
+// constructed, so the manager's ctor registers its session bag with it; then await the store's
+// Restore (which applies the persisted slice onto that bag) BEFORE RestoreSession, so the
+// previously-active solution reopens — or, when none is remembered, an empty untitled solution is
+// created that the user can save or discard.
+DurableStoreRegistration.Register(app.Services);
+const solutionManager = app.Services.get(SolutionManagerService.Key);
+await app.Services.get(DurableApplicationStoreKey)?.Restore();
+await solutionManager?.RestoreSession();
 
 // SetHost after initialize so the shell root Visual (the dialog's overlay anchor)
 // exists. DialogService owns no Visual; it reaches the overlay layer through this.

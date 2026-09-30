@@ -48,7 +48,9 @@ import { createTodlLspConnection } from './services/todl/todl-lsp-connection.js'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
+import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
 import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio'
+import { DurableStoreRegistration } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
 import { RendererPackageSource } from './services/projects/renderer-package-source.js'
 
 // Register the 'todl' Monaco language once, before any editor mounts, so .todl
@@ -111,6 +113,11 @@ try {
     // registering here constructs nothing; the singletons are resolved further below.
     SolutionStudioSeams.Register(app.Services)
     app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
+    // Bind the durable application store BEFORE the manager is constructed (its ctor registers its
+    // session bag with DurableApplicationStoreKey). Nothing bound this key before, so the session
+    // bag — recent/last solutions — never survived a run; registering here fixes that dormant bug.
+    // The store is Restored below, once the manager exists, before session restore.
+    DurableStoreRegistration.Register(app.Services)
     // The shell chrome (title strip + @Surface) has mounted; drop the boot
     // splash once the browser has flushed a real frame. Double-rAF: the first
     // callback runs before paint, the second after — so we never reveal a blank
@@ -243,6 +250,10 @@ try {
     // restore; BaseResolverKey resolves this SAME singleton.
     app.Services.get(SolutionManagerService.Key)
     app.Services.get(SolutionBaseResolver.Key)
+    // The manager now exists and has registered its session bag with the durable store; Restore it
+    // so any persisted slice is applied before the session-restoring code below reads it, and so the
+    // bag persists (debounced) from here on.
+    await app.Services.get(DurableApplicationStoreKey)?.Restore()
     // Now that both the language client and SolutionBaseResolver are resolved,
     // subscribe once to the resolver's StaleMemberIds push (W3b Task 6): a producer
     // change → SolutionBaseResolver.Invalidate → StaleMemberIds raise → coalesced

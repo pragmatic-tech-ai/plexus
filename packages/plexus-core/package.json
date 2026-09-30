@@ -14,6 +14,8 @@
     "./renderer/theme": "./dist/renderer/theme/index.js",
     "./renderer/modules/window-chrome": "./dist/renderer/modules/window-chrome/index.js",
     "./renderer/modules/window-chrome/*": "./dist/renderer/modules/window-chrome/*",
+    "./renderer/modules/bags": "./dist/renderer/modules/bags/index.js",
+    "./renderer/modules/bags/*": "./dist/renderer/modules/bags/*",
     "./renderer/projects": "./dist/renderer/projects/index.js",
     "./renderer/projects/*": "./dist/renderer/projects/*",
     "./renderer/environment/*": "./dist/renderer/environment/*",
