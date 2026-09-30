@@ -1,10 +1,11 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { PackageStoreKey, StoragePackageStore, type IPackageStore, type PackageRef, type SourcedPackage } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/services/project-explorer-service.js'
 
 import { ensurePackagesBackend } from './packages-backend.js'
 import { ConnectionAwarePackageStore, type IConnectionPackageResolver } from './connection-aware-package-store.js'
-import { AppConnectionPackageResolver, DefaultEffectiveConnection, LocalOnlyPackageResolver, type ConnectionResolveApi } from './app-connection-package-resolver.js'
+import { AppConnectionPackageResolver, LocalOnlyPackageResolver, type ConnectionResolveApi, type IEffectiveConnection } from './app-connection-package-resolver.js'
 
 // The local packages IPackageStore: `Storage` is the single app-global packages backend
 // (rooted at <userData>/packages via the local-FS backend today); `TryGet` delegates to a
@@ -51,17 +52,33 @@ export class ConnectionAwarePlexusPackageStore extends ConnectionAwarePackageSto
 
     constructor(provider: IServiceProvider)
     {
-        super(new PlexusPackageStore(provider), ConnectionAwarePlexusPackageStore.resolver())
+        super(new PlexusPackageStore(provider), ConnectionAwarePlexusPackageStore.resolver(provider))
     }
 
-    // 8a: resolve missing bases from the user's DEFAULT connection when the bridge is present
-    // (DefaultEffectiveConnection ⇒ connectionId undefined ⇒ RegistryFor(default)); local-only
-    // otherwise. 8b replaces DefaultEffectiveConnection with a per-project effective policy.
-    private static resolver(): IConnectionPackageResolver
+    // Resolve missing bases from the consuming project's EFFECTIVE connection (per-project
+    // override → solution default → global default, via ProjectExplorerService) when the
+    // connections bridge is present; local-only otherwise (non-Electron host / test).
+    private static resolver(provider: IServiceProvider): IConnectionPackageResolver
     {
         const api = (globalThis as unknown as { api?: { connections?: ConnectionResolveApi } }).api?.connections
         if (api === undefined) return new LocalOnlyPackageResolver()
-        return new AppConnectionPackageResolver(api, new DefaultEffectiveConnection())
+        return new AppConnectionPackageResolver(api, new ProjectExplorerEffectiveConnection(provider))
+    }
+}
+
+// Bridges the package store's effective-connection seam to ProjectExplorerService, which owns
+// the per-project override store + the effective-connection precedence. Resolved lazily (on a
+// base-resolution miss), by which time ProjectExplorerService is registered.
+export class ProjectExplorerEffectiveConnection implements IEffectiveConnection
+{
+    constructor(private readonly provider: IServiceProvider)
+    {
+    }
+
+    public EffectiveConnectionIdFor(consumerId: string): Promise<string | undefined>
+    {
+        const explorer = this.provider.get(ProjectExplorerService.Key)
+        return explorer?.EffectiveConnectionIdForConsumer(consumerId) ?? Promise.resolve(undefined)
     }
 }
 

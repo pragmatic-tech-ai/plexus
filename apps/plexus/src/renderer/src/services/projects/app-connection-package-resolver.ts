@@ -35,17 +35,6 @@ export class AppConnectionPackageResolver implements IConnectionPackageResolver
     }
 }
 
-// 8a effective-connection policy: always the user's default connection (undefined ⇒ the
-// main bridge resolves RegistryFor(undefined)). 8b supersedes this with a project-aware
-// policy that reads the per-project override + solution default from solution.json.
-export class DefaultEffectiveConnection implements IEffectiveConnection
-{
-    public EffectiveConnectionIdFor(): Promise<string | undefined>
-    {
-        return Promise.resolve(undefined)
-    }
-}
-
 // Fallback resolver for a host where the connections bridge is absent (a non-Electron
 // host, or a test): resolution stays purely local-first — a miss is Unresolved, never a
 // connection fetch. Keeps ConnectionAwarePackageStore safe to register unconditionally.
