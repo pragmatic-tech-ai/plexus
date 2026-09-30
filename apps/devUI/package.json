@@ -18,7 +18,7 @@
     "package:linux": "npm run build && electron-builder --linux"
   },
   "dependencies": {
-    "@pragmatic-tech-ai/mural": "^0.57.0",
+    "@pragmatic-tech-ai/mural": "^0.57.1",
     "@pragmatic-tech-ai/plexus-core": "*",
     "@pragmatic-tech-ai/todl": "^0.38.9",
     "@pragmatic-tech-ai/todl-runtime": "^0.5.7",
@@ -35,7 +35,7 @@
     "@electron-toolkit/tsconfig": "^2.0.0",
     "@electron-toolkit/utils": "^4.0.0",
     "@playwright/test": "^1.62.1",
-    "@pragmatic-tech-ai/mural": "^0.57.0",
+    "@pragmatic-tech-ai/mural": "^0.57.1",
     "electron": "^43.0.0",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",

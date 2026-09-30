@@ -124,5 +124,14 @@ export default defineConfig({
     test: {
         include: ['src/**/*.test.ts'],
         environment: 'node',
+        server: {
+            // Inline the todl dist files the shim re-exports so Vite TRANSFORMS them and applies
+            // the mural alias to their bare '@pragmatic-tech-ai/mural/*' imports (otherwise they
+            // are externalized and Node resolves those imports to mural's dev condition = src .ts,
+            // which Node cannot type-strip). todl dist is compiled JS, so transforming it is safe
+            // (unlike mural, whose circular class hierarchy breaks under transform — mural stays
+            // externalized via the dist alias).
+            deps: { inline: [/[\\/]@pragmatic-tech-ai[\\/]todl[\\/]/] },
+        },
     },
 })
