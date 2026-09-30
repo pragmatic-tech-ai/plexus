@@ -11,6 +11,7 @@ import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
 import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
+import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
@@ -127,7 +128,22 @@ const skillContext: ISkillContextApi = {
   clear: (sessionId: string): Promise<void> => ipcRenderer.invoke(SkillContextChannel.ClearContext, sessionId),
 }
 
-const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp, skillContext }
+// Package-registry connections bridge — each method a thin invoke to the matching
+// ConnectionChannel handler (register-connections-ipc). Tokens are write-only; a token is
+// never returned across the bridge (only ConnectionView.HasToken).
+const connections: IConnectionsApi = {
+  List: () => ipcRenderer.invoke(ConnectionChannel.List),
+  Add: (spec) => ipcRenderer.invoke(ConnectionChannel.Add, spec),
+  Update: (id, partial) => ipcRenderer.invoke(ConnectionChannel.Update, id, partial),
+  Remove: (id) => ipcRenderer.invoke(ConnectionChannel.Remove, id),
+  SetToken: (id, token) => ipcRenderer.invoke(ConnectionChannel.SetToken, id, token),
+  UseEnvToken: (id, varName) => ipcRenderer.invoke(ConnectionChannel.UseEnvToken, id, varName),
+  SetDefault: (id) => ipcRenderer.invoke(ConnectionChannel.SetDefault, id),
+  Test: (id) => ipcRenderer.invoke(ConnectionChannel.Test, id),
+  EnvVars: () => ipcRenderer.invoke(ConnectionChannel.EnvVars),
+}
+
+const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp, skillContext, connections }
 
 if (process.contextIsolated)
 {
