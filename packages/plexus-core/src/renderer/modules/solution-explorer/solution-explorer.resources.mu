@@ -16,6 +16,7 @@ import IconKeyToGeometry from "./services/icon-key-to-geometry.js"
 import EditingToLabelVisibility from "../../projects/project-node-icon.js"
 import HierarchySelectionBehavior from "./behaviors/hierarchy-selection-behavior.js"
 import HierarchyKeyBehavior from "./behaviors/hierarchy-key-behavior.js"
+import HierarchyExpansionBehavior from "./behaviors/hierarchy-expansion-behavior.js"
 import HierarchyDragDropBehavior from "./behaviors/hierarchy-drag-drop-behavior.js"
 
 resources SolutionExplorerResources {
@@ -89,7 +90,7 @@ resources SolutionExplorerResources {
             TreeView [ Indent = 14, IsVirtualizing = true,
                        ItemsSource = $Tree.Roots, ItemTemplate = @HierarchyItemTemplate,
                        SelectionMode = Extended, AllowMarqueeSelection = true ] {
-                .Behaviors: { HierarchySelectionBehavior HierarchyKeyBehavior }
+                .Behaviors: { HierarchySelectionBehavior HierarchyKeyBehavior HierarchyExpansionBehavior }
             }
         }
     }

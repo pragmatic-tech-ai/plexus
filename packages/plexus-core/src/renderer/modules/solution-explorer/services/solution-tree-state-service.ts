@@ -1,4 +1,4 @@
-import type { Disposable, IPropertyBag } from '@pragmatic-tech-ai/todl-runtime'
+import type { IPropertyBag } from '@pragmatic-tech-ai/todl-runtime'
 import type { IBagPersister, Solution } from '@pragmatic-tech-ai/todl'
 import type { HierarchyItemVM, HierarchyTreeVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 
@@ -22,8 +22,10 @@ export class SolutionTreeStateService
     private static readonly SelectionProp = 'selection'
     private static readonly AnchorProp = 'anchor'
 
-    private readonly subs: Disposable[] = []
-    private readonly vmSubs = new Map<HierarchyItemVM, Disposable>()
+    // ObservableCollection.Subscribe and Observable.PropertyChanged().subscribe return different
+    // disposal shapes (a bare function vs a Disposable); both are normalised to () => void here.
+    private readonly subs: Array<() => void> = []
+    private readonly vmSubs = new Map<HierarchyItemVM, () => void>()
     private restoring = false
     private disposed = false
     private sessionState: TreeState | undefined   // untitled fallback
@@ -48,8 +50,8 @@ export class SolutionTreeStateService
     public dispose(): void
     {
         this.disposed = true
-        for (const s of this.subs) s.dispose()
-        for (const s of this.vmSubs.values()) s.dispose()
+        for (const s of this.subs) s()
+        for (const s of this.vmSubs.values()) s()
         this.subs.length = 0
         this.vmSubs.clear()
     }
@@ -72,7 +74,7 @@ export class SolutionTreeStateService
         if (this.vmSubs.has(vm)) return
         const expansionSub = vm.PropertyChanged('IsExpanded').subscribe(() => this.save())
         const childrenSub = vm.Children.Subscribe(() => { for (const c of vm.Children.ToArray()) this.track(c) })
-        this.vmSubs.set(vm, { dispose: () => { expansionSub.dispose(); childrenSub.dispose() } })
+        this.vmSubs.set(vm, () => { expansionSub.dispose(); childrenSub() })
         this.applyRestore(vm)
         for (const c of vm.Children.ToArray()) this.track(c)
     }

@@ -18,6 +18,8 @@ import { ReferenceNodeKey } from './reference-node-key.js'
 import { ConnectionsRootContributor } from './connections-root-contributor.js'
 import { ConnectionActionsContributor, ConnectionEditorLauncherKey } from './connection-actions-contributor.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
+import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
+import { SolutionTreeStateService } from './solution-tree-state-service.js'
 
 // The Solution Explorer capability: owns one HierarchyModel per open solution, follows
 // ActiveSolution, seeds the root, registers the two contributors imperatively (they close
@@ -31,6 +33,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private static readonly RootCaptionFallback = 'Solution'
 
     private _tree: HierarchyTreeVM | undefined
+    private treeState: SolutionTreeStateService | undefined
     private model: HierarchyModel | undefined
     private listing: ProjectsListingContributor | undefined
     private files: FileTreeContributor | undefined
@@ -109,7 +112,17 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.offReferenceActions = actionRegistry.RegisterInstance(new ReferenceActionsContributor(this.explorer.References))
         const launcher = this.provider.getRequired(ConnectionEditorLauncherKey)
         this.offConnectionActions = actionRegistry.RegisterInstance(new ConnectionActionsContributor(this.explorer.Connections, launcher))
-        this.setTree(new HierarchyTreeVM(this.model, root, this))
+        const tree = new HierarchyTreeVM(this.model, root, this)
+        this.setTree(tree)
+        // The global bag persister is registered by the app (P6a DurableStoreRegistration). It
+        // is absent in headless/unit contexts, so resolve it optionally — tree-state is a
+        // nice-to-have layered on top, never a hard dependency of the tree itself.
+        const bags = this.provider.get(GlobalBagPersisterKey)
+        if (bags !== undefined)
+        {
+            this.treeState = new SolutionTreeStateService(tree, solution, bags)
+            this.treeState.Start()
+        }
     }
 
     // ── HierarchyHost ────────────────────────────────────────────────────────
@@ -181,6 +194,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
 
     private teardownCurrent(): void
     {
+        this.treeState?.dispose()
+        this.treeState = undefined
         this._tree?.dispose()
         this.offListing?.()
         this.offFiles?.()
