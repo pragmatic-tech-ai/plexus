@@ -11,7 +11,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework';
 import { SolutionServicesEngine, SolutionManagerService } from '@pragmatic-tech-ai/todl';
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime';
-import { DurableStoreRegistration } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags';
+import { DurableStoreRegistration, BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags';
 import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio';
 import { SolutionServicesRegistration } from './modules/solution/solution-services.js';
 import {
@@ -74,6 +74,8 @@ app.initialize(new HtmlTarget(document.getElementById('app')!));
 DurableStoreRegistration.Register(app.Services);
 const solutionManager = app.Services.get(SolutionManagerService.Key);
 await app.Services.get(DurableApplicationStoreKey)?.Restore();
+// One-shot: lift a legacy userData/connections.json into the global connection bags (idempotent).
+await BagMigrationRunner.RunGlobal(app.Services);
 await solutionManager?.RestoreSession();
 
 // SetHost after initialize so the shell root Visual (the dialog's overlay anchor)

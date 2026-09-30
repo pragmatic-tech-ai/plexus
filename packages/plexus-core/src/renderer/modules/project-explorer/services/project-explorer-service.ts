@@ -88,7 +88,7 @@ import { ReferenceEditingService } from './reference-editing-service.js'
 import type { IReferenceView } from '../../solution-explorer/services/reference-view.js'
 import { ConnectionEditingService, type IConnectionHost } from './connection-editing-service.js'
 import { SavingSolutionBagPersister } from './saving-solution-bag-persister.js'
-import { GlobalBagPersister } from '../../bags/index.js'
+import { GlobalBagPersisterKey } from '../../bags/index.js'
 import type { IConnectionView } from '../../solution-explorer/services/connection-view.js'
 import { ConnectionsClientKey } from '../../solution-explorer/services/connections-client.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
@@ -96,7 +96,7 @@ import { PackagePublisher } from '../../../projects/package-publisher.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 import { StorageService } from '../../storage/index.js'
-import { isLocalFileAccess, DurableApplicationStoreKey, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService, ProjectSharedBagPersister, ProjectLocalBagPersister } from '@pragmatic-tech-ai/todl'
@@ -200,7 +200,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // lazily on first access (they need the connections client + solution manager, which are
     // wired after this ctor runs at boot).
     private connections: ConnectionEditingService | undefined
-    private globalBags: GlobalBagPersister | undefined
     // The live OpenProject for each currently-projected member.
     private readonly projected = new Map<SolutionMember, OpenProject>()
     // Positive consumerId → member cache for memberForConsumerId (a hot path on connection
@@ -329,26 +328,13 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         }
     }
 
-    // The global-scope bag persister, over the durable application store (userData/application-bags
-    // .json). Lazy + memoised; undefined only if the durable store is not wired (pre-Task-15 / a
-    // headless test) — callers then fall back to the client inventory alone.
-    private globalPersister(): GlobalBagPersister | undefined
-    {
-        if (this.globalBags === undefined)
-        {
-            const store = this.Provider.get(DurableApplicationStoreKey)
-            if (store === undefined) return undefined
-            this.globalBags = new GlobalBagPersister(store)
-        }
-        return this.globalBags
-    }
-
     // Build the bag vantage for connection resolution: always global; the active solution when one
     // is open; and, for a specific member, that project's shared + local scopes. Undefined when the
-    // durable store is unavailable.
+    // global persister is not wired (a headless test) — callers then fall back to the client
+    // inventory alone. The global persister is the app-registered singleton (one per durable store).
     private async buildVantage(member?: SolutionMember): Promise<BagVantage | undefined>
     {
-        const global = this.globalPersister()
+        const global = this.Provider.get(GlobalBagPersisterKey)
         if (global === undefined) return undefined
         const vantage: BagVantage = { Global: global }
         const solution = this.manager.ActiveSolution

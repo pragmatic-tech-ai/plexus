@@ -50,7 +50,7 @@ import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
 import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio'
-import { DurableStoreRegistration } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
+import { DurableStoreRegistration, BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
 import { RendererPackageSource } from './services/projects/renderer-package-source.js'
 
 // Register the 'todl' Monaco language once, before any editor mounts, so .todl
@@ -254,6 +254,9 @@ try {
     // so any persisted slice is applied before the session-restoring code below reads it, and so the
     // bag persists (debounced) from here on.
     await app.Services.get(DurableApplicationStoreKey)?.Restore()
+    // One-shot: lift a legacy userData/connections.json into the global connection bags (idempotent
+    // via its marker), so existing connections surface through the bag catalog.
+    await BagMigrationRunner.RunGlobal(app.Services)
     // Now that both the language client and SolutionBaseResolver are resolved,
     // subscribe once to the resolver's StaleMemberIds push (W3b Task 6): a producer
     // change → SolutionBaseResolver.Invalidate → StaleMemberIds raise → coalesced
