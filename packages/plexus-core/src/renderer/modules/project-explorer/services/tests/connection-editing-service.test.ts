@@ -57,16 +57,20 @@ const MEMBER = { Ref: { path: 'projA' } } as unknown as SolutionMember
 
 function setup(globals: ConnectionView[] = [globalConnection('gh', true)])
 {
+    const global = new FakeBagPersister(BagScope.Global)
     const solution = new FakeBagPersister(BagScope.Solution)
     const projectLocal = new FakeBagPersister(BagScope.Project)
-    const vantage: BagVantage = { Global: new FakeBagPersister(BagScope.Global), Solution: solution, ProjectLocal: projectLocal }
     let status = ''
+    // Realistic host vantage: the solution-wide view (no member) carries Global + Solution only; a
+    // member's view adds that project's local scope — matching the real project-explorer host.
     const host: IConnectionHost =
     {
         ProjectFor: () => undefined,
         SetStatus: (s) => { status = s },
         RefreshBasesFor: () => Promise.resolve(),
-        Vantage: () => Promise.resolve(vantage),
+        Vantage: (member) => Promise.resolve(member === undefined
+            ? { Global: global, Solution: solution }
+            : { Global: global, Solution: solution, ProjectLocal: projectLocal }),
     }
     const service = new ConnectionEditingService(new FakeClient(globals), host)
     return { service, solution, projectLocal, get status() { return status } }
@@ -74,7 +78,7 @@ function setup(globals: ConnectionView[] = [globalConnection('gh', true)])
 
 describe('ConnectionEditingService over the bag catalog', () =>
 {
-    it('lists connections from every visible scope, each tagged with its scope', async () =>
+    it('lists global + solution connections tagged by scope; a project-scoped bag never leaks into the solution-wide list', async () =>
     {
         const { service, solution, projectLocal } = setup()
         new ConnectionBag(solution.Create(ConnectionBagKind, 'sol-conn')).DisplayName = 'Solution npm'
@@ -82,10 +86,9 @@ describe('ConnectionEditingService over the bag catalog', () =>
 
         const views = await service.ConnectionsView()
         const byId = new Map(views.map((v) => [v.Id, v]))
-        expect([...byId.keys()].sort()).toEqual(['gh', 'proj-conn', 'sol-conn'])
+        expect([...byId.keys()].sort()).toEqual(['gh', 'sol-conn'])   // project scope is member-local, not solution-wide
         expect(byId.get('gh')!.Scope).toBe(ConnectionScope.Global)
         expect(byId.get('sol-conn')!.Scope).toBe(ConnectionScope.Solution)
-        expect(byId.get('proj-conn')!.Scope).toBe(ConnectionScope.Project)
     })
 
     it('setting a per-project active connection writes the project-local connection-selection, not the solution', async () =>

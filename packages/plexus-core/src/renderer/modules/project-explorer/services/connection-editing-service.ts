@@ -162,13 +162,12 @@ export class ConnectionEditingService implements IConnectionView
     {
         const vantage = await this.host.Vantage(member)
         const views = await this.ConnectionsView()
-        const byId = new Map(views.map((v) => [v.Id, v]))
         if (vantage !== undefined)
         {
-            const selectedId = this.selectedConnectionId(vantage)
-            if (selectedId !== undefined)
+            const selectedKey = this.selectedAddressKey(vantage)
+            if (selectedKey !== undefined)
             {
-                const selected = byId.get(selectedId)
+                const selected = views.find((v) => ConnectionEditingService.selectionKeyOf(v) === selectedKey)
                 if (selected !== undefined) return selected
             }
         }
@@ -253,16 +252,28 @@ export class ConnectionEditingService implements IConnectionView
         return undefined
     }
 
-    // The connection id an existing project-local selection points at (the last segment of the
-    // stored BagAddress.Key), or undefined.
-    private selectedConnectionId(vantage: BagVantage): string | undefined
+    // The raw BagAddress.Key a project-local selection points at (scope-preserving — compared, not
+    // parsed, so a connection id containing ':' or a same-id-at-another-scope never collapses).
+    private selectedAddressKey(vantage: BagVantage): string | undefined
     {
         const local = vantage.ProjectLocal
         if (local === undefined || !local.Ids(ConnectionSelectionKind).includes(ConnectionEditingService.SelectionInstanceId)) return undefined
         const key = local.Bag(ConnectionSelectionKind, ConnectionEditingService.SelectionInstanceId).GetValue(ConnectionPurpose.ReferenceResolution)
-        if (typeof key !== 'string' || key.length === 0) return undefined
-        const parts = key.split(':')
-        return parts[parts.length - 1]
+        return typeof key === 'string' && key.length > 0 ? key : undefined
+    }
+
+    // The selection key SetActiveConnectionFor would store for a view — its scope + id, matching the
+    // BagAddress that write constructs (no ProjectStore, as scopeOf produces).
+    private static selectionKeyOf(view: ConnectionLeafView): string
+    {
+        return BagAddress.Key(new BagAddress(ConnectionEditingService.bagScopeOf(view.Scope), ConnectionBagKind, view.Id))
+    }
+
+    private static bagScopeOf(scope: ConnectionScope): BagScope
+    {
+        if (scope === ConnectionScope.Solution) return BagScope.Solution
+        if (scope === ConnectionScope.Project) return BagScope.Project
+        return BagScope.Global
     }
 
     // The scope a connection id lives at: a project/solution bag if present, else the global inventory.

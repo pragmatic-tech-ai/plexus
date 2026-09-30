@@ -5,8 +5,9 @@
  * the env-var list. Publish/compile is deliberately out of scope here (that stays devUI's
  * RegistryBridge). Tokens never cross the bridge — only `ConnectionView.HasToken` does.
  *
- * The resolve path used by reference resolution is added in Task 8, where its consumer
- * (PublishedBases) fixes the exact shape.
+ * `Resolve` is the reference-resolution path: given the effective connection id the renderer's bag
+ * catalog computed (EffectiveConnectionIdForConsumer), it resolves the registry/token by id in the
+ * main process and returns the SourcedPackage (model + resources).
  */
 import { PackageRegistryClient, TarReader } from '@pragmatic-tech-ai/todl/package-manager'
 import type { PackageManagerService, ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager'

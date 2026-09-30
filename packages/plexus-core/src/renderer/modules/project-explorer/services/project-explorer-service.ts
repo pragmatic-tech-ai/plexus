@@ -282,11 +282,11 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     }
 
     // The effective connection id a consuming project (identified by its manifest id — the
-    // resolution context's consumerId) resolves its published bases against: its per-project
-    // override, else the solution default, else the global default. Undefined when no member
-    // produces that id or no connection applies (→ the app resolver falls back to the default
-    // connection). This is the app-side IEffectiveConnection the connection-aware package store
-    // consults on a local miss.
+    // resolution context's consumerId) resolves its published bases against, via the bag-backed
+    // ActiveConnectionFor: the project-local selection, else the solution-scope default, else the
+    // global default. Undefined when no member produces that id or no connection applies (→ the app
+    // resolver falls back to the default connection). This is the app-side IEffectiveConnection the
+    // connection-aware package store consults on a local miss.
     public async EffectiveConnectionIdForConsumer(consumerId: string): Promise<string | undefined>
     {
         const member = await this.memberForConsumerId(consumerId)
