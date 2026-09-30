@@ -166,7 +166,7 @@ describe('SolutionExplorerService', () =>
         svc.Start()
         manager.SetActive(solutionWith('a'))
         const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
-        expect(svc.ActionsFor(memberRow).some((a) => a.Label === 'Close Project')).toBe(true)
+        expect(svc.ActionsFor(memberRow).some((a) => a.Label === 'Remove from Solution')).toBe(true)
     })
 
     it('committing a rename on a file row routes to mutations with the row member', async () =>
