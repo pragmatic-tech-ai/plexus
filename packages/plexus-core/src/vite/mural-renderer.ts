@@ -10,11 +10,34 @@ export class MuralRendererConfig
     // specifier Node and bundlers both treat as real ESM) and no longer imports
     // `node:module` in shipped source, so the compiler runs unchanged in the
     // Chromium renderer.
-    public static resolve(): { conditions: string[] }
+    public static resolve(): { conditions: string[]; dedupe: string[] }
     {
         return {
             conditions: ['import', 'module', 'browser', 'default'],
+            dedupe: MuralRendererConfig.dedupe(),
         };
+    }
+
+    // Package names that MUST resolve to a single physical copy in the renderer
+    // bundle. mural ships module-level singletons (ThemeManager's theme registry,
+    // Application.current) and identity-based registries; two physical copies —
+    // which npm installs whenever the workspaces disagree on a version and the
+    // newer one cannot hoist to the root — bundle two sets of those singletons.
+    // The symptom is a boot crash: the first theme copy registers its schemes
+    // keyed by name ("PragmaticDark"), but the shell activates the SECOND copy's
+    // scheme class, whose esbuild-deduplicated identity name is "PragmaticDark2",
+    // so ThemeManager.ActivateTheme can't find it and the app never mounts. Vite's
+    // dedupe (matched by package name, covering every subpath) forces one copy
+    // resolved from the app root. fresco rides on mural, and the todl engine
+    // packages carry their own identity registries, so pin them all.
+    public static dedupe(): string[]
+    {
+        return [
+            '@pragmatic-tech-ai/mural',
+            '@pragmatic-tech-ai/fresco',
+            '@pragmatic-tech-ai/todl',
+            '@pragmatic-tech-ai/todl-runtime',
+        ];
     }
 
     // Specifiers to keep out of Vite's dep pre-bundler. mural must be served as

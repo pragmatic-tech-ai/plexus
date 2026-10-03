@@ -40,10 +40,14 @@ export default defineConfig({
   },
   renderer: {
     resolve: {
-      // Shared mural handling (dist-pinning conditions) comes from plexus-core so
-      // every app resolves mural identically. mural 0.55.14+ needs no shim
-      // aliases (opentype ESM-bundle import + no node:module in shipped source).
+      // Shared mural handling (dist-pinning conditions + single-copy dedupe)
+      // comes from plexus-core so every app resolves mural identically. mural
+      // 0.55.14+ needs no shim aliases (opentype ESM-bundle import + no
+      // node:module in shipped source). dedupe forces one physical mural/fresco/
+      // todl copy into the bundle even when the workspaces' versions disagree —
+      // without it two theme copies load and the shell crashes on boot.
       conditions: MuralRendererConfig.resolve().conditions,
+      dedupe: MuralRendererConfig.resolve().dedupe,
       alias: [
         // App-specific: @pragmatic-tech-ai/todl exposes only a ROOT ('.') export
         // whose nested import.default → dist/index.js trips Vite's
