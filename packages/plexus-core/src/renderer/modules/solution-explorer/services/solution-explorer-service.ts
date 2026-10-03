@@ -38,6 +38,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private static readonly HierarchyProp = 'Hierarchy'
     private static readonly HasNoSolutionProp = 'HasNoSolution'
     private static readonly RootCaptionFallback = 'Solution'
+    private static readonly NoFileTreeError = 'SolutionExplorerService: no active file-tree contributor'
 
     private hierarchy: Hierarchy | undefined
     private rootItem: HierarchyItem | undefined
@@ -48,7 +49,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private connectionsRoot: ConnectionsRootContributor | undefined
     private references: ReferencesContributor | undefined
     private readonly handles: IDisposable[] = []
-    private activeOff: { dispose(): void } | undefined
+    private activeOff: IDisposable | undefined
     private _hasNoSolution = true
 
     constructor(private readonly provider: IServiceProvider)
@@ -104,7 +105,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
 
     private requireFiles(): FileTreeContributor
     {
-        if (this.files === undefined) throw new Error('SolutionExplorerService: no active file-tree contributor')
+        if (this.files === undefined) throw new Error(SolutionExplorerService.NoFileTreeError)
         return this.files
     }
 

@@ -8,7 +8,7 @@ import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { type Solution, type SolutionMember, SolutionMemberStatus } from '@pragmatic-tech-ai/todl'
 
 // Contributes one project row per solution member under the solution root. Reactive:
-// re-notifies the registry (-> HierarchyModel re-contributes the root) when Members
+// re-notifies the registry (-> Hierarchy re-contributes the root) when Members
 // change or a member's Status flips, so rows appear/vanish and repaint their severity
 // while keeping their id (ExtObject = the SolutionMember, the interning identity).
 export class ProjectsListingContributor implements IHierarchyContributor
