@@ -1,300 +1,257 @@
 import {
-    HierarchyItemId, ChildAdded, ChildRemoved, ChildUpdated, NodeSeverity, NodeKey, HierarchyPropertyId,
-    type IHierarchyProvider, type HierarchyChange, type HierarchyNode, type DropData,
+    NodeSeverity,
+    type HierarchyItem, type HierarchyItemInit,
+    type IHierarchyProvider, type IRealizeContext, type DropData, type NodeContribution,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { Disposable, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ProjectType, type SolutionMember } from '@pragmatic-tech-ai/todl'
-import type { Disposable } from '@pragmatic-tech-ai/todl-runtime'
 import { ReferenceNodeKey } from './reference-node-key.js'
 import { ReferenceResolution, type IReferenceView, type MemberReferencesView, type DeclaredReference } from './reference-view.js'
 
 // Owns the References subtree for one member: a References root → a Meta-models group
 // (and, for an architecture, a Libraries group) → one leaf per declared reference,
-// decorated with its resolution. Async-seeded like ProjectContentProvider — ObserveChildren
-// returns its disposer synchronously and pushes ChildAdded after the async view fetch.
-// Refreshes on IReferenceView.OnReferencesViewChanged: re-fetches and diffs, so a repin is a
-// ChildUpdated (leaf id kept, keyed by kind@id), an add/remove a ChildAdded/ChildRemoved.
+// decorated with its resolution. Migrated to mural's B+C1 provider contract: Realize
+// PUSHES the groups into the References root (and the leaves into each group when it
+// expands) via the IRealizeContext, and returns the OnReferencesViewChanged subscription
+// as its teardown. A repeated reference keeps its leaf instance (interned by kind@id), so
+// a repin mutates the SAME row in place; an add/remove inserts/removes it. The canonical
+// scheme is preserved: references / references/<group-slug> / references/<group-slug>/<id>@<ver>.
 export class ReferencesProvider implements IHierarchyProvider
 {
     private static readonly Id = 'plexus.references'
     public readonly ProviderId = ReferencesProvider.Id
-    private static readonly RootCaption = 'References'
     private static readonly MetaModelsGroupLabel = 'Meta-models'
     private static readonly LibrariesGroupLabel = 'Libraries'
     private static readonly UnresolvedMessage = 'Unresolved: not published and no workspace producer'
     private static readonly RootCanonical = 'references'
     private static readonly MetaModelsSlug = 'meta-models'
     private static readonly LibrariesSlug = 'libraries'
+    private static readonly CanonicalSeparator = '/'
+    private static readonly LeafVersionSeparator = '@'
+    private static readonly LeafKeySeparator = '@'
     private static readonly LiveIconSuffix = '-live'
     private static readonly PublishedIconSuffix = '-published'
     private static readonly UnresolvedIconSuffix = '-unresolved'
 
-    private readonly rootId = HierarchyItemId.Mint()
-    private readonly rootMarker = Object.freeze({ references: true })
-    private readonly ownedIds = new Set<HierarchyItemId>([this.rootId])
-    private readonly nodeById = new Map<HierarchyItemId, HierarchyNode>()
-    private readonly canonicalById = new Map<HierarchyItemId, string>()
-    private readonly canonicalByName = new Map<string, HierarchyItemId>()
-    private readonly groupIdByKind = new Map<ProjectType, HierarchyItemId>()
-    private readonly groupKind = new Map<HierarchyItemId, ProjectType>()
-    private readonly groupSinks = new Map<HierarchyItemId, (c: HierarchyChange) => void>()
-    private readonly groupMembers = new Map<HierarchyItemId, Set<string>>()   // groupId -> set of kind@id keys
-    private readonly leafIds = new Map<string, HierarchyItemId>()             // kind@id -> leaf id
-    private rootSink: ((c: HierarchyChange) => void) | undefined
-    private currentView: MemberReferencesView | undefined
-    private fetched = false
-    private readonly rootChangedHandlers = new Set<() => void>()
-    private readonly offChanged: Disposable
+    private readonly groupItemByKind = new Map<ProjectType, HierarchyItem>()
+    private readonly leafItemByKey = new Map<string, HierarchyItem>()     // kind@id -> leaf
+    private readonly groupMembers = new Map<HierarchyItem, Set<string>>() // group -> leaf keys present
+    private readonly itemByCanonical = new Map<string, HierarchyItem>()
+    private readonly canonicalByItem = new Map<HierarchyItem, string>()
+    private rootItem: HierarchyItem | undefined
 
     constructor(private readonly member: SolutionMember, private readonly view: IReferenceView)
     {
-        this.nodeById.set(this.rootId, this.buildRootNode())
-        this.setCanonical(this.rootId, ReferencesProvider.RootCanonical)
-        this.offChanged = this.view.OnReferencesViewChanged((affected) =>
+    }
+
+    public Realize(item: HierarchyItem, context: IRealizeContext): IDisposable
+    {
+        if (item.Key === ReferenceNodeKey.Group)
         {
-            if (affected === undefined || affected === this.member) void this.refresh()
+            return this.realizeGroup(item, item.ExtObject as ProjectType, context)
+        }
+        return this.realizeRoot(item, context)
+    }
+
+    // The References subtree mints its own rows; nothing is contributor-injected.
+    public Integrate(_item: HierarchyItem, _contributions: readonly NodeContribution[]): void
+    {
+    }
+
+    public GetCanonicalName(item: HierarchyItem): string
+    {
+        if (item.Key === ReferenceNodeKey.Group)
+        {
+            return ReferencesProvider.RootCanonical + ReferencesProvider.CanonicalSeparator + ReferencesProvider.slugFor(item.ExtObject as ProjectType)
+        }
+        if (item.Key === ReferenceNodeKey.Leaf)
+        {
+            const leaf = item.ExtObject as { kind: ProjectType; ref: DeclaredReference['Ref'] }
+            return ReferencesProvider.leafCanonical(leaf.kind, leaf.ref.id, leaf.ref.version)
+        }
+        return ReferencesProvider.RootCanonical
+    }
+
+    public ParseCanonicalName(name: string): HierarchyItem | undefined
+    {
+        if (name === ReferencesProvider.RootCanonical) return this.rootItem
+        return this.itemByCanonical.get(name)
+    }
+
+    public CanAccept(_target: HierarchyItem, _drop: DropData): boolean { return false }
+
+    private realizeRoot(item: HierarchyItem, context: IRealizeContext): IDisposable
+    {
+        this.rootItem = item
+        const watch = { disposed: false }
+        const off = this.view.OnReferencesViewChanged((affected) =>
+        {
+            if (!watch.disposed && (affected === undefined || affected === this.member)) void this.populateRoot(item, context)
+        })
+        void this.populateRoot(item, context)
+        return new Disposable(() =>
+        {
+            watch.disposed = true
+            off.dispose()
         })
     }
 
-    public ReferencesRootId(): HierarchyItemId { return this.rootId }
-    public ReferencesRootNode(): HierarchyNode { return this.nodeById.get(this.rootId)! }
-    public Owns(id: HierarchyItemId): boolean { return this.ownedIds.has(id) }
-
-    // Fires when the References ROOT row's own presentation changes (its rolled-up severity),
-    // so the composite ProjectBranchesProvider re-emits a ChildUpdated for it. The subtree
-    // (groups/leaves) updates through the model directly; this is only the root row.
-    public OnRootChanged(handler: () => void): Disposable
+    private realizeGroup(group: HierarchyItem, kind: ProjectType, context: IRealizeContext): IDisposable
     {
-        this.rootChangedHandlers.add(handler)
-        return { dispose: () => { this.rootChangedHandlers.delete(handler) } }
-    }
-
-    public ObserveChildren(node: HierarchyItemId, sink: (c: HierarchyChange) => void): () => void
-    {
-        if (node === this.rootId)
+        const watch = { disposed: false }
+        const off = this.view.OnReferencesViewChanged((affected) =>
         {
-            this.rootSink = sink
-            void this.realizeRoot()
-            return () => { this.rootSink = undefined }
-        }
-        const kind = this.groupKind.get(node)
-        if (kind !== undefined)
+            if (!watch.disposed && (affected === undefined || affected === this.member)) void this.populateGroup(group, kind, context)
+        })
+        void this.populateGroup(group, kind, context)
+        return new Disposable(() =>
         {
-            this.groupSinks.set(node, sink)
-            void this.realizeGroup(node, kind, sink)
-            return () => { this.groupSinks.delete(node) }
-        }
-        return () => {}
+            watch.disposed = true
+            off.dispose()
+        })
     }
 
-    public GetProperty(id: HierarchyItemId, prop: HierarchyPropertyId): unknown
+    private async populateRoot(item: HierarchyItem, context: IRealizeContext): Promise<void>
     {
-        const node = this.nodeById.get(id)
-        if (node === undefined) return undefined
-        switch (prop)
-        {
-            case HierarchyPropertyId.Caption:       return node.Caption
-            case HierarchyPropertyId.IconKey:       return node.IconKey
-            case HierarchyPropertyId.ExtObject:     return node.ExtObject
-            case HierarchyPropertyId.Severity:      return node.Severity
-            case HierarchyPropertyId.CanonicalName: return this.canonicalById.get(id) ?? node.Key
-            case HierarchyPropertyId.IsExpandable:  return node.IsExpandable === true
-            default:                                return undefined
-        }
+        const view = await this.view.ReferencesViewFor(this.member)
+        if (view === undefined) return
+        this.ensureGroup(ProjectType.MetaModel, context)
+        if (view.OffersLibraries) this.ensureGroup(ProjectType.Library, context)
+        else this.removeGroup(ProjectType.Library, context)
+        item.Severity = ReferencesProvider.severityFor([...view.MetaModels, ...view.Libraries])
+        this.rollUpGroup(ProjectType.MetaModel, view)
+        if (view.OffersLibraries) this.rollUpGroup(ProjectType.Library, view)
     }
 
-    public GetCanonicalName(id: HierarchyItemId): string { return this.canonicalById.get(id) ?? '' }
-    public ParseCanonicalName(name: string): HierarchyItemId { return this.canonicalByName.get(name) ?? HierarchyItemId.Nil }
-    public CanAccept(_target: HierarchyItemId, _drop: DropData): boolean { return false }
-
-    public dispose(): void { this.offChanged.dispose() }
-
-    private async ensureView(): Promise<void>
+    private async populateGroup(group: HierarchyItem, kind: ProjectType, context: IRealizeContext): Promise<void>
     {
-        if (this.fetched) return
-        this.currentView = await this.view.ReferencesViewFor(this.member)
-        this.fetched = true
-    }
-
-    private async realizeRoot(): Promise<void>
-    {
-        await this.ensureView()
-        const sink = this.rootSink
-        if (sink === undefined || this.currentView === undefined) return
-        sink(new ChildAdded(this.ensureGroupId(ProjectType.MetaModel), this.nodeById.get(this.groupIdByKind.get(ProjectType.MetaModel)!)!))
-        if (this.currentView.OffersLibraries)
-        {
-            const libId = this.ensureGroupId(ProjectType.Library)
-            sink(new ChildAdded(libId, this.nodeById.get(libId)!))
-        }
-        this.applyRollups()
-    }
-
-    private async realizeGroup(groupId: HierarchyItemId, kind: ProjectType, sink: (c: HierarchyChange) => void): Promise<void>
-    {
-        await this.ensureView()
-        const members = new Set<string>()
-        for (const dref of this.listFor(kind))
-        {
-            const key = ReferencesProvider.leafKey(kind, dref)
-            const id = this.ensureLeafId(key, groupId, kind, dref)
-            members.add(key)
-            sink(new ChildAdded(id, this.nodeById.get(id)!))
-        }
-        this.groupMembers.set(groupId, members)
-    }
-
-    private async refresh(): Promise<void>
-    {
-        this.currentView = await this.view.ReferencesViewFor(this.member)
-        this.fetched = true
-        for (const [groupId, kind] of this.groupKind)
-        {
-            const sink = this.groupSinks.get(groupId)
-            if (sink === undefined) continue   // collapsed — rebuilds fresh on next expand
-            this.diffGroup(groupId, kind, sink)
-        }
-        this.applyRollups()
-    }
-
-    // Recompute rolled-up severity for the root and each known group from the current view
-    // (worst wins: an Unresolved reference → Warning). A changed group emits a ChildUpdated on
-    // the root sink; a changed root fires OnRootChanged so the composite re-emits its row.
-    // Runs off the fetched view (root expanded / refreshed), not eagerly — the tree stays lazy.
-    private applyRollups(): void
-    {
-        const root = this.nodeById.get(this.rootId)
-        if (root !== undefined)
-        {
-            const rootSeverity = ReferencesProvider.severityFor([...this.listFor(ProjectType.MetaModel), ...this.listFor(ProjectType.Library)])
-            if (root.Severity !== rootSeverity)
-            {
-                this.nodeById.set(this.rootId, { ...root, Severity: rootSeverity })
-                this.fireRootChanged()
-            }
-        }
-        for (const [groupId, kind] of this.groupKind)
-        {
-            const group = this.nodeById.get(groupId)
-            if (group === undefined) continue
-            const groupSeverity = ReferencesProvider.severityFor(this.listFor(kind))
-            if (group.Severity === groupSeverity) continue
-            const updated = { ...group, Severity: groupSeverity }
-            this.nodeById.set(groupId, updated)
-            this.rootSink?.(new ChildUpdated(groupId, updated))
-        }
-    }
-
-    private fireRootChanged(): void
-    {
-        for (const handler of this.rootChangedHandlers) handler()
-    }
-
-    private setCanonical(id: HierarchyItemId, canon: string): void
-    {
-        const prev = this.canonicalById.get(id)
-        if (prev !== undefined && prev !== canon) this.canonicalByName.delete(prev)
-        this.canonicalById.set(id, canon)
-        this.canonicalByName.set(canon, id)
-    }
-
-    private diffGroup(groupId: HierarchyItemId, kind: ProjectType, sink: (c: HierarchyChange) => void): void
-    {
-        const old = this.groupMembers.get(groupId) ?? new Set<string>()
+        const view = await this.view.ReferencesViewFor(this.member)
+        if (view === undefined) return
         const next = new Set<string>()
-        for (const dref of this.listFor(kind))
+        for (const dref of ReferencesProvider.listFor(view, kind))
         {
             const key = ReferencesProvider.leafKey(kind, dref)
             next.add(key)
-            const node = this.buildLeaf(kind, dref)
-            if (old.has(key))
+            let leaf = this.leafItemByKey.get(key)
+            if (leaf === undefined)
             {
-                const id = this.leafIds.get(key)!
-                if (ReferencesProvider.displayDiffers(this.nodeById.get(id), node))
-                {
-                    this.ensureLeafId(key, groupId, kind, dref)   // refresh node + canonical (repin-safe)
-                    sink(new ChildUpdated(id, node))
-                }
+                leaf = context.NewItem(ReferenceNodeKey.Leaf, ReferencesProvider.leafInit(kind, dref))
+                this.leafItemByKey.set(key, leaf)
             }
             else
             {
-                const id = this.ensureLeafId(key, groupId, kind, dref)
-                sink(new ChildAdded(id, node))
+                this.applyLeaf(leaf, kind, dref)
             }
+            this.setCanonical(leaf, ReferencesProvider.leafCanonical(kind, dref.Ref.id, dref.Ref.version))
+            context.InsertChild(leaf)
         }
-        for (const key of old)
+        const prev = this.groupMembers.get(group) ?? new Set<string>()
+        for (const key of prev)
         {
             if (next.has(key)) continue
-            const id = this.leafIds.get(key)
-            if (id === undefined) continue
-            sink(new ChildRemoved(id))
-            this.nodeById.delete(id)
-            this.ownedIds.delete(id)
-            const canon = this.canonicalById.get(id)
-            if (canon !== undefined) { this.canonicalByName.delete(canon); this.canonicalById.delete(id) }
-            this.leafIds.delete(key)
+            const leaf = this.leafItemByKey.get(key)
+            if (leaf === undefined) continue
+            context.RemoveChild(leaf)
+            this.forgetLeaf(key, leaf)
         }
-        this.groupMembers.set(groupId, next)
+        this.groupMembers.set(group, next)
     }
 
-    private ensureGroupId(kind: ProjectType): HierarchyItemId
+    private ensureGroup(kind: ProjectType, context: IRealizeContext): void
     {
-        let id = this.groupIdByKind.get(kind)
-        if (id !== undefined) return id
-        id = HierarchyItemId.Mint()
-        this.groupIdByKind.set(kind, id)
-        this.groupKind.set(id, kind)
-        this.ownedIds.add(id)
-        this.nodeById.set(id, this.buildGroup(kind))
-        const canon = `${ReferencesProvider.RootCanonical}/${ReferencesProvider.slugFor(kind)}`
-        this.setCanonical(id, canon)
-        return id
-    }
-
-    private ensureLeafId(key: string, groupId: HierarchyItemId, kind: ProjectType, dref: DeclaredReference): HierarchyItemId
-    {
-        let id = this.leafIds.get(key)
-        if (id === undefined)
+        let group = this.groupItemByKind.get(kind)
+        if (group === undefined)
         {
-            id = HierarchyItemId.Mint()
-            this.leafIds.set(key, id)
+            group = context.NewItem(ReferenceNodeKey.Group, ReferencesProvider.groupInit(kind))
+            this.groupItemByKind.set(kind, group)
+            this.setCanonical(group, ReferencesProvider.RootCanonical + ReferencesProvider.CanonicalSeparator + ReferencesProvider.slugFor(kind))
         }
-        this.ownedIds.add(id)
-        this.nodeById.set(id, this.buildLeaf(kind, dref))
-        const groupCanon = this.canonicalById.get(groupId) ?? ReferencesProvider.RootCanonical
-        const canon = `${groupCanon}/${dref.Ref.id}@${dref.Ref.version}`
-        this.setCanonical(id, canon)
-        return id
+        context.InsertChild(group)
     }
 
-    private listFor(kind: ProjectType): readonly DeclaredReference[]
+    private removeGroup(kind: ProjectType, context: IRealizeContext): void
     {
-        if (this.currentView === undefined) return []
-        return kind === ProjectType.Library ? this.currentView.Libraries : this.currentView.MetaModels
+        const group = this.groupItemByKind.get(kind)
+        if (group === undefined) return
+        context.RemoveChild(group)
+        this.groupItemByKind.delete(kind)
+        this.groupMembers.delete(group)
+        this.dropCanonical(group)
     }
 
-    private buildRootNode(): HierarchyNode
+    private rollUpGroup(kind: ProjectType, view: MemberReferencesView): void
     {
-        return { Key: NodeKey.References, Caption: ReferencesProvider.RootCaption, IconKey: NodeKey.References, ExtObject: this.rootMarker, Severity: NodeSeverity.Ok, IsExpandable: true }
+        const group = this.groupItemByKind.get(kind)
+        if (group === undefined) return
+        group.Severity = ReferencesProvider.severityFor(ReferencesProvider.listFor(view, kind))
     }
 
-    private buildGroup(kind: ProjectType): HierarchyNode
+    private applyLeaf(leaf: HierarchyItem, kind: ProjectType, dref: DeclaredReference): void
+    {
+        const unresolved = dref.Resolution === ReferenceResolution.Unresolved
+        leaf.Caption = ReferencesProvider.leafCaption(dref)
+        leaf.IconKey = ReferenceNodeKey.Leaf + ReferencesProvider.iconSuffix(dref.Resolution)
+        leaf.Severity = unresolved ? NodeSeverity.Warning : NodeSeverity.Ok
+        leaf.Error = unresolved ? ReferencesProvider.UnresolvedMessage : undefined
+        leaf.ExtObject = { kind, ref: dref.Ref }
+    }
+
+    private setCanonical(item: HierarchyItem, canonical: string): void
+    {
+        const prev = this.canonicalByItem.get(item)
+        if (prev !== undefined && prev !== canonical) this.itemByCanonical.delete(prev)
+        this.canonicalByItem.set(item, canonical)
+        this.itemByCanonical.set(canonical, item)
+    }
+
+    private dropCanonical(item: HierarchyItem): void
+    {
+        const canonical = this.canonicalByItem.get(item)
+        if (canonical !== undefined) this.itemByCanonical.delete(canonical)
+        this.canonicalByItem.delete(item)
+    }
+
+    private forgetLeaf(key: string, leaf: HierarchyItem): void
+    {
+        this.leafItemByKey.delete(key)
+        this.dropCanonical(leaf)
+    }
+
+    private static listFor(view: MemberReferencesView, kind: ProjectType): readonly DeclaredReference[]
+    {
+        return kind === ProjectType.Library ? view.Libraries : view.MetaModels
+    }
+
+    private static groupInit(kind: ProjectType): HierarchyItemInit
     {
         const label = kind === ProjectType.Library ? ReferencesProvider.LibrariesGroupLabel : ReferencesProvider.MetaModelsGroupLabel
-        return { Key: ReferenceNodeKey.Group, Caption: label, IconKey: ReferenceNodeKey.Group, ExtObject: { group: kind }, Severity: NodeSeverity.Ok, IsExpandable: true }
+        return { Caption: label, IconKey: ReferenceNodeKey.Group, IsExpandable: true, ExtObject: kind, CanonicalSegment: ReferencesProvider.slugFor(kind) }
     }
 
-    private buildLeaf(kind: ProjectType, dref: DeclaredReference): HierarchyNode
+    private static leafInit(kind: ProjectType, dref: DeclaredReference): HierarchyItemInit
     {
         const unresolved = dref.Resolution === ReferenceResolution.Unresolved
         return {
-            Key: ReferenceNodeKey.Leaf,
-            Caption: `${dref.Ref.id}@${dref.Ref.version}`,
+            Caption: ReferencesProvider.leafCaption(dref),
             IconKey: ReferenceNodeKey.Leaf + ReferencesProvider.iconSuffix(dref.Resolution),
-            ExtObject: { kind, ref: dref.Ref },
             Severity: unresolved ? NodeSeverity.Warning : NodeSeverity.Ok,
             Error: unresolved ? ReferencesProvider.UnresolvedMessage : undefined,
             IsExpandable: false,
+            ExtObject: { kind, ref: dref.Ref },
+            CanonicalSegment: dref.Ref.id + ReferencesProvider.LeafVersionSeparator + dref.Ref.version,
         }
+    }
+
+    private static leafCaption(dref: DeclaredReference): string
+    {
+        return dref.Ref.id + ReferencesProvider.LeafVersionSeparator + dref.Ref.version
+    }
+
+    private static leafCanonical(kind: ProjectType, id: string, version: string): string
+    {
+        return ReferencesProvider.RootCanonical
+            + ReferencesProvider.CanonicalSeparator + ReferencesProvider.slugFor(kind)
+            + ReferencesProvider.CanonicalSeparator + id + ReferencesProvider.LeafVersionSeparator + version
     }
 
     private static iconSuffix(resolution: ReferenceResolution): string
@@ -309,16 +266,13 @@ export class ReferencesProvider implements IHierarchyProvider
         return kind === ProjectType.Library ? ReferencesProvider.LibrariesSlug : ReferencesProvider.MetaModelsSlug
     }
 
-    private static leafKey(kind: ProjectType, dref: DeclaredReference): string { return `${kind}@${dref.Ref.id}` }
+    private static leafKey(kind: ProjectType, dref: DeclaredReference): string
+    {
+        return `${kind}${ReferencesProvider.LeafKeySeparator}${dref.Ref.id}`
+    }
 
     private static severityFor(refs: readonly DeclaredReference[]): NodeSeverity
     {
         return refs.some((r) => r.Resolution === ReferenceResolution.Unresolved) ? NodeSeverity.Warning : NodeSeverity.Ok
-    }
-
-    private static displayDiffers(a: HierarchyNode | undefined, b: HierarchyNode): boolean
-    {
-        if (a === undefined) return true
-        return a.Caption !== b.Caption || a.IconKey !== b.IconKey || a.Severity !== b.Severity || a.Error !== b.Error
     }
 }

@@ -110,9 +110,12 @@ const todlShimPlugin: Plugin = {
             `export { BagMigration } from ${p('solution-services/property-bags/bag-migration.js')}`,
             `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
             `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,
-            `export { ProjectContentProvider } from ${p('solution-services/project-services/content/project-content-provider.js')}`,
             `export { ProjectContentNode } from ${p('solution-services/project-services/content/content-node.js')}`,
             `export { ContentNodeKey } from ${p('solution-services/project-services/content/content-node-key.js')}`,
+            // The content-change deltas the plexus-core ProjectHierarchyProvider maps onto
+            // mural's ChildAdded/Updated/Removed. todl removed its own ProjectContentProvider
+            // (W2); plexus-core owns the provider now, over these mural-free store deltas.
+            `export { ContentChange, ContentAdded, ContentUpdated, ContentRemoved } from ${p('solution-services/project-services/content/content-change.js')}`,
         ].join('\n')
     },
 }

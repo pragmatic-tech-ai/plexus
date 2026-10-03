@@ -1,13 +1,14 @@
 import {
     NodeContribution, ProviderContribution, NodeKey, HierarchyAction, HierarchyItemsDrop,
     type IHierarchyContributor, type IHierarchyActionContributor,
-    type HierarchyNode, type HierarchyContribution, type HierarchyItemVM, type HierarchyActionContext,
+    type HierarchyItem, type HierarchyContribution, type HierarchyItemVM, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    ProjectContentStore, ProjectContentProvider, ContentNodeKey, ProjectNodeKind,
+    ProjectContentStore, ContentNodeKey, ProjectNodeKind,
     SolutionMember, SolutionMemberStatus, type ProjectContentNode,
 } from '@pragmatic-tech-ai/todl'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
+import { ProjectHierarchyProvider } from './project-hierarchy-provider.js'
 import { ReferencesProvider } from './references-provider.js'
 import { ProjectBranchesProvider, type LeadingBranch } from './project-branches-provider.js'
 import { ReferencesLeadingBranch } from './references-leading-branch.js'
@@ -44,7 +45,7 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
     public readonly ActionKeys = [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Diagram, ContentNodeKey.Todl, NodeKey.Project]
 
     private readonly stores = new Map<SolutionMember, ProjectContentStore>()
-    private readonly providers = new Map<SolutionMember, ProjectContentProvider>()
+    private readonly providers = new Map<SolutionMember, ProjectHierarchyProvider>()
     // When a reference view is set, each resolved member row is contributed as a
     // ProjectBranchesProvider (References + files) instead of the bare content provider;
     // cached per member so a repeated Contribute returns the same instance (identity guard).
@@ -132,7 +133,7 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         void this.mutations.MoveMemberNodes(member, dragged.map((d) => (d.Data as ProjectContentNode).Path), destPath)
     }
 
-    public ProviderFor(member: SolutionMember): ProjectContentProvider | undefined { return this.providers.get(member) }
+    public ProviderFor(member: SolutionMember): ProjectHierarchyProvider | undefined { return this.providers.get(member) }
 
     // Climb from any row to the solution member that owns its subtree.
     public static MemberOf(vm: HierarchyItemVM): SolutionMember | undefined
@@ -154,7 +155,7 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         return node.Kind === ProjectNodeKind.Folder ? node.Path : ProjectContentStore.parentDir(node.Path)
     }
 
-    public Contribute(parent: HierarchyNode): HierarchyContribution
+    public Contribute(parent: HierarchyItem): HierarchyContribution
     {
         const member = parent.ExtObject as SolutionMember
         if (member.Status !== SolutionMemberStatus.Resolved || member.Storage === undefined)
@@ -166,7 +167,7 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         {
             const store = new ProjectContentStore(member.Storage)
             this.stores.set(member, store)
-            provider = new ProjectContentProvider(store)
+            provider = new ProjectHierarchyProvider(store)
             this.providers.set(member, provider)
         }
         // Consumer members (architecture / library) lead their files with per-project branches:
