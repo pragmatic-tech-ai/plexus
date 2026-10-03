@@ -175,11 +175,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     private _status = 'No project open.'
     private _openProjectCommand!: ICommand
     private _newProjectCommand!: ICommand
-    // Keyboard handler for the single project TreeView (bound `on KeyDown` from
-    // the tree's wrapper). The whole tree is now ONE TreeView with unified
-    // selection, so the key routes to whichever project currently holds the
-    // selection (F2 rename / Delete / Enter-commit / Escape-cancel).
-    private _treeKeyCommand!: ICommand
 
     // Which open project each open document belongs to — for save-routing (the
     // active doc saves through its own factory) and close-cleanup.
@@ -245,7 +240,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         super(provider)
         this._openProjectCommand = new RelayCommand(() => void this.openProject())
         this._newProjectCommand = new RelayCommand(() => void this.newProject())
-        this._treeKeyCommand = new RelayCommand((arg) => this.handleTreeKeyGlobal(arg as KeyEventArgs))
         this.memberProjection = new MemberProjection(provider)
         this.references = new ReferenceEditingService(provider, {
             ProjectFor: (m) => this.projected.get(m),
@@ -372,7 +366,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     public get Status(): string { return this._status }
     public get OpenProjectCommand(): ICommand { return this._openProjectCommand }
     public get NewProjectCommand(): ICommand { return this._newProjectCommand }
-    public get TreeKeyCommand(): ICommand { return this._treeKeyCommand }
 
     // The project that owns `node` — the open project whose file tree contains
     // it. The single unified TreeView renders every project, so behaviors resolve
@@ -457,17 +450,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             // re-selection of the same row doesn't re-open it.
             op.SelectedNode = op === primaryOwner ? primaryNode : undefined
         }
-    }
-
-    // Route a tree key to the project currently holding the selection. With one
-    // unified tree and unified selection, exactly one project has a live
-    // selection at a time; find it and delegate to the per-project handler.
-    private handleTreeKeyGlobal(args: KeyEventArgs): void
-    {
-        if (args === undefined) return
-        const op = this.OpenProjects.ToArray().find(
-            (p) => p.SelectedNode !== undefined || p.SelectedNodes.length > 0)
-        if (op !== undefined) this.handleTreeKey(op, args)
     }
 
     private set Status(v: string) { const old = this._status; this._status = v; this.RaisePropertyChanged('Status', old, v) }
@@ -836,7 +818,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         op.NewFolderCommand = new RelayCommand(() => void this.newFolderIn(op))
         op.ImportFileCommand = new RelayCommand(() => void this.importFilesInto(op, ''))
         op.ImportFolderCommand = new RelayCommand(() => void this.importFolderInto(op, ''))
-        op.TreeKeyCommand = new RelayCommand((arg) => this.handleTreeKey(op, arg as KeyEventArgs))
         op.PublishCommand = new RelayCommand(() => void this.publishProject(op), () => isVersioned(op.Factory))
         op.BumpVersionMajorCommand = new RelayCommand(
             () => void this.bumpVersion(op, VersionPart.Major), () => isVersioned(op.Factory))
@@ -1246,41 +1227,6 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             else
             {
                 await op.Storage.WriteBytes(childDest, await this.fs.ReadBytes(childSrc))
-            }
-        }
-    }
-
-    // TreeView key handler (bound via `on KeyDown`): F2 renames the selected
-    // node, Enter commits the in-progress rename, Escape cancels it. Marks the
-    // args handled so the keystroke doesn't also drive tree navigation.
-    private handleTreeKey(op: OpenProject, args: KeyEventArgs): void
-    {
-        if (args === undefined) return
-        switch (args.Key)
-        {
-            case Key.F2:
-            {
-                const node = op.SelectedNode
-                if (node !== undefined && node.Path !== '') { this.beginRename(op, node); args.Handled = true }
-                return
-            }
-            case Key.Return:
-            {
-                if (op.EditingNode !== undefined) { void this.commitRename(op, op.EditingNode); args.Handled = true }
-                return
-            }
-            case Key.Escape:
-            {
-                if (op.EditingNode !== undefined) { this.cancelRename(op, op.EditingNode); args.Handled = true }
-                return
-            }
-            case Key.Delete:
-            {
-                // Not while a rename editor is open — there Delete edits text.
-                if (op.EditingNode !== undefined) return
-                const targets = this.selectionOf(op)
-                if (targets.length > 0) { void this.deleteNodes(op, targets); args.Handled = true }
-                return
             }
         }
     }

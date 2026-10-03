@@ -28,11 +28,6 @@ export class OpenProject extends MuralBase
         OpenProject, 'ImportFolderCommand', undefined, MetaData.None)
     static readonly NewFolderCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         OpenProject, 'NewFolderCommand', undefined, MetaData.None)
-    // Keyboard handler for the project's TreeView (bound via `on KeyDown`): the
-    // host inspects the KeyEventArgs and drives F2 (begin rename of SelectedNode),
-    // Enter (commit the EditingNode) and Escape (cancel).
-    static readonly TreeKeyCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
-        OpenProject, 'TreeKeyCommand', undefined, MetaData.None)
     static readonly PublishCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         OpenProject, 'PublishCommand', undefined, MetaData.None)
     // Bump the producer project's published version by one semver part, or set it
@@ -138,9 +133,6 @@ export class OpenProject extends MuralBase
 
     public get NewFolderCommand(): ICommand | undefined { return this.get_property_value(OpenProject.NewFolderCommandKey) }
     public set NewFolderCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.NewFolderCommandKey, v) }
-
-    public get TreeKeyCommand(): ICommand | undefined { return this.get_property_value(OpenProject.TreeKeyCommandKey) }
-    public set TreeKeyCommand(v: ICommand | undefined) { this.set_property_value(OpenProject.TreeKeyCommandKey, v) }
 
     // The node whose row is currently in rename mode (at most one per project).
     // Plain view-transient state — not bound, so a field rather than a DP.
