@@ -1,7 +1,9 @@
+import { type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import {
     NodeContribution, ProviderContribution, NodeSeverity, NodeKey,
-    type IHierarchyContributor, type HierarchyNode, type HierarchyContribution,
+    type IHierarchyContributor, type HierarchyItem, type HierarchyContribution,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { ConnectionsProvider } from './connections-provider.js'
 import type { IConnectionView } from './connection-view.js'
 
@@ -9,7 +11,7 @@ import type { IConnectionView } from './connection-view.js'
 // node (sibling of the project rows), whose subtree is owned by a single ConnectionsProvider
 // (a ProviderContribution). One contributor handles both parents — the Solution root (emit
 // the Connections node) and the Connections node (attach the provider) — mirroring how
-// ProjectsListingContributor + FileTreeContributor split node vs. subtree, kept together
+// ReferencesContributor splits node vs. subtree, kept together
 // here because there is exactly one Connections node.
 export class ConnectionsRootContributor implements IHierarchyContributor
 {
@@ -25,7 +27,7 @@ export class ConnectionsRootContributor implements IHierarchyContributor
         this.provider = new ConnectionsProvider(view)
     }
 
-    public Contribute(parent: HierarchyNode): HierarchyContribution
+    public Contribute(parent: HierarchyItem): HierarchyContribution
     {
         if (parent.Key === NodeKey.Connections) return new ProviderContribution(this.provider)
         return new NodeContribution([{
@@ -38,5 +40,16 @@ export class ConnectionsRootContributor implements IHierarchyContributor
         }])
     }
 
-    public dispose(): void { this.provider.dispose() }
+    // No commands of its own — the Connections actions are the ConnectionActionsContributor's.
+    public Resolve(_commandId: string, _context: CommandContext): ICommand | undefined
+    {
+        return undefined
+    }
+
+    // The provider's live subscription is created in Realize and torn down by the owning
+    // Hierarchy's composition teardown when the Connections node collapses or this
+    // contributor's segment is disposed on unregister — so there is nothing to release here.
+    public dispose(): void
+    {
+    }
 }

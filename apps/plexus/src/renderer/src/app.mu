@@ -41,7 +41,7 @@ import ArchitectureProjectsModule from "./modules/architecture-projects/architec
 // Solution Hierarchy P2 migration. The left-panel tree is the Solution Explorer.
 import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
 // The Solution Explorer module — its Capability is the left-panel tree (a
-// HierarchyModel over the active solution's members + their file trees), backed
+// Hierarchy over the active solution's members + their file trees), backed
 // by SolutionExplorerService. Registered after ProjectExplorerModule so the
 // lifecycle service it delegates to is composed.
 import SolutionExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.module.mu.js"
@@ -51,7 +51,6 @@ import ConnectionsModule from "./modules/connections/connections.module.mu.js"
 // The keyed hierarchy-contributor registry (mural framework): SolutionExplorerService
 // resolves it to register its per-solution ProjectsListing + FileTree contributors.
 import HierarchyContributorRegistry from "@pragmatic-tech-ai/mural/framework/hierarchy"
-import HierarchyActionContributorRegistry from "@pragmatic-tech-ai/mural/framework/hierarchy"
 // TODL's project-system module (browser-safe, main barrel): the three built-in
 // project TYPES (meta-model / library / architecture) + the ONE registry that
 // indexes them under ProjectFactoryRegistryKey, the build-system + generator
@@ -63,6 +62,11 @@ import TodlProjectSystemModule from "@pragmatic-tech-ai/todl"
 // (project types now come from TodlProjectSystemModule). Rides along lazily (unused
 // here → dormant); its manager resolves the composed ProjectFactoryRegistryKey.
 import SolutionServicesEngine from "@pragmatic-tech-ai/todl"
+// Per-project Build/Publish facade (todl) over the composed BuildSystemRegistryKey
+// (seeded by TodlProjectSystemModule below). Root-registered here so publishProject
+// and the Solution Explorer's Build/Publish contributor resolve the one instance via
+// BuildService.Key instead of each constructing its own.
+import BuildService from "@pragmatic-tech-ai/todl"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
@@ -109,7 +113,7 @@ import OpenProjectsStore from "@pragmatic-tech-ai/plexus-core/renderer/projects/
 
 // The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
 // bar strip, the menu-bar look, and TitleService. Plexus supplies its brand mark
-// + File-menu items (@WindowBrand / @WindowMenuItems) and a title source
+// + menu bar (@WindowBrand / @WindowMenu) and a title source
 // (PlexusTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header's ControlTemplate resolves $service(TitleService)).
 import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
@@ -120,15 +124,16 @@ import PlexusTitleSource from "./window/plexus-title-source.js"
 // and surfaces each as a live entry in the status bar (progress, cancel, output
 // document). Root-registered so any service can submit; its status-bar dock is
 // contributed by BackgroundWorkModule and rendered by BackgroundWorkResources.
-import BackgroundWorkService from "./modules/background-work/services/background-work-service.js"
+import BackgroundWorkService from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
 import SkillCatalog from "./modules/skills/services/skill-catalog.js"
 import SkillRunner from "./modules/skills/services/skill-runner.js"
 import BackgroundWorkModule from "./modules/background-work/background-work.module.mu.js"
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
 
-// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenuItems
-// (Export…), filled into the shared PragmaticWindowChrome strip. Merged below.
+// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenu (the
+// File/Edit/View/Help MenuButtons), filled into the shared PragmaticWindowChrome
+// strip. Merged below.
 import PlexusWindowChrome from "./window/plexus-window.resources.mu.js"
 
 // Capability content services + their side-pane templates.
@@ -152,7 +157,7 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
 // Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
 // + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
-// [HierarchyItemVM]. ProjectExplorerResources is still merged below for its Open/New
+// [HierarchyItem]. ProjectExplorerResources is still merged below for its Open/New
 // project + reference/confirm DIALOG templates, which the surviving commands present.
 import SolutionExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.resources.mu.js"
 // The connection editor dialog's DataTemplate (ConnectionEditorDialogModel).
@@ -249,6 +254,23 @@ import PlexusSettingsContribution from "./services/settings/settings-contributio
 import SettingsResources from "./services/settings/settings.resources.mu.js"
 import SavePromptResources from "./services/dialogs/save-prompt.resources.mu.js"
 import DiagramExportPreviewResources from "./modules/diagram-export/diagram-export-preview.resources.mu.js"
+
+// Help menu: About + Keyboard Shortcuts dialog bodies (services/menu/), opened
+// by HelpCommandsService (registered below in `.services:`).
+import AboutDialogResources from "./services/menu/about-dialog.resources.mu.js"
+import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources.mu.js"
+// Main-menu command services (services/menu/ + services/window/): Edit (Undo/Redo/
+// Cut/Copy/Paste), View (Zoom/Toggle Side Bar/Toggle Problems/Agent Chat), Help
+// (About/Shortcuts/Quit) — each a thin bridge from a MenuItem.Command to an
+// existing seam (ActiveDocument, NavigationService, ProblemsService,
+// ChatSessionsService, DialogService). WindowService is the Quit seam
+// HelpCommandsService resolves. All root-registered so the menu bar (mounted
+// once, at title-bar template application) and any other call site resolve the
+// SAME instance.
+import EditCommandsService from "./services/menu/edit-commands-service.js"
+import ViewCommandsService from "./services/menu/view-commands-service.js"
+import HelpCommandsService from "./services/menu/help-commands-service.js"
+import WindowService from "./services/window/window-service.js"
 import PlexusDocumentHost from "./services/documents/plexus-document-host.js"
 // Framework tokens registered at the app ROOT below (see `.services:`).
 import SettingsStoreKey from "@pragmatic-tech-ai/mural/framework"
@@ -263,14 +285,10 @@ import SettingsContributionKey from "@pragmatic-tech-ai/mural/framework"
 Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
     .services: {
         // Keyed hierarchy-contributor registry (mural framework) — the Solution
-        // Explorer's HierarchyModel resolves it and registers its per-solution
+        // Explorer's Hierarchy resolves it and registers its per-solution
         // contributors imperatively. Root-registered so the single instance is
-        // shared across every HierarchyModel the capability rebuilds.
+        // shared across every Hierarchy the capability rebuilds.
         HierarchyContributorRegistry
-        // Sibling action-contributor registry — composes every module's
-        // `.hierarchyActions:` blocks; the Solution Explorer resolves it and adds its
-        // per-solution file/project action contributors imperatively.
-        HierarchyActionContributorRegistry
         EnvironmentService
         // Live viewport (window) height, bindable + resize-reactive. The Problems
         // popup derives its 30% list cap from this.
@@ -286,6 +304,12 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // its status-bar dock binds $service(BackgroundWorkService). Eagerly
         // resolved in main.js.
         BackgroundWorkService
+        // Per-project Build/Publish facade over the composed build-system registry
+        // (BuildSystemRegistryKey, seeded by TodlProjectSystemModule). Registered under
+        // BuildService.Key (ServiceProvider.tokenFor uses the static Key), so the
+        // ProjectExplorer publish path and the Solution Explorer Build/Publish
+        // contributor both resolve this single instance.
+        BuildService
         // Unified skill catalog across project/global/packaged scopes. Root-
         // registered so the Project Explorer resolves it to build the
         // Run Agent/Skill submenu; lazily discovers per project on demand.
@@ -336,6 +360,17 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // collapsed. Root-registering makes EditorShell's has() guard share this
         // instance the shell region binds via $service(PanelDockService).
         PanelDockService
+        // Main-menu command services (Edit/View/Help — the menu bar's Edit/View/
+        // Help MenuButtons bind their commands via $service(X), which resolves
+        // these from the ROOT the moment the title bar's ControlTemplate applies,
+        // same timing as the File MenuButton's DiagramExportService). Each is a
+        // thin command bridge; see services/menu/ for the seams each resolves.
+        EditCommandsService
+        ViewCommandsService
+        HelpCommandsService
+        // Quit seam HelpCommandsService.QuitCommand resolves (over window.api.
+        // titlebar). Root-registered alongside it.
+        WindowService
         // (The project-type registry is no longer registered here: it is the
         // engine's IProjectFactoryRegistry, registered under ProjectFactoryRegistryKey
         // by TodlProjectSystemModule at the head of `.modules:` below. Module services
@@ -453,7 +488,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         ConnectionsModule
         // Solution Explorer — the left-panel tree Capability (replaces the retired
         // Project Explorer panel). Backed by SolutionExplorerService over a
-        // HierarchyModel of the active solution's members + file trees.
+        // Hierarchy of the active solution's members + file trees.
         SolutionExplorerModule
         MetaModelModule
         LibraryModule
@@ -544,6 +579,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         merge SettingsResources
         merge SavePromptResources
         merge DiagramExportPreviewResources
+        merge AboutDialogResources
+        merge ShortcutsDialogResources
         merge SkillsResources
         merge SkillsAuthoringResources
         merge HelpOverlayResources
@@ -564,7 +601,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         merge ProjectExplorerResources
 
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +
-        // HierarchicalDataTemplate[HierarchyItemVM].
+        // HierarchicalDataTemplate[HierarchyItem].
         merge SolutionExplorerResources
         merge ConnectionsResources
 

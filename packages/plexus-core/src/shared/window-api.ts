@@ -17,6 +17,7 @@ export const TITLE_BAR_HEIGHT = 32
 export enum WindowChannel
 {
     SetOverlay = 'window:set-overlay',
+    Quit       = 'window:quit',
 }
 
 // A WCO colour pair. `color` fills the caption-button strip background (match the
@@ -29,7 +30,11 @@ export interface OverlayColors
 
 // Exposed on window.api.titlebar. `setOverlay` is fire-and-forget (the main
 // process no-ops when the platform draws no overlay, e.g. macOS traffic lights).
+// `quit` is also fire-and-forget — the main process calls app.quit(), which
+// routes through the window's existing close flow (confirmCloseDocs), so an
+// unsaved-work prompt can still cancel the quit.
 export interface IWindowApi
 {
     setOverlay(colors: OverlayColors): void
+    quit(): void
 }

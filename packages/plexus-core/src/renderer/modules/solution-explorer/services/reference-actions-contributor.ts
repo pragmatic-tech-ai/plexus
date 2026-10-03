@@ -1,112 +1,154 @@
+import { RelayCommand, ServiceKey, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    HierarchyAction, NodeKey,
-    type IHierarchyActionContributor, type HierarchyActionContext, type HierarchyItemVM,
+    NodeContribution, NodeKey,
+    type IHierarchyContributor, type HierarchyContribution, type HierarchyItem, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
+import { CommandDefinition, type CommandContext, type ICommandContributor } from '@pragmatic-tech-ai/mural/framework'
 import { ProjectType, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { ReferenceNodeKey } from './reference-node-key.js'
+import { LazySubmenuPlaceholder } from './lazy-submenu-placeholder.js'
 import type { IReferenceView } from './reference-view.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 
-// The identity a reference leaf carries as its Data — the kind + the pinned ref.
+// The identity a reference leaf carries as its ExtObject — the kind + the pinned ref.
 interface LeafData
 {
     readonly kind: ProjectType
     readonly ref: BaseRef
 }
 
-// The identity a group header carries as its Data.
+// The identity a group header carries as its ExtObject.
 interface GroupData
 {
     readonly group: ProjectType
 }
 
-// Contributes the References-branch context-menu actions, routed to IReferenceView. The
-// References node offers Add Meta-model ▸ (libraries are added from the Libraries group,
-// which only appears for an architecture — so no synchronous offersLibraries gate is
-// needed here). A group header offers Add ▸ for its kind; a leaf offers Set Version ▸
-// (current version non-executable) and a selection-aware Remove. Submenus fill async
-// from the available set; an empty set renders one disabled item.
-export class ReferenceActionsContributor implements IHierarchyActionContributor
+// Dispatches the References-branch context-menu commands, routed to IReferenceView. The
+// References node offers Add Meta-model ▸, a group header Add ▸ for its kind, and a leaf
+// Set Version ▸ (current version non-executable) + a selection-aware Remove. The two
+// dynamic submenus (available refs / versions) are supplied by ReferenceSubmenuContributor
+// as a lazy ChildrenContributor; this contributor Resolves every command id — including the
+// dynamic child ids, statelessly, by decoding the id and re-reading the anchor.
+export class ReferenceActionsContributor implements IHierarchyContributor
 {
+    public static readonly Key = new ServiceKey<ReferenceActionsContributor>('ReferenceActionsContributor')
+
+    public static readonly AddMetaModelId = 'reference.addMetaModel'
+    public static readonly AddGroupId = 'reference.addGroup'
+    public static readonly SetVersionId = 'reference.setVersion'
+    public static readonly RemoveId = 'reference.remove'
+    // Dynamic child ids: `add::<kind>::<id>::<version>` and `setVersion::<version>`.
+    public static readonly AddChildPrefix = 'reference.add::'
+    public static readonly SetVersionChildPrefix = 'reference.setVersion::'
+    private static readonly ChildSeparator = '::'
+    // Minor 3: AddChildId always packs exactly kind + id + version on ChildSeparator; a raw
+    // value that itself contained the separator would corrupt the decode. Fail loudly instead
+    // of silently binding the wrong field — this should never fire for real refs.
+    private static readonly SeparatorCollisionMessage = 'ReferenceActionsContributor: a raw id segment contains the child separator'
+    private static readonly SegmentCountMessage = 'ReferenceActionsContributor: malformed add child id'
+
     private static readonly AddMetaModelLabel = 'Add Meta-model'
     private static readonly AddLabel = 'Add'
     private static readonly SetVersionLabel = 'Set Version'
     private static readonly RemoveLabel = 'Remove'
-    private static readonly NothingToAddLabel = '(nothing to add)'
-    private static readonly NoOtherVersionsLabel = '(no other versions)'
 
-    public readonly ActionKeys = [NodeKey.References, ReferenceNodeKey.Group, ReferenceNodeKey.Leaf]
+    public readonly ParentKeys = [NodeKey.References]
+    public readonly Order = 10
+
+    // The References-branch CommandDefinitions, Context-tagged per node family. The two Add
+    // submenus + the Set Version submenu name ReferenceSubmenuContributor as their lazy
+    // ChildrenContributor. Passed to RegisterInstance(this, this.Actions) at rebuild() — the
+    // runtime-dep (IReferenceView) ctor keeps this off the module DSL path.
+    public readonly Actions: readonly CommandDefinition[]
 
     constructor(private readonly view: IReferenceView)
     {
+        this.Actions = [
+            ReferenceActionsContributor.submenu(ReferenceActionsContributor.AddMetaModelId, ReferenceActionsContributor.AddMetaModelLabel, NodeKey.References),
+            ReferenceActionsContributor.submenu(ReferenceActionsContributor.AddGroupId, ReferenceActionsContributor.AddLabel, ReferenceNodeKey.Group),
+            ReferenceActionsContributor.submenu(ReferenceActionsContributor.SetVersionId, ReferenceActionsContributor.SetVersionLabel, ReferenceNodeKey.Leaf),
+            ReferenceActionsContributor.command(ReferenceActionsContributor.RemoveId, ReferenceActionsContributor.RemoveLabel, ReferenceNodeKey.Leaf),
+        ]
     }
 
-    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
+    private static command(id: string, title: string, contextKey: string): CommandDefinition
     {
-        const anchor = context.Anchor
+        const def = new CommandDefinition()
+        def.Id = id
+        def.Title = title
+        def.Context = HierarchyContext.For(contextKey)
+        return def
+    }
+
+    private static submenu(id: string, title: string, contextKey: string): CommandDefinition
+    {
+        const def = ReferenceActionsContributor.command(id, title, contextKey)
+        def.ChildrenContributor = ReferenceSubmenuContributor.Key
+        return def
+    }
+
+    // No node production — the References subtree is the ReferencesProvider's.
+    public Contribute(_parent: HierarchyItem): HierarchyContribution
+    {
+        return new NodeContribution([])
+    }
+
+    public Resolve(commandId: string, context: CommandContext): ICommand | undefined
+    {
+        const ctx = context as HierarchyActionContext
+        const anchor = ctx.Anchor
         const member = FileTreeContributor.MemberOf(anchor)
-        if (member === undefined) return []
-        switch (anchor.Key)
+        if (member === undefined) return undefined
+
+        if (commandId.startsWith(ReferenceActionsContributor.AddChildPrefix))
         {
-            case NodeKey.References:
-                return [this.addAction(ReferenceActionsContributor.AddMetaModelLabel, member, ProjectType.MetaModel)]
-            case ReferenceNodeKey.Group:
-                return [this.addAction(ReferenceActionsContributor.AddLabel, member, (anchor.Data as GroupData).group)]
-            case ReferenceNodeKey.Leaf:
-            {
-                const leaf = anchor.Data as LeafData
-                return [this.setVersionAction(member, leaf), this.removeAction(context)]
-            }
+            return this.addChildCommand(commandId, member)
+        }
+        if (commandId.startsWith(ReferenceActionsContributor.SetVersionChildPrefix))
+        {
+            return this.setVersionChildCommand(commandId, anchor)
+        }
+        switch (commandId)
+        {
+            // Submenu headers carry no behaviour of their own (the children do).
+            case ReferenceActionsContributor.AddMetaModelId:
+            case ReferenceActionsContributor.AddGroupId:
+            case ReferenceActionsContributor.SetVersionId:
+                return new RelayCommand(() => {})
+            case ReferenceActionsContributor.RemoveId:
+                return new RelayCommand(() => void this.removeFrom(ctx))
             default:
-                return []
+                return ReferenceSubmenuContributor.PlaceholderCommand(commandId)
         }
     }
 
-    private addAction(label: string, member: SolutionMember, kind: ProjectType): HierarchyAction
+    private addChildCommand(commandId: string, member: SolutionMember): ICommand
     {
-        const action = HierarchyAction.Command(label, () => {})
-        void (async () =>
+        const parts = commandId
+            .slice(ReferenceActionsContributor.AddChildPrefix.length)
+            .split(ReferenceActionsContributor.ChildSeparator)
+        // Invariant: AddChildId always packs exactly 3 segments (kind, id, version). A
+        // different count means the id was corrupted — fail loudly rather than silently
+        // binding the wrong field.
+        if (parts.length !== 3)
         {
-            const available = await this.view.AvailableReferencesFor(member, kind)
-            if (available.length === 0)
-            {
-                action.Children.Add(ReferenceActionsContributor.disabled(ReferenceActionsContributor.NothingToAddLabel))
-                return
-            }
-            for (const ref of available)
-            {
-                action.Children.Add(HierarchyAction.Command(`${ref.id}@${ref.version}`, () => void this.view.AddMemberReference(member, kind, ref)))
-            }
-        })()
-        return action
+            throw new Error(`${ReferenceActionsContributor.SegmentCountMessage}: "${commandId}"`)
+        }
+        const [kind, id, version] = parts
+        const ref: BaseRef = { id, version }
+        return new RelayCommand(() => void this.view.AddMemberReference(member, kind as ProjectType, ref))
     }
 
-    private setVersionAction(member: SolutionMember, leaf: LeafData): HierarchyAction
+    private setVersionChildCommand(commandId: string, anchor: HierarchyItem): ICommand
     {
-        const action = HierarchyAction.Command(ReferenceActionsContributor.SetVersionLabel, () => {})
-        void (async () =>
-        {
-            const versions = await this.view.AvailableVersionsFor(member, leaf.kind, leaf.ref.id)
-            if (versions.length === 0)
-            {
-                action.Children.Add(ReferenceActionsContributor.disabled(ReferenceActionsContributor.NoOtherVersionsLabel))
-                return
-            }
-            for (const version of versions)
-            {
-                action.Children.Add(HierarchyAction.Command(
-                    version,
-                    () => void this.view.SetMemberReferenceVersion(member, leaf.kind, leaf.ref.id, version),
-                    { canExecute: () => version !== leaf.ref.version }))
-            }
-        })()
-        return action
-    }
-
-    private removeAction(context: HierarchyActionContext): HierarchyAction
-    {
-        return HierarchyAction.Command(ReferenceActionsContributor.RemoveLabel, (ctx) => void this.removeFrom(ctx), { context })
+        const version = commandId.slice(ReferenceActionsContributor.SetVersionChildPrefix.length)
+        const member = FileTreeContributor.MemberOf(anchor)
+        const leaf = anchor.ExtObject as LeafData
+        return new RelayCommand(
+            () => { if (member !== undefined) void this.view.SetMemberReferenceVersion(member, leaf.kind, leaf.ref.id, version) },
+            () => version !== leaf.ref.version)
     }
 
     // Selection-aware Remove: when the anchor is part of the live selection, remove every
@@ -122,13 +164,138 @@ export class ReferenceActionsContributor implements IHierarchyActionContributor
             // reference must be removed from the manifest that declares it.
             const member = FileTreeContributor.MemberOf(vm)
             if (member === undefined) continue
-            const leaf = vm.Data as LeafData
+            const leaf = vm.ExtObject as LeafData
             await this.view.RemoveMemberReference(member, leaf.kind, leaf.ref)
         }
     }
 
-    private static disabled(label: string): HierarchyAction
+    // The kind a given Add-submenu parent targets: the References node adds meta-models; a
+    // group header adds its own kind.
+    public static AddKindFor(parentId: string, anchor: HierarchyItem): ProjectType | undefined
     {
-        return HierarchyAction.Command(label, () => {}, { canExecute: () => false })
+        if (parentId === ReferenceActionsContributor.AddMetaModelId) return ProjectType.MetaModel
+        if (parentId === ReferenceActionsContributor.AddGroupId) return (anchor.ExtObject as GroupData).group
+        return undefined
+    }
+
+    public static AddChildId(kind: ProjectType, ref: BaseRef): string
+    {
+        ReferenceActionsContributor.assertNoSeparator(ref.id)
+        ReferenceActionsContributor.assertNoSeparator(ref.version)
+        return ReferenceActionsContributor.AddChildPrefix
+            + [String(kind), ref.id, ref.version].join(ReferenceActionsContributor.ChildSeparator)
+    }
+
+    public static SetVersionChildId(version: string): string
+    {
+        return ReferenceActionsContributor.SetVersionChildPrefix + version
+    }
+
+    private static assertNoSeparator(raw: string): void
+    {
+        if (raw.includes(ReferenceActionsContributor.ChildSeparator))
+        {
+            throw new Error(`${ReferenceActionsContributor.SeparatorCollisionMessage}: "${raw}"`)
+        }
     }
 }
+
+// Supplies the available-references and available-versions submenu rows lazily. The lists
+// are I/O (async) while ICommandContributor.Contribute is synchronous, so each request is
+// fetched fire-and-forget into a per-member cache and the current snapshot is returned; the
+// rows populate on the next open. Row behaviour is dispatched by ReferenceActionsContributor
+// (the owning IHierarchyContributor), so these defs carry only Id + Title.
+export class ReferenceSubmenuContributor implements ICommandContributor
+{
+    public static readonly Key = new ServiceKey<ReferenceSubmenuContributor>('ReferenceSubmenuContributor')
+
+    private static readonly NothingToAddLabel = '(nothing to add)'
+    private static readonly NoOtherVersionsLabel = '(no other versions)'
+    private static readonly LoadingLabel = 'Loading…'
+    private static readonly EmptyId = 'reference.submenu.empty'
+    private static readonly LoadingId = 'reference.submenu.loading'
+    // Minor 2: the per-member cache key joins parent.Id with the request-specific suffix
+    // (a ref id or a ProjectType). Bare concatenation can alias distinct (parent, suffix)
+    // pairs; joining on a separator that does not itself occur in a command id (the fixed
+    // '.'-and-word Id constants) or a ProjectType enum value removes that collision.
+    private static readonly RequestKeySeparator = '::'
+    private static readonly Placeholder = new LazySubmenuPlaceholder(ReferenceSubmenuContributor.LoadingId, ReferenceSubmenuContributor.EmptyId)
+
+    private readonly cache = new Map<SolutionMember, Map<string, readonly CommandDefinition[]>>()
+
+    constructor(private readonly view: IReferenceView)
+    {
+    }
+
+    public Contribute(parent: CommandDefinition, context: CommandContext): readonly CommandDefinition[]
+    {
+        const ctx = context as HierarchyActionContext
+        const member = FileTreeContributor.MemberOf(ctx.Anchor)
+        if (member === undefined) return []
+
+        if (parent.Id === ReferenceActionsContributor.SetVersionId)
+        {
+            const leaf = ctx.Anchor.ExtObject as LeafData
+            const request = [parent.Id, leaf.ref.id].join(ReferenceSubmenuContributor.RequestKeySeparator)
+            return this.snapshot(member, request,
+                async () => this.versionRows(await this.view.AvailableVersionsFor(member, leaf.kind, leaf.ref.id)))
+        }
+
+        const kind = ReferenceActionsContributor.AddKindFor(parent.Id, ctx.Anchor)
+        if (kind === undefined) return []
+        const request = [parent.Id, String(kind)].join(ReferenceSubmenuContributor.RequestKeySeparator)
+        return this.snapshot(member, request,
+            async () => this.addRows(kind, await this.view.AvailableReferencesFor(member, kind)))
+    }
+
+    private addRows(kind: ProjectType, available: readonly BaseRef[]): readonly CommandDefinition[]
+    {
+        if (available.length === 0) return [ReferenceSubmenuContributor.Placeholder.EmptyRow(ReferenceSubmenuContributor.NothingToAddLabel)]
+        return available.map((ref) => ReferenceSubmenuContributor.row(
+            ReferenceActionsContributor.AddChildId(kind, ref), `${ref.id}@${ref.version}`))
+    }
+
+    private versionRows(versions: readonly string[]): readonly CommandDefinition[]
+    {
+        if (versions.length === 0) return [ReferenceSubmenuContributor.Placeholder.EmptyRow(ReferenceSubmenuContributor.NoOtherVersionsLabel)]
+        return versions.map((v) => ReferenceSubmenuContributor.row(ReferenceActionsContributor.SetVersionChildId(v), v))
+    }
+
+    // Return the cached rows for this (member, request); on a miss, fetch fire-and-forget and
+    // return a Loading row until the next open fills the cache.
+    private snapshot(member: SolutionMember, request: string, fetch: () => Promise<readonly CommandDefinition[]>): readonly CommandDefinition[]
+    {
+        const byRequest = this.cache.get(member) ?? new Map<string, readonly CommandDefinition[]>()
+        this.cache.set(member, byRequest)
+        const hit = byRequest.get(request)
+        if (hit !== undefined) return hit
+        void (async () =>
+        {
+            try
+            {
+                byRequest.set(request, await fetch())
+            }
+            catch
+            {
+                byRequest.set(request, [])
+            }
+        })()
+        return [ReferenceSubmenuContributor.Placeholder.LoadingRow(ReferenceSubmenuContributor.LoadingLabel)]
+    }
+
+    private static row(id: string, title: string): CommandDefinition
+    {
+        const def = new CommandDefinition()
+        def.Id = id
+        def.Title = title
+        return def
+    }
+
+    // The disabled command backing a placeholder (Loading… / empty) row.
+    public static PlaceholderCommand(commandId: string): ICommand | undefined
+    {
+        return ReferenceSubmenuContributor.Placeholder.CommandFor(commandId)
+    }
+}
+
+export default ReferenceActionsContributor

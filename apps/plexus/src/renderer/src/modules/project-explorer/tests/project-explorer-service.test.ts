@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { Key, ServiceProvider, type KeyEventArgs } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, DocumentsContentHostService, DocumentTypeRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
@@ -175,7 +175,6 @@ interface ExplorerPrivates
     newFolderIn(op: OpenProject, parentFolder?: string): Promise<void>
     beginRename(op: OpenProject, node: ProjectNode): void
     commitRename(op: OpenProject, node: ProjectNode): Promise<void>
-    handleTreeKey(op: OpenProject, args: KeyEventArgs): void
     deleteNodes(op: OpenProject, nodes: readonly ProjectNode[]): Promise<void>
     deleteFromNode(op: OpenProject, node: ProjectNode): Promise<void>
     moveNodes(op: OpenProject, nodes: readonly ProjectNode[], destParentPath: string): Promise<void>
@@ -214,7 +213,7 @@ class FakeSolutionManager
 {
     public readonly Members = new ObservableCollection<SolutionMember>()
     public readonly CloseCalls: SolutionMember[] = []
-    // The active publish target PackagePublisher now reads (W3c): unset here, so most
+    // The active publish target BuildService now reads (W3c): unset here, so most
     // tests fall through to the publisher's local-store default; a publish test that
     // needs to assert the manager's registry is honored sets this to a fake.
     public PublishRegistry: IPackageRegistry | undefined = undefined
@@ -810,7 +809,7 @@ async function metaModelStorage(folder: string, id: string, source: string, vers
 // An explorer wired for real publishing: the composed build system (BuildSystemRegistryKey
 // seeded by ProjectSystemComposer) + PlexusPackageStore over an inspectable packages
 // backend (pre-registered so ensurePackagesBackend finds it) + a Diagnostics store. This
-// is the seam publishProject drives through PackagePublisher's npm-publish flavor.
+// is the seam publishProject drives through BuildService's npm-publish flavor.
 function makePublishExplorer(confirm: boolean | object = true): {
     service: ProjectExplorerService
     priv: ExplorerPrivates
@@ -1276,26 +1275,10 @@ test('renaming an open file re-points its document to the new path', async () =>
     expect(rec.relocated.map(([, p]) => p)).toEqual(['renamed.todl'])
 })
 
-test('F2 begins rename on the selected node; Escape cancels it', async () => {
-    const { priv } = makeExplorer()
-    const storage = new FakeStorage('C:/a')
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
-    const node = childNode(op)
-    op.SelectedNode = node
-
-    const f2 = { Key: Key.F2, Handled: false } as unknown as KeyEventArgs
-    priv.handleTreeKey(op, f2)
-    expect(node.IsEditing).toBe(true)
-    expect(f2.Handled).toBe(true)
-
-    const esc = { Key: Key.Escape, Handled: false } as unknown as KeyEventArgs
-    priv.handleTreeKey(op, esc)
-    expect(node.IsEditing).toBe(false)
-    expect(op.EditingNode).toBeUndefined()
-    expect(esc.Handled).toBe(true)
-})
-
 // ── Unified single-tree selection & key routing ────────────────────────────
+// (The legacy in-service F2 / Delete key path + TreeKeyCommand were retired in the
+// mural 0.61 Hierarchy B+C1 migration — the default HierarchyTreeBehavior bundle owns
+// keys now — so those cases were removed with it. Selection routing below survives.)
 
 test('OwnerOf resolves the project whose subtree contains a node', async () => {
     const { service, priv } = makeExplorer()
@@ -1335,34 +1318,6 @@ test('ApplyTreeSelection moving the anchor to another project clears the first p
     expect(opA.SelectedNode).toBeUndefined()
     expect(opA.SelectedNodes).toEqual([])
     expect(opB.SelectedNode).toBe(childNode(opB))
-})
-
-test('TreeKeyCommand routes Delete to the project holding the selection', async () => {
-    const { service, priv } = makeExplorer()
-    const storage = new FakeStorage('C:/a')
-    await storage.WriteText('core.todl', 'x')
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
-    service.ApplyTreeSelection([childNode(op)], childNode(op))
-
-    const del = { Key: Key.Delete, Handled: false } as unknown as KeyEventArgs
-    service.TreeKeyCommand.Execute(del)
-    await new Promise((r) => setTimeout(r, 0))
-
-    expect(await storage.Exists('core.todl')).toBe(false)
-    expect(del.Handled).toBe(true)
-})
-
-test('TreeKeyCommand routes F2 to begin rename in the selected project', async () => {
-    const { service, priv } = makeExplorer()
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), new FakeStorage('C:/a'))
-    const node = childNode(op)
-    service.ApplyTreeSelection([node], node)
-
-    const f2 = { Key: Key.F2, Handled: false } as unknown as KeyEventArgs
-    service.TreeKeyCommand.Execute(f2)
-
-    expect(node.IsEditing).toBe(true)
-    expect(f2.Handled).toBe(true)
 })
 
 test('importFilters lists each format plus an All-files catch-all', () => {
@@ -1456,37 +1411,6 @@ test('a selection of a folder and a file inside it deletes without a double-remo
     await priv.deleteNodes(op, [src, child])
 
     expect(await storage.Exists('src')).toBe(false)
-})
-
-test('the Delete key deletes the selected node', async () => {
-    const { priv } = makeExplorer()
-    const storage = new FakeStorage('C:/a')
-    await storage.WriteText('core.todl', 'x')
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
-    op.SelectedNode = childNode(op)
-
-    const del = { Key: Key.Delete, Handled: false } as unknown as KeyEventArgs
-    priv.handleTreeKey(op, del)
-    await new Promise((r) => setTimeout(r, 0))   // let the fire-and-forget delete settle
-
-    expect(await storage.Exists('core.todl')).toBe(false)
-    expect(del.Handled).toBe(true)
-})
-
-test('the Delete key does nothing while a rename editor is open', async () => {
-    const { priv } = makeExplorer()
-    const storage = new FakeStorage('C:/a')
-    await storage.WriteText('core.todl', 'x')
-    const op = await priv.addOpenProject(projectWith('A', 'C:/a'), fakeProjectFactory(), storage)
-    const node = childNode(op)
-    priv.beginRename(op, node)   // editor open
-
-    const del = { Key: Key.Delete, Handled: false } as unknown as KeyEventArgs
-    priv.handleTreeKey(op, del)
-    await new Promise((r) => setTimeout(r, 0))
-
-    expect(await storage.Exists('core.todl')).toBe(true)   // not deleted
-    expect(del.Handled).toBe(false)
 })
 
 // ── Solution-Explorer mutation façade: delete confirmation + move collision ──

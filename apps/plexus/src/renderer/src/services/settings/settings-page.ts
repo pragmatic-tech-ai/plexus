@@ -7,6 +7,10 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 import { ApplicationSettings, Setting, SettingKind } from '@pragmatic-tech-ai/mural/framework'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
+// The engine SettingDefinition (and thus its Choices) is a todl-runtime type, whose
+// ObservableCollection is the base collection — distinct from mural/runtime's richer
+// collection above. Choices binds that source directly, so its DP uses this type.
+import type { ObservableCollection as SettingChoices } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 
 // View-models for the settings editor shown in the center content region (the
@@ -80,7 +84,7 @@ export class ColorSettingRow extends SettingRow { }
 // Choices is a DP so the ComboBox's `$Choices` binding resolves.
 export class ChoiceSettingRow extends SettingRow
 {
-    public static readonly ChoicesKey = MuralBase.RegisterProperty<ObservableCollection<string> | undefined>(
+    public static readonly ChoicesKey = MuralBase.RegisterProperty<SettingChoices<string> | undefined>(
         ChoiceSettingRow, 'Choices', undefined, MetaData.None)
 
     constructor(setting: Setting)
@@ -89,7 +93,7 @@ export class ChoiceSettingRow extends SettingRow
         this.set_property_value(ChoiceSettingRow.ChoicesKey, setting.Definition.Choices)
     }
 
-    public get Choices(): ObservableCollection<string> | undefined { return this.get_property_value(ChoiceSettingRow.ChoicesKey) }
+    public get Choices(): SettingChoices<string> | undefined { return this.get_property_value(ChoiceSettingRow.ChoicesKey) }
 }
 
 // FilePath → TextBox [ Text = $Setting.Value ] + a Browse button that opens the

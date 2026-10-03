@@ -4,16 +4,19 @@
 // `resources:` merge app-global when the app calls AddModule (@PragmaticTitleBar
 // + the menu-bar chrome templates), and whose `.services:` registers the shared
 // TitleService. The strip is a full-width 32dp band — a 48dp brand box on the
-// left (continuing the rail's top-left corner), a File menu, and the title text
+// left (continuing the rail's top-left corner), the app's menu button(s), and the title text
 // bound to $service(TitleService).Title — reserving ~140dp on the right so a long
 // title never slides under the Window-Controls-Overlay caption buttons.
 //
 // Each app: mounts @PragmaticTitleBar in its shell's header, registers an
 // ITitleSource under TitleSourceKey, and supplies two resource-key slots —
-//   • @WindowBrand     — a ControlTemplate drawing the app's brand mark (48×32).
-//   • @WindowMenuItems — a ControlTemplate of the app's File-menu items.
+//   • @WindowBrand — a ControlTemplate drawing the app's brand mark (48×32).
+//   • @WindowMenu  — a ControlTemplate hosting the app's menu button(s)
+//                    (each a MenuButton with its OWN inline MenuItem children —
+//                    see @WindowMenuPopup, which hosts those items natively via
+//                    an ItemsPresenter, not a hardcoded items slot).
 // The strip layout, the WCO reserve, and the menu look are shared; only the
-// brand mark, the menu items, and the title source are app-specific.
+// brand mark, the menu button(s), and the title source are app-specific.
 //
 // The strip is only PAINTED here; OS window-dragging + the native caption
 // buttons stay HTML/OS concerns (a transparent #drag-strip in index.html gives
@@ -42,14 +45,10 @@ shell module PragmaticWindowChrome {
                     }
                     // 1dp divider continuing the rail's right edge up through the strip.
                     Line [ DockPanel.Dock = Left, Orientation = Vertical, Stroke = (@Border, 1) ]
-                    // File menu — click-to-open dropdown; items come from the app's
-                    // @WindowMenuItems slot. MenuButton self-manages open/close.
-                    MenuButton
-                        [ DockPanel.Dock    = Left,
-                          Header            = "File",
-                          Template          = @FileMenuPopup,
-                          TriggerTemplate   = @FileMenuTrigger,
-                          VerticalAlignment = Center ]
+                    // Menu bar — the app supplies @WindowMenu (its MenuButton(s),
+                    // each carrying its own inline MenuItem children). MenuButton
+                    // self-manages open/close.
+                    ContentControl [ DockPanel.Dock = Left, Template = @WindowMenu ]
                     // Title — active document / open project / app name. Right margin
                     // keeps it clear of the ~138dp caption buttons.
                     TextBlock
@@ -110,17 +109,21 @@ shell module PragmaticWindowChrome {
             when ( IsEnabled = false ) { PART_Row.Opacity = @OpacityDisabled; }
         }
 
-        // The File dropdown: MenuPopupHost = PART_PopupHost, a PART_Scrim ClickAwayScrim,
-        // a PART_PopupContainer Border. The app's items (a ControlTemplate at
-        // @WindowMenuItems) are hosted in a ContentControl so the popup structure +
-        // look stay shared while each app contributes its own items.
-        Template x:key="FileMenuPopup" [ TargetType = MenuButton ] {
+        // The shared menu-bar dropdown: MenuPopupHost = PART_PopupHost, a
+        // PART_Scrim ClickAwayScrim, a PART_PopupContainer Border. The body is
+        // a bare ItemsPresenter — mural's MenuButton locates it by TYPE (see
+        // ItemsControl.findFirstItemsPresenter), not by name, and hosts the
+        // MenuButton's OWN MenuItem children there. This lets ANY MenuButton
+        // reuse this popup chrome while supplying its own inline items (no
+        // hardcoded single-slot ContentControl). Reusable across all menu-bar
+        // buttons (File, Edit, View, Help — Task 6).
+        Template x:key="WindowMenuPopup" [ TargetType = MenuButton ] {
             MenuPopupHost x:name="PART_PopupHost" {
                 ClickAwayScrim x:name="PART_Scrim"
                 Border x:name="PART_PopupContainer"
                     [ Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
                       CornerRadius = @RadiusLg, Effect = @ShadowMd, Padding = (4) ] {
-                    ContentControl [ Template = @WindowMenuItems ]
+                    ItemsPresenter
                 }
             }
         }

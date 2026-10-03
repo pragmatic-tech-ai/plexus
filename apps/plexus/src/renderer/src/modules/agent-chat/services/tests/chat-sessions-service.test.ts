@@ -4,7 +4,7 @@ import { ContentHostService, DialogService, PanelDockService, type IDocument } f
 import { AgentEventKind, AgentSkillKind, type CatalogItem, type IAgentApi, type TaggedAgentEvent } from '../../../../../../shared/agent-api.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
-import { BackgroundWorkService } from '../../../background-work/services/background-work-service.js'
+import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
 import { ChatStore } from '../chat-store.js'
 import { ChatSessionsService, seedInvocation } from '../chat-sessions-service.js'
 import { AgentModel } from '../agent-model.js'
@@ -109,6 +109,23 @@ test('EnsurePrimary docks a fixed "Agent Chat" that is not listed as a document'
     expect(svc.Open.ToArray()).not.toContain(primary)
     // Idempotent — a second call returns the same instance, no duplicate dock tab.
     expect(await svc.EnsurePrimary()).toBe(primary)
+    expect(dock.Panels.ToArray().filter((p) => p === primary)).toHaveLength(1)
+})
+
+test('FocusPrimary mints the primary (once) and brings it to front', async () => {
+    const { svc, dock } = makeService()
+    const other = { Id: 'other-panel', Title: 'Other' }
+    dock.Add(other)
+    dock.SelectedPanel = other
+
+    const primary = await svc.FocusPrimary()
+    expect(primary.Title).toBe('Agent Chat')
+    expect(dock.SelectedPanel).toBe(primary)
+
+    // Already minted: a second call re-selects it without minting another.
+    dock.SelectedPanel = other
+    expect(await svc.FocusPrimary()).toBe(primary)
+    expect(dock.SelectedPanel).toBe(primary)
     expect(dock.Panels.ToArray().filter((p) => p === primary)).toHaveLength(1)
 })
 

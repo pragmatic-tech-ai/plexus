@@ -1,166 +1,166 @@
 import {
-    HierarchyItemId, ChildAdded, ChildRemoved, ChildUpdated, NodeSeverity, HierarchyPropertyId,
-    type IHierarchyProvider, type HierarchyChange, type HierarchyNode, type DropData,
+    NodeSeverity, NodeKey,
+    type HierarchyItem, type HierarchyItemInit,
+    type IHierarchyProvider, type IRealizeContext, type DropData, type NodeContribution,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
-import type { Disposable } from '@pragmatic-tech-ai/todl-runtime'
+import { Disposable, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ConnectionNodeKey } from './connection-node-key.js'
 import { ConnectionHealth, type IConnectionView, type ConnectionLeafView } from './connection-view.js'
 
 // Provides the global Connections subtree (one instance per open solution, not per member):
-// under the model-assigned Connections node (a keyed node from ConnectionsRootContributor),
-// one flat leaf per declared connection, decorated by health. Async-seeded like
-// ProjectContentProvider — ObserveChildren returns its disposer synchronously and pushes
-// ChildAdded after the async view fetch. Refreshes on IConnectionView.OnConnectionsViewChanged:
-// re-fetches and diffs, so an edit is a ChildUpdated (leaf id kept, interned by connection id),
-// an add/remove a ChildAdded/ChildRemoved.
+// under the model-assigned Connections node, one flat leaf per declared connection,
+// decorated by health. Migrated to mural's B+C1 provider contract: Realize PUSHES the
+// leaves into the Connections root via the IRealizeContext and returns the
+// OnConnectionsViewChanged subscription as its teardown. A connection keeps its leaf
+// instance (interned by connection id), so an edit mutates the SAME row in place; an
+// add/remove inserts/removes it. The canonical scheme is preserved: connections/<id>.
 export class ConnectionsProvider implements IHierarchyProvider
 {
     private static readonly Id = 'plexus.connections'
     public readonly ProviderId = ConnectionsProvider.Id
     private static readonly RootCanonical = 'connections'
+    private static readonly CanonicalSeparator = '/'
+    private static readonly CaptionSuffix = ' ('
+    private static readonly CaptionSuffixEnd = ')'
     private static readonly DefaultIconSuffix = '-default'
     private static readonly ReadyIconSuffix = '-ready'
     private static readonly NoCredentialsIconSuffix = '-nocreds'
     private static readonly UnreachableIconSuffix = '-unreachable'
     private static readonly NoCredentialsMessage = 'No credentials: set a token or use an environment variable'
 
-    private readonly nodeById = new Map<HierarchyItemId, HierarchyNode>()
-    private readonly canonicalById = new Map<HierarchyItemId, string>()
-    private readonly canonicalByName = new Map<string, HierarchyItemId>()
-    private readonly leafIdByConnection = new Map<string, HierarchyItemId>()   // connection id -> leaf id
-    private readonly leafIds = new Set<HierarchyItemId>()                      // minted leaf ids (for observe guard)
-    private readonly present = new Set<string>()                               // connection ids currently emitted
-    private rootId: HierarchyItemId | undefined                               // the model-assigned Connections node
-    private rootSink: ((c: HierarchyChange) => void) | undefined
-    private readonly offChanged: Disposable
+    private readonly leafItemById = new Map<string, HierarchyItem>()   // connection id -> leaf
+    private readonly present = new Set<string>()                       // connection ids currently inserted
+    private readonly itemByCanonical = new Map<string, HierarchyItem>()
+    private readonly canonicalByItem = new Map<HierarchyItem, string>()
+    private rootItem: HierarchyItem | undefined
 
     constructor(private readonly view: IConnectionView)
     {
-        this.offChanged = this.view.OnConnectionsViewChanged(() => { void this.refresh() })
     }
 
-    public ObserveChildren(node: HierarchyItemId, sink: (c: HierarchyChange) => void): () => void
+    public Realize(item: HierarchyItem, context: IRealizeContext): IDisposable
     {
-        if (this.leafIds.has(node)) return () => {}   // leaves have no children
-        // The Connections node is the only expandable node the model observes here; capture it.
-        this.rootId = node
-        this.rootSink = sink
-        void this.realizeRoot()
-        return () => { this.rootSink = undefined }
-    }
-
-    public GetProperty(id: HierarchyItemId, prop: HierarchyPropertyId): unknown
-    {
-        const node = this.nodeById.get(id)
-        if (node === undefined) return undefined
-        switch (prop)
+        if (item.Key !== NodeKey.Connections) return Disposable.None   // leaves have no children
+        this.rootItem = item
+        const watch = { disposed: false }
+        const off = this.view.OnConnectionsViewChanged(() =>
         {
-            case HierarchyPropertyId.Caption:       return node.Caption
-            case HierarchyPropertyId.IconKey:       return node.IconKey
-            case HierarchyPropertyId.ExtObject:     return node.ExtObject
-            case HierarchyPropertyId.Severity:      return node.Severity
-            case HierarchyPropertyId.CanonicalName: return this.canonicalById.get(id) ?? node.Key
-            case HierarchyPropertyId.IsExpandable:  return node.IsExpandable === true
-            default:                                return undefined
-        }
-    }
-
-    public GetCanonicalName(id: HierarchyItemId): string { return this.canonicalById.get(id) ?? '' }
-    public ParseCanonicalName(name: string): HierarchyItemId { return this.canonicalByName.get(name) ?? HierarchyItemId.Nil }
-    public CanAccept(_target: HierarchyItemId, _drop: DropData): boolean { return false }
-
-    public dispose(): void { this.offChanged.dispose() }
-
-    private async realizeRoot(): Promise<void>
-    {
-        const sink = this.rootSink
-        if (sink === undefined) return
-        const views = await this.view.ConnectionsView()
-        for (const v of views)
+            if (!watch.disposed) void this.populateRoot(context)
+        })
+        void this.populateRoot(context)
+        return new Disposable(() =>
         {
-            const id = this.ensureLeafId(v.Id)
-            const node = this.buildLeaf(v)
-            this.nodeById.set(id, node)
-            this.present.add(v.Id)
-            sink(new ChildAdded(id, node))
-        }
+            watch.disposed = true
+            off.dispose()
+        })
     }
 
-    private async refresh(): Promise<void>
+    // The Connections subtree mints its own rows; nothing is contributor-injected.
+    public Integrate(_item: HierarchyItem, _contributions: readonly NodeContribution[]): void
     {
-        const sink = this.rootSink
-        if (sink === undefined) return
+    }
+
+    public GetCanonicalName(item: HierarchyItem): string
+    {
+        if (item.Key !== NodeKey.Connections)
+        {
+            const ext = item.ExtObject as { id: string }
+            return ConnectionsProvider.RootCanonical + ConnectionsProvider.CanonicalSeparator + ext.id
+        }
+        return ConnectionsProvider.RootCanonical
+    }
+
+    public ParseCanonicalName(name: string): HierarchyItem | undefined
+    {
+        if (name === ConnectionsProvider.RootCanonical) return this.rootItem
+        return this.itemByCanonical.get(name)
+    }
+
+    public CanAccept(_target: HierarchyItem, _drop: DropData): boolean { return false }
+
+    private async populateRoot(context: IRealizeContext): Promise<void>
+    {
         const views = await this.view.ConnectionsView()
         const next = new Map(views.map((v) => [v.Id, v]))
-        // Removals: present ids no longer in the next view.
-        for (const oldId of [...this.present])
+        for (const id of [...this.present])
         {
-            if (!next.has(oldId))
-            {
-                const leafId = this.leafIdByConnection.get(oldId)!
-                sink(new ChildRemoved(leafId))
-                this.forget(oldId, leafId)
-            }
+            if (next.has(id)) continue
+            const leaf = this.leafItemById.get(id)
+            if (leaf === undefined) continue
+            context.RemoveChild(leaf)
+            this.forget(id, leaf)
         }
-        // Adds + updates.
         for (const v of views)
         {
-            const leafId = this.ensureLeafId(v.Id)
-            const node = this.buildLeaf(v)
-            if (!this.present.has(v.Id))
+            let leaf = this.leafItemById.get(v.Id)
+            if (leaf === undefined)
             {
-                this.nodeById.set(leafId, node)
-                this.present.add(v.Id)
-                sink(new ChildAdded(leafId, node))
+                leaf = context.NewItem(ConnectionNodeKey.Leaf, ConnectionsProvider.leafInit(v))
+                this.leafItemById.set(v.Id, leaf)
+                this.setCanonical(leaf, ConnectionsProvider.RootCanonical + ConnectionsProvider.CanonicalSeparator + v.Id)
             }
-            else if (ConnectionsProvider.displayDiffers(this.nodeById.get(leafId), node))
+            else
             {
-                this.nodeById.set(leafId, node)
-                sink(new ChildUpdated(leafId, node))
+                ConnectionsProvider.applyLeaf(leaf, v)
             }
+            this.present.add(v.Id)
+            context.InsertChild(leaf)
         }
     }
 
-    private ensureLeafId(connectionId: string): HierarchyItemId
+    private setCanonical(item: HierarchyItem, canonical: string): void
     {
-        let id = this.leafIdByConnection.get(connectionId)
-        if (id === undefined)
-        {
-            id = HierarchyItemId.Mint()
-            this.leafIdByConnection.set(connectionId, id)
-            this.leafIds.add(id)
-            const canonical = `${ConnectionsProvider.RootCanonical}/${connectionId}`
-            this.canonicalById.set(id, canonical)
-            this.canonicalByName.set(canonical, id)
-        }
-        return id
+        this.canonicalByItem.set(item, canonical)
+        this.itemByCanonical.set(canonical, item)
     }
 
-    private forget(connectionId: string, leafId: HierarchyItemId): void
+    private forget(connectionId: string, leaf: HierarchyItem): void
     {
         this.present.delete(connectionId)
-        this.leafIdByConnection.delete(connectionId)
-        this.leafIds.delete(leafId)
-        this.nodeById.delete(leafId)
-        const canonical = this.canonicalById.get(leafId)
-        this.canonicalById.delete(leafId)
-        if (canonical !== undefined) this.canonicalByName.delete(canonical)
+        this.leafItemById.delete(connectionId)
+        const canonical = this.canonicalByItem.get(leaf)
+        if (canonical !== undefined) this.itemByCanonical.delete(canonical)
+        this.canonicalByItem.delete(leaf)
     }
 
-    private buildLeaf(v: ConnectionLeafView): HierarchyNode
+    private static leafInit(v: ConnectionLeafView): HierarchyItemInit
+    {
+        return {
+            Caption: ConnectionsProvider.captionOf(v),
+            IconKey: ConnectionNodeKey.Leaf + ConnectionsProvider.iconSuffix(v.Health),
+            Severity: ConnectionsProvider.severityOf(v),
+            Error: ConnectionsProvider.errorOf(v),
+            IsExpandable: false,
+            ExtObject: Object.freeze({ id: v.Id, isDefault: v.IsDefault, isSolutionDefault: v.IsSolutionDefault }),
+            CanonicalSegment: v.Id,
+        }
+    }
+
+    private static applyLeaf(leaf: HierarchyItem, v: ConnectionLeafView): void
+    {
+        leaf.Caption = ConnectionsProvider.captionOf(v)
+        leaf.IconKey = ConnectionNodeKey.Leaf + ConnectionsProvider.iconSuffix(v.Health)
+        leaf.Severity = ConnectionsProvider.severityOf(v)
+        leaf.Error = ConnectionsProvider.errorOf(v)
+        leaf.ExtObject = Object.freeze({ id: v.Id, isDefault: v.IsDefault, isSolutionDefault: v.IsSolutionDefault })
+    }
+
+    private static captionOf(v: ConnectionLeafView): string
+    {
+        return v.DisplayName + ConnectionsProvider.CaptionSuffix + v.RegistryType + ConnectionsProvider.CaptionSuffixEnd
+    }
+
+    private static severityOf(v: ConnectionLeafView): NodeSeverity
     {
         const warning = v.Health === ConnectionHealth.NoCredentials || v.Health === ConnectionHealth.Unreachable
-        const error = v.Health === ConnectionHealth.Unreachable ? v.Message
-            : v.Health === ConnectionHealth.NoCredentials ? ConnectionsProvider.NoCredentialsMessage
-            : undefined
-        const node: HierarchyNode = {
-            Key: ConnectionNodeKey.Leaf,
-            Caption: `${v.DisplayName} (${v.RegistryType})`,
-            IconKey: ConnectionNodeKey.Leaf + ConnectionsProvider.iconSuffix(v.Health),
-            ExtObject: Object.freeze({ id: v.Id, isDefault: v.IsDefault, isSolutionDefault: v.IsSolutionDefault }),
-            Severity: warning ? NodeSeverity.Warning : NodeSeverity.Ok,
-        }
-        return error !== undefined ? { ...node, Error: error } : node
+        return warning ? NodeSeverity.Warning : NodeSeverity.Ok
+    }
+
+    private static errorOf(v: ConnectionLeafView): string | undefined
+    {
+        if (v.Health === ConnectionHealth.Unreachable) return v.Message
+        if (v.Health === ConnectionHealth.NoCredentials) return ConnectionsProvider.NoCredentialsMessage
+        return undefined
     }
 
     private static iconSuffix(health: ConnectionHealth): string
@@ -172,10 +172,5 @@ export class ConnectionsProvider implements IHierarchyProvider
             case ConnectionHealth.NoCredentials: return ConnectionsProvider.NoCredentialsIconSuffix
             case ConnectionHealth.Unreachable:   return ConnectionsProvider.UnreachableIconSuffix
         }
-    }
-
-    private static displayDiffers(a: HierarchyNode | undefined, b: HierarchyNode): boolean
-    {
-        return a === undefined || a.Caption !== b.Caption || a.IconKey !== b.IconKey || a.Severity !== b.Severity || a.Error !== b.Error
     }
 }

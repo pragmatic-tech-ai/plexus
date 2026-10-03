@@ -19,9 +19,16 @@ shell module ArchitectureProjectsModule [ Name = "Architecture Projects" ] {
     }
 
     // "Edit Viewpoints…" on a .diagram row in an architecture project — the
-    // INodeCommandContributor replacement on the hierarchy action seam.
-    .hierarchyActions: {
-        HierarchyActionDefinition [ ActionKeys = ["diagram"], Contributor = ArchActionContributor, Order = 100 ]
+    // INodeCommandContributor replacement on the B+C1 command seam. ArchActionContributor
+    // resolves the Id to the shared viewpoints editor; arch-project + .diagram gating
+    // rides the resolved command's CanExecute.
+    Hierarchy {
+        Contributor [ Under = "diagram", Use = ArchActionContributor, Order = 100 ] {
+            CommandDefinition
+                [ Id      = "arch.editViewpoints.node",
+                  Title   = "Edit Viewpoints…",
+                  Context = "diagram" ]
+        }
     }
 
     // Diagram-toolbar command: edit the diagram's governing viewpoints. Rides the

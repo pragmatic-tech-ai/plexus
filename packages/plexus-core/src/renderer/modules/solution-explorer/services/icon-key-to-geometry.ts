@@ -22,7 +22,7 @@ export class IconKeyGlyphs
     {
         // Reference leaves carry a resolution suffix (…-live / -published / -unresolved) and
         // connection leaves a health suffix (…-default / -ready / -nocreds / -unreachable).
-        // Guard the type: the row template binds HierarchyItemVM.IconKey, which is undefined
+        // Guard the type: the row template binds HierarchyItem.IconKey, which is undefined
         // for some rows — a bare .startsWith there would throw and crash every row's render.
         if (typeof iconKey === 'string' && iconKey.startsWith(ReferenceNodeKey.Leaf)) return IconKeyGlyphs.ReferenceLeafGlyph
         if (typeof iconKey === 'string' && iconKey.startsWith(ConnectionNodeKey.Leaf)) return IconKeyGlyphs.ConnectionLeafGlyph

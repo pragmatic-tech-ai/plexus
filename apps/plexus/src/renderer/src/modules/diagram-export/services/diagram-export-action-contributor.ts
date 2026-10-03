@@ -1,5 +1,9 @@
-import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { HierarchyAction, type IHierarchyActionContributor, type HierarchyActionContext } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { RelayCommand, ServiceBase, ServiceKey, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import {
+    NodeContribution,
+    type IHierarchyContributor, type HierarchyContribution, type HierarchyItem, type HierarchyActionContext,
+} from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { FileTreeContributor } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { DiagramExportFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
@@ -7,34 +11,48 @@ import { ContentNodeKey, type ProjectContentNode } from '@pragmatic-tech-ai/todl
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { DiagramTreeExport } from './diagram-tree-export.js'
 
-// The "Export ▸ SVG / PowerPoint" action for a .diagram node — the DiagramTreeExportKey
-// replacement on the action seam, keyed on the diagram content key. Resolves the member's
-// projected OpenProject and delegates to the headless render + export pipeline
-// (DiagramTreeExport).
-export class DiagramExportActionContributor extends ServiceBase implements IHierarchyActionContributor
+// The "Export ▸ SVG / PowerPoint" command for a .diagram node — the DiagramTreeExportKey
+// replacement on the command-dispatch seam, Context-tagged to the diagram content key. The
+// Export submenu's two format rows are static (declared in the module's Hierarchy block);
+// this contributor resolves each to the headless render + export pipeline (DiagramTreeExport).
+export class DiagramExportActionContributor extends ServiceBase implements IHierarchyContributor
 {
     public static readonly Key = new ServiceKey<DiagramExportActionContributor>('DiagramExportActionContributor')
-    private static readonly ExportLabel = 'Export'
-    private static readonly SvgLabel = 'SVG'
-    private static readonly PptxLabel = 'PowerPoint (PPTX)'
+    public static readonly ExportId = 'diagram.export'
+    public static readonly SvgId = 'diagram.export.svg'
+    public static readonly PptxId = 'diagram.export.pptx'
     private static readonly DiagramExt = '.diagram'
+
+    public readonly ParentKeys = [ContentNodeKey.Diagram]
+    public readonly Order = 200
 
     public constructor(provider: IServiceProvider) { super(provider) }
 
-    public readonly ActionKeys = [ContentNodeKey.Diagram]
-
-    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
+    // Action-only: the diagram rows come from the file-tree provider.
+    public Contribute(_parent: HierarchyItem): HierarchyContribution
     {
-        const vm = context.Anchor
-        const member = FileTreeContributor.MemberOf(vm)
-        const node = vm.Data as ProjectContentNode | undefined
-        if (member === undefined || node === undefined) return []
+        return new NodeContribution([])
+    }
+
+    public Resolve(commandId: string, context: CommandContext): ICommand | undefined
+    {
+        const anchor = (context as HierarchyActionContext).Anchor
+        const member = FileTreeContributor.MemberOf(anchor)
+        const node = anchor.ExtObject as ProjectContentNode | undefined
+        if (member === undefined || node === undefined) return undefined
         const op = this.Provider.getRequired(ProjectExplorerService.Key).ProjectedOpFor(member)
-        if (op === undefined || !node.Path.toLowerCase().endsWith(DiagramExportActionContributor.DiagramExt)) return []
-        const exportAction = HierarchyAction.Command(DiagramExportActionContributor.ExportLabel, () => {})
-        exportAction.Children.Add(HierarchyAction.Command(DiagramExportActionContributor.SvgLabel, () => void this.run(op, node.Path, DiagramExportFormat.Svg)))
-        exportAction.Children.Add(HierarchyAction.Command(DiagramExportActionContributor.PptxLabel, () => void this.run(op, node.Path, DiagramExportFormat.Pptx)))
-        return [exportAction]
+        const isDiagram = (): boolean => op !== undefined && node.Path.toLowerCase().endsWith(DiagramExportActionContributor.DiagramExt)
+        switch (commandId)
+        {
+            case DiagramExportActionContributor.ExportId:
+                return new RelayCommand(() => {}, isDiagram)
+            case DiagramExportActionContributor.SvgId:
+                return new RelayCommand(() => { if (op !== undefined) void this.run(op, node.Path, DiagramExportFormat.Svg) }, isDiagram)
+            case DiagramExportActionContributor.PptxId:
+                return new RelayCommand(() => { if (op !== undefined) void this.run(op, node.Path, DiagramExportFormat.Pptx) }, isDiagram)
+            default:
+                return undefined
+        }
     }
 
     private async run(op: OpenProject, path: string, format: DiagramExportFormat): Promise<void>

@@ -27,3 +27,8 @@ e2e/.artifacts/
 
 # Playwright e2e output (screenshots, traces on failure) — not source.
 test-results/
+
+# graphify knowledge-graph artifacts — generated output, not source.
+graphify-out/
+.graphifyignore
+.gitattributes

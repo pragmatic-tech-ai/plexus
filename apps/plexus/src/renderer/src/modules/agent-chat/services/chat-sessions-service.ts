@@ -17,8 +17,8 @@ import {
 } from '../../../../../shared/agent-api.js'
 import type { IFileSystemApi } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
 import type { ISkillContextApi, SkillContext } from '../../../../../shared/skill-context-api.js'
-import { BackgroundWorkService } from '../../background-work/services/background-work-service.js'
-import { TaskKind } from '../../background-work/services/task-executor.js'
+import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
+import { TaskKind } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
@@ -251,6 +251,17 @@ export class ChatSessionsService extends ServiceBase
         // repopulated yet and would send --resume to the wrong directory ("No
         // conversation found"). A fresh primary (or an old record) binds to now().
         void this.agent.startSession(PRIMARY_ID, cwd, this.contextDirsFor(chat), resume, chat.Model())
+        return chat
+    }
+
+    // Bring the primary "Agent Chat" panel to front, minting it first via EnsurePrimary
+    // if this is the first call. Backs the View menu's "Agent Chat" command — a
+    // focus/select, never a toggle-hide, since the primary is permanent (see
+    // EnsurePrimary above): there is no state in which it should disappear.
+    public async FocusPrimary(): Promise<ChatSession>
+    {
+        const chat = await this.EnsurePrimary()
+        this.dock.SelectedPanel = chat
         return chat
     }
 

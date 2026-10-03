@@ -25,7 +25,7 @@ import { attachSaveShortcuts } from './services/documents/save-shortcuts.js'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
 import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
-import { BackgroundWorkService } from './modules/background-work/services/background-work-service.js'
+import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
 import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-service.js'
@@ -281,7 +281,7 @@ try {
     // Start the Solution Explorer capability AFTER the project explorer's Start()
     // (which wires the member-sync) and RestoreSession() — so the active solution
     // and its members exist when the Solution Explorer subscribes to ActiveSolution
-    // and builds its HierarchyTreeVM. Same deferral reason as ProjectExplorer.Start:
+    // and builds its Hierarchy. Same deferral reason as ProjectExplorer.Start:
     // the solution-engine seams are registered above, not in the ctor.
     const solutionExplorer = app.Services.get(SolutionExplorerService.Key)
     if (solutionExplorer !== undefined) {

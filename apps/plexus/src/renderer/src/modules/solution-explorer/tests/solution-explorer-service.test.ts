@@ -1,12 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { Observable, ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { HierarchyTreeVM, HierarchyContributorRegistry, HierarchyActionContributorRegistry, type HierarchyItemVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { Hierarchy, HierarchyContributorRegistry, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { SolutionManagerService, Solution, SolutionMemberStatus, type SolutionMember, type ProjectNodeKind, type ProjectFileFormat } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/services/project-explorer-service.js'
 import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-explorer-service.js'
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { type IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
+import { SkillRunSubmenuContributor } from '../../skills/services/skill-run-submenu-contributor.js'
 
 // A minimal SolutionManagerService stand-in: an observable ActiveSolution the capability
 // subscribes to, plus a setter to drive open/close/swap.
@@ -81,11 +82,9 @@ function make(): { svc: SolutionExplorerService; manager: FakeManager; explorer:
     const provider = new ServiceProvider()
     const manager = new FakeManager()
     const registry = new HierarchyContributorRegistry(provider)
-    const actionRegistry = new HierarchyActionContributorRegistry(provider)
     const explorer = new FakeExplorer()
     provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
     provider.registerInstance(HierarchyContributorRegistry.Key, registry)
-    provider.registerInstance(HierarchyActionContributorRegistry.Key, actionRegistry)
     provider.registerInstance(ProjectExplorerService.Key, explorer as unknown as ProjectExplorerService)
     provider.registerInstance(ConnectionEditorLauncherKey, fakeLauncher())
     return { svc: new SolutionExplorerService(provider), manager, explorer }
@@ -103,40 +102,42 @@ function solutionWith(...names: string[]): Solution
     return sol
 }
 
+const actionCtx = (anchor: HierarchyItem): HierarchyActionContext => new HierarchyActionContext(anchor, [anchor])
+
 describe('SolutionExplorerService', () =>
 {
-    it('publishes a Tree with a row per member when a solution opens', () =>
+    it('builds a Hierarchy with a row per member when a solution opens', () =>
     {
         const { svc, manager } = make()
         svc.Start()
-        expect(svc.Tree).toBeUndefined()
+        expect(svc.Hierarchy).toBeInstanceOf(Hierarchy)
+        expect(svc.Hierarchy!.Roots.Count).toBe(0)   // no solution yet
         manager.SetActive(solutionWith('a', 'b'))
-        expect(svc.Tree).toBeInstanceOf(HierarchyTreeVM)
         // The global Connections branch leads the two member rows.
-        expect(svc.Tree!.Roots.Count).toBe(3)
-        expect(svc.Tree!.Roots.Get(0)!.Caption).toBe('Connections')
+        expect(svc.Hierarchy!.Roots.Count).toBe(3)
+        expect(svc.Hierarchy!.Roots.Get(0)!.Caption).toBe('Connections')
     })
 
-    it('closing the solution clears Tree', () =>
+    it('closing the solution clears the Hierarchy roots', () =>
     {
         const { svc, manager } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        expect(svc.Tree).toBeDefined()
+        expect(svc.Hierarchy!.Roots.Count).toBeGreaterThan(0)
         manager.SetActive(undefined)
-        expect(svc.Tree).toBeUndefined()
+        expect(svc.Hierarchy!.Roots.Count).toBe(0)
+        expect(svc.HasNoSolution).toBe(true)
     })
 
-    it('a second open disposes the prior tree', () =>
+    it('reuses ONE stable Hierarchy across opens; a second open rebuilds its roots in place', () =>
     {
         const { svc, manager } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const first = svc.Tree!
+        const first = svc.Hierarchy!
         manager.SetActive(solutionWith('x', 'y'))
-        expect(svc.Tree).not.toBe(first)
-        expect(first.Roots.Count).toBe(0)          // prior tree torn down
-        expect(svc.Tree!.Roots.Count).toBe(3)      // Connections + two members
+        expect(svc.Hierarchy).toBe(first)          // stable instance — the template binds it once
+        expect(svc.Hierarchy!.Roots.Count).toBe(3) // Connections + two members, rebuilt in place
     })
 
     it('activating a member row (not a file) does not call OpenMemberFile', () =>
@@ -144,29 +145,43 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
         memberRow.OnActivate()
-        expect(explorer.opened).toHaveLength(0)   // a member row's Data is a SolutionMember, not a file
+        expect(explorer.opened).toHaveLength(0)   // a member row's ExtObject is a SolutionMember, not a file
     })
 
-    it('dispose stops following ActiveSolution and clears the Tree', () =>
+    it('dispose stops following ActiveSolution and clears the Hierarchy', () =>
     {
         const { svc, manager } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
         svc.dispose()
-        expect(svc.Tree).toBeUndefined()
+        expect(svc.Hierarchy).toBeUndefined()
         manager.SetActive(solutionWith('later'))   // ignored after dispose
-        expect(svc.Tree).toBeUndefined()
+        expect(svc.Hierarchy).toBeUndefined()
     })
 
-    it('ActionsFor concats the registered contributors for the node key', () =>
+    it('BuildActions concats the registered contributors for the node key', () =>
     {
         const { svc, manager } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
-        expect(svc.ActionsFor(memberRow).some((a) => a.Label === 'Remove from Solution')).toBe(true)
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
+        const titles = svc.Hierarchy!.BuildActions(memberRow, actionCtx(memberRow)).ToArray().map((a) => a.Title)
+        expect(titles).toContain('Remove from Solution')
+    })
+
+    it('the project-row menu services resolve an app-root submenu contributor (parent fallback)', () =>
+    {
+        // C2: SkillRunSubmenuContributor is registered only in the app root. buildMenuServices()
+        // now creates a CHILD scope of the service provider, so CommandMenuBuilder.RealizeChildren
+        // resolves it via the parent chain. A parentless provider (the old bug) found no owner and
+        // threw when the "Run Agent / Skill ▸" submenu opened.
+        const root = new ServiceProvider()
+        root.registerInstance(SkillRunSubmenuContributor.Key, new SkillRunSubmenuContributor(root))
+        expect(() => new ServiceProvider().getRequired(SkillRunSubmenuContributor.Key)).toThrow()
+        const menuServices = root.createScope()
+        expect(menuServices.getRequired(SkillRunSubmenuContributor.Key)).toBeInstanceOf(SkillRunSubmenuContributor)
     })
 
     it('committing a rename on a file row routes to mutations with the row member', async () =>
@@ -174,9 +189,9 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Tree!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
         const member = manager.ActiveSolution!.Members.Get(0)
-        const fileVm = { Data: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: {} } as unknown as HierarchyItemVM
+        const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
         svc.CommitRename(fileVm, 'b.todl')
         await Promise.resolve()
         expect(explorer.renamed.at(-1)).toEqual([member, 'a.todl', 'b.todl'])

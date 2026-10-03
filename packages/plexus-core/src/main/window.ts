@@ -1,4 +1,4 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import { TITLE_BAR_HEIGHT, WindowChannel, type OverlayColors } from '../shared/window-api.js'
 
 // Main-process window-chrome handler. The renderer pushes WCO colours here on
@@ -17,5 +17,12 @@ export function registerWindowHandlers(): void
       symbolColor: colors.symbolColor,
       height:      TITLE_BAR_HEIGHT,
     })
+  })
+  // app.quit() (NOT a hard window destroy) — this re-enters each window's
+  // existing 'close' handler (apps/plexus main/index.ts), which runs
+  // confirmCloseDocs before actually closing, so unsaved-work prompts still
+  // guard a menu-driven Quit the same way the OS close button does.
+  ipcMain.on(WindowChannel.Quit, () => {
+    app.quit()
   })
 }

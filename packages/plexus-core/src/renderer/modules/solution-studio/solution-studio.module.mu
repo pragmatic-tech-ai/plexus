@@ -13,7 +13,7 @@
 // provides the @Solutions rail icon.
 import SolutionExplorerService from "./solution-explorer-service.js"
 import SolutionCommandsVM from "./solution-commands-vm.js"
-import SolutionMemberNodeVM from "@pragmatic-tech-ai/todl"
+import SolutionMemberNodeVM from "./solution-tree-vm.js"
 
 shell module SolutionStudioModule [ Name = "Solutions" ] {
     .services: {
