@@ -7,9 +7,11 @@ import {
     type HierarchyItem, type HierarchyHost,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    SolutionManagerService, ProjectType, type Solution, type SolutionMember, type ProjectContentNode,
+    SolutionManagerService, ProjectType, BuildService, BuildSystemRegistryKey,
+    type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
 } from '@pragmatic-tech-ai/todl'
+import { BackgroundWorkService } from '../../background-work/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
 import { ProjectsListingContributor } from './projects-listing-contributor.js'
@@ -20,6 +22,7 @@ import { ReferenceActionsContributor, ReferenceSubmenuContributor } from './refe
 import { ReferenceNodeKey } from './reference-node-key.js'
 import { ConnectionsRootContributor } from './connections-root-contributor.js'
 import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, ConnectionEditorLauncherKey } from './connection-actions-contributor.js'
+import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contributor.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { SolutionTreeStateService } from './solution-tree-state-service.js'
@@ -100,6 +103,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         services.registerInstance(ReferenceSubmenuContributor.Key, new ReferenceSubmenuContributor(this.explorer.References))
         services.registerInstance(ConnectionActiveSubmenuContributor.Key, new ConnectionActiveSubmenuContributor(this.explorer.Connections))
         services.registerTransient(AddNewSubmenuContributor.Key, () => new AddNewSubmenuContributor(this.requireFiles()))
+        // The Build ▸ flavor submenu reads the composed per-project build systems (absent in
+        // headless/unit contexts — the submenu then yields nothing rather than throwing).
+        services.registerInstance(BuildFlavorSubmenuContributor.Key, new BuildFlavorSubmenuContributor(this.provider.get(BuildSystemRegistryKey)))
         return services
     }
 
@@ -137,6 +143,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const projectActions = new ProjectActionsContributor(this.explorer)
         const referenceActions = new ReferenceActionsContributor(this.explorer.References)
         const connectionActions = new ConnectionActionsContributor(this.explorer.Connections, launcher)
+        // The Build/Publish contributor needs runtime collaborators (BuildService + the
+        // optional background-work host + the mutation façade), so it rides the RegisterInstance
+        // path like the other action contributors. BuildService is a thin provider wrapper; it
+        // is constructed directly since nothing registers BuildService.Key.
+        const buildContributor = new BuildContributor(new BuildService(this.provider), this.provider.get(BackgroundWorkService.Key), this.explorer)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         this.handles.push(registry.RegisterInstance(this.listing))
@@ -146,6 +157,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.handles.push(registry.RegisterInstance(projectActions, projectActions.Actions))
         this.handles.push(registry.RegisterInstance(referenceActions, referenceActions.Actions))
         this.handles.push(registry.RegisterInstance(connectionActions, connectionActions.Actions))
+        this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
         this.setHasNoSolution(false)
         // The global bag persister is registered by the app (P6a DurableStoreRegistration). It
         // is absent in headless/unit contexts, so resolve it optionally — tree-state is a
