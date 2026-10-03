@@ -20,9 +20,14 @@ resources ShortcutsDialogResources {
         }
     }
 
+    // No explicit width/height here: the dialog's single height cap is the
+    // DialogService DialogOptions MaxHeight (HelpCommandsService.showShortcuts),
+    // and width composes from the DialogOptions Width + the rows' intrinsic size.
+    // The ScrollViewer still scrolls — the capped dialog bounds its height, and
+    // the list overflows into the scroller when it exceeds that bound.
     DataTemplate [ DataType = ShortcutsDialogVm ] {
-        ScrollViewer [ MaxHeight = 480, HorizontalScrollEnabled = false ] {
-            ItemsControl [ ItemsSource = $Entries, Width = 420 ]
+        ScrollViewer [ HorizontalScrollEnabled = false ] {
+            ItemsControl [ ItemsSource = $Entries ]
         }
     }
 }

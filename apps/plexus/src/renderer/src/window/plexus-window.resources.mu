@@ -46,9 +46,12 @@ resources PlexusWindowChrome {
     // shared chrome from the module) hosting this MenuButton's OWN inline
     // MenuItem children natively. RowTemplate = @CompactMenuItemRow is the
     // shared compact row from the module; MenuSeparator divides each menu's
-    // groups. Every command resolves a root-registered service via
-    // $service(X) — construction happens once, when the title bar's
-    // ControlTemplate first applies.
+    // groups. This bar lives in EditorShell.HeaderContent, so each MenuItem's
+    // inherited ServiceScope IS the shell scope (root.createScope()): $service(X)
+    // resolves root-registered command services (File/Edit/View-zoom/Help) by
+    // walking UP to the root AND shell-scoped services (NavigationService) on the
+    // scope itself — resolution happens once, when the title bar's ControlTemplate
+    // first applies.
     Template x:key="WindowMenu" [ TargetType = ContentControl ] {
         // A ControlTemplate has exactly one root visual, so the four menus sit
         // in one horizontal StackPanel (MenuButton self-manages its own
@@ -98,7 +101,7 @@ resources PlexusWindowChrome {
                 MenuItem [ Header = "Zoom Out",   RowTemplate = @CompactMenuItemRow, Command = $service(ViewCommandsService).ZoomOutCommand ]
                 MenuItem [ Header = "Reset Zoom", RowTemplate = @CompactMenuItemRow, Command = $service(ViewCommandsService).ResetZoomCommand ]
                 MenuSeparator
-                MenuItem [ Header = "Toggle Side Bar", RowTemplate = @CompactMenuItemRow, Command = $service(ViewCommandsService).ToggleSideBarCommand ]
+                MenuItem [ Header = "Toggle Side Bar", RowTemplate = @CompactMenuItemRow, Command = $service(NavigationService).ToggleSidePaneCommand ]
                 MenuItem [ Header = "Toggle Problems", RowTemplate = @CompactMenuItemRow, Command = $service(ViewCommandsService).ToggleProblemsCommand ]
                 MenuItem [ Header = "Agent Chat",      RowTemplate = @CompactMenuItemRow, Command = $service(ViewCommandsService).ShowAgentChatCommand ]
             }

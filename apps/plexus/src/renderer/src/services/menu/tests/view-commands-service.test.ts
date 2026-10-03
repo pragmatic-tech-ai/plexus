@@ -72,7 +72,6 @@ interface Harness
 {
     svc: ViewCommandsService
     host: FakeDocumentsContentHostService
-    navigation: NavigationService
     problems: ProblemsService
     dock: PanelDockService
     chats: FakeChatSessionsService
@@ -84,9 +83,6 @@ function buildService(activeDocument: IDocument | undefined): Harness
     const host = new FakeDocumentsContentHostService(activeDocument)
     provider.registerInstance(ContentHostService.Key, host as never)
 
-    const navigation = new NavigationService(provider)
-    provider.registerInstance(NavigationService.Key, navigation)
-
     const problems = new ProblemsService(provider)
     provider.registerInstance(ProblemsService.Key, problems)
 
@@ -97,7 +93,7 @@ function buildService(activeDocument: IDocument | undefined): Harness
     provider.registerInstance(ChatSessionsService.Key, chats as never)
 
     const svc = new ViewCommandsService(provider)
-    return { svc, host, navigation, problems, dock, chats }
+    return { svc, host, problems, dock, chats }
 }
 
 // Settles the microtask ViewCommandsService's async ShowAgentChatCommand
@@ -177,15 +173,41 @@ test('dispose releases the ActiveDocument subscription so later changes do not r
     expect(listener).not.toHaveBeenCalled()
 })
 
-test('ToggleSideBarCommand flips the side pane visibility both ways', () => {
-    const { svc, navigation } = buildService(undefined)
-    expect(navigation.SidePaneVisible).toBe(true)
+// The Side Bar toggle's real parent/child topology. EditorShell registers
+// NavigationService SHELL-SCOPED on root.createScope() (editor-shell.js); the
+// app registers ViewCommandsService at the ROOT (app.mu .services:).
+// ServiceProvider resolution is upward-only (findOwner walks _parent, never into
+// children), so a ROOT-held consumer cannot see the shell-scoped nav — which is
+// exactly why routing the Side Bar toggle through ViewCommandsService was a dead
+// no-op. The View menu instead lives in EditorShell.HeaderContent, whose
+// inherited ServiceScope IS the shell scope, so its $service(NavigationService)
+// resolves and ToggleSidePaneCommand flips the pane.
+test('the shell scope (not the root where ViewCommandsService lives) is what resolves the Side Bar toggle', () => {
+    const root = new ServiceProvider()
+    const shell = root.createScope()
+    shell.registerScoped(NavigationService.Key, (p) => new NavigationService(p))
 
-    svc.ToggleSideBarCommand.Execute()
-    expect(navigation.SidePaneVisible).toBe(false)
+    // The dead path: the root cannot reach the shell-scoped NavigationService.
+    expect(root.get(NavigationService.Key)).toBeUndefined()
 
-    svc.ToggleSideBarCommand.Execute()
-    expect(navigation.SidePaneVisible).toBe(true)
+    // The live path (what the header's $service(NavigationService) binds to).
+    const nav = shell.get(NavigationService.Key)
+    expect(nav).toBeDefined()
+    expect(nav!.SidePaneVisible).toBe(true)
+
+    nav!.ToggleSidePaneCommand.Execute()
+    expect(nav!.SidePaneVisible).toBe(false)
+
+    nav!.ToggleSidePaneCommand.Execute()
+    expect(nav!.SidePaneVisible).toBe(true)
+})
+
+// Guards against regressing to the dead indirection: ViewCommandsService must
+// not re-grow a root-scoped Side Bar toggle (it could never reach the
+// shell-scoped NavigationService). The menu binds NavigationService directly.
+test('ViewCommandsService exposes no Side Bar toggle (it would be an unreachable no-op at root)', () => {
+    const { svc } = buildService(undefined)
+    expect((svc as unknown as { ToggleSideBarCommand?: unknown }).ToggleSideBarCommand).toBeUndefined()
 })
 
 test('ToggleProblemsCommand flips Problems.IsOpen both ways', () => {

@@ -3,7 +3,7 @@ import {
     type ICommand, type IDisposable, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    ContentHostService, DiagramDocument, NavigationService,
+    ContentHostService, DiagramDocument,
     type Diagram, type DocumentsContentHostService,
 } from '@pragmatic-tech-ai/mural/framework'
 import { ProblemsService } from '../../modules/problems/problems-service.js'
@@ -13,10 +13,17 @@ import { ChatSessionsService } from '../../modules/agent-chat/services/chat-sess
 // the active diagram's live camera (ZoomIn/ZoomOut/ResetZoom), resolving
 // ContentHostService → ActiveDocument → ActiveView exactly like
 // zoom-shortcuts.ts / EditCommandsService; enabled only while a diagram is
-// active with a mounted view. Side Bar / Problems are genuine toggles (flip a
-// boolean) and stay always-enabled. Agent Chat is NOT a toggle: its primary
-// dock panel is permanent (ChatSessionsService.EnsurePrimary), so this command
-// only ensures it exists and brings it to front — see ShowAgentChatCommand.
+// active with a mounted view. Problems is a genuine toggle (flip a boolean) and
+// stays always-enabled. Agent Chat is NOT a toggle: its primary dock panel is
+// permanent (ChatSessionsService.EnsurePrimary), so this command only ensures it
+// exists and brings it to front — see ShowAgentChatCommand.
+//
+// The View menu's "Toggle Side Bar" is deliberately NOT here: it must resolve
+// the SHELL-SCOPED NavigationService, which this root-registered service's
+// provider cannot reach (resolution is upward-only). The menu binds
+// $service(NavigationService).ToggleSidePaneCommand directly instead — its
+// header lives in EditorShell.HeaderContent, whose inherited ServiceScope is the
+// shell scope that owns NavigationService.
 export class ViewCommandsService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<ViewCommandsService>('ViewCommandsService')
@@ -27,7 +34,6 @@ export class ViewCommandsService extends ServiceBase
     private readonly _zoomOutCommand: RelayCommand
     private readonly _resetZoomCommand: RelayCommand
     private readonly _zoomCommands: readonly RelayCommand[]
-    private readonly _toggleSideBarCommand: ICommand
     private readonly _toggleProblemsCommand: ICommand
     private readonly _showAgentChatCommand: ICommand
     private readonly _activeDocumentSubscription: IDisposable
@@ -55,7 +61,6 @@ export class ViewCommandsService extends ServiceBase
             ? host.PropertyChanged(ViewCommandsService.ActiveDocumentPropertyName).subscribe(() => this.RaiseZoomCanExecuteChanged())
             : Disposable.None
 
-        this._toggleSideBarCommand = new RelayCommand(() => this.toggleSideBar())
         this._toggleProblemsCommand = new RelayCommand(() => this.toggleProblems())
         this._showAgentChatCommand = new RelayCommand(() => { void this.showAgentChat() })
     }
@@ -63,7 +68,6 @@ export class ViewCommandsService extends ServiceBase
     public get ZoomInCommand(): ICommand { return this._zoomInCommand }
     public get ZoomOutCommand(): ICommand { return this._zoomOutCommand }
     public get ResetZoomCommand(): ICommand { return this._resetZoomCommand }
-    public get ToggleSideBarCommand(): ICommand { return this._toggleSideBarCommand }
     public get ToggleProblemsCommand(): ICommand { return this._toggleProblemsCommand }
     public get ShowAgentChatCommand(): ICommand { return this._showAgentChatCommand }
 
@@ -91,11 +95,6 @@ export class ViewCommandsService extends ServiceBase
         {
             command.RaiseCanExecuteChanged()
         }
-    }
-
-    private toggleSideBar(): void
-    {
-        this.Provider.get(NavigationService.Key)?.ToggleSidePaneCommand.Execute()
     }
 
     private toggleProblems(): void
