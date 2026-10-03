@@ -1,0 +1,63 @@
+import {
+    RelayCommand, ServiceBase, ServiceKey,
+    type ICommand, type IServiceProvider,
+} from '@pragmatic-tech-ai/mural/runtime'
+import { DialogService } from '@pragmatic-tech-ai/mural/framework'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
+import { AboutDialogVm } from './about-dialog.js'
+import { ShortcutsDialogVm } from './shortcuts-dialog.js'
+
+// Help-menu commands: About + Keyboard Shortcuts, each opening a read-only
+// DialogService modal. Quit (task-5-brief.md) and this service's own
+// `.services:` registration (task-6-brief.md) land separately — this is
+// just the dialog-opening behavior. Both commands are always enabled: Help
+// info is available regardless of document/selection state.
+export class HelpCommandsService extends ServiceBase
+{
+    public static readonly Key = new ServiceKey<HelpCommandsService>('HelpCommandsService')
+
+    private static readonly AboutTitle = 'About Plexus'
+    private static readonly ShortcutsTitle = 'Keyboard Shortcuts'
+    private static readonly AboutDialogWidth = 380
+    private static readonly ShortcutsDialogWidth = 480
+    private static readonly ShortcutsDialogMaxHeight = 560
+
+    private readonly _showAboutCommand: ICommand
+    private readonly _showShortcutsCommand: ICommand
+
+    public constructor(provider: IServiceProvider)
+    {
+        super(provider)
+        this._showAboutCommand = new RelayCommand(() => { void this.showAbout() })
+        this._showShortcutsCommand = new RelayCommand(() => { void this.showShortcuts() })
+    }
+
+    public get ShowAboutCommand(): ICommand { return this._showAboutCommand }
+    public get ShowShortcutsCommand(): ICommand { return this._showShortcutsCommand }
+
+    private async showAbout(): Promise<void>
+    {
+        const dialogs = this.Provider.get(DialogService.Key)
+        const environment = this.Provider.get(EnvironmentService.Key)
+        if (dialogs === undefined || environment === undefined) return
+        await dialogs.Show({
+            Title:   HelpCommandsService.AboutTitle,
+            Content: new AboutDialogVm(environment),
+            Width:   HelpCommandsService.AboutDialogWidth,
+        })
+    }
+
+    private async showShortcuts(): Promise<void>
+    {
+        const dialogs = this.Provider.get(DialogService.Key)
+        if (dialogs === undefined) return
+        await dialogs.Show({
+            Title:     HelpCommandsService.ShortcutsTitle,
+            Content:   new ShortcutsDialogVm(),
+            Width:     HelpCommandsService.ShortcutsDialogWidth,
+            MaxHeight: HelpCommandsService.ShortcutsDialogMaxHeight,
+        })
+    }
+}
+
+export default HelpCommandsService

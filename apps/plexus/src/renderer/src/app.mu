@@ -254,6 +254,12 @@ import PlexusSettingsContribution from "./services/settings/settings-contributio
 import SettingsResources from "./services/settings/settings.resources.mu.js"
 import SavePromptResources from "./services/dialogs/save-prompt.resources.mu.js"
 import DiagramExportPreviewResources from "./modules/diagram-export/diagram-export-preview.resources.mu.js"
+
+// Help menu: About + Keyboard Shortcuts dialog bodies (services/menu/). The
+// HelpCommandsService that opens them, and its `.services:` registration,
+// land in task-6-brief.md.
+import AboutDialogResources from "./services/menu/about-dialog.resources.mu.js"
+import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources.mu.js"
 import PlexusDocumentHost from "./services/documents/plexus-document-host.js"
 // Framework tokens registered at the app ROOT below (see `.services:`).
 import SettingsStoreKey from "@pragmatic-tech-ai/mural/framework"
@@ -551,6 +557,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         merge SettingsResources
         merge SavePromptResources
         merge DiagramExportPreviewResources
+        merge AboutDialogResources
+        merge ShortcutsDialogResources
         merge SkillsResources
         merge SkillsAuthoringResources
         merge HelpOverlayResources
