@@ -213,7 +213,7 @@ class FakeSolutionManager
 {
     public readonly Members = new ObservableCollection<SolutionMember>()
     public readonly CloseCalls: SolutionMember[] = []
-    // The active publish target PackagePublisher now reads (W3c): unset here, so most
+    // The active publish target BuildService now reads (W3c): unset here, so most
     // tests fall through to the publisher's local-store default; a publish test that
     // needs to assert the manager's registry is honored sets this to a fake.
     public PublishRegistry: IPackageRegistry | undefined = undefined
@@ -809,7 +809,7 @@ async function metaModelStorage(folder: string, id: string, source: string, vers
 // An explorer wired for real publishing: the composed build system (BuildSystemRegistryKey
 // seeded by ProjectSystemComposer) + PlexusPackageStore over an inspectable packages
 // backend (pre-registered so ensurePackagesBackend finds it) + a Diagnostics store. This
-// is the seam publishProject drives through PackagePublisher's npm-publish flavor.
+// is the seam publishProject drives through BuildService's npm-publish flavor.
 function makePublishExplorer(confirm: boolean | object = true): {
     service: ProjectExplorerService
     priv: ExplorerPrivates

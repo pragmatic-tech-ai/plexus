@@ -281,7 +281,7 @@ try {
     // Start the Solution Explorer capability AFTER the project explorer's Start()
     // (which wires the member-sync) and RestoreSession() — so the active solution
     // and its members exist when the Solution Explorer subscribes to ActiveSolution
-    // and builds its HierarchyTreeVM. Same deferral reason as ProjectExplorer.Start:
+    // and builds its Hierarchy. Same deferral reason as ProjectExplorer.Start:
     // the solution-engine seams are registered above, not in the ctor.
     const solutionExplorer = app.Services.get(SolutionExplorerService.Key)
     if (solutionExplorer !== undefined) {

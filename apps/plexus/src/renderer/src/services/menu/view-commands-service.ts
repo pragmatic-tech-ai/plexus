@@ -3,19 +3,20 @@ import {
     type ICommand, type IDisposable, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    ContentHostService, DiagramDocument, NavigationService, PanelDockService,
-    type Diagram, type DocumentsContentHostService, type IDockPanel,
+    ContentHostService, DiagramDocument, NavigationService,
+    type Diagram, type DocumentsContentHostService,
 } from '@pragmatic-tech-ai/mural/framework'
 import { ProblemsService } from '../../modules/problems/problems-service.js'
 import { ChatSessionsService } from '../../modules/agent-chat/services/chat-sessions-service.js'
 
-// Zoom + panel-toggle commands for the main menu's View menu. Zoom bridges to
+// Zoom + view-panel commands for the main menu's View menu. Zoom bridges to
 // the active diagram's live camera (ZoomIn/ZoomOut/ResetZoom), resolving
 // ContentHostService → ActiveDocument → ActiveView exactly like
 // zoom-shortcuts.ts / EditCommandsService; enabled only while a diagram is
-// active with a mounted view. The three toggles (side bar / problems / agent
-// chat) each flip a boolean (or dock membership) and stay always-enabled —
-// toggling is valid whether the pane is currently shown or hidden.
+// active with a mounted view. Side Bar / Problems are genuine toggles (flip a
+// boolean) and stay always-enabled. Agent Chat is NOT a toggle: its primary
+// dock panel is permanent (ChatSessionsService.EnsurePrimary), so this command
+// only ensures it exists and brings it to front — see ShowAgentChatCommand.
 export class ViewCommandsService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<ViewCommandsService>('ViewCommandsService')
@@ -28,7 +29,7 @@ export class ViewCommandsService extends ServiceBase
     private readonly _zoomCommands: readonly RelayCommand[]
     private readonly _toggleSideBarCommand: ICommand
     private readonly _toggleProblemsCommand: ICommand
-    private readonly _toggleAgentChatCommand: ICommand
+    private readonly _showAgentChatCommand: ICommand
     private readonly _activeDocumentSubscription: IDisposable
 
     public constructor(provider: IServiceProvider)
@@ -56,7 +57,7 @@ export class ViewCommandsService extends ServiceBase
 
         this._toggleSideBarCommand = new RelayCommand(() => this.toggleSideBar())
         this._toggleProblemsCommand = new RelayCommand(() => this.toggleProblems())
-        this._toggleAgentChatCommand = new RelayCommand(() => { void this.toggleAgentChat() })
+        this._showAgentChatCommand = new RelayCommand(() => { void this.showAgentChat() })
     }
 
     public get ZoomInCommand(): ICommand { return this._zoomInCommand }
@@ -64,7 +65,7 @@ export class ViewCommandsService extends ServiceBase
     public get ResetZoomCommand(): ICommand { return this._resetZoomCommand }
     public get ToggleSideBarCommand(): ICommand { return this._toggleSideBarCommand }
     public get ToggleProblemsCommand(): ICommand { return this._toggleProblemsCommand }
-    public get ToggleAgentChatCommand(): ICommand { return this._toggleAgentChatCommand }
+    public get ShowAgentChatCommand(): ICommand { return this._showAgentChatCommand }
 
     public dispose(): void
     {
@@ -104,20 +105,14 @@ export class ViewCommandsService extends ServiceBase
         problems.IsOpen = !problems.IsOpen
     }
 
-    // The Agent Chat dock panel is opened today via ChatSessionsService.EnsurePrimary()
-    // (called once at app startup — apps/plexus/src/renderer/src/main.js), which mints
-    // the panel on first call and thereafter just hands back the same instance. Reusing
-    // it here (rather than reaching into ChatSessionsService internals) gives us the
-    // panel's stable identity without duplicating how it is minted — "the same Add
-    // path" the brief asks for. Toggling then just flips its PanelDockService
-    // membership: close it if docked, re-Add it if not.
-    private async toggleAgentChat(): Promise<void>
+    // The Agent Chat dock panel is PERMANENT (ChatSessionsService.EnsurePrimary docs
+    // it as "always docked... never closes"), so this command is a show/focus, not a
+    // toggle: delegate to ChatSessionsService.FocusPrimary(), which mints the primary
+    // on first call and brings it to front every time.
+    private async showAgentChat(): Promise<void>
     {
         const chats = this.Provider.get(ChatSessionsService.Key)
-        const dock = this.Provider.get(PanelDockService.Key)
-        if (chats === undefined || dock === undefined) return
-        const panel = await chats.EnsurePrimary() as unknown as IDockPanel
-        if (dock.Panels.IndexOf(panel) >= 0) dock.CloseById(panel.Id)
-        else dock.Add(panel)
+        if (chats === undefined) return
+        await chats.FocusPrimary()
     }
 }

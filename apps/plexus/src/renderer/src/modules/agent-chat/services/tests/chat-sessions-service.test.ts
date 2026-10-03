@@ -112,6 +112,23 @@ test('EnsurePrimary docks a fixed "Agent Chat" that is not listed as a document'
     expect(dock.Panels.ToArray().filter((p) => p === primary)).toHaveLength(1)
 })
 
+test('FocusPrimary mints the primary (once) and brings it to front', async () => {
+    const { svc, dock } = makeService()
+    const other = { Id: 'other-panel', Title: 'Other' }
+    dock.Add(other)
+    dock.SelectedPanel = other
+
+    const primary = await svc.FocusPrimary()
+    expect(primary.Title).toBe('Agent Chat')
+    expect(dock.SelectedPanel).toBe(primary)
+
+    // Already minted: a second call re-selects it without minting another.
+    dock.SelectedPanel = other
+    expect(await svc.FocusPrimary()).toBe(primary)
+    expect(dock.SelectedPanel).toBe(primary)
+    expect(dock.Panels.ToArray().filter((p) => p === primary)).toHaveLength(1)
+})
+
 test('the docked primary is re-added if something removes it (never closable)', async () => {
     const { svc, dock } = makeService()
     const primary = await svc.EnsurePrimary()

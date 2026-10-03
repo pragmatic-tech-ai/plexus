@@ -41,7 +41,7 @@ import ArchitectureProjectsModule from "./modules/architecture-projects/architec
 // Solution Hierarchy P2 migration. The left-panel tree is the Solution Explorer.
 import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
 // The Solution Explorer module — its Capability is the left-panel tree (a
-// HierarchyModel over the active solution's members + their file trees), backed
+// Hierarchy over the active solution's members + their file trees), backed
 // by SolutionExplorerService. Registered after ProjectExplorerModule so the
 // lifecycle service it delegates to is composed.
 import SolutionExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.module.mu.js"
@@ -131,8 +131,8 @@ import BackgroundWorkModule from "./modules/background-work/background-work.modu
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
 
-// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenu
-// (File MenuButton, Export…), filled into the shared PragmaticWindowChrome
+// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenu (the
+// File/Edit/View/Help MenuButtons), filled into the shared PragmaticWindowChrome
 // strip. Merged below.
 import PlexusWindowChrome from "./window/plexus-window.resources.mu.js"
 
@@ -157,7 +157,7 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
 // Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
 // + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
-// [HierarchyItemVM]. ProjectExplorerResources is still merged below for its Open/New
+// [HierarchyItem]. ProjectExplorerResources is still merged below for its Open/New
 // project + reference/confirm DIALOG templates, which the surviving commands present.
 import SolutionExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.resources.mu.js"
 // The connection editor dialog's DataTemplate (ConnectionEditorDialogModel).
@@ -255,11 +255,22 @@ import SettingsResources from "./services/settings/settings.resources.mu.js"
 import SavePromptResources from "./services/dialogs/save-prompt.resources.mu.js"
 import DiagramExportPreviewResources from "./modules/diagram-export/diagram-export-preview.resources.mu.js"
 
-// Help menu: About + Keyboard Shortcuts dialog bodies (services/menu/). The
-// HelpCommandsService that opens them, and its `.services:` registration,
-// land in task-6-brief.md.
+// Help menu: About + Keyboard Shortcuts dialog bodies (services/menu/), opened
+// by HelpCommandsService (registered below in `.services:`).
 import AboutDialogResources from "./services/menu/about-dialog.resources.mu.js"
 import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources.mu.js"
+// Main-menu command services (services/menu/ + services/window/): Edit (Undo/Redo/
+// Cut/Copy/Paste), View (Zoom/Toggle Side Bar/Toggle Problems/Agent Chat), Help
+// (About/Shortcuts/Quit) — each a thin bridge from a MenuItem.Command to an
+// existing seam (ActiveDocument, NavigationService, ProblemsService,
+// ChatSessionsService, DialogService). WindowService is the Quit seam
+// HelpCommandsService resolves. All root-registered so the menu bar (mounted
+// once, at title-bar template application) and any other call site resolve the
+// SAME instance.
+import EditCommandsService from "./services/menu/edit-commands-service.js"
+import ViewCommandsService from "./services/menu/view-commands-service.js"
+import HelpCommandsService from "./services/menu/help-commands-service.js"
+import WindowService from "./services/window/window-service.js"
 import PlexusDocumentHost from "./services/documents/plexus-document-host.js"
 // Framework tokens registered at the app ROOT below (see `.services:`).
 import SettingsStoreKey from "@pragmatic-tech-ai/mural/framework"
@@ -274,9 +285,9 @@ import SettingsContributionKey from "@pragmatic-tech-ai/mural/framework"
 Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
     .services: {
         // Keyed hierarchy-contributor registry (mural framework) — the Solution
-        // Explorer's HierarchyModel resolves it and registers its per-solution
+        // Explorer's Hierarchy resolves it and registers its per-solution
         // contributors imperatively. Root-registered so the single instance is
-        // shared across every HierarchyModel the capability rebuilds.
+        // shared across every Hierarchy the capability rebuilds.
         HierarchyContributorRegistry
         EnvironmentService
         // Live viewport (window) height, bindable + resize-reactive. The Problems
@@ -349,6 +360,17 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // collapsed. Root-registering makes EditorShell's has() guard share this
         // instance the shell region binds via $service(PanelDockService).
         PanelDockService
+        // Main-menu command services (Edit/View/Help — the menu bar's Edit/View/
+        // Help MenuButtons bind their commands via $service(X), which resolves
+        // these from the ROOT the moment the title bar's ControlTemplate applies,
+        // same timing as the File MenuButton's DiagramExportService). Each is a
+        // thin command bridge; see services/menu/ for the seams each resolves.
+        EditCommandsService
+        ViewCommandsService
+        HelpCommandsService
+        // Quit seam HelpCommandsService.QuitCommand resolves (over window.api.
+        // titlebar). Root-registered alongside it.
+        WindowService
         // (The project-type registry is no longer registered here: it is the
         // engine's IProjectFactoryRegistry, registered under ProjectFactoryRegistryKey
         // by TodlProjectSystemModule at the head of `.modules:` below. Module services
@@ -466,7 +488,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         ConnectionsModule
         // Solution Explorer — the left-panel tree Capability (replaces the retired
         // Project Explorer panel). Backed by SolutionExplorerService over a
-        // HierarchyModel of the active solution's members + file trees.
+        // Hierarchy of the active solution's members + file trees.
         SolutionExplorerModule
         MetaModelModule
         LibraryModule
@@ -579,7 +601,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         merge ProjectExplorerResources
 
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +
-        // HierarchicalDataTemplate[HierarchyItemVM].
+        // HierarchicalDataTemplate[HierarchyItem].
         merge SolutionExplorerResources
         merge ConnectionsResources
 

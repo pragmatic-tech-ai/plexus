@@ -48,17 +48,22 @@ class FakeNonDiagramDocument implements IDocument
 }
 
 // A minimal stand-in for ChatSessionsService: ViewCommandsService only calls
-// EnsurePrimary() (the real app's "same Add path", wired at startup in
-// main.ts) to resolve the Agent Chat dock panel's identity before checking
-// PanelDockService membership.
+// FocusPrimary() — ensure the permanent "Agent Chat" dock panel exists, then
+// select it — mirroring the real service's EnsurePrimary-then-SelectedPanel
+// behavior against a real PanelDockService so the ensure+select is genuinely
+// exercised, not just asserted by call count.
 class FakeChatSessionsService
 {
     public readonly panel: IDockPanel = { Id: 'agent-chat-primary', Title: 'Agent Chat' }
     public ensureCalls = 0
 
-    public async EnsurePrimary(): Promise<IDockPanel>
+    public constructor(private readonly dock: PanelDockService) {}
+
+    public async FocusPrimary(): Promise<IDockPanel>
     {
         this.ensureCalls += 1
+        if (this.dock.Panels.IndexOf(this.panel) < 0) this.dock.Add(this.panel)
+        this.dock.SelectedPanel = this.panel
         return this.panel
     }
 }
@@ -88,15 +93,15 @@ function buildService(activeDocument: IDocument | undefined): Harness
     const dock = new PanelDockService(provider)
     provider.registerInstance(PanelDockService.Key, dock)
 
-    const chats = new FakeChatSessionsService()
+    const chats = new FakeChatSessionsService(dock)
     provider.registerInstance(ChatSessionsService.Key, chats as never)
 
     const svc = new ViewCommandsService(provider)
     return { svc, host, navigation, problems, dock, chats }
 }
 
-// Settles the microtask ViewCommandsService's async ToggleAgentChatCommand
-// (await EnsurePrimary(), then dock membership check) runs on.
+// Settles the microtask ViewCommandsService's async ShowAgentChatCommand
+// (await FocusPrimary()) runs on.
 function flush(): Promise<void>
 {
     return new Promise((resolve) => setTimeout(resolve, 0))
@@ -194,23 +199,26 @@ test('ToggleProblemsCommand flips Problems.IsOpen both ways', () => {
     expect(problems.IsOpen).toBe(false)
 })
 
-test('ToggleAgentChatCommand opens the Agent Chat panel when it is absent', async () => {
+test('ShowAgentChatCommand ensures and selects the primary panel when it is absent', async () => {
     const { svc, dock, chats } = buildService(undefined)
     expect(dock.Panels.IndexOf(chats.panel)).toBe(-1)
 
-    svc.ToggleAgentChatCommand.Execute()
+    svc.ShowAgentChatCommand.Execute()
     await flush()
 
+    expect(chats.ensureCalls).toBe(1)
     expect(dock.Panels.IndexOf(chats.panel)).toBeGreaterThanOrEqual(0)
+    expect(dock.SelectedPanel).toBe(chats.panel)
 })
 
-test('ToggleAgentChatCommand closes the Agent Chat panel when it is present', async () => {
+test('ShowAgentChatCommand selects (never closes) the primary panel when it is already present', async () => {
     const { svc, dock, chats } = buildService(undefined)
     dock.Add(chats.panel)
     expect(dock.Panels.IndexOf(chats.panel)).toBeGreaterThanOrEqual(0)
 
-    svc.ToggleAgentChatCommand.Execute()
+    svc.ShowAgentChatCommand.Execute()
     await flush()
 
-    expect(dock.Panels.IndexOf(chats.panel)).toBe(-1)
+    expect(dock.Panels.ToArray().filter((p) => p === chats.panel)).toHaveLength(1)
+    expect(dock.SelectedPanel).toBe(chats.panel)
 })

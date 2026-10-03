@@ -254,6 +254,17 @@ export class ChatSessionsService extends ServiceBase
         return chat
     }
 
+    // Bring the primary "Agent Chat" panel to front, minting it first via EnsurePrimary
+    // if this is the first call. Backs the View menu's "Agent Chat" command — a
+    // focus/select, never a toggle-hide, since the primary is permanent (see
+    // EnsurePrimary above): there is no state in which it should disappear.
+    public async FocusPrimary(): Promise<ChatSession>
+    {
+        const chat = await this.EnsurePrimary()
+        this.dock.SelectedPanel = chat
+        return chat
+    }
+
     // Show the shared approved-tools list (persistent approval rules for the current
     // agent cwd) in a modal dialog. Refresh first so it reflects the latest grants;
     // scrim-click dismisses. Revoke on a row refreshes the list in place.
