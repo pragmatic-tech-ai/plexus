@@ -1,6 +1,8 @@
 // Plexus's window-chrome slots for the shared PragmaticWindowChrome module: the
-// brand mark (@WindowBrand) drawn in the title bar's 48×32 box, and the File-menu
-// items (@WindowMenuItems). The strip layout + menu chrome come from the module;
+// brand mark (@WindowBrand) drawn in the title bar's 48×32 box, and the menu
+// bar (@WindowMenu) — a MenuButton per menu, each carrying its OWN inline
+// MenuItem children (hosted natively by @WindowMenuPopup's ItemsPresenter, not
+// a hardcoded items slot). The strip layout + menu chrome come from the module;
 // these two ControlTemplates are the Plexus-specific fills the module hosts via
 // ContentControl[Template].
 import DiagramExportService from "../modules/diagram-export/services/diagram-export-service.js"
@@ -36,11 +38,18 @@ resources PlexusWindowChrome {
         }
     }
 
-    // File-menu items — Export… opens the diagram export dialog, bound to the same
-    // command the diagram context menu uses. RowTemplate = @CompactMenuItemRow is
-    // the shared compact row from the module.
-    Template x:key="WindowMenuItems" [ TargetType = ContentControl ] {
-        StackPanel [ Orientation = Vertical ] {
+    // The menu bar — one MenuButton per menu, Template = @WindowMenuPopup (the
+    // shared chrome from the module) hosting this MenuButton's OWN inline
+    // MenuItem children natively. Export… opens the diagram export dialog,
+    // bound to the same command the diagram context menu uses. RowTemplate =
+    // @CompactMenuItemRow is the shared compact row from the module. Edit/
+    // View/Help buttons join here once their services exist (Task 6).
+    Template x:key="WindowMenu" [ TargetType = ContentControl ] {
+        MenuButton
+            [ Header            = "File",
+              Template          = @WindowMenuPopup,
+              TriggerTemplate   = @FileMenuTrigger,
+              VerticalAlignment = Center ] {
             MenuItem [ Header = "Export…", RowTemplate = @CompactMenuItemRow, Command = $service(DiagramExportService).OpenExportDialogCommand ]
         }
     }

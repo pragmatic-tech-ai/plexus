@@ -24,7 +24,7 @@ resources AppShell {
             DockPanel [ LastChildFill = true ] {
                 // Header band — the shared PragmaticWindowChrome title bar
                 // (@PragmaticTitleBar is a ControlTemplate, so a ContentControl
-                // hosts it). devUI's @WindowBrand + @WindowMenuItems fill its slots;
+                // hosts it). devUI's @WindowBrand + @WindowMenu fill its slots;
                 // the title text binds $service(TitleService).Title.
                 Border x:name="PART_HeaderHost" [ DockPanel.Dock = Top ] {
                     ContentControl [ Template = @PragmaticTitleBar ]

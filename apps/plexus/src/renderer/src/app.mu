@@ -113,7 +113,7 @@ import OpenProjectsStore from "@pragmatic-tech-ai/plexus-core/renderer/projects/
 
 // The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
 // bar strip, the menu-bar look, and TitleService. Plexus supplies its brand mark
-// + File-menu items (@WindowBrand / @WindowMenuItems) and a title source
+// + menu bar (@WindowBrand / @WindowMenu) and a title source
 // (PlexusTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header's ControlTemplate resolves $service(TitleService)).
 import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
@@ -131,8 +131,9 @@ import BackgroundWorkModule from "./modules/background-work/background-work.modu
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
 
-// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenuItems
-// (Export…), filled into the shared PragmaticWindowChrome strip. Merged below.
+// Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenu
+// (File MenuButton, Export…), filled into the shared PragmaticWindowChrome
+// strip. Merged below.
 import PlexusWindowChrome from "./window/plexus-window.resources.mu.js"
 
 // Capability content services + their side-pane templates.

@@ -17,7 +17,7 @@ import RegistryClient from "./services/registry/registry-client.ts"
 
 // The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
 // bar strip, the menu-bar look, and TitleService. devUI supplies its brand mark +
-// File-menu items (@WindowBrand / @WindowMenuItems) and a title source
+// menu bar (@WindowBrand / @WindowMenu) and a title source
 // (DevUiTitleSource, registered under TitleSourceKey in .services: below so it is
 // available before the header ControlTemplate resolves $service(TitleService)).
 import PragmaticWindowChrome from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome"
@@ -59,7 +59,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // ControlTemplate resolves $service(TitleService), whose ctor getRequired()s
         // the source. TitleService itself is registered by PragmaticWindowChrome.
         DevUiTitleSource -> TitleSourceKey
-        // Commands for the title-bar File menu (@WindowMenuItems).
+        // Commands for the title-bar File menu (@WindowMenu).
         DevUiWindowCommands
     }
 
