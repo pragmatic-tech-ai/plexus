@@ -46,6 +46,10 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyCon
 
         if (commandId === SkillActionContributor.RunId)
         {
+            // The parent header: starts catalog discovery (I/O) at menu-build time so the
+            // lazy submenu (SkillRunSubmenuContributor) reads a populated catalog when it opens.
+            const catalog = this.Provider.get(SkillCatalog.Key)
+            if (catalog !== undefined) void this.Discover(catalog, folder)
             return new RelayCommand(() => {})
         }
         if (commandId.startsWith(SkillActionContributor.RunChildPrefix))
@@ -59,6 +63,14 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyCon
             return new RelayCommand(() => void runner.run(skill, folder, member.Title))
         }
         return undefined
+    }
+
+    // Fire-and-forget discovery. A failure (an unreadable project folder) must leave the
+    // submenu usable-and-empty, never surface as an unhandled rejection off this caller.
+    private async Discover(catalog: SkillCatalog, folder: string): Promise<void>
+    {
+        try { await catalog.discoverAll([folder]) }
+        catch { /* empty submenu — the agent runner reports the failure on invocation */ }
     }
 }
 

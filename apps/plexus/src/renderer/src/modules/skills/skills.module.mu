@@ -9,17 +9,28 @@
 
 import SkillAuthoringService from "./services/skill-authoring-service.js"
 import SkillActionContributor from "./services/skill-action-contributor.js"
+import SkillRunSubmenuContributor from "./services/skill-run-submenu-contributor.js"
 
 shell module SkillsModule [ Name = "Skills" ] {
     .services: {
         SkillAuthoringService
         SkillActionContributor
+        SkillRunSubmenuContributor
     }
 
     // "Run Agent / Skill" on a project (member) row — the IProjectMenuSource
-    // replacement on the hierarchy action seam.
-    .hierarchyActions: {
-        HierarchyActionDefinition [ ActionKeys = ["project"], Contributor = SkillActionContributor, Order = 100 ]
+    // replacement on the B+C1 command seam. SkillActionContributor resolves the header
+    // and each dynamic `skill.run::<name>` child; the catalog submenu is filled lazily by
+    // SkillRunSubmenuContributor (ChildrenContributor), the replacement for the old
+    // async HierarchyAction.Children.Add fill.
+    Hierarchy {
+        Contributor [ Under = "project", Use = SkillActionContributor, Order = 100 ] {
+            CommandDefinition
+                [ Id                 = "skill.run",
+                  Title              = "Run Agent / Skill",
+                  Context            = "project",
+                  ChildrenContributor = SkillRunSubmenuContributor ]
+        }
     }
 
     Capability [ Name = "Skills", Icon = @Skill, ServiceKey = SkillAuthoringService ]
