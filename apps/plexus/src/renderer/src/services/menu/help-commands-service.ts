@@ -4,14 +4,14 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
+import { WindowService } from '../window/window-service.js'
 import { AboutDialogVm } from './about-dialog.js'
 import { ShortcutsDialogVm } from './shortcuts-dialog.js'
 
 // Help-menu commands: About + Keyboard Shortcuts, each opening a read-only
-// DialogService modal. Quit (task-5-brief.md) and this service's own
-// `.services:` registration (task-6-brief.md) land separately — this is
-// just the dialog-opening behavior. Both commands are always enabled: Help
-// info is available regardless of document/selection state.
+// DialogService modal, plus Quit. This service's own `.services:` registration
+// (task-6-brief.md) lands separately. All three commands are always enabled:
+// Help info and Quit are available regardless of document/selection state.
 export class HelpCommandsService extends ServiceBase
 {
     public static readonly Key = new ServiceKey<HelpCommandsService>('HelpCommandsService')
@@ -24,16 +24,19 @@ export class HelpCommandsService extends ServiceBase
 
     private readonly _showAboutCommand: ICommand
     private readonly _showShortcutsCommand: ICommand
+    private readonly _quitCommand: ICommand
 
     public constructor(provider: IServiceProvider)
     {
         super(provider)
         this._showAboutCommand = new RelayCommand(() => { void this.showAbout() })
         this._showShortcutsCommand = new RelayCommand(() => { void this.showShortcuts() })
+        this._quitCommand = new RelayCommand(() => { this.quit() })
     }
 
     public get ShowAboutCommand(): ICommand { return this._showAboutCommand }
     public get ShowShortcutsCommand(): ICommand { return this._showShortcutsCommand }
+    public get QuitCommand(): ICommand { return this._quitCommand }
 
     private async showAbout(): Promise<void>
     {
@@ -57,6 +60,13 @@ export class HelpCommandsService extends ServiceBase
             Width:     HelpCommandsService.ShortcutsDialogWidth,
             MaxHeight: HelpCommandsService.ShortcutsDialogMaxHeight,
         })
+    }
+
+    private quit(): void
+    {
+        const windowService = this.Provider.get(WindowService.Key)
+        if (windowService === undefined) return
+        windowService.Quit()
     }
 }
 

@@ -108,6 +108,7 @@ const fileWatch: IFileWatchApi = {
 // every scheme change; fire-and-forget (main re-tints or no-ops per platform).
 const titlebar: IWindowApi = {
   setOverlay: (colors: OverlayColors): void => ipcRenderer.send(WindowChannel.SetOverlay, colors),
+  quit: (): void => ipcRenderer.send(WindowChannel.Quit),
 }
 
 // MCP-client bridge — manage external MCP servers the agent may use. Each method

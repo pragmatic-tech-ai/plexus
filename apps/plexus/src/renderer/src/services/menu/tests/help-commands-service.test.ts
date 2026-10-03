@@ -3,6 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService, type DialogOptions } from '@pragmatic-tech-ai/mural/framework'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OperatingSystem, type IEnvironment } from '@pragmatic-tech-ai/todl-runtime'
+import { WindowService, type IWindowService } from '../../window/window-service.js'
 import { HelpCommandsService } from '../help-commands-service.js'
 import { AboutDialogVm } from '../about-dialog.js'
 import { ShortcutsDialogVm } from '../shortcuts-dialog.js'
@@ -42,15 +43,29 @@ class FakeEnvironment implements IEnvironment
     public readonly IsPackaged = true
 }
 
-function buildService(): { svc: HelpCommandsService; dialogs: FakeDialogService; environment: FakeEnvironment }
+// Records Quit() calls instead of reaching window.api — the real seam
+// HelpCommandsService.QuitCommand depends on (WindowService.Key).
+class FakeWindowService implements IWindowService
+{
+    public quitCalls = 0
+
+    public Quit(): void
+    {
+        this.quitCalls += 1
+    }
+}
+
+function buildService(): { svc: HelpCommandsService; dialogs: FakeDialogService; environment: FakeEnvironment; windowService: FakeWindowService }
 {
     const provider = new ServiceProvider()
     const dialogs = new FakeDialogService()
     const environment = new FakeEnvironment()
+    const windowService = new FakeWindowService()
     provider.registerInstance(DialogService.Key, dialogs as never)
     provider.registerInstance(EnvironmentService.Key, environment as never)
+    provider.registerInstance(WindowService.Key, windowService as never)
     const svc = new HelpCommandsService(provider)
-    return { svc, dialogs, environment }
+    return { svc, dialogs, environment, windowService }
 }
 
 test('ShowAboutCommand is always enabled', () => {
@@ -95,4 +110,17 @@ test('ShowShortcutsCommand opens a dialog titled "Keyboard Shortcuts" with the s
     const saveEntry = content.Entries.find((e) => e.Description === 'Save')
     expect(saveEntry).toBeDefined()
     expect(saveEntry?.Gesture).toBe('Ctrl/⌘+S')
+})
+
+test('QuitCommand is always enabled', () => {
+    const { svc } = buildService()
+    expect(svc.QuitCommand.CanExecute()).toBe(true)
+})
+
+test('QuitCommand.Execute() calls the injected WindowService.Quit()', () => {
+    const { svc, windowService } = buildService()
+
+    svc.QuitCommand.Execute()
+
+    expect(windowService.quitCalls).toBe(1)
 })
