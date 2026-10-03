@@ -51,6 +51,10 @@ export class ConnectionActionsContributor implements IHierarchyContributor
     public static readonly ActiveChildPrefix = 'connection.active::'
     public static readonly ActiveCurrentChildPrefix = 'connection.active.current::'
     public static readonly SolutionDefaultSentinel = '__solutionDefault__'
+    // Minor 3: a decoded child id must carry a real connection id suffix. An empty suffix
+    // means the command id was corrupted — fail loudly rather than silently treating it as
+    // the solution-default pick.
+    private static readonly EmptyActiveChildIdMessage = 'ConnectionActionsContributor: malformed active-connection child id'
 
     private static readonly NewLabel = 'New Connection…'
     private static readonly EditLabel = 'Edit…'
@@ -147,6 +151,10 @@ export class ConnectionActionsContributor implements IHierarchyContributor
         const member = FileTreeContributor.MemberOf(anchor)
         if (member === undefined) return undefined
         const connId = commandId.slice(ConnectionActionsContributor.ActiveChildPrefix.length)
+        if (connId.length === 0)
+        {
+            throw new Error(`${ConnectionActionsContributor.EmptyActiveChildIdMessage}: "${commandId}"`)
+        }
         const target = connId === ConnectionActionsContributor.SolutionDefaultSentinel ? undefined : connId
         return new RelayCommand(() => void this.view.SetActiveConnectionFor(member, target))
     }
@@ -179,6 +187,10 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
     private static readonly LoadingLabel = 'Loading…'
     private static readonly EmptyId = 'connection.active.empty'
     private static readonly LoadingId = 'connection.active.loading'
+    // Minor 3: a real connection id that collided with the sentinel would be silently
+    // treated as "use solution default" by ConnectionActionsContributor.activeChildCommand.
+    // Fail loudly instead — this should never fire for real connection ids.
+    private static readonly SentinelCollisionMessage = 'ConnectionActiveSubmenuContributor: a connection id collides with the solution-default sentinel'
 
     private readonly cache = new Map<SolutionMember, readonly CommandDefinition[]>()
 
@@ -199,7 +211,10 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
                 const [connections, current] = await Promise.all([this.view.ConnectionsView(), this.view.ActiveConnectionFor(member)])
                 this.cache.set(member, this.rows(connections.map((c) => ({ id: c.Id, label: c.DisplayName })), current?.Id))
             }
-            catch { this.cache.set(member, []) }
+            catch
+            {
+                this.cache.set(member, [])
+            }
         })()
         return [ConnectionActiveSubmenuContributor.row(ConnectionActiveSubmenuContributor.LoadingId, ConnectionActiveSubmenuContributor.LoadingLabel)]
     }
@@ -216,6 +231,10 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
         }
         for (const c of connections)
         {
+            if (c.id === ConnectionActionsContributor.SolutionDefaultSentinel)
+            {
+                throw new Error(`${ConnectionActiveSubmenuContributor.SentinelCollisionMessage}: "${c.id}"`)
+            }
             const id = c.id === currentId
                 ? ConnectionActionsContributor.ActiveCurrentChildPrefix + c.id
                 : ConnectionActionsContributor.ActiveChildPrefix + c.id

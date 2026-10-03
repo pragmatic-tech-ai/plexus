@@ -69,8 +69,14 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyCon
     // submenu usable-and-empty, never surface as an unhandled rejection off this caller.
     private async Discover(catalog: SkillCatalog, folder: string): Promise<void>
     {
-        try { await catalog.discoverAll([folder]) }
-        catch { /* empty submenu — the agent runner reports the failure on invocation */ }
+        try
+        {
+            await catalog.discoverAll([folder])
+        }
+        catch
+        {
+            // empty submenu — the agent runner reports the failure on invocation
+        }
     }
 }
 

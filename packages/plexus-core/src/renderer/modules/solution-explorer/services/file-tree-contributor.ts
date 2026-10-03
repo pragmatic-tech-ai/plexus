@@ -53,6 +53,11 @@ export class FileTreeContributor implements IHierarchyContributor
     // Dynamic child id: `file.addNew::<kind>::<extension>`.
     public static readonly AddNewChildPrefix = 'file.addNew::'
     private static readonly ChildSeparator = '::'
+    // Minor 3: AddNewChildId always packs exactly kind + extension on ChildSeparator; a raw
+    // value that itself contained the separator would corrupt the decode. Fail loudly instead
+    // of silently binding the wrong field — this should never fire for real formats.
+    private static readonly SeparatorCollisionMessage = 'FileTreeContributor: a raw id segment contains the child separator'
+    private static readonly SegmentCountMessage = 'FileTreeContributor: malformed addNew child id'
 
     // The node keys this contributor supplies context-menu actions for: every content node
     // family plus the project/member row itself.
@@ -119,7 +124,17 @@ export class FileTreeContributor implements IHierarchyContributor
 
     public static AddNewChildId(format: ProjectFileFormat): string
     {
+        FileTreeContributor.assertNoSeparator(format.kind)
+        FileTreeContributor.assertNoSeparator(format.extension)
         return FileTreeContributor.AddNewChildPrefix + [format.kind, format.extension].join(FileTreeContributor.ChildSeparator)
+    }
+
+    private static assertNoSeparator(raw: string): void
+    {
+        if (raw.includes(FileTreeContributor.ChildSeparator))
+        {
+            throw new Error(`${FileTreeContributor.SeparatorCollisionMessage}: "${raw}"`)
+        }
     }
 
     // The formats a new-file submenu offers for a member — delegates to the mutation façade
@@ -140,9 +155,17 @@ export class FileTreeContributor implements IHierarchyContributor
 
         if (commandId.startsWith(FileTreeContributor.AddNewChildPrefix))
         {
-            const [kind, extension] = commandId
+            const parts = commandId
                 .slice(FileTreeContributor.AddNewChildPrefix.length)
                 .split(FileTreeContributor.ChildSeparator)
+            // Invariant: AddNewChildId always packs exactly 2 segments (kind, extension). A
+            // different count means the id was corrupted — fail loudly rather than silently
+            // binding the wrong field.
+            if (parts.length !== 2)
+            {
+                throw new Error(`${FileTreeContributor.SegmentCountMessage}: "${commandId}"`)
+            }
+            const [kind, extension] = parts
             const format = mutations.FormatsFor(member).find((f) => f.kind === kind && f.extension === extension)
             if (format === undefined) return undefined
             return new RelayCommand(() => void mutations.NewFileForMember(member, folder, format))

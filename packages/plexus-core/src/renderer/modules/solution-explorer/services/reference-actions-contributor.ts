@@ -42,6 +42,11 @@ export class ReferenceActionsContributor implements IHierarchyContributor
     public static readonly AddChildPrefix = 'reference.add::'
     public static readonly SetVersionChildPrefix = 'reference.setVersion::'
     private static readonly ChildSeparator = '::'
+    // Minor 3: AddChildId always packs exactly kind + id + version on ChildSeparator; a raw
+    // value that itself contained the separator would corrupt the decode. Fail loudly instead
+    // of silently binding the wrong field — this should never fire for real refs.
+    private static readonly SeparatorCollisionMessage = 'ReferenceActionsContributor: a raw id segment contains the child separator'
+    private static readonly SegmentCountMessage = 'ReferenceActionsContributor: malformed add child id'
 
     private static readonly AddMetaModelLabel = 'Add Meta-model'
     private static readonly AddLabel = 'Add'
@@ -120,10 +125,18 @@ export class ReferenceActionsContributor implements IHierarchyContributor
 
     private addChildCommand(commandId: string, member: SolutionMember): ICommand
     {
-        const [kind, id, version] = commandId
+        const parts = commandId
             .slice(ReferenceActionsContributor.AddChildPrefix.length)
             .split(ReferenceActionsContributor.ChildSeparator)
-        const ref: BaseRef = { id: id ?? '', version: version ?? '' }
+        // Invariant: AddChildId always packs exactly 3 segments (kind, id, version). A
+        // different count means the id was corrupted — fail loudly rather than silently
+        // binding the wrong field.
+        if (parts.length !== 3)
+        {
+            throw new Error(`${ReferenceActionsContributor.SegmentCountMessage}: "${commandId}"`)
+        }
+        const [kind, id, version] = parts
+        const ref: BaseRef = { id, version }
         return new RelayCommand(() => void this.view.AddMemberReference(member, kind as ProjectType, ref))
     }
 
@@ -166,6 +179,8 @@ export class ReferenceActionsContributor implements IHierarchyContributor
 
     public static AddChildId(kind: ProjectType, ref: BaseRef): string
     {
+        ReferenceActionsContributor.assertNoSeparator(ref.id)
+        ReferenceActionsContributor.assertNoSeparator(ref.version)
         return ReferenceActionsContributor.AddChildPrefix
             + [String(kind), ref.id, ref.version].join(ReferenceActionsContributor.ChildSeparator)
     }
@@ -173,6 +188,14 @@ export class ReferenceActionsContributor implements IHierarchyContributor
     public static SetVersionChildId(version: string): string
     {
         return ReferenceActionsContributor.SetVersionChildPrefix + version
+    }
+
+    private static assertNoSeparator(raw: string): void
+    {
+        if (raw.includes(ReferenceActionsContributor.ChildSeparator))
+        {
+            throw new Error(`${ReferenceActionsContributor.SeparatorCollisionMessage}: "${raw}"`)
+        }
     }
 }
 
@@ -190,6 +213,11 @@ export class ReferenceSubmenuContributor implements ICommandContributor
     private static readonly LoadingLabel = 'Loading…'
     private static readonly EmptyId = 'reference.submenu.empty'
     private static readonly LoadingId = 'reference.submenu.loading'
+    // Minor 2: the per-member cache key joins parent.Id with the request-specific suffix
+    // (a ref id or a ProjectType). Bare concatenation can alias distinct (parent, suffix)
+    // pairs; joining on a separator that does not itself occur in a command id (the fixed
+    // '.'-and-word Id constants) or a ProjectType enum value removes that collision.
+    private static readonly RequestKeySeparator = '::'
 
     private readonly cache = new Map<SolutionMember, Map<string, readonly CommandDefinition[]>>()
 
@@ -206,13 +234,15 @@ export class ReferenceSubmenuContributor implements ICommandContributor
         if (parent.Id === ReferenceActionsContributor.SetVersionId)
         {
             const leaf = ctx.Anchor.ExtObject as LeafData
-            return this.snapshot(member, parent.Id + leaf.ref.id,
+            const request = [parent.Id, leaf.ref.id].join(ReferenceSubmenuContributor.RequestKeySeparator)
+            return this.snapshot(member, request,
                 async () => this.versionRows(await this.view.AvailableVersionsFor(member, leaf.kind, leaf.ref.id)))
         }
 
         const kind = ReferenceActionsContributor.AddKindFor(parent.Id, ctx.Anchor)
         if (kind === undefined) return []
-        return this.snapshot(member, parent.Id + String(kind),
+        const request = [parent.Id, String(kind)].join(ReferenceSubmenuContributor.RequestKeySeparator)
+        return this.snapshot(member, request,
             async () => this.addRows(kind, await this.view.AvailableReferencesFor(member, kind)))
     }
 
@@ -239,8 +269,14 @@ export class ReferenceSubmenuContributor implements ICommandContributor
         if (hit !== undefined) return hit
         void (async () =>
         {
-            try { byRequest.set(request, await fetch()) }
-            catch { byRequest.set(request, []) }
+            try
+            {
+                byRequest.set(request, await fetch())
+            }
+            catch
+            {
+                byRequest.set(request, [])
+            }
         })()
         return [ReferenceSubmenuContributor.row(ReferenceSubmenuContributor.LoadingId, ReferenceSubmenuContributor.LoadingLabel)]
     }
