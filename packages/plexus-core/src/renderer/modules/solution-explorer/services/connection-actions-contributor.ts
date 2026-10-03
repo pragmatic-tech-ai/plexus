@@ -8,6 +8,7 @@ import { CommandDefinition, type CommandContext, type ICommandContributor } from
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
+import { LazySubmenuPlaceholder } from './lazy-submenu-placeholder.js'
 import type { IConnectionView } from './connection-view.js'
 
 // Opens the connection editor dialog (New / Edit). The app supplies the implementation (it
@@ -191,6 +192,7 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
     // treated as "use solution default" by ConnectionActionsContributor.activeChildCommand.
     // Fail loudly instead — this should never fire for real connection ids.
     private static readonly SentinelCollisionMessage = 'ConnectionActiveSubmenuContributor: a connection id collides with the solution-default sentinel'
+    private static readonly Placeholder = new LazySubmenuPlaceholder(ConnectionActiveSubmenuContributor.LoadingId, ConnectionActiveSubmenuContributor.EmptyId)
 
     private readonly cache = new Map<SolutionMember, readonly CommandDefinition[]>()
 
@@ -216,7 +218,7 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
                 this.cache.set(member, [])
             }
         })()
-        return [ConnectionActiveSubmenuContributor.row(ConnectionActiveSubmenuContributor.LoadingId, ConnectionActiveSubmenuContributor.LoadingLabel)]
+        return [ConnectionActiveSubmenuContributor.Placeholder.LoadingRow(ConnectionActiveSubmenuContributor.LoadingLabel)]
     }
 
     private rows(connections: readonly { id: string; label: string }[], currentId: string | undefined): readonly CommandDefinition[]
@@ -226,7 +228,7 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
             ConnectionActiveSubmenuContributor.SolutionDefaultLabel)]
         if (connections.length === 0)
         {
-            out.push(ConnectionActiveSubmenuContributor.row(ConnectionActiveSubmenuContributor.EmptyId, ConnectionActiveSubmenuContributor.NoConnectionsLabel))
+            out.push(ConnectionActiveSubmenuContributor.Placeholder.EmptyRow(ConnectionActiveSubmenuContributor.NoConnectionsLabel))
             return out
         }
         for (const c of connections)
@@ -253,11 +255,7 @@ export class ConnectionActiveSubmenuContributor implements ICommandContributor
 
     public static PlaceholderCommand(commandId: string): ICommand | undefined
     {
-        if (commandId === ConnectionActiveSubmenuContributor.EmptyId || commandId === ConnectionActiveSubmenuContributor.LoadingId)
-        {
-            return new RelayCommand(() => {}, () => false)
-        }
-        return undefined
+        return ConnectionActiveSubmenuContributor.Placeholder.CommandFor(commandId)
     }
 }
 

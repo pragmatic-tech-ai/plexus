@@ -4,7 +4,7 @@ import {
     type IHierarchyContributor, type HierarchyContribution, type HierarchyItem, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
-import { FileTreeContributor } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
+import { FileTreeContributor, LazySubmenuPlaceholder } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { SkillCatalog } from './skill-catalog.js'
 import { SkillRunner } from './skill-runner.js'
 
@@ -20,6 +20,9 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyCon
     // Disabled placeholder rows the submenu shows while discovering / when empty.
     public static readonly LoadingId = 'skill.run.loading'
     public static readonly EmptyId = 'skill.run.empty'
+    // The shared lazy-submenu placeholder: SkillRunSubmenuContributor builds its disabled
+    // discovering/empty rows from it, and Resolve backs those ids with a disabled command.
+    public static readonly Placeholder = new LazySubmenuPlaceholder(SkillActionContributor.LoadingId, SkillActionContributor.EmptyId)
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 100
@@ -34,10 +37,8 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyCon
 
     public Resolve(commandId: string, context: CommandContext): ICommand | undefined
     {
-        if (commandId === SkillActionContributor.LoadingId || commandId === SkillActionContributor.EmptyId)
-        {
-            return new RelayCommand(() => {}, () => false)
-        }
+        const placeholder = SkillActionContributor.Placeholder.CommandFor(commandId)
+        if (placeholder !== undefined) return placeholder
 
         const anchor = (context as HierarchyActionContext).Anchor
         const member = FileTreeContributor.MemberOf(anchor)

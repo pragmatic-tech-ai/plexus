@@ -30,17 +30,17 @@ export class SkillRunSubmenuContributor extends ServiceBase implements ICommandC
         const member = FileTreeContributor.MemberOf(anchor)
         if (member?.Storage === undefined)
         {
-            return [this.Placeholder(SkillActionContributor.EmptyId, SkillRunSubmenuContributor.EmptyTitle)]
+            return [SkillActionContributor.Placeholder.EmptyRow(SkillRunSubmenuContributor.EmptyTitle)]
         }
         const catalog = this.Provider.get(SkillCatalog.Key)
         if (catalog === undefined)
         {
-            return [this.Placeholder(SkillActionContributor.EmptyId, SkillRunSubmenuContributor.EmptyTitle)]
+            return [SkillActionContributor.Placeholder.EmptyRow(SkillRunSubmenuContributor.EmptyTitle)]
         }
         const skills = catalog.forProject(member.Storage.Root)
         if (skills.length === 0)
         {
-            return [this.Placeholder(SkillActionContributor.LoadingId, SkillRunSubmenuContributor.LoadingTitle)]
+            return [SkillActionContributor.Placeholder.LoadingRow(SkillRunSubmenuContributor.LoadingTitle)]
         }
         return skills.map((s) => this.Row(s))
     }
@@ -53,14 +53,6 @@ export class SkillRunSubmenuContributor extends ServiceBase implements ICommandC
             ? SkillRunSubmenuContributor.AgentPrefix
             : SkillRunSubmenuContributor.SkillPrefix
         def.Title = `${prefix}${skill.Name}`
-        return def
-    }
-
-    private Placeholder(id: string, title: string): CommandDefinition
-    {
-        const def = new CommandDefinition()
-        def.Id = id
-        def.Title = title
         return def
     }
 }

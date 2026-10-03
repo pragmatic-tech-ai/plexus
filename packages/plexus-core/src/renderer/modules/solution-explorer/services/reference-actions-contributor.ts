@@ -8,6 +8,7 @@ import { CommandDefinition, type CommandContext, type ICommandContributor } from
 import { ProjectType, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { ReferenceNodeKey } from './reference-node-key.js'
+import { LazySubmenuPlaceholder } from './lazy-submenu-placeholder.js'
 import type { IReferenceView } from './reference-view.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 
@@ -218,6 +219,7 @@ export class ReferenceSubmenuContributor implements ICommandContributor
     // pairs; joining on a separator that does not itself occur in a command id (the fixed
     // '.'-and-word Id constants) or a ProjectType enum value removes that collision.
     private static readonly RequestKeySeparator = '::'
+    private static readonly Placeholder = new LazySubmenuPlaceholder(ReferenceSubmenuContributor.LoadingId, ReferenceSubmenuContributor.EmptyId)
 
     private readonly cache = new Map<SolutionMember, Map<string, readonly CommandDefinition[]>>()
 
@@ -248,14 +250,14 @@ export class ReferenceSubmenuContributor implements ICommandContributor
 
     private addRows(kind: ProjectType, available: readonly BaseRef[]): readonly CommandDefinition[]
     {
-        if (available.length === 0) return [ReferenceSubmenuContributor.row(ReferenceSubmenuContributor.EmptyId, ReferenceSubmenuContributor.NothingToAddLabel)]
+        if (available.length === 0) return [ReferenceSubmenuContributor.Placeholder.EmptyRow(ReferenceSubmenuContributor.NothingToAddLabel)]
         return available.map((ref) => ReferenceSubmenuContributor.row(
             ReferenceActionsContributor.AddChildId(kind, ref), `${ref.id}@${ref.version}`))
     }
 
     private versionRows(versions: readonly string[]): readonly CommandDefinition[]
     {
-        if (versions.length === 0) return [ReferenceSubmenuContributor.row(ReferenceSubmenuContributor.EmptyId, ReferenceSubmenuContributor.NoOtherVersionsLabel)]
+        if (versions.length === 0) return [ReferenceSubmenuContributor.Placeholder.EmptyRow(ReferenceSubmenuContributor.NoOtherVersionsLabel)]
         return versions.map((v) => ReferenceSubmenuContributor.row(ReferenceActionsContributor.SetVersionChildId(v), v))
     }
 
@@ -278,7 +280,7 @@ export class ReferenceSubmenuContributor implements ICommandContributor
                 byRequest.set(request, [])
             }
         })()
-        return [ReferenceSubmenuContributor.row(ReferenceSubmenuContributor.LoadingId, ReferenceSubmenuContributor.LoadingLabel)]
+        return [ReferenceSubmenuContributor.Placeholder.LoadingRow(ReferenceSubmenuContributor.LoadingLabel)]
     }
 
     private static row(id: string, title: string): CommandDefinition
@@ -292,11 +294,7 @@ export class ReferenceSubmenuContributor implements ICommandContributor
     // The disabled command backing a placeholder (Loading… / empty) row.
     public static PlaceholderCommand(commandId: string): ICommand | undefined
     {
-        if (commandId === ReferenceSubmenuContributor.EmptyId || commandId === ReferenceSubmenuContributor.LoadingId)
-        {
-            return new RelayCommand(() => {}, () => false)
-        }
-        return undefined
+        return ReferenceSubmenuContributor.Placeholder.CommandFor(commandId)
     }
 }
 
