@@ -20,9 +20,11 @@ export const ELECTRON_EXE = [
     path.join(PLEXUS_ROOT, '../../node_modules/electron/dist/electron.exe'),
 ].find((p) => fs.existsSync(p)) ?? path.join(PLEXUS_ROOT, 'node_modules/electron/dist/electron.exe')
 
-// Live corpus of test projects (meta-model + two libraries + arch consumer).
+// Live corpus of test projects (meta-model + two libraries + arch consumer),
+// checked out beside the Plexus repo at <workspace-root>/plexus_test_projects
+// (PLEXUS_ROOT is apps/plexus, so three levels up is the workspace root).
 // Override the root with PLEXUS_TEST_CORPUS if it lives elsewhere.
-const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'C:/Users/Eugene/Projects/plexus_tests'
+const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? path.resolve(PLEXUS_ROOT, '../../../plexus_test_projects')
 export const TEST_PROJECTS = [
     path.join(CORPUS, 'meta-models/tech-architecture'),
     path.join(CORPUS, 'libraries/microsoft'),
