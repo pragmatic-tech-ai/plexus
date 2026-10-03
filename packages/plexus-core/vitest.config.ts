@@ -35,6 +35,10 @@ const ALIASES = [
     // real nested index so the Build progress enums/types resolve under vitest (the prod
     // exports map already resolves ./build-system-core correctly).
     { find: /^@pragmatic-tech-ai\/todl\/build-system-core$/, replacement: `${TODL}/dist/solution-services/build-system-core/index.js` },
+    // Same nesting as build-system-core: the package-manager subpath barrel lives under
+    // solution-services/, so the generic todl/* alias (dist/$1) misses it. Map explicitly
+    // so the connections tests (file-connection-store / package-engine) resolve it.
+    { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/solution-services/package-manager/index.js` },
     { find: /^@pragmatic-tech-ai\/todl\/(.*)$/, replacement: `${TODL}/dist/$1` },
     { find: /^@pragmatic-tech-ai\/todl-runtime$/, replacement: `${TODL_RT}/dist/index.js` },
     { find: /^@pragmatic-tech-ai\/todl-runtime\/(.*)$/, replacement: `${TODL_RT}/dist/$1` },
