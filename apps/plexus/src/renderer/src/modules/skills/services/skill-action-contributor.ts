@@ -29,7 +29,7 @@ export class SkillActionContributor extends ServiceBase implements IHierarchyCon
 
     public constructor(provider: IServiceProvider) { super(provider) }
 
-    // Action-only: the project rows come from ProjectsListingContributor.
+    // Action-only: the project rows come from ProjectsProvider.
     public Contribute(_parent: HierarchyItem): HierarchyContribution
     {
         return new NodeContribution([])

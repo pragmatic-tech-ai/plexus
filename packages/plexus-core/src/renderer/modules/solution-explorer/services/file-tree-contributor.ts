@@ -13,6 +13,7 @@ import {
 import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 import { ProjectHierarchyProvider } from './project-hierarchy-provider.js'
+import type { IProjectContentSource } from './projects-provider.js'
 import type { IReferenceView } from './reference-view.js'
 import type { IConnectionView } from './connection-view.js'
 
@@ -30,7 +31,7 @@ function isMember(x: unknown): x is SolutionMember
 // per member so a repeated Contribute returns the SAME provider instance (the model's
 // attachProvider guards re-subscription by identity), and disposes them (releasing the
 // chokidar watchers) when a member is pruned or the contributor is torn down.
-export class FileTreeContributor implements IHierarchyContributor
+export class FileTreeContributor implements IHierarchyContributor, IProjectContentSource
 {
     private static readonly EmptyLeaf = new NodeContribution([])
     private static readonly AddNewLabel = 'Add New'
@@ -251,11 +252,21 @@ export class FileTreeContributor implements IHierarchyContributor
 
     public Contribute(parent: HierarchyItem): HierarchyContribution
     {
-        const member = parent.ExtObject as SolutionMember
-        if (member.Status !== SolutionMemberStatus.Resolved || member.Storage === undefined)
-        {
-            return FileTreeContributor.EmptyLeaf
-        }
+        const provider = this.ContentProviderFor(parent.ExtObject as SolutionMember)
+        // The file tree is now just the project's content subtree. References and the global
+        // Connections branch are INDEPENDENT peer contributors (ReferencesContributor /
+        // ConnectionsRootContributor), no longer woven in as leading branches here. The project
+        // rows are provider-owned (ProjectsProvider), so a row's content realization is delegated
+        // to this provider via ContentProviderFor rather than through this (dropped) contribution.
+        return provider === undefined ? FileTreeContributor.EmptyLeaf : new ProviderContribution(provider)
+    }
+
+    // The member's content provider (IProjectContentSource), get-or-created over a disk-watched
+    // ProjectContentStore; undefined for an unresolved / storage-less member (an empty leaf).
+    // ProjectsProvider delegates a project row's file-content realization to it.
+    public ContentProviderFor(member: SolutionMember): ProjectHierarchyProvider | undefined
+    {
+        if (member.Status !== SolutionMemberStatus.Resolved || member.Storage === undefined) return undefined
         let provider = this.providers.get(member)
         if (provider === undefined)
         {
@@ -264,10 +275,7 @@ export class FileTreeContributor implements IHierarchyContributor
             provider = new ProjectHierarchyProvider(store)
             this.providers.set(member, provider)
         }
-        // The file tree is now just the project's content subtree. References and the global
-        // Connections branch are INDEPENDENT peer contributors (ReferencesContributor /
-        // ConnectionsRootContributor), no longer woven in as leading branches here.
-        return new ProviderContribution(provider)
+        return provider
     }
 
     // Release one member's store + provider when its row is pruned.

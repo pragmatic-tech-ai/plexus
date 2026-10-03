@@ -7,6 +7,7 @@ import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/
 import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-explorer-service.js'
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { type IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
+import { SkillRunSubmenuContributor } from '../../skills/services/skill-run-submenu-contributor.js'
 
 // A minimal SolutionManagerService stand-in: an observable ActiveSolution the capability
 // subscribes to, plus a setter to drive open/close/swap.
@@ -168,6 +169,19 @@ describe('SolutionExplorerService', () =>
         const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
         const titles = svc.Hierarchy!.BuildActions(memberRow, actionCtx(memberRow)).ToArray().map((a) => a.Title)
         expect(titles).toContain('Remove from Solution')
+    })
+
+    it('the project-row menu services resolve an app-root submenu contributor (parent fallback)', () =>
+    {
+        // C2: SkillRunSubmenuContributor is registered only in the app root. buildMenuServices()
+        // now creates a CHILD scope of the service provider, so CommandMenuBuilder.RealizeChildren
+        // resolves it via the parent chain. A parentless provider (the old bug) found no owner and
+        // threw when the "Run Agent / Skill ▸" submenu opened.
+        const root = new ServiceProvider()
+        root.registerInstance(SkillRunSubmenuContributor.Key, new SkillRunSubmenuContributor(root))
+        expect(() => new ServiceProvider().getRequired(SkillRunSubmenuContributor.Key)).toThrow()
+        const menuServices = root.createScope()
+        expect(menuServices.getRequired(SkillRunSubmenuContributor.Key)).toBeInstanceOf(SkillRunSubmenuContributor)
     })
 
     it('committing a rename on a file row routes to mutations with the row member', async () =>

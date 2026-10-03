@@ -1,12 +1,13 @@
 import { type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import {
     NodeContribution, ProviderContribution, NodeSeverity, NodeKey,
-    type IHierarchyContributor, type HierarchyItem, type HierarchyContribution,
+    type IHierarchyContributor, type HierarchyItem, type HierarchyContribution, type HierarchyNodeSpec,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { ReferencesProvider } from './references-provider.js'
+import type { IProjectReferencesSource } from './projects-provider.js'
 import type { IReferenceView } from './reference-view.js'
 
 // Attaches the per-project References branch as an INDEPENDENT peer under each consumer
@@ -16,7 +17,7 @@ import type { IReferenceView } from './reference-view.js'
 // References node (attach that member's provider) — mirroring how ConnectionsRootContributor
 // splits node vs. subtree. Replaces the retired ProjectBranchesProvider composite +
 // ReferencesLeadingBranch: References is no longer woven into the file provider's children.
-export class ReferencesContributor implements IHierarchyContributor
+export class ReferencesContributor implements IHierarchyContributor, IProjectReferencesSource
 {
     private static readonly RootCaption = 'References'
     private static readonly RootCanonicalSegment = 'references'
@@ -41,14 +42,21 @@ export class ReferencesContributor implements IHierarchyContributor
         if (parent.Key === NodeKey.References)
         {
             const member = FileTreeContributor.MemberOf(parent)
-            if (member === undefined) return new NodeContribution([])
-            return new ProviderContribution(this.providerFor(member))
+            const provider = member === undefined ? undefined : this.providerFor(member)
+            return provider === undefined ? new NodeContribution([]) : new ProviderContribution(provider)
         }
         // parent.Key === NodeKey.Project — surface a References node only for a references
         // consumer (architecture / library); a meta-model project gets none.
-        const member = parent.ExtObject as SolutionMember
-        if (!this.view.IsConsumer(member)) return new NodeContribution([])
-        return new NodeContribution([{
+        const node = this.ReferenceRootNode(parent.ExtObject as SolutionMember)
+        return node === undefined ? new NodeContribution([]) : new NodeContribution([node])
+    }
+
+    // The References-branch node for a member (IProjectReferencesSource), or undefined for a
+    // non-consumer (meta-model) project. ProjectsProvider mints the row from this spec.
+    public ReferenceRootNode(member: SolutionMember): HierarchyNodeSpec | undefined
+    {
+        if (!this.view.IsConsumer(member)) return undefined
+        return {
             Key: NodeKey.References,
             Caption: ReferencesContributor.RootCaption,
             IconKey: NodeKey.References,
@@ -56,7 +64,14 @@ export class ReferencesContributor implements IHierarchyContributor
             Severity: NodeSeverity.Ok,
             IsExpandable: true,
             CanonicalSegment: ReferencesContributor.RootCanonicalSegment,
-        }])
+        }
+    }
+
+    // The member's References subtree provider (IProjectReferencesSource); ProjectsProvider
+    // delegates the References node / group realization to it.
+    public ReferenceProviderFor(member: SolutionMember): ReferencesProvider
+    {
+        return this.providerFor(member)
     }
 
     // No commands of its own — the References actions are the ReferenceActionsContributor's.

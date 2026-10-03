@@ -11,7 +11,7 @@ import type { IConnectionView } from './connection-view.js'
 // node (sibling of the project rows), whose subtree is owned by a single ConnectionsProvider
 // (a ProviderContribution). One contributor handles both parents — the Solution root (emit
 // the Connections node) and the Connections node (attach the provider) — mirroring how
-// ProjectsListingContributor + FileTreeContributor split node vs. subtree, kept together
+// ReferencesContributor splits node vs. subtree, kept together
 // here because there is exactly one Connections node.
 export class ConnectionsRootContributor implements IHierarchyContributor
 {

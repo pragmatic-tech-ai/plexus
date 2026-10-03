@@ -13,7 +13,7 @@ import type { IContentMutations } from '../../project-explorer/services/content-
 // Remove from Solution / Bump Version ▸ / Set Version… / Manage References… / Refresh
 // Bases / Update Agent Metadata — to the IContentMutations façade (the re-typed
 // ProjectExplorerService). An action-only contributor: Contribute yields no nodes (the
-// project rows come from ProjectsListingContributor); it exists to Resolve the commands
+// project rows come from ProjectsProvider); it exists to Resolve the commands
 // its DSL-declared CommandDefinitions carry. Producer/version gating rides each resolved
 // command's CanExecute. (Publish is contributed by the build module — Task 6.)
 export class ProjectActionsContributor implements IHierarchyContributor
@@ -74,7 +74,7 @@ export class ProjectActionsContributor implements IHierarchyContributor
         return def
     }
 
-    // No node production — the member rows are the ProjectsListingContributor's; this
+    // No node production — the member rows are ProjectsProvider's; this
     // contributor only owns the project-row commands.
     public Contribute(_parent: HierarchyItem): HierarchyContribution
     {

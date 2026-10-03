@@ -1,6 +1,6 @@
 import {
     Observable, ServiceProvider, ServiceKey,
-    type IServiceProvider, type ICommand, type IDisposable,
+    type ICommand, type IDisposable,
 } from '@pragmatic-tech-ai/mural/runtime'
 import {
     Hierarchy, HierarchyContributorRegistry, NodeKey, NodeSeverity,
@@ -14,7 +14,7 @@ import {
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
-import { ProjectsListingContributor } from './projects-listing-contributor.js'
+import { ProjectsRootContributor } from './projects-provider.js'
 import { FileTreeContributor, AddNewSubmenuContributor } from './file-tree-contributor.js'
 import { ReferencesContributor } from './references-contributor.js'
 import { ProjectActionsContributor } from './project-actions-contributor.js'
@@ -47,7 +47,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private rootItem: HierarchyItem | undefined
     private menuServices: ServiceProvider | undefined
     private treeState: SolutionTreeStateService | undefined
-    private listing: ProjectsListingContributor | undefined
+    private projectsRoot: ProjectsRootContributor | undefined
     private files: FileTreeContributor | undefined
     private connectionsRoot: ConnectionsRootContributor | undefined
     private references: ReferencesContributor | undefined
@@ -55,7 +55,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private activeOff: IDisposable | undefined
     private _hasNoSolution = true
 
-    constructor(private readonly provider: IServiceProvider)
+    constructor(private readonly provider: ServiceProvider)
     {
         super()
     }
@@ -99,7 +99,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // it always reads the CURRENT per-solution FileTreeContributor host.
     private buildMenuServices(): ServiceProvider
     {
-        const services = new ServiceProvider()
+        // A CHILD scope of the service's provider: the four local submenu contributors resolve
+        // local-first, then CommandMenuBuilder.RealizeChildren falls back to the app root for
+        // submenu contributors registered there (e.g. SkillRunSubmenuContributor) — a parentless
+        // provider found no owner and threw when the project-row "Run Agent / Skill ▸" opened.
+        const services = this.provider.createScope()
         services.registerInstance(ReferenceSubmenuContributor.Key, new ReferenceSubmenuContributor(this.explorer.References))
         services.registerInstance(ConnectionActiveSubmenuContributor.Key, new ConnectionActiveSubmenuContributor(this.explorer.Connections))
         services.registerTransient(AddNewSubmenuContributor.Key, () => new AddNewSubmenuContributor(this.requireFiles()))
@@ -130,15 +134,20 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.rootItem.Caption = solution.Name || SolutionExplorerService.RootCaptionFallback
             this.rootItem.ExtObject = solution
         }
-        this.listing = new ProjectsListingContributor(solution, registry)
         this.files = new FileTreeContributor()
         this.files.SetMutations(this.explorer)
         this.files.SetReferenceView(this.explorer.References)
         this.files.SetConnectionView(this.explorer.Connections)
-        // The global Connections branch (a keyed node under the Solution root) and the per-
-        // project References branch are now INDEPENDENT peer contributors — no composite.
+        // The global Connections branch (a keyed node under the Solution root) is an INDEPENDENT
+        // peer contributor. The per-project References branch is now a factory the project-rows
+        // provider delegates to (not a registered contributor) — see ProjectsProvider.
         this.connectionsRoot = new ConnectionsRootContributor(this.explorer.Connections)
         this.references = new ReferencesContributor(this.explorer.References)
+        // The project rows are now a delta-pushing provider (ProjectsProvider, owned by the
+        // Solution root) rather than a keyed contributor: a keyed listing was skipped by
+        // hierarchy.reRealize once present, so member add/remove/status never repainted. The
+        // provider delegates each row's file-tree / References subtree to this.files / this.references.
+        this.projectsRoot = new ProjectsRootContributor(solution, this.files, this.references)
         const launcher = this.provider.getRequired(ConnectionEditorLauncherKey)
         const projectActions = new ProjectActionsContributor(this.explorer)
         const referenceActions = new ReferenceActionsContributor(this.explorer.References)
@@ -152,10 +161,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.explorer)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
-        this.handles.push(registry.RegisterInstance(this.listing))
+        this.handles.push(registry.RegisterInstance(this.projectsRoot))
         this.handles.push(registry.RegisterInstance(this.files, this.files.Actions))
         this.handles.push(registry.RegisterInstance(this.connectionsRoot))
-        this.handles.push(registry.RegisterInstance(this.references))
         this.handles.push(registry.RegisterInstance(projectActions, projectActions.Actions))
         this.handles.push(registry.RegisterInstance(referenceActions, referenceActions.Actions))
         this.handles.push(registry.RegisterInstance(connectionActions, connectionActions.Actions))
@@ -238,11 +246,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.treeState = undefined
         for (const handle of this.handles) handle.dispose()
         this.handles.length = 0
-        this.listing?.dispose()
+        this.projectsRoot?.dispose()
         this.files?.dispose()
         this.connectionsRoot?.dispose()
         this.references?.dispose()
-        this.listing = undefined
+        this.projectsRoot = undefined
         this.files = undefined
         this.connectionsRoot = undefined
         this.references = undefined
