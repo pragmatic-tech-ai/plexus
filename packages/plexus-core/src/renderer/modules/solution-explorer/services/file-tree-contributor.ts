@@ -13,10 +13,6 @@ import {
 import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 import { ProjectHierarchyProvider } from './project-hierarchy-provider.js'
-import { ReferencesProvider } from './references-provider.js'
-import { ProjectBranchesProvider, type LeadingBranch } from './project-branches-provider.js'
-import { ReferencesLeadingBranch } from './references-leading-branch.js'
-import { ActiveConnectionLeadingBranch } from './active-connection-leading-branch.js'
 import type { IReferenceView } from './reference-view.js'
 import type { IConnectionView } from './connection-view.js'
 
@@ -68,10 +64,6 @@ export class FileTreeContributor implements IHierarchyContributor
 
     private readonly stores = new Map<SolutionMember, ProjectContentStore>()
     private readonly providers = new Map<SolutionMember, ProjectHierarchyProvider>()
-    // When a reference view is set, each resolved member row is contributed as a
-    // ProjectBranchesProvider (References + files) instead of the bare content provider;
-    // cached per member so a repeated Contribute returns the same instance (identity guard).
-    private readonly branches = new Map<SolutionMember, ProjectBranchesProvider>()
     private mutations: IContentMutations | undefined
     private referenceView: IReferenceView | undefined
     private connectionView: IConnectionView | undefined
@@ -272,48 +264,13 @@ export class FileTreeContributor implements IHierarchyContributor
             provider = new ProjectHierarchyProvider(store)
             this.providers.set(member, provider)
         }
-        // Consumer members (architecture / library) lead their files with per-project branches:
-        // the active-connection row (P5b) then the References node (P5a). A non-consumer (e.g. a
-        // meta-model), or a context with neither view wired (isolated file-tree tests), gets the
-        // bare content provider — no leading rows. The composite is cached per member (identity
-        // guard for attachProvider). The branch objects subscribe to their views in their ctors,
-        // so they are built ONLY on a cache miss — deciding the need from IsConsumer here (a pure
-        // check) avoids constructing-then-discarding leaking subscriptions on every re-Contribute.
-        if (!this.wantsLeadingBranches(member)) return new ProviderContribution(provider)
-        let composite = this.branches.get(member)
-        if (composite === undefined)
-        {
-            composite = new ProjectBranchesProvider(provider, this.leadingBranchesFor(member))
-            this.branches.set(member, composite)
-        }
-        return new ProviderContribution(composite)
+        // The file tree is now just the project's content subtree. References and the global
+        // Connections branch are INDEPENDENT peer contributors (ReferencesContributor /
+        // ConnectionsRootContributor), no longer woven in as leading branches here.
+        return new ProviderContribution(provider)
     }
 
-    // Whether a member leads with per-project branches — a pure predicate (no construction/
-    // subscription), so it is safe to call on every Contribute including cache hits.
-    private wantsLeadingBranches(member: SolutionMember): boolean
-    {
-        return (this.connectionView?.IsConsumer(member) ?? false) || (this.referenceView?.IsConsumer(member) ?? false)
-    }
-
-    // The ordered leading branches for a consumer member: active-connection row then References.
-    // Empty for a non-consumer or when the relevant view is not wired. Constructs (and thereby
-    // subscribes) the branches, so call it ONLY on a cache miss (see Contribute).
-    private leadingBranchesFor(member: SolutionMember): LeadingBranch[]
-    {
-        const leading: LeadingBranch[] = []
-        if (this.connectionView !== undefined && this.connectionView.IsConsumer(member))
-        {
-            leading.push(new ActiveConnectionLeadingBranch(member, this.connectionView))
-        }
-        if (this.referenceView !== undefined && this.referenceView.IsConsumer(member))
-        {
-            leading.push(new ReferencesLeadingBranch(new ReferencesProvider(member, this.referenceView)))
-        }
-        return leading
-    }
-
-    // Release one member's store + provider (and any composite) when its row is pruned.
+    // Release one member's store + provider when its row is pruned.
     public Release(member: SolutionMember): void
     {
         const store = this.stores.get(member)
@@ -322,18 +279,14 @@ export class FileTreeContributor implements IHierarchyContributor
             store.dispose()
             this.stores.delete(member)
         }
-        this.branches.get(member)?.dispose()
-        this.branches.delete(member)
         this.providers.delete(member)
     }
 
     public dispose(): void
     {
         for (const store of this.stores.values()) store.dispose()
-        for (const composite of this.branches.values()) composite.dispose()
         this.stores.clear()
         this.providers.clear()
-        this.branches.clear()
     }
 }
 

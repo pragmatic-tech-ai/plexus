@@ -1,8 +1,10 @@
+import { type ICommand, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import {
     NodeContribution, NodeSeverity, NodeKey,
-    type IHierarchyContributor, type HierarchyNode, type HierarchyContributorRegistry,
+    type IHierarchyContributor, type HierarchyItem, type HierarchyNodeSpec,
+    type HierarchyContributorRegistry,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
-import { type Disposable } from '@pragmatic-tech-ai/todl-runtime'
+import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { type Solution, type SolutionMember, SolutionMemberStatus } from '@pragmatic-tech-ai/todl'
 
 // Contributes one project row per solution member under the solution root. Reactive:
@@ -16,7 +18,7 @@ export class ProjectsListingContributor implements IHierarchyContributor
     public readonly Order = 0
 
     private readonly membersOff: () => void
-    private readonly statusOff = new Map<SolutionMember, Disposable>()
+    private readonly statusOff = new Map<SolutionMember, IDisposable>()
 
     constructor(
         private readonly solution: Solution,
@@ -27,9 +29,9 @@ export class ProjectsListingContributor implements IHierarchyContributor
         this.membersOff = this.solution.Members.Subscribe(() => this.onMembersChanged())
     }
 
-    public Contribute(_parent: HierarchyNode): NodeContribution
+    public Contribute(_parent: HierarchyItem): NodeContribution
     {
-        const nodes: HierarchyNode[] = []
+        const nodes: HierarchyNodeSpec[] = []
         for (const m of this.solution.Members)
         {
             nodes.push({
@@ -44,6 +46,14 @@ export class ProjectsListingContributor implements IHierarchyContributor
             })
         }
         return new NodeContribution(nodes)
+    }
+
+    // ProjectsListingContributor contributes no commands — the project-row actions are
+    // the ProjectActionsContributor's. The ICommandDispatcher seam (IHierarchyContributor
+    // extends it) is satisfied with a no-op resolver.
+    public Resolve(_commandId: string, _context: CommandContext): ICommand | undefined
+    {
+        return undefined
     }
 
     private static severityOf(m: SolutionMember): NodeSeverity
