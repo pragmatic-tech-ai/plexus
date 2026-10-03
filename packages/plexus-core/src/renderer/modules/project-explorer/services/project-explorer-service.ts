@@ -92,15 +92,17 @@ import { GlobalBagPersisterKey } from '../../bags/index.js'
 import type { IConnectionView } from '../../solution-explorer/services/connection-view.js'
 import { ConnectionsClientKey } from '../../solution-explorer/services/connections-client.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
-import { PackagePublisher } from '../../../projects/package-publisher.js'
+import { PublishTaskExecutor } from '../../../projects/publish-task-executor.js'
+import { BackgroundWorkService, TaskKind, type InlineJob } from '../../background-work/index.js'
+import { BuildProgressReporter } from '../../solution-explorer/services/build-progress-reporter.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
-import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService, ProjectSharedBagPersister, ProjectLocalBagPersister } from '@pragmatic-tech-ai/todl'
-import type { SolutionMember, ProjectManifest, BagVantage } from '@pragmatic-tech-ai/todl'
+import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService, ProjectSharedBagPersister, ProjectLocalBagPersister, BuildService } from '@pragmatic-tech-ai/todl'
+import type { SolutionMember, ProjectManifest, BagVantage, BuildPublishOutcome } from '@pragmatic-tech-ai/todl'
 import { MemberProjection } from './member-projection.js'
 
 // The result of CreateProject — the tool outcome minus its correlation id.
@@ -158,6 +160,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // Publish command strings + the Problems-dock owner key for a publish failure.
     private static readonly NotPublishableStatus = "This project type can't be published."
     private static readonly PublishedPrefix = 'Published '
+    private static readonly PublishingPrefix = 'Publishing '
     private static readonly PublishFailedStatus = 'Publish failed — see Problems.'
     private static readonly PublishFailedPrefix = 'Publish failed: '
     private static readonly PublishOwner = 'publish'
@@ -172,6 +175,9 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // The open projects — the tree's roots (each a collapsible DataTemplate
     // [OpenProject]). Empty until a project is opened or the session restores.
     private readonly _openProjects = new ObservableCollection<OpenProject>()
+    // The Publish-kind background-work executor is registered once, lazily, on the first
+    // publish (the relocated background-work module ships only the built-in InlineExecutor).
+    private publishExecutorRegistered = false
     private _status = 'No project open.'
     private _openProjectCommand!: ICommand
     private _newProjectCommand!: ICommand
@@ -1583,28 +1589,22 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         this.Status = `Agent docs updated (${written.length} refreshed).`
     }
 
-    // Publish the project through the TODL build system's npm-publish flavor (the menu
-    // item is disabled for non-producer types, but guard anyway). Builds the package and
-    // pushes it to the workspace package registry via PackagePublisher, then surfaces the
-    // build diagnostics: success clears any prior failure, a failure's error text goes
-    // ONLY to the Problems dock while the status pane shows a neutral pointer.
+    // Publish the project through the engine's BuildService (npm-publish flavor; the menu
+    // item is disabled for non-producer types, but guard anyway). The build runs as a
+    // background-work Publish task whose job calls BuildService.Publish, reporting progress
+    // through the IBuildProgress → TaskHandle adapter; this method then surfaces the
+    // outcome: success clears any prior failure, a failure's error text goes ONLY to the
+    // Problems dock while the status pane shows a neutral pointer. The tree refreshes from
+    // the ordinary content/state signals — publishing changes no project-owned content.
     private async publishProject(op: OpenProject): Promise<void>
     {
         if (!isVersioned(op.Factory)) { this.Status = ProjectExplorerService.NotPublishableStatus; return }
         // Refresh diagnostics so the Problems dock reflects exactly what publish sees.
         await this.Provider.get(LiveValidationKey)?.RefreshBases(op.Storage)
+        const build = this.Provider.get(BuildService.Key) ?? new BuildService(this.Provider)
         try
         {
-            const outcome = await new PackagePublisher(this.Provider).Publish(op.Storage)
-            if (outcome.Ok)
-            {
-                this.Status = `${ProjectExplorerService.PublishedPrefix}${outcome.Id}@${outcome.Version}.`
-                this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, undefined)   // clear any prior failure
-                return
-            }
-            this.Status = ProjectExplorerService.PublishFailedStatus
-            this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, PackagePublisher.FormatErrors(outcome.Diagnostics))
-            this.Provider.get(ProblemsDockKey)?.Expand()
+            this.applyPublishOutcome(op, await this.publishThroughWork(op, build))
         }
         catch (e)
         {
@@ -1612,6 +1612,49 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
             this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, `${ProjectExplorerService.PublishFailedPrefix}${(e as Error).message}`)
             this.Provider.get(ProblemsDockKey)?.Expand()
         }
+    }
+
+    // Run BuildService.Publish as a background-work Publish task when a work host is present
+    // (its status-bar row + output log surface progress via the IBuildProgress adapter);
+    // fall back to an inline publish in headless/unit contexts with no registered host.
+    private publishThroughWork(op: OpenProject, build: BuildService): Promise<BuildPublishOutcome>
+    {
+        const work = this.Provider.get(BackgroundWorkService.Key)
+        if (work === undefined) return build.Publish(op.Storage, undefined)
+        this.ensurePublishExecutor(work)
+        const title = `${ProjectExplorerService.PublishingPrefix}${op.Name}`
+        this.Status = title
+        const { done } = work.submit<InlineJob<BuildPublishOutcome>, BuildPublishOutcome>({
+            kind: TaskKind.Publish,
+            title,
+            payload: (ctx) => build.Publish(op.Storage, new BuildProgressReporter(ctx)),
+        })
+        return done
+    }
+
+    // Reflect a finished publish: success clears the owner's prior Problems slice and names
+    // the published id@version; failure joins the error diagnostics into the dock and leaves
+    // a neutral status pointer.
+    private applyPublishOutcome(op: OpenProject, outcome: BuildPublishOutcome): void
+    {
+        if (outcome.Ok)
+        {
+            this.Status = `${ProjectExplorerService.PublishedPrefix}${outcome.Id}@${outcome.Version}.`
+            this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, undefined)   // clear any prior failure
+            return
+        }
+        this.Status = ProjectExplorerService.PublishFailedStatus
+        this.reportProjectProblem(op, ProjectExplorerService.PublishOwner, BuildService.FormatErrors(outcome.Diagnostics))
+        this.Provider.get(ProblemsDockKey)?.Expand()
+    }
+
+    // Register the Publish-kind executor exactly once on the shared background-work service
+    // (it ships only the built-in InlineExecutor), so submitted Publish tasks actually run.
+    private ensurePublishExecutor(work: BackgroundWorkService): void
+    {
+        if (this.publishExecutorRegistered) return
+        work.Register(new PublishTaskExecutor())
+        this.publishExecutorRegistered = true
     }
 
     // Publish (or clear, when `message` is undefined) a single project-level
