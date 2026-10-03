@@ -1,12 +1,16 @@
+import { RelayCommand, ServiceKey, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    NodeContribution, ProviderContribution, NodeKey, HierarchyAction, HierarchyItemsDrop,
-    type IHierarchyContributor, type IHierarchyActionContributor,
-    type HierarchyItem, type HierarchyContribution, type HierarchyItemVM, type HierarchyActionContext,
+    NodeContribution, ProviderContribution, NodeKey, HierarchyItemsDrop,
+    type IHierarchyContributor,
+    type HierarchyItem, type HierarchyContribution, type HierarchyActionContext,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
+import { CommandDefinition, type CommandContext, type ICommandContributor } from '@pragmatic-tech-ai/mural/framework'
 import {
     ProjectContentStore, ContentNodeKey, ProjectNodeKind,
     SolutionMember, SolutionMemberStatus, type ProjectContentNode,
 } from '@pragmatic-tech-ai/todl'
+import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
 import { ProjectHierarchyProvider } from './project-hierarchy-provider.js'
 import { ReferencesProvider } from './references-provider.js'
@@ -16,7 +20,7 @@ import { ActiveConnectionLeadingBranch } from './active-connection-leading-branc
 import type { IReferenceView } from './reference-view.js'
 import type { IConnectionView } from './connection-view.js'
 
-// Type guard (the `is<X>` free-function house-style exception): a tree row whose Data is
+// Type guard (the `is<X>` free-function house-style exception): a tree row whose ExtObject is
 // a solution member, used by MemberOf to find the owning member climbing from any node.
 function isMember(x: unknown): x is SolutionMember
 {
@@ -24,11 +28,13 @@ function isMember(x: unknown): x is SolutionMember
 }
 
 // Mounts one ProjectContentProvider (over a lazy, disk-watched ProjectContentStore) per
-// resolved member row; an unresolved member is an empty leaf. Caches the store + provider
+// resolved member row; an unresolved member is an empty leaf. Also dispatches the file
+// context-menu commands for every content node family plus the project row (Add New ▸ /
+// New Folder / Import File… / Import Folder… / Rename / Delete). Caches the store + provider
 // per member so a repeated Contribute returns the SAME provider instance (the model's
 // attachProvider guards re-subscription by identity), and disposes them (releasing the
 // chokidar watchers) when a member is pruned or the contributor is torn down.
-export class FileTreeContributor implements IHierarchyContributor, IHierarchyActionContributor
+export class FileTreeContributor implements IHierarchyContributor
 {
     private static readonly EmptyLeaf = new NodeContribution([])
     private static readonly AddNewLabel = 'Add New'
@@ -38,11 +44,22 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
     private static readonly RenameLabel = 'Rename'
     private static readonly DeleteLabel = 'Delete'
 
+    public static readonly AddNewId = 'file.addNew'
+    public static readonly NewFolderId = 'file.newFolder'
+    public static readonly ImportFileId = 'file.importFile'
+    public static readonly ImportFolderId = 'file.importFolder'
+    public static readonly RenameId = 'file.rename'
+    public static readonly DeleteId = 'file.delete'
+    // Dynamic child id: `file.addNew::<kind>::<extension>`.
+    public static readonly AddNewChildPrefix = 'file.addNew::'
+    private static readonly ChildSeparator = '::'
+
+    // The node keys this contributor supplies context-menu actions for: every content node
+    // family plus the project/member row itself.
+    private static readonly ActionKeys = [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Diagram, ContentNodeKey.Todl, NodeKey.Project]
+
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 0
-    // The node keys this contributor supplies context-menu actions for: every content
-    // node family plus the project/member row itself.
-    public readonly ActionKeys = [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Diagram, ContentNodeKey.Todl, NodeKey.Project]
 
     private readonly stores = new Map<SolutionMember, ProjectContentStore>()
     private readonly providers = new Map<SolutionMember, ProjectHierarchyProvider>()
@@ -54,54 +71,116 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
     private referenceView: IReferenceView | undefined
     private connectionView: IConnectionView | undefined
 
+    // The file CommandDefinitions, Context-tagged for every content node family (full set,
+    // including Rename/Delete) and for the project row (its file ops target the project root,
+    // so Rename/Delete are omitted). Passed to RegisterInstance(this, this.Actions) at
+    // rebuild() — the runtime-set mutations façade keeps this off the module DSL path.
+    public readonly Actions: readonly CommandDefinition[]
+
+    constructor()
+    {
+        const actions: CommandDefinition[] = []
+        for (const key of FileTreeContributor.ActionKeys)
+        {
+            const content = key !== NodeKey.Project
+            actions.push(FileTreeContributor.addNewCommand(key))
+            actions.push(FileTreeContributor.command(FileTreeContributor.NewFolderId, FileTreeContributor.NewFolderLabel, key))
+            actions.push(FileTreeContributor.command(FileTreeContributor.ImportFileId, FileTreeContributor.ImportFileLabel, key))
+            actions.push(FileTreeContributor.command(FileTreeContributor.ImportFolderId, FileTreeContributor.ImportFolderLabel, key))
+            if (content)
+            {
+                actions.push(FileTreeContributor.command(FileTreeContributor.RenameId, FileTreeContributor.RenameLabel, key, true))
+                actions.push(FileTreeContributor.command(FileTreeContributor.DeleteId, FileTreeContributor.DeleteLabel, key))
+            }
+        }
+        this.Actions = actions
+    }
+
     public SetMutations(m: IContentMutations): void { this.mutations = m }
     public SetReferenceView(view: IReferenceView): void { this.referenceView = view }
     public SetConnectionView(view: IConnectionView): void { this.connectionView = view }
 
-    // The base file actions for a content/project row, closing over the resolved member +
-    // the mutation façade. New Folder / Add New ▸ format / Import… / Rename / Delete; the
-    // project row omits Rename/Delete (its file ops target the project root folder).
-    public ActionsFor(context: HierarchyActionContext): readonly HierarchyAction[]
+    private static command(id: string, title: string, contextKey: string, separatorBefore = false): CommandDefinition
     {
-        const vm = context.Anchor
-        const member = FileTreeContributor.MemberOf(vm)
+        const def = new CommandDefinition()
+        def.Id = id
+        def.Title = title
+        def.Context = HierarchyContext.For(contextKey)
+        def.SeparatorBefore = separatorBefore
+        return def
+    }
+
+    private static addNewCommand(contextKey: string): CommandDefinition
+    {
+        const def = FileTreeContributor.command(FileTreeContributor.AddNewId, FileTreeContributor.AddNewLabel, contextKey)
+        def.ChildrenContributor = AddNewSubmenuContributor.Key
+        return def
+    }
+
+    public static AddNewChildId(format: ProjectFileFormat): string
+    {
+        return FileTreeContributor.AddNewChildPrefix + [format.kind, format.extension].join(FileTreeContributor.ChildSeparator)
+    }
+
+    // The formats a new-file submenu offers for a member — delegates to the mutation façade
+    // (empty until mutations are wired). Read by AddNewSubmenuContributor.
+    public FormatsFor(member: SolutionMember): readonly ProjectFileFormat[]
+    {
+        return this.mutations?.FormatsFor(member) ?? []
+    }
+
+    public Resolve(commandId: string, context: CommandContext): ICommand | undefined
+    {
+        const anchor = (context as HierarchyActionContext).Anchor
+        const member = FileTreeContributor.MemberOf(anchor)
         const mutations = this.mutations
-        if (member === undefined || mutations === undefined) return []
-        const isProjectRow = vm.Data === member
-        const folder = isProjectRow ? '' : FileTreeContributor.folderOf(vm)
-        const out: HierarchyAction[] = []
-        const addNew = HierarchyAction.Command(FileTreeContributor.AddNewLabel, () => {})
-        for (const f of mutations.FormatsFor(member))
+        if (member === undefined || mutations === undefined) return undefined
+        const isProjectRow = anchor.ExtObject === member
+        const folder = isProjectRow ? '' : FileTreeContributor.folderOf(anchor)
+
+        if (commandId.startsWith(FileTreeContributor.AddNewChildPrefix))
         {
-            addNew.Children.Add(HierarchyAction.Command(f.displayName, () => void mutations.NewFileForMember(member, folder, f)))
+            const [kind, extension] = commandId
+                .slice(FileTreeContributor.AddNewChildPrefix.length)
+                .split(FileTreeContributor.ChildSeparator)
+            const format = mutations.FormatsFor(member).find((f) => f.kind === kind && f.extension === extension)
+            if (format === undefined) return undefined
+            return new RelayCommand(() => void mutations.NewFileForMember(member, folder, format))
         }
-        out.push(addNew)
-        out.push(HierarchyAction.Command(FileTreeContributor.NewFolderLabel, () => void mutations.NewFolderForMember(member, folder, FileTreeContributor.NewFolderLabel)))
-        out.push(HierarchyAction.Command(FileTreeContributor.ImportFileLabel, () => void mutations.ImportFilesForMember(member, folder)))
-        out.push(HierarchyAction.Command(FileTreeContributor.ImportFolderLabel, () => void mutations.ImportFolderForMember(member, folder)))
-        if (!isProjectRow)
+
+        switch (commandId)
         {
-            out.push(HierarchyAction.Separator())
-            out.push(HierarchyAction.Command(FileTreeContributor.RenameLabel, () => vm.BeginEdit()))
-            // Delete is selection-aware (matches the Delete key): the context carries the
-            // live selection snapshot, so deleting a row that is part of a multi-selection
-            // deletes the whole set under one confirm.
-            out.push(HierarchyAction.Command(FileTreeContributor.DeleteLabel, (ctx) => void this.DeleteFrom(ctx.Anchor, ctx.Selection), { context }))
+            case FileTreeContributor.AddNewId:
+                return new RelayCommand(() => {})
+            case FileTreeContributor.NewFolderId:
+                return new RelayCommand(() => void mutations.NewFolderForMember(member, folder, FileTreeContributor.NewFolderLabel))
+            case FileTreeContributor.ImportFileId:
+                return new RelayCommand(() => void mutations.ImportFilesForMember(member, folder))
+            case FileTreeContributor.ImportFolderId:
+                return new RelayCommand(() => void mutations.ImportFolderForMember(member, folder))
+            case FileTreeContributor.RenameId:
+                return new RelayCommand(() => anchor.BeginEdit())
+            case FileTreeContributor.DeleteId:
+                // Delete is selection-aware (matches the Delete key): the context carries the
+                // live selection snapshot, so deleting a row that is part of a multi-selection
+                // deletes the whole set under one confirm.
+                return new RelayCommand(() => void this.DeleteFrom(anchor, (context as HierarchyActionContext).Selection))
+            default:
+                return undefined
         }
-        return out
     }
 
     // Façade the host calls for inline F2 rename — same mutation path as the menu actions.
-    public async RenameNode(vm: HierarchyItemVM, name: string): Promise<void>
+    public async RenameNode(vm: HierarchyItem, name: string): Promise<void>
     {
         const member = FileTreeContributor.MemberOf(vm)
-        if (member !== undefined && this.mutations !== undefined) await this.mutations.RenameMemberFile(member, (vm.Data as ProjectContentNode).Path, name)
+        if (member !== undefined && this.mutations !== undefined) await this.mutations.RenameMemberFile(member, (vm.ExtObject as ProjectContentNode).Path, name)
     }
 
     // The single delete choke point for BOTH the menu action and the Delete key: delete
     // the whole selection when `anchor` is part of it, else just `anchor` — one batch
     // (one confirm) via the mutation façade. The member row itself (no Path) is excluded.
-    public async DeleteFrom(anchor: HierarchyItemVM, selection: readonly HierarchyItemVM[]): Promise<void>
+    public async DeleteFrom(anchor: HierarchyItem, selection: readonly HierarchyItem[]): Promise<void>
     {
         const member = FileTreeContributor.MemberOf(anchor)
         if (member === undefined || this.mutations === undefined) return
@@ -110,38 +189,38 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         // (e.g. a References/group/leaf node caught in a mixed multi-selection) — mapping
         // their Path would pass undefined into the delete.
         const paths = targets
-            .filter((vm) => vm.Data !== member)
-            .map((vm) => (vm.Data as ProjectContentNode).Path)
+            .filter((vm) => vm.ExtObject !== member)
+            .map((vm) => (vm.ExtObject as ProjectContentNode).Path)
             .filter((p): p is string => typeof p === 'string')
         await this.mutations.DeleteMemberFiles(member, paths)
     }
 
-    public CanDrop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): boolean
+    public CanDrop(target: HierarchyItem, dragged: readonly HierarchyItem[]): boolean
     {
         const member = FileTreeContributor.MemberOf(target)
         const provider = member === undefined ? undefined : this.providers.get(member)
         if (provider === undefined || dragged.length === 0) return false
         if (FileTreeContributor.MemberOf(dragged[0]!) !== member) return false   // same-member only
-        return provider.CanAccept(target.Id, HierarchyItemsDrop.For(dragged.map((d) => d.Id)))
+        return provider.CanAccept(target, HierarchyItemsDrop.For(dragged.map((d) => d.Id)))
     }
 
-    public Drop(target: HierarchyItemVM, dragged: readonly HierarchyItemVM[]): void
+    public Drop(target: HierarchyItem, dragged: readonly HierarchyItem[]): void
     {
         const member = FileTreeContributor.MemberOf(target)
         if (member === undefined || this.mutations === undefined) return
-        const destPath = target.Data === member ? '' : (target.Data as ProjectContentNode).Path
-        void this.mutations.MoveMemberNodes(member, dragged.map((d) => (d.Data as ProjectContentNode).Path), destPath)
+        const destPath = target.ExtObject === member ? '' : (target.ExtObject as ProjectContentNode).Path
+        void this.mutations.MoveMemberNodes(member, dragged.map((d) => (d.ExtObject as ProjectContentNode).Path), destPath)
     }
 
     public ProviderFor(member: SolutionMember): ProjectHierarchyProvider | undefined { return this.providers.get(member) }
 
     // Climb from any row to the solution member that owns its subtree.
-    public static MemberOf(vm: HierarchyItemVM): SolutionMember | undefined
+    public static MemberOf(vm: HierarchyItem): SolutionMember | undefined
     {
-        let cur: HierarchyItemVM | undefined = vm
+        let cur: HierarchyItem | undefined = vm
         while (cur !== undefined)
         {
-            if (isMember(cur.Data)) return cur.Data
+            if (isMember(cur.ExtObject)) return cur.ExtObject
             cur = cur.Parent
         }
         return undefined
@@ -149,9 +228,9 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
 
     // The project-relative folder a new item lands in: the node's own path when it is a
     // folder, else its containing directory.
-    private static folderOf(vm: HierarchyItemVM): string
+    private static folderOf(vm: HierarchyItem): string
     {
-        const node = vm.Data as ProjectContentNode
+        const node = vm.ExtObject as ProjectContentNode
         return node.Kind === ProjectNodeKind.Folder ? node.Path : ProjectContentStore.parentDir(node.Path)
     }
 
@@ -232,5 +311,30 @@ export class FileTreeContributor implements IHierarchyContributor, IHierarchyAct
         this.stores.clear()
         this.providers.clear()
         this.branches.clear()
+    }
+}
+
+// Supplies the "Add New ▸" submenu rows (one per project file format) lazily. FormatsFor is
+// synchronous, so the rows are produced directly; behaviour is dispatched by the owning
+// FileTreeContributor (these defs carry only Id + Title).
+export class AddNewSubmenuContributor implements ICommandContributor
+{
+    public static readonly Key = new ServiceKey<AddNewSubmenuContributor>('AddNewSubmenuContributor')
+
+    constructor(private readonly host: FileTreeContributor)
+    {
+    }
+
+    public Contribute(_parent: CommandDefinition, context: CommandContext): readonly CommandDefinition[]
+    {
+        const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
+        if (member === undefined) return []
+        return this.host.FormatsFor(member).map((f) =>
+        {
+            const def = new CommandDefinition()
+            def.Id = FileTreeContributor.AddNewChildId(f)
+            def.Title = f.displayName
+            return def
+        })
     }
 }
