@@ -30,6 +30,11 @@ const TODL_RT = pkgRoot('@pragmatic-tech-ai/todl-runtime')
 const ALIASES = [
     { find: /^@pragmatic-tech-ai\/mural$/, replacement: `${MURAL}/dist/index.js` },
     { find: /^@pragmatic-tech-ai\/mural\/(.*)$/, replacement: `${MURAL}/dist/$1` },
+    // The todl dist nests its subpath barrels under solution-services/, so the generic
+    // todl/* alias below (dist/$1) misses ./build-system-core. Map it explicitly to the
+    // real nested index so the Build progress enums/types resolve under vitest (the prod
+    // exports map already resolves ./build-system-core correctly).
+    { find: /^@pragmatic-tech-ai\/todl\/build-system-core$/, replacement: `${TODL}/dist/solution-services/build-system-core/index.js` },
     { find: /^@pragmatic-tech-ai\/todl\/(.*)$/, replacement: `${TODL}/dist/$1` },
     { find: /^@pragmatic-tech-ai\/todl-runtime$/, replacement: `${TODL_RT}/dist/index.js` },
     { find: /^@pragmatic-tech-ai\/todl-runtime\/(.*)$/, replacement: `${TODL_RT}/dist/$1` },
@@ -116,6 +121,15 @@ const todlShimPlugin: Plugin = {
             // mural's ChildAdded/Updated/Removed. todl removed its own ProjectContentProvider
             // (W2); plexus-core owns the provider now, over these mural-free store deltas.
             `export { ContentChange, ContentAdded, ContentUpdated, ContentRemoved } from ${p('solution-services/project-services/content/content-change.js')}`,
+            // Task 6 (W4): publishProject + the Build contributor consume BuildService (moved
+            // into the engine), the composed BuildSystemRegistryKey and parseManifest from the
+            // bare barrel. BuildService's closure (TodlProjectBuildManager / InMemoryBuildStorage
+            // / ScopeFlatteningStorage / LocalNpmRegistry / already-shimmed SolutionManagerService)
+            // is the mural-free core build path — it never reaches the node-only html-bundle /
+            // SolutionBuildManager subtree, so it is safe to inline here.
+            `export { BuildService } from ${p('solution-services/todl-build-system/build-service.js')}`,
+            `export { BuildSystemRegistryKey } from ${p('solution-services/project-services/composition/build-system-registry-key.js')}`,
+            `export { parseManifest } from ${p('solution-services/package-manager/manifest.js')}`,
         ].join('\n')
     },
 }
