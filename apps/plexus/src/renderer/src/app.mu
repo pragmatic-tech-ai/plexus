@@ -51,7 +51,6 @@ import ConnectionsModule from "./modules/connections/connections.module.mu.js"
 // The keyed hierarchy-contributor registry (mural framework): SolutionExplorerService
 // resolves it to register its per-solution ProjectsListing + FileTree contributors.
 import HierarchyContributorRegistry from "@pragmatic-tech-ai/mural/framework/hierarchy"
-import HierarchyActionContributorRegistry from "@pragmatic-tech-ai/mural/framework/hierarchy"
 // TODL's project-system module (browser-safe, main barrel): the three built-in
 // project TYPES (meta-model / library / architecture) + the ONE registry that
 // indexes them under ProjectFactoryRegistryKey, the build-system + generator
@@ -267,10 +266,6 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // contributors imperatively. Root-registered so the single instance is
         // shared across every HierarchyModel the capability rebuilds.
         HierarchyContributorRegistry
-        // Sibling action-contributor registry — composes every module's
-        // `.hierarchyActions:` blocks; the Solution Explorer resolves it and adds its
-        // per-solution file/project action contributors imperatively.
-        HierarchyActionContributorRegistry
         EnvironmentService
         // Live viewport (window) height, bindable + resize-reactive. The Problems
         // popup derives its 30% list cap from this.
