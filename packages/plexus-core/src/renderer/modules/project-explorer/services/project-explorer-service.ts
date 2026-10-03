@@ -93,6 +93,7 @@ import type { IConnectionView } from '../../solution-explorer/services/connectio
 import { ConnectionsClientKey } from '../../solution-explorer/services/connections-client.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
 import { PublishTaskExecutor } from '../../../projects/publish-task-executor.js'
+import { PublishFailure } from '../../../projects/publish-failure.js'
 import { BackgroundWorkService, TaskKind, type InlineJob } from '../../background-work/index.js'
 import { BuildProgressReporter } from '../../solution-explorer/services/build-progress-reporter.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
@@ -1617,6 +1618,12 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // Run BuildService.Publish as a background-work Publish task when a work host is present
     // (its status-bar row + output log surface progress via the IBuildProgress adapter);
     // fall back to an inline publish in headless/unit contexts with no registered host.
+    //
+    // A build-diagnostic failure resolves with {Ok:false} rather than throwing, but
+    // BackgroundWorkService.startOne calls handle.succeed() on ANY resolution — so the job
+    // throws PublishFailure on !Ok to end the task FAILED, and this method recovers the
+    // carried outcome from the rejection so applyPublishOutcome still runs for the failure
+    // exactly as for success (a genuine publish exception keeps propagating to publishProject).
     private publishThroughWork(op: OpenProject, build: BuildService): Promise<BuildPublishOutcome>
     {
         const work = this.Provider.get(BackgroundWorkService.Key)
@@ -1627,9 +1634,13 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         const { done } = work.submit<InlineJob<BuildPublishOutcome>, BuildPublishOutcome>({
             kind: TaskKind.Publish,
             title,
-            payload: (ctx) => build.Publish(op.Storage, new BuildProgressReporter(ctx)),
+            payload: async (ctx) => PublishFailure.Guard(await build.Publish(op.Storage, new BuildProgressReporter(ctx))),
         })
-        return done
+        return done.catch((e) =>
+        {
+            if (e instanceof PublishFailure) return e.Outcome
+            throw e
+        })
     }
 
     // Reflect a finished publish: success clears the owner's prior Problems slice and names

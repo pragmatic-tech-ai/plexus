@@ -145,9 +145,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const connectionActions = new ConnectionActionsContributor(this.explorer.Connections, launcher)
         // The Build/Publish contributor needs runtime collaborators (BuildService + the
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
-        // path like the other action contributors. BuildService is a thin provider wrapper; it
-        // is constructed directly since nothing registers BuildService.Key.
-        const buildContributor = new BuildContributor(new BuildService(this.provider), this.provider.get(BackgroundWorkService.Key), this.explorer)
+        // path like the other action contributors. BuildService is a thin provider wrapper;
+        // resolve a registered/substituted one and fall back to a direct construction (nothing
+        // registers BuildService.Key today — Task 7's DI pass) — the same idiom publishProject uses.
+        const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
+        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.explorer)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         this.handles.push(registry.RegisterInstance(this.listing))
