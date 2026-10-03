@@ -4,7 +4,7 @@ import { ContentHostService, DialogService, PanelDockService, type IDocument } f
 import { AgentEventKind, AgentSkillKind, type CatalogItem, type IAgentApi, type TaggedAgentEvent } from '../../../../../../shared/agent-api.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
-import { BackgroundWorkService } from '../../../background-work/services/background-work-service.js'
+import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
 import { ChatStore } from '../chat-store.js'
 import { ChatSessionsService, seedInvocation } from '../chat-sessions-service.js'
 import { AgentModel } from '../agent-model.js'

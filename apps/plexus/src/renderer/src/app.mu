@@ -120,7 +120,7 @@ import PlexusTitleSource from "./window/plexus-title-source.js"
 // and surfaces each as a live entry in the status bar (progress, cancel, output
 // document). Root-registered so any service can submit; its status-bar dock is
 // contributed by BackgroundWorkModule and rendered by BackgroundWorkResources.
-import BackgroundWorkService from "./modules/background-work/services/background-work-service.js"
+import BackgroundWorkService from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
 import SkillCatalog from "./modules/skills/services/skill-catalog.js"
 import SkillRunner from "./modules/skills/services/skill-runner.js"
 import BackgroundWorkModule from "./modules/background-work/background-work.module.mu.js"

@@ -10,9 +10,9 @@
 //
 // The ShellControlDefinition in background-work.module.mu references @BackgroundWorkDock.
 
-import BackgroundWorkService from "./services/background-work-service.js"
-import TaskHandle from "./services/task-handle.js"
-import TaskOutputDocument from "./services/task-output-document.js"
+import BackgroundWorkService from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
+import TaskHandle from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
+import TaskOutputDocument from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
 
 resources BackgroundWorkResources {
     DataTemplate x:key="BackgroundWorkDock" [ DataType = BackgroundWorkService ] {
