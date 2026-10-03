@@ -1,25 +1,68 @@
 import { describe, it, expect } from 'vitest'
-import {
-    HierarchyItemId, ChildAdded, NodeSeverity,
-    HierarchyPropertyId, type HierarchyChange,
-} from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { NodeKey, NodeSeverity, type HierarchyItem, type HierarchyItemInit, type IRealizeContext, type ItemId } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { ProjectType, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { type Disposable } from '@pragmatic-tech-ai/todl-runtime'
 import { ReferencesProvider } from '../references-provider.js'
 import { ReferenceNodeKey } from '../reference-node-key.js'
-import {
-    ReferenceResolution, type IReferenceView, type MemberReferencesView,
-} from '../reference-view.js'
+import { ReferenceResolution, type IReferenceView, type MemberReferencesView } from '../reference-view.js'
 import type { BaseRef } from '../../../../projects/base-binding.js'
 
 const tick = () => new Promise((r) => setTimeout(r, 10))
 
-// A fake IReferenceView returning a fixed view + capturing the change handler.
+// A fake HierarchyItem: identity + the mutable presentation fields the provider writes.
+class FakeItem
+{
+    public Caption: string
+    public IconKey: string
+    public Severity: NodeSeverity | undefined
+    public Error: string | undefined
+    public IsExpandable: boolean
+    public ExtObject: unknown
+    public readonly CanonicalSegment: string | undefined
+
+    constructor(public readonly Id: ItemId, public readonly Key: string, init?: HierarchyItemInit)
+    {
+        this.Caption = init?.Caption ?? ''
+        this.IconKey = init?.IconKey ?? ''
+        this.Severity = init?.Severity
+        this.Error = init?.Error
+        this.IsExpandable = init?.IsExpandable ?? false
+        this.ExtObject = init?.ExtObject
+        this.CanonicalSegment = init?.CanonicalSegment
+    }
+}
+
+class FakeContext implements IRealizeContext
+{
+    public readonly Children: FakeItem[] = []
+    private next = 1
+
+    public NewItem(key: string, init?: HierarchyItemInit): HierarchyItem
+    {
+        return new FakeItem(this.next++ as ItemId, key, init) as unknown as HierarchyItem
+    }
+
+    public InsertChild(child: HierarchyItem): void
+    {
+        const item = child as unknown as FakeItem
+        if (!this.Children.includes(item)) this.Children.push(item)
+    }
+
+    public RemoveChild(child: HierarchyItem): void
+    {
+        const at = this.Children.indexOf(child as unknown as FakeItem)
+        if (at >= 0) this.Children.splice(at, 1)
+    }
+}
+
+// A fake IReferenceView returning a fixed view + fanning a fire() out to EVERY live
+// subscriber (the provider subscribes once per realized item — root and each group — so a
+// single-handler fake would silently drop the root's roll-up subscription).
 function fakeView(view: MemberReferencesView | undefined): IReferenceView & { fire: (m: SolutionMember | undefined) => void }
 {
-    let handler: ((m: SolutionMember | undefined) => void) | undefined
+    const handlers = new Set<(m: SolutionMember | undefined) => void>()
     return {
-        fire: (m) => handler?.(m),
+        fire: (m) => { for (const h of [...handlers]) h(m) },
         IsConsumer: () => view !== undefined,
         ReferencesViewFor: async () => view,
         AvailableReferencesFor: async () => [],
@@ -27,7 +70,7 @@ function fakeView(view: MemberReferencesView | undefined): IReferenceView & { fi
         AddMemberReference: async () => {},
         RemoveMemberReference: async () => {},
         SetMemberReferenceVersion: async () => {},
-        OnReferencesViewChanged: (h) => { handler = h; return { dispose() { handler = undefined } } as Disposable },
+        OnReferencesViewChanged: (h) => { handlers.add(h); return { dispose() { handlers.delete(h) } } as Disposable },
     }
 }
 
@@ -39,17 +82,27 @@ const viewOf = (metas: [BaseRef, ReferenceResolution][], offersLibraries = true,
     Libraries: libs.map(([Ref, Resolution]) => ({ Ref, Resolution })),
 })
 
-// Realize the provider fully: subscribe root, then each group.
-async function realize(p: ReferencesProvider)
+// Realize the provider fully: subscribe root, then each realized group under its own context
+// (one per group, so the group's live children — and their repin/removal deltas — are observed
+// exactly as the owning Hierarchy would). Each group is realized once only.
+async function realize(p: ReferencesProvider): Promise<{ root: FakeItem; rootCtx: FakeContext; groups: FakeItem[]; groupCtxs: FakeContext[]; leaves: FakeItem[] }>
 {
-    const changes: { parent: HierarchyItemId; c: HierarchyChange }[] = []
-    const record = (parent: HierarchyItemId) => (c: HierarchyChange) => changes.push({ parent, c })
-    p.ObserveChildren(p.ReferencesRootId(), record(p.ReferencesRootId()))
+    const root = new FakeItem(0 as ItemId, NodeKey.References)
+    const rootCtx = new FakeContext()
+    p.Realize(root as unknown as HierarchyItem, rootCtx)
     await tick()
-    const groups = changes.filter((x) => x.c instanceof ChildAdded).map((x) => (x.c as ChildAdded).Id)
-    for (const g of groups) p.ObserveChildren(g, record(g))
-    await tick()
-    return { changes, groups }
+    const groups = [...rootCtx.Children]
+    const groupCtxs: FakeContext[] = []
+    const leaves: FakeItem[] = []
+    for (const g of groups)
+    {
+        const groupCtx = new FakeContext()
+        p.Realize(g as unknown as HierarchyItem, groupCtx)
+        await tick()
+        groupCtxs.push(groupCtx)
+        leaves.push(...groupCtx.Children)
+    }
+    return { root, rootCtx, groups, groupCtxs, leaves }
 }
 
 describe('ReferencesProvider', () =>
@@ -60,10 +113,8 @@ describe('ReferencesProvider', () =>
             [[ref('core', '1.2.0'), ReferenceResolution.Published], [ref('w', '0.3.0'), ReferenceResolution.Unresolved]],
             true, [[ref('ui', '2.0.0'), ReferenceResolution.LiveWorkspace]]))
         const p = new ReferencesProvider(member, view)
-        const { changes, groups } = await realize(p)
+        const { groups, leaves } = await realize(p)
         expect(groups.length).toBe(2)   // Meta-models + Libraries
-        const leaves = changes.filter((x) => x.c instanceof ChildAdded && (x.c as ChildAdded).Node.Key === ReferenceNodeKey.Leaf)
-            .map((x) => (x.c as ChildAdded).Node)
         expect(leaves.map((n) => n.Caption).sort()).toEqual(['core@1.2.0', 'ui@2.0.0', 'w@0.3.0'])
         const unresolved = leaves.find((n) => n.Caption === 'w@0.3.0')!
         expect(unresolved.Severity).toBe(NodeSeverity.Warning)
@@ -78,22 +129,23 @@ describe('ReferencesProvider', () =>
         expect(groups.length).toBe(1)
     })
 
-    it('on OnReferencesViewChanged re-fetch: a version repin is a ChildUpdated (same id), a removal is ChildRemoved', async () =>
+    it('on a view change: a version repin mutates the SAME leaf in place; a removal drops it', async () =>
     {
-        let current = viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published], [ref('x', '1.0.0'), ReferenceResolution.Published]])
+        let current = viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published], [ref('x', '1.0.0'), ReferenceResolution.Published]], false)
         const view = fakeView(current)
-        // Re-point ReferencesViewFor at a mutable `current`.
         ;(view as { ReferencesViewFor: () => Promise<MemberReferencesView | undefined> }).ReferencesViewFor = async () => current
         const p = new ReferencesProvider(member, view)
-        const { changes, groups } = await realize(p)
-        const metaGroup = groups[0]!
-        changes.length = 0
-        current = viewOf([[ref('core', '1.2.0'), ReferenceResolution.Published]])   // core repinned, x removed
+        const { groupCtxs } = await realize(p)
+        const metaCtx = groupCtxs[0]!
+        const coreLeaf = metaCtx.Children.find((c) => c.Caption === 'core@1.0.0')!
+
+        current = viewOf([[ref('core', '1.2.0'), ReferenceResolution.Published]], false)   // core repinned, x removed
         view.fire(member)
         await tick()
-        const kinds = changes.filter((x) => x.parent === metaGroup).map((x) => x.c.constructor.name)
-        expect(kinds).toContain('ChildUpdated')   // core@1.0.0 -> core@1.2.0, same id
-        expect(kinds).toContain('ChildRemoved')   // x gone
+
+        expect(coreLeaf.Caption).toBe('core@1.2.0')                             // same instance, repinned in place
+        expect(metaCtx.Children).toContain(coreLeaf)
+        expect(metaCtx.Children.some((c) => c.Caption === 'x@1.0.0')).toBe(false)   // x gone
     })
 
     it('a version repin refreshes the leaf canonical name; the old canonical no longer resolves', async () =>
@@ -102,17 +154,18 @@ describe('ReferencesProvider', () =>
         const view = fakeView(current)
         ;(view as { ReferencesViewFor: () => Promise<MemberReferencesView | undefined> }).ReferencesViewFor = async () => current
         const p = new ReferencesProvider(member, view)
-        const { changes, groups } = await realize(p)
-        const metaGroup = groups[0]!
-        const leafId = (changes.find((x) => x.parent === metaGroup && x.c instanceof ChildAdded)!.c as ChildAdded).Id
-        const oldCanon = p.GetCanonicalName(leafId)
+        const { leaves } = await realize(p)
+        const leaf = leaves[0]! as unknown as HierarchyItem
+        const oldCanon = p.GetCanonicalName(leaf)
         expect(oldCanon).toContain('core@1.0.0')
+
         current = viewOf([[ref('core', '2.0.0'), ReferenceResolution.Published]], false)
         view.fire(member)
         await tick()
-        expect(p.GetCanonicalName(leafId)).toContain('core@2.0.0')
-        expect(p.ParseCanonicalName(oldCanon)).toBe(HierarchyItemId.Nil)
-        expect(p.ParseCanonicalName(p.GetCanonicalName(leafId))).toBe(leafId)
+
+        expect(p.GetCanonicalName(leaf)).toContain('core@2.0.0')
+        expect(p.ParseCanonicalName(oldCanon)).toBeUndefined()
+        expect(p.ParseCanonicalName(p.GetCanonicalName(leaf))).toBe(leaf)
     })
 
     it('rolls up an unresolved leaf to a Warning on its group and the References root, clearing when resolved', async () =>
@@ -121,25 +174,27 @@ describe('ReferencesProvider', () =>
         const view = fakeView(current)
         ;(view as { ReferencesViewFor: () => Promise<MemberReferencesView | undefined> }).ReferencesViewFor = async () => current
         const p = new ReferencesProvider(member, view)
-        let rootChanges = 0
-        p.OnRootChanged(() => { rootChanges += 1 })
-        const { groups } = await realize(p)
+        const { root, groups } = await realize(p)
         const metaGroup = groups[0]!
-        expect(p.GetProperty(metaGroup, HierarchyPropertyId.Severity)).toBe(NodeSeverity.Warning)
-        expect(p.ReferencesRootNode().Severity).toBe(NodeSeverity.Warning)
-        expect(rootChanges).toBeGreaterThan(0)
+        expect(metaGroup.Severity).toBe(NodeSeverity.Warning)
+        expect(root.Severity).toBe(NodeSeverity.Warning)
+
         current = viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published]], false)
         view.fire(member)
         await tick()
-        expect(p.GetProperty(metaGroup, HierarchyPropertyId.Severity)).toBe(NodeSeverity.Ok)
-        expect(p.ReferencesRootNode().Severity).toBe(NodeSeverity.Ok)
+
+        expect(metaGroup.Severity).toBe(NodeSeverity.Ok)
+        expect(root.Severity).toBe(NodeSeverity.Ok)
     })
 
-    it('GetProperty on the References root reports Caption/Key/expandable', () =>
+    it('a group header carries its kind + canonical slug; the root resolves to the realized root item', async () =>
     {
-        const p = new ReferencesProvider(member, fakeView(viewOf([])))
-        const root = p.ReferencesRootId()
-        expect(p.GetProperty(root, HierarchyPropertyId.Caption)).toBe('References')
-        expect(p.GetProperty(root, HierarchyPropertyId.IsExpandable)).toBe(true)
+        const p = new ReferencesProvider(member, fakeView(viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published]], false)))
+        const { root, groups } = await realize(p)
+        const metaGroup = groups[0]! as unknown as HierarchyItem
+        expect(groups[0]!.Key).toBe(ReferenceNodeKey.Group)
+        expect(groups[0]!.ExtObject).toBe(ProjectType.MetaModel)
+        expect(p.GetCanonicalName(metaGroup)).toBe('references/meta-models')
+        expect(p.ParseCanonicalName('references')).toBe(root as unknown as HierarchyItem)
     })
 })

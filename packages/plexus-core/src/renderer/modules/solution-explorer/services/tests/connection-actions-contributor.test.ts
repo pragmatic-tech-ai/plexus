@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { NodeKey, type HierarchyActionContext, type HierarchyItemVM } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
+import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
+import type { CommandDefinition } from '@pragmatic-tech-ai/mural/framework'
 import { SolutionMember } from '@pragmatic-tech-ai/todl'
-import { ConnectionActionsContributor, type IConnectionEditorLauncher } from '../connection-actions-contributor.js'
+import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, type IConnectionEditorLauncher } from '../connection-actions-contributor.js'
 import { ConnectionNodeKey } from '../connection-node-key.js'
 import { ConnectionHealth, type IConnectionView, type ConnectionLeafView } from '../connection-view.js'
 
@@ -44,14 +46,33 @@ function fakeLauncher(): IConnectionEditorLauncher & { opened: (string | undefin
     return { opened, OpenNew: () => { opened.push(undefined) }, OpenEdit: (id: string) => { opened.push(id) } }
 }
 
-function vm(key: string, data: unknown, parent?: HierarchyItemVM): HierarchyItemVM
+// A fake hierarchy row: Key + ExtObject (+ Parent so MemberOf can climb to the member).
+class FakeItem
 {
-    return { Key: key, Data: data, Parent: parent } as unknown as HierarchyItemVM
+    public Parent: FakeItem | undefined
+
+    constructor(public readonly Key: string, public readonly ExtObject: unknown, parent?: FakeItem)
+    {
+        this.Parent = parent
+    }
 }
-// Give a row a project parent whose Data is the member, so MemberOf resolves it.
-const underMember = (v: HierarchyItemVM): HierarchyItemVM => vm(v.Key, (v as unknown as { Data: unknown }).Data, vm(NodeKey.Project, member))
-const ctx = (anchor: HierarchyItemVM, selection: HierarchyItemVM[] = [anchor]): HierarchyActionContext => ({ Anchor: anchor, Selection: selection })
-const leaf = (id: string, isDefault: boolean, isSolutionDefault = false) => underMember(vm(ConnectionNodeKey.Leaf, { id, isDefault, isSolutionDefault }))
+
+const projectRow = new FakeItem(NodeKey.Project, member)
+const leafRow = (id: string, isDefault: boolean, isSolutionDefault = false): HierarchyItem =>
+    new FakeItem(ConnectionNodeKey.Leaf, { id, isDefault, isSolutionDefault }, projectRow) as unknown as HierarchyItem
+const connectionsRow = (): HierarchyItem => new FakeItem(NodeKey.Connections, {}) as unknown as HierarchyItem
+const activeRow = (): HierarchyItem => new FakeItem(ConnectionNodeKey.Active, { member }, projectRow) as unknown as HierarchyItem
+const ctx = (anchor: HierarchyItem, selection: HierarchyItem[] = [anchor]): HierarchyActionContext => new HierarchyActionContext(anchor, selection)
+
+function leafTitles(c: ConnectionActionsContributor): string[]
+{
+    return c.Actions.filter((a) => a.Context === HierarchyContext.For(ConnectionNodeKey.Leaf)).map((a) => a.Title)
+}
+
+function defById(c: ConnectionActionsContributor, id: string): CommandDefinition
+{
+    return c.Actions.find((a) => a.Id === id)!
+}
 
 describe('ConnectionActionsContributor', () =>
 {
@@ -59,66 +80,92 @@ describe('ConnectionActionsContributor', () =>
     {
         const launcher = fakeLauncher()
         const c = new ConnectionActionsContributor(fakeView(), launcher)
-        const action = c.ActionsFor(ctx(vm(NodeKey.Connections, {}))).find((a) => a.Label === 'New Connection…')!
-        expect(action).toBeDefined()
-        action.Invoke.Execute()
+        expect(c.Actions.find((a) => a.Id === ConnectionActionsContributor.NewId)!.Title).toBe('New Connection…')
+        c.Resolve(ConnectionActionsContributor.NewId, ctx(connectionsRow()))!.Execute()
         expect(launcher.opened).toEqual([undefined])
     })
 
     it('a leaf offers Edit…, Test, Make Default, Make Solution Default, Remove', () =>
     {
         const c = new ConnectionActionsContributor(fakeView(), fakeLauncher())
-        const labels = c.ActionsFor(ctx(leaf('b', false))).map((a) => a.Label)
-        expect(labels).toEqual(expect.arrayContaining(['Edit…', 'Test', 'Make Default', 'Make Solution Default', 'Remove']))
+        expect(leafTitles(c)).toEqual(expect.arrayContaining(['Edit…', 'Test', 'Make Default', 'Make Solution Default', 'Remove']))
     })
 
     it('Make Solution Default sets the solution default and is non-executable on the current one', () =>
     {
         const v = fakeView()
         const c = new ConnectionActionsContributor(v, fakeLauncher())
-        c.ActionsFor(ctx(leaf('b', false))).find((a) => a.Label === 'Make Solution Default')!.Invoke.Execute()
+        c.Resolve(ConnectionActionsContributor.MakeSolutionDefaultId, ctx(leafRow('b', false)))!.Execute()
         expect(v.solutionDefaulted).toEqual(['b'])
-        const onCurrent = c.ActionsFor(ctx(leaf('b', false, true))).find((a) => a.Label === 'Make Solution Default')!
-        expect(onCurrent.Invoke.CanExecute()).toBe(false)
+        const onCurrent = c.Resolve(ConnectionActionsContributor.MakeSolutionDefaultId, ctx(leafRow('b', false, true)))!
+        expect(onCurrent.CanExecute()).toBe(false)
     })
 
     it('Make Default is non-executable on the connection that is already default', () =>
     {
         const c = new ConnectionActionsContributor(fakeView(), fakeLauncher())
-        const makeDefault = c.ActionsFor(ctx(leaf('a', true))).find((a) => a.Label === 'Make Default')!
-        expect(makeDefault.Invoke.CanExecute()).toBe(false)
+        expect(c.Resolve(ConnectionActionsContributor.MakeDefaultId, ctx(leafRow('a', true)))!.CanExecute()).toBe(false)
     })
 
     it('Test invokes TestConnection for the leaf id', () =>
     {
         const v = fakeView()
         const c = new ConnectionActionsContributor(v, fakeLauncher())
-        c.ActionsFor(ctx(leaf('b', false))).find((a) => a.Label === 'Test')!.Invoke.Execute()
+        c.Resolve(ConnectionActionsContributor.TestId, ctx(leafRow('b', false)))!.Execute()
         expect(v.tested).toEqual(['b'])
+    })
+
+    it('Edit… opens the editor for the leaf id', () =>
+    {
+        const launcher = fakeLauncher()
+        const c = new ConnectionActionsContributor(fakeView(), launcher)
+        c.Resolve(ConnectionActionsContributor.EditId, ctx(leafRow('b', false)))!.Execute()
+        expect(launcher.opened).toEqual(['b'])
     })
 
     it('Remove on a multi-selected set removes every selected connection by id', async () =>
     {
         const v = fakeView()
         const c = new ConnectionActionsContributor(v, fakeLauncher())
-        const a = leaf('a', true)
-        const b = leaf('b', false)
-        c.ActionsFor(ctx(a, [a, b])).find((x) => x.Label === 'Remove')!.Invoke.Execute()
+        const a = leafRow('a', true)
+        const b = leafRow('b', false)
+        c.Resolve(ConnectionActionsContributor.RemoveId, ctx(a, [a, b]))!.Execute()
         await tick()
         expect(v.removed.sort()).toEqual(['a', 'b'])
     })
 
-    it('the active-connection row offers a submenu that sets the chosen connection', async () =>
+    it('the active-connection row offers a lazy submenu that sets the chosen connection', async () =>
     {
         const v = fakeView()
         const c = new ConnectionActionsContributor(v, fakeLauncher())
-        const anchor = underMember(vm(ConnectionNodeKey.Active, { member }))
-        const submenu = c.ActionsFor(ctx(anchor)).find((a) => a.Label === 'Active connection')!
-        expect(submenu).toBeDefined()
+        const submenu = new ConnectionActiveSubmenuContributor(v)
+        const activeDef = defById(c, ConnectionActionsContributor.ActiveId)
+        expect(activeDef.Title).toBe('Active connection')
+        expect(activeDef.ChildrenContributor).toBe(ConnectionActiveSubmenuContributor.Key)
+
+        const anchor = activeRow()
+        const loading = submenu.Contribute(activeDef, ctx(anchor))
+        expect(loading.map((d) => d.Title)).toEqual(['Loading…'])   // fetched fire-and-forget on first open
         await tick()
-        const pickB = [...Array(submenu.Children.Count).keys()].map((i) => submenu.Children.Get(i)!).find((x) => x.Label === 'B')!
-        pickB.Invoke.Execute()
+        const rows = submenu.Contribute(activeDef, ctx(anchor))
+        const pickB = rows.find((d) => d.Title === 'B')!
+        c.Resolve(pickB.Id, ctx(anchor))!.Execute()
         await tick()
         expect(v.active).toContainEqual([member, 'b'])
+    })
+
+    it('the currently-active pick in the submenu is marked non-executable', async () =>
+    {
+        const v = fakeView()   // ActiveConnectionFor returns 'a'
+        const c = new ConnectionActionsContributor(v, fakeLauncher())
+        const submenu = new ConnectionActiveSubmenuContributor(v)
+        const activeDef = defById(c, ConnectionActionsContributor.ActiveId)
+        const anchor = activeRow()
+        submenu.Contribute(activeDef, ctx(anchor))
+        await tick()
+        const rows = submenu.Contribute(activeDef, ctx(anchor))
+        const currentA = rows.find((d) => d.Title === 'A')!
+        expect(currentA.Id.startsWith(ConnectionActionsContributor.ActiveCurrentChildPrefix)).toBe(true)
+        expect(c.Resolve(currentA.Id, ctx(anchor))!.CanExecute()).toBe(false)
     })
 })

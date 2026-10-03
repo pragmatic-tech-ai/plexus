@@ -1,17 +1,21 @@
 import { describe, it, expect } from 'vitest'
 import { ServiceProvider, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    HierarchyModel, HierarchyContributorRegistry, HierarchyContributorDefinition,
-    NodeContribution, NodeSeverity, HierarchyTreeVM,
-    type IHierarchyContributor, type HierarchyNode, type HierarchyHost,
+    Hierarchy, HierarchyContributorRegistry, HierarchyContributorDefinition,
+    NodeContribution, NodeSeverity,
+    type IHierarchyContributor, type HierarchyItem, type IHierarchyItemHost,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import type { IStorage, IPropertyBag } from '@pragmatic-tech-ai/todl-runtime'
 import { Solution, RecordPropertyBag, BagScope, type IBagPersister } from '@pragmatic-tech-ai/todl'
 import { SolutionTreeStateService } from '../solution-tree-state-service.js'
 
-function fakeHost(): HierarchyHost
+// The minimal item host the Hierarchy needs (Activate/CommitRename/OnItemRemoved); the
+// state service never calls any of them.
+class NoopHost implements IHierarchyItemHost
 {
-    return { Activate: () => {}, CommitRename: () => {}, Delete: () => {}, ActionsFor: () => [], CanDrop: () => false, Drop: () => {}, OnItemRemoved: () => {} }
+    public Activate(): void {}
+    public CommitRename(): void {}
+    public OnItemRemoved(): void {}
 }
 
 // Minimal Global-scope persister: kind -> id -> live values map, create-on-write.
@@ -54,58 +58,58 @@ class CountingBags extends FakeBags
     }
 }
 
-// A solution tree with two keyed member roots (segments p1/p2), each expandable with one keyed child.
-function makeTree(): { tree: HierarchyTreeVM }
+// A solution tree with two keyed member roots (segments p1/p2), each expandable with one keyed
+// child. Canonical names under the new Hierarchy are root-relative: '/p1', '/p1/core.todl'.
+function makeTree(): { hierarchy: Hierarchy }
 {
     const sp = new ServiceProvider()
     const listing = new ServiceKey<IHierarchyContributor>('listing')
-    sp.registerInstance(listing, { ParentKeys: ['solution'], Order: 0, Contribute: (): NodeContribution =>
+    sp.registerInstance(listing, { ParentKeys: ['solution'], Order: 0, Resolve: () => undefined, Contribute: (): NodeContribution =>
         new NodeContribution([
             { Key: 'project', Caption: 'P1', IconKey: '', ExtObject: { a: 1 }, Severity: NodeSeverity.Ok, CanonicalSegment: 'p1', IsExpandable: true },
             { Key: 'project', Caption: 'P2', IconKey: '', ExtObject: { a: 2 }, Severity: NodeSeverity.Ok, CanonicalSegment: 'p2', IsExpandable: true },
-        ]) } as IHierarchyContributor)
+        ]) } as unknown as IHierarchyContributor)
     const child = new ServiceKey<IHierarchyContributor>('child')
-    sp.registerInstance(child, { ParentKeys: ['project'], Order: 0, Contribute: (p: HierarchyNode): NodeContribution =>
-        new NodeContribution([{ Key: 'doc', Caption: 'c', IconKey: '', ExtObject: { of: (p.ExtObject as { a: number }).a }, Severity: NodeSeverity.Ok, CanonicalSegment: 'core.todl' }]) } as IHierarchyContributor)
+    sp.registerInstance(child, { ParentKeys: ['project'], Order: 0, Resolve: () => undefined, Contribute: (p: HierarchyItem): NodeContribution =>
+        new NodeContribution([{ Key: 'doc', Caption: 'c', IconKey: '', ExtObject: { of: (p.ExtObject as { a: number }).a }, Severity: NodeSeverity.Ok, CanonicalSegment: 'core.todl' }]) } as unknown as IHierarchyContributor)
     const registry = new HierarchyContributorRegistry(sp)
     for (const [k, pk] of [[listing, 'solution'], [child, 'project']] as const)
     {
         const d = new HierarchyContributorDefinition(); d.ParentKeys = [pk]; d.Contributor = k; d.Order = 0; registry.Register(d)
     }
-    const model = new HierarchyModel(registry)
-    const root = model.SeedRoot({ Key: 'solution', Caption: 'S', IconKey: '', ExtObject: {}, Severity: NodeSeverity.Ok })
-    return { tree: new HierarchyTreeVM(model, root, fakeHost()) }
+    const hierarchy = new Hierarchy(registry, new NoopHost())
+    hierarchy.SeedRoot('solution', { Caption: 'S', IconKey: '', ExtObject: {}, Severity: NodeSeverity.Ok })
+    return { hierarchy }
 }
 
 function titledSolution(): Solution { return new Solution('S', { Root: 'C:/sol' } as unknown as IStorage) }
+const root = (h: Hierarchy, i: number): HierarchyItem => h.Roots.Get(i)!
 
 describe('SolutionTreeStateService — persist', () =>
 {
     it('writes the expanded + selection + anchor canonical names to the path-keyed bag', () =>
     {
-        const { tree } = makeTree()
+        const { hierarchy } = makeTree()
         const bags = new FakeBags()
-        const solution = titledSolution()
-        new SolutionTreeStateService(tree, solution, bags).Start()
+        new SolutionTreeStateService(hierarchy, titledSolution(), bags).Start()
 
-        const p1 = tree.Roots.Get(0)!
-        p1.Expand()                         // realizes p1's child; expansion change persists
-        tree.SelectSingle(p1)               // selection change persists
+        const p1 = root(hierarchy, 0)
+        p1.OnExpand()                       // realizes p1's child; expansion change persists
+        hierarchy.SelectSingle(p1)          // selection change persists
 
         const bag = bags.Bag('solution-tree-state', 'C:/sol')
-        expect(bag.GetValue('expanded')).toEqual(['solution/p1'])
-        expect(bag.GetValue('selection')).toEqual(['solution/p1'])
-        expect(bag.GetValue('anchor')).toBe('solution/p1')
+        expect(bag.GetValue('expanded')).toEqual(['/p1'])
+        expect(bag.GetValue('selection')).toEqual(['/p1'])
+        expect(bag.GetValue('anchor')).toBe('/p1')
     })
 
     it('an untitled solution never writes to the durable store', () =>
     {
-        const { tree } = makeTree()
+        const { hierarchy } = makeTree()
         const bags = new FakeBags()
-        const untitled = new Solution('S')          // HasLocation === false
-        new SolutionTreeStateService(tree, untitled, bags).Start()
+        new SolutionTreeStateService(hierarchy, new Solution('S'), bags).Start()   // HasLocation === false
 
-        tree.Roots.Get(0)!.Expand()
+        root(hierarchy, 0).OnExpand()
         expect(bags.Ids('solution-tree-state')).toEqual([])   // nothing persisted
     })
 })
@@ -116,25 +120,25 @@ describe('SolutionTreeStateService — restore', () =>
     {
         const bags = new FakeBags()
         const seed = bags.Bag('solution-tree-state', 'C:/sol')
-        seed.SetValue('expanded', ['solution/p1'])
-        seed.SetValue('selection', ['solution/p2', 'solution/ghost'])   // ghost no longer exists
-        seed.SetValue('anchor', 'solution/p2')
+        seed.SetValue('expanded', ['/p1'])
+        seed.SetValue('selection', ['/p2', '/ghost'])   // ghost no longer exists
+        seed.SetValue('anchor', '/p2')
 
-        const { tree } = makeTree()
-        new SolutionTreeStateService(tree, titledSolution(), bags).Start()
+        const { hierarchy } = makeTree()
+        new SolutionTreeStateService(hierarchy, titledSolution(), bags).Start()
 
-        const [p1, p2] = [tree.Roots.Get(0)!, tree.Roots.Get(1)!]
-        expect(p1.IsExpanded).toBe(true)                 // restored expansion
+        const [p1, p2] = [root(hierarchy, 0), root(hierarchy, 1)]
+        expect(p1.IsExpanded).toBe(true)                      // restored expansion
         expect(p2.IsExpanded).toBe(false)
-        expect(tree.Selection.ToArray()).toEqual([p2])   // ghost skipped
-        expect(tree.Anchor).toBe(p2)
+        expect(hierarchy.Selection.ToArray()).toEqual([p2])   // ghost skipped
+        expect(hierarchy.Anchor).toBe(p2)
     })
 
     it('builds cleanly when the bag is empty', () =>
     {
-        const { tree } = makeTree()
-        expect(() => new SolutionTreeStateService(tree, titledSolution(), new FakeBags()).Start()).not.toThrow()
-        expect(tree.Roots.Get(0)!.IsExpanded).toBe(false)
+        const { hierarchy } = makeTree()
+        expect(() => new SolutionTreeStateService(hierarchy, titledSolution(), new FakeBags()).Start()).not.toThrow()
+        expect(root(hierarchy, 0).IsExpanded).toBe(false)
     })
 })
 
@@ -144,19 +148,19 @@ describe('SolutionTreeStateService — restore is one-shot (never fights the use
     {
         const bags = new FakeBags()
         const seed = bags.Bag('solution-tree-state', 'C:/sol')
-        seed.SetValue('expanded', ['solution/p1', 'solution/p1/core.todl'])
+        seed.SetValue('expanded', ['/p1', '/p1/core.todl'])
         seed.SetValue('selection', [])
         seed.SetValue('anchor', '')
 
-        const { tree } = makeTree()
-        new SolutionTreeStateService(tree, titledSolution(), bags).Start()
+        const { hierarchy } = makeTree()
+        new SolutionTreeStateService(hierarchy, titledSolution(), bags).Start()
 
-        const p1 = tree.Roots.Get(0)!
+        const p1 = root(hierarchy, 0)
         expect(p1.IsExpanded).toBe(true)
         expect(p1.Children.ToArray()[0]!.IsExpanded).toBe(true)   // core.todl restored open
 
-        p1.Collapse()
-        p1.Expand()                                               // user re-expands p1 by hand
+        p1.OnCollapse()
+        p1.OnExpand()                                             // user re-expands p1 by hand
 
         const child = p1.Children.ToArray()[0]!                   // freshly re-realized core.todl
         expect(p1.IsExpanded).toBe(true)
@@ -166,17 +170,17 @@ describe('SolutionTreeStateService — restore is one-shot (never fights the use
 
 describe('SolutionTreeStateService — bookkeeping does not leak across expand/collapse churn', () =>
 {
-    it('releases the disposers for VMs that leave the tree on collapse', () =>
+    it('releases the disposers for items that leave the tree on collapse', () =>
     {
-        const { tree } = makeTree()
-        const svc = new SolutionTreeStateService(tree, titledSolution(), new FakeBags())
+        const { hierarchy } = makeTree()
+        const svc = new SolutionTreeStateService(hierarchy, titledSolution(), new FakeBags())
         svc.Start()
 
-        const before = svc.TrackedVmCount
-        const p1 = tree.Roots.Get(0)!
-        p1.Expand()
-        p1.Collapse()
-        expect(svc.TrackedVmCount).toBe(before)                   // round-trip leaves nothing tracked behind
+        const before = svc.TrackedItemCount
+        const p1 = root(hierarchy, 0)
+        p1.OnExpand()
+        p1.OnCollapse()
+        expect(svc.TrackedItemCount).toBe(before)                 // round-trip leaves nothing tracked behind
     })
 })
 
@@ -186,16 +190,16 @@ describe('SolutionTreeStateService — restore stays fully guarded', () =>
     {
         const bags = new CountingBags()
         const seed = bags.Bag('solution-tree-state', 'C:/sol')
-        seed.SetValue('expanded', ['solution/p1', 'solution/p1/core.todl'])
+        seed.SetValue('expanded', ['/p1', '/p1/core.todl'])
         seed.SetValue('selection', [])
         seed.SetValue('anchor', '')
         bags.writes = 0                                           // ignore the seed writes
 
-        const { tree } = makeTree()
-        new SolutionTreeStateService(tree, titledSolution(), bags).Start()
+        const { hierarchy } = makeTree()
+        new SolutionTreeStateService(hierarchy, titledSolution(), bags).Start()
 
-        expect(tree.Roots.Get(0)!.IsExpanded).toBe(true)
-        expect(tree.Roots.Get(0)!.Children.ToArray()[0]!.IsExpanded).toBe(true)
+        expect(root(hierarchy, 0).IsExpanded).toBe(true)
+        expect(root(hierarchy, 0).Children.ToArray()[0]!.IsExpanded).toBe(true)
         expect(bags.writes).toBe(0)                               // no premature save during the guarded restore
     })
 })
