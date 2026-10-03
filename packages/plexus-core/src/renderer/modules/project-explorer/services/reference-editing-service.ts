@@ -1,5 +1,5 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import type { Disposable, IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { Disposable, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     ProjectType, SolutionBaseResolver, type SolutionMember,
 } from '@pragmatic-tech-ai/todl'
@@ -36,17 +36,17 @@ export class ReferenceEditingService implements IReferenceView
 
     private readonly handlers = new Set<(affected: SolutionMember | undefined) => void>()
     private staleSubscribed = false
-    private staleOff: Disposable | undefined
+    private staleOff: IDisposable | undefined
 
     constructor(private readonly provider: IServiceProvider, private readonly host: IReferenceHost)
     {
     }
 
-    public OnReferencesViewChanged(handler: (affected: SolutionMember | undefined) => void): Disposable
+    public OnReferencesViewChanged(handler: (affected: SolutionMember | undefined) => void): IDisposable
     {
         this.ensureStaleSubscription()
         this.handlers.add(handler)
-        return { dispose: () => { this.handlers.delete(handler) } }
+        return new Disposable(() => { this.handlers.delete(handler) })
     }
 
     public IsConsumer(member: SolutionMember): boolean

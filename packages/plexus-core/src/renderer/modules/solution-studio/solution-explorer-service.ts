@@ -7,10 +7,9 @@ import { type IActivatable } from '@pragmatic-tech-ai/mural/framework';
 import {
     SolutionManagerService,
     BagDefinitionRegistry,
-    SolutionTreeVM,
-    SolutionMemberNodeVM,
     type SolutionSettingBag,
 } from '@pragmatic-tech-ai/todl';
+import { SolutionTreeVM, SolutionMemberNodeVM } from './solution-tree-vm.js';
 import type { PackageRef } from '@pragmatic-tech-ai/todl/domain';
 import { StorageService } from '../storage/index.js';
 import { ConnectionBag } from './connection-bag.js';

@@ -1,4 +1,4 @@
-import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type IDisposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import {
     ContentHostService, Diagram, DiagramDocument,
     type DocumentsContentHostService, type IDocument,
@@ -60,7 +60,7 @@ export class DiagramGuidesService extends ServiceBase
             timer = setTimeout(persist, this.persistDelayMs)
         }
 
-        let subActiveView: Disposable | undefined
+        let subActiveView: IDisposable | undefined
 
         const rebindView = (): void => {
             detachView?.()

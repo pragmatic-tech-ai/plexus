@@ -5,7 +5,7 @@ import {
     type IDockPanel,
     type PanelDockService,
 } from '@pragmatic-tech-ai/mural/framework'
-import { type Disposable } from '@pragmatic-tech-ai/mural/runtime'
+import { type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 
 // The Id every DiagramInspector shares (DiagramInspector ctor: 'diagram-format').
 // The dock dedups panels by Id, so at most one Format Shape panel is ever docked
@@ -40,8 +40,8 @@ export function attachAutoOpenInspector(
     const openedFor = new WeakSet<DiagramDocument>()
 
     let watchedDoc: DiagramDocument | undefined
-    let detachView: Disposable | undefined       // watchedDoc.ActiveViewKey listener
-    let detachSelection: Disposable | undefined  // ActiveView.SelectionCountKey listener
+    let detachView: IDisposable | undefined       // watchedDoc.ActiveViewKey listener
+    let detachSelection: IDisposable | undefined  // ActiveView.SelectionCountKey listener
 
     // The Format Shape panel currently docked (any document's inspector), if any.
     const dockedInspector = (): IDockPanel | undefined =>
@@ -103,7 +103,7 @@ export function attachAutoOpenInspector(
         onViewChanged()
     }
 
-    const hostSub: Disposable = host.PropertyChanged('ActiveDocument').subscribe(onActiveDocChanged)
+    const hostSub: IDisposable = host.PropertyChanged('ActiveDocument').subscribe(onActiveDocChanged)
     onActiveDocChanged()
 
     return (): void =>

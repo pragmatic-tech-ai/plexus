@@ -1,5 +1,5 @@
 import { Connector, ConnectorEndpoint, DiagramDocument, DialogService, Figure, ShapeText } from '@pragmatic-tech-ai/mural/framework'
-import { Application, Panel, type Disposable } from '@pragmatic-tech-ai/mural/runtime'
+import { Application, Panel, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentContainerFigure } from '@pragmatic-tech-ai/mural/framework/diagram/content-container-figure.js'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { showContainmentRejected } from './containment-modal.js'
@@ -38,7 +38,7 @@ export class ArchDiagramBinding
     private detachView: (() => void) | undefined
     private modelLayerOff: (() => void) | undefined   // unregisters the undo model layer
     private appliedOff: (() => void) | undefined       // unsubscribes the post-undo re-projection
-    private _activeViewSub: Disposable | undefined     // doc.ActiveView property-changed subscription
+    private _activeViewSub: IDisposable | undefined     // doc.ActiveView property-changed subscription
     private readonly bound = new Map<string, Figure | ArchNodeVM>()   // entityId -> node
     private readonly boundEdges = new Map<string, Connector>()         // edgeKey -> projected connector
     private readonly connectorVisualTeardown = new Map<string, () => void>()   // edgeKey -> unwire route/port capture listeners
@@ -711,7 +711,7 @@ export class ArchDiagramBinding
             if (this._applyingConnectorVisual) return
             writeConnectorVisual(this.doc, metaKey, captureConnectorVisual(c))
         }
-        const visualSubs: Disposable[] = []
+        const visualSubs: IDisposable[] = []
         visualSubs.push(c.PropertyChanged(Connector.WaypointsKey).subscribe(onVisualEdit))
         visualSubs.push(c.PropertyChanged(Connector.RoutingModeKey).subscribe(onVisualEdit))
         // Paint z-order (Bring-to-Front / Send-to-Back) is view state on the

@@ -1,5 +1,5 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import type { IPropertyBag, IPropertyBagStore, Disposable } from '@pragmatic-tech-ai/todl-runtime'
+import type { IPropertyBag, IPropertyBagStore, IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import { type IBagPersister, BagScope, RecordPropertyBag } from '@pragmatic-tech-ai/todl'
 
 // kind → instance id → { property name → value }, the shape held under the aggregate bag's one
@@ -23,7 +23,7 @@ export class GlobalBagPersister implements IBagPersister
     private static readonly DataProperty = 'data'
 
     private readonly aggregate: IPropertyBag
-    private readonly registration: Disposable
+    private readonly registration: IDisposable
 
     constructor(private readonly store: IPropertyBagStore)
     {

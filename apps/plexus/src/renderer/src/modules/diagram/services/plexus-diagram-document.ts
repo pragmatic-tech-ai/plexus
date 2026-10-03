@@ -1,5 +1,5 @@
-import { MetaData, MuralBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, DialogService, type CommandDefinition, type DiagramStorage, type Diagram } from '@pragmatic-tech-ai/mural/framework'
+import { MetaData, MuralBase, RelayCommand, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { DiagramDocument, DialogService, type CommandContext, type DiagramStorage, type Diagram } from '@pragmatic-tech-ai/mural/framework'
 import { DiagramCommandExtensionKey } from './diagram-command-extension.js'
 import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
 import { attachMediaDrop, attachMediaPaste, type MediaDropDeps } from '../media/media-drop-handler.js'
@@ -66,17 +66,17 @@ export class PlexusDiagramDocument extends DiagramDocument
         }
     }
 
-    public override Execute(definition: CommandDefinition): void
+    // DiagramDocument is an ICommandDispatcher: the shell resolves a clicked command
+    // Id to an ICommand and invokes it. A command the registered extension owns is
+    // routed to it (wrapped in a RelayCommand over its execute/canExecute); anything
+    // else defers to the base document's resolution.
+    public override Resolve(commandId: string, context: CommandContext): ICommand | undefined
     {
         const ext = this.provider.get(DiagramCommandExtensionKey)
-        if (ext !== undefined && ext.handles(definition.Id)) { ext.execute(this, definition.Id); return }
-        super.Execute(definition)
-    }
-
-    public override CanExecute(definition: CommandDefinition): boolean
-    {
-        const ext = this.provider.get(DiagramCommandExtensionKey)
-        if (ext !== undefined && ext.handles(definition.Id)) return ext.canExecute(this, definition.Id)
-        return super.CanExecute(definition)
+        if (ext !== undefined && ext.handles(commandId))
+        {
+            return new RelayCommand(() => ext.execute(this, commandId), () => ext.canExecute(this, commandId))
+        }
+        return super.Resolve(commandId, context)
     }
 }

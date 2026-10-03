@@ -6,7 +6,7 @@
  * Mirrors P5a's `IReferenceView`. Implemented by `ConnectionEditingService`.
  */
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import type { Disposable } from '@pragmatic-tech-ai/todl-runtime'
+import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import type { ConnectionTestResult } from './connections-client.js'
@@ -60,7 +60,7 @@ export interface IConnectionView
     IsConsumer(member: SolutionMember): boolean                                 // sync gate for the active-connection row
     ActiveConnectionFor(member: SolutionMember): Promise<ConnectionLeafView | undefined>   // effective
     SetActiveConnectionFor(member: SolutionMember, connectionId: string | undefined): Promise<void>
-    OnConnectionsViewChanged(handler: (affected: SolutionMember | undefined) => void): Disposable
+    OnConnectionsViewChanged(handler: (affected: SolutionMember | undefined) => void): IDisposable
 }
 
 export const ConnectionViewKey = new ServiceKey<IConnectionView>('IConnectionView')

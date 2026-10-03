@@ -1,4 +1,4 @@
-import { ServiceBase, ServiceKey, type Disposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type IDisposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { editorSemanticLegend } from './semantic-scopes.js'
 import type { MessageConnection } from 'vscode-jsonrpc'
 import { SolutionBaseResolver, SolutionManagerService, type TodlDocument } from '@pragmatic-tech-ai/todl'
@@ -102,13 +102,13 @@ export class TodlLanguageClient extends ServiceBase
   private readonly versions = new Map<string, number>()
   // Open editor documents → their current server URI, and → the Content subscription.
   private readonly docUris = new Map<CodeDocument, string>()
-  private readonly docListeners = new Map<CodeDocument, Disposable>()
+  private readonly docListeners = new Map<CodeDocument, IDisposable>()
   // Latest diagnostics per project (projectId → relpath → canonical), so a
   // per-URI publish can be flattened into the whole-project slice the store wants.
   private readonly diagsByProject = new Map<string, Map<string, Diagnostic[]>>()
   // The live subscription to SolutionBaseResolver's StaleMemberIds push, set by
   // SubscribeToStaleMembers (called once at init) — kept so a re-call is idempotent.
-  private staleMembersSubscription: Disposable | undefined
+  private staleMembersSubscription: IDisposable | undefined
 
   constructor(provider: IServiceProvider) { super(provider) }
 

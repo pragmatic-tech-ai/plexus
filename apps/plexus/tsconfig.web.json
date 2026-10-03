@@ -9,6 +9,16 @@
     "src/renderer/src/**/*.mu",
     "src/shared/**/*"
   ],
+  // Renderer unit tests run under vitest (its own config), not this project
+  // typecheck — the same split the node side already uses (it includes only
+  // main/preload). Tests are excluded here so the app typecheck covers shipping
+  // code; test type-correctness is owned by the vitest pass.
+  "exclude": [
+    "node_modules",
+    "src/renderer/src/**/tests/**",
+    "src/renderer/src/**/*.test.ts",
+    "src/renderer/src/**/*.spec.ts"
+  ],
   "compilerOptions": {
     "composite": true,
     "allowJs": true,

@@ -62,6 +62,11 @@ import TodlProjectSystemModule from "@pragmatic-tech-ai/todl"
 // (project types now come from TodlProjectSystemModule). Rides along lazily (unused
 // here → dormant); its manager resolves the composed ProjectFactoryRegistryKey.
 import SolutionServicesEngine from "@pragmatic-tech-ai/todl"
+// Per-project Build/Publish facade (todl) over the composed BuildSystemRegistryKey
+// (seeded by TodlProjectSystemModule below). Root-registered here so publishProject
+// and the Solution Explorer's Build/Publish contributor resolve the one instance via
+// BuildService.Key instead of each constructing its own.
+import BuildService from "@pragmatic-tech-ai/todl"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
@@ -281,6 +286,12 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // its status-bar dock binds $service(BackgroundWorkService). Eagerly
         // resolved in main.js.
         BackgroundWorkService
+        // Per-project Build/Publish facade over the composed build-system registry
+        // (BuildSystemRegistryKey, seeded by TodlProjectSystemModule). Registered under
+        // BuildService.Key (ServiceProvider.tokenFor uses the static Key), so the
+        // ProjectExplorer publish path and the Solution Explorer Build/Publish
+        // contributor both resolve this single instance.
+        BuildService
         // Unified skill catalog across project/global/packaged scopes. Root-
         // registered so the Project Explorer resolves it to build the
         // Run Agent/Skill submenu; lazily discovers per project on demand.

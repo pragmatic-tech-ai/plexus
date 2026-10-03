@@ -137,7 +137,11 @@ export function bytesToDataUri(bytes: Uint8Array, mime: string): string
 
 function bytesToBase64(bytes: Uint8Array): string
 {
-    if (typeof Buffer !== 'undefined') return Buffer.from(bytes).toString('base64')
+    // Renderer typecheck carries no node ambient types, so reach the optional node
+    // Buffer through globalThis with a narrow local shape; falls back to btoa in a
+    // plain browser context.
+    const nodeBuffer = (globalThis as { Buffer?: { from(data: Uint8Array): { toString(encoding: string): string } } }).Buffer
+    if (nodeBuffer !== undefined) return nodeBuffer.from(bytes).toString('base64')
     let binary = ''
     for (const b of bytes) binary += String.fromCharCode(b)
     return btoa(binary)

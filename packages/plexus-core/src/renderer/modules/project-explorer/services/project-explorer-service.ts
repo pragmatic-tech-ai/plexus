@@ -100,7 +100,7 @@ import { EnvironmentService } from '../../../environment/environment-service.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import type { Disposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
+import type { IDisposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService, ProjectSharedBagPersister, ProjectLocalBagPersister, BuildService } from '@pragmatic-tech-ai/todl'
 import type { SolutionMember, ProjectManifest, BagVantage, BuildPublishOutcome } from '@pragmatic-tech-ai/todl'
@@ -212,7 +212,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     // Storage afterwards — see todl's Solution.AddMember/OpenOne) — the pending
     // wait for its own Project to settle, plus the means to unblock it early if
     // the member is removed before it ever resolves.
-    private readonly pendingResolution = new Map<SolutionMember, { subscription: Disposable; resolve: () => void }>()
+    private readonly pendingResolution = new Map<SolutionMember, { subscription: IDisposable; resolve: () => void }>()
     // The in-flight (or settled) sync task for each member last observed added or
     // removed — awaited by closeProject (after the manager confirms the removal)
     // and by callers that need the projection's side effects (OpenProjects /

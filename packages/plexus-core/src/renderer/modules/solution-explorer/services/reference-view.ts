@@ -1,5 +1,5 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import type { Disposable } from '@pragmatic-tech-ai/todl-runtime'
+import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { ProjectType, SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { BaseRef } from '../../../projects/base-binding.js'
 
@@ -58,7 +58,7 @@ export interface IReferenceView
     // Fires after any reference edit. `affected` is the edited member on a manifest write,
     // or undefined when resolution changed globally (a producer sibling was invalidated) —
     // the provider re-fetches when affected is undefined or its own member.
-    OnReferencesViewChanged(handler: (affected: SolutionMember | undefined) => void): Disposable
+    OnReferencesViewChanged(handler: (affected: SolutionMember | undefined) => void): IDisposable
 }
 
 export const ReferenceViewKey = new ServiceKey<IReferenceView>('IReferenceView')

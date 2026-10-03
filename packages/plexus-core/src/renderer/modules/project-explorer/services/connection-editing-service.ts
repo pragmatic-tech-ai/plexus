@@ -6,7 +6,7 @@
  * `connection-selection` (never solution.json). Health decoration, the effective per-project
  * connection, and the change signal ride on top. Mirrors P5a's `ReferenceEditingService`.
  */
-import type { Disposable } from '@pragmatic-tech-ai/todl-runtime'
+import { Disposable, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import {
     BagCatalog,
@@ -199,10 +199,10 @@ export class ConnectionEditingService implements IConnectionView
         this.fire(member)
     }
 
-    public OnConnectionsViewChanged(handler: (affected: SolutionMember | undefined) => void): Disposable
+    public OnConnectionsViewChanged(handler: (affected: SolutionMember | undefined) => void): IDisposable
     {
         this.handlers.add(handler)
-        return { dispose: () => { this.handlers.delete(handler) } }
+        return new Disposable(() => { this.handlers.delete(handler) })
     }
 
     private decorate(v: ConnectionView, solutionDefaultId: string | undefined): ConnectionLeafView
