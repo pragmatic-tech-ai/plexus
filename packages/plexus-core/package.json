@@ -29,8 +29,8 @@
     "./renderer/modules/solution-explorer/*": "./dist/renderer/modules/solution-explorer/*",
     "./renderer/modules/background-work": "./dist/renderer/modules/background-work/index.js",
     "./renderer/modules/background-work/*": "./dist/renderer/modules/background-work/*",
-    "./renderer/modules/solution-studio": "./dist/renderer/modules/solution-studio/index.js",
-    "./renderer/modules/solution-studio/*": "./dist/renderer/modules/solution-studio/*",
+    "./renderer/modules/solution-seams": "./dist/renderer/modules/solution-seams/index.js",
+    "./renderer/modules/solution-seams/*": "./dist/renderer/modules/solution-seams/*",
     "./shared/*.js": "./dist/shared/*.js"
   },
   "scripts": {

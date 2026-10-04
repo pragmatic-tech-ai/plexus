@@ -4,13 +4,13 @@ import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { TodlProjectSystemModule, SolutionServicesEngine, SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
-import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio'
+import { SolutionSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 
 import { RendererPackageSource } from '../services/projects/renderer-package-source.js'
 
 // Mirrors app.mu's SOLUTION-relevant `.modules:` slice (TodlProjectSystemModule +
 // SolutionServicesEngine) on a bare shell root, then layers the renderer's OWN
-// solution seams exactly as main.js wires them: SolutionStudioSeams.Register
+// solution seams exactly as main.js wires them: SolutionSeams.Register
 // (prompt service over DialogService, storage-provider registry over StorageService)
 // plus the app-specific PackageSourceKey (RendererPackageSource). The 'local'
 // storage backend is swapped to a per-folder FakeStorage — the fake storage
@@ -37,7 +37,7 @@ class SolutionWiringFixture
         services.registerInstance(StorageService.Key, storages)
         services.registerInstance(DialogService.Key, {} as unknown as DialogService)
 
-        SolutionStudioSeams.Register(services)
+        SolutionSeams.Register(services)
         services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
 
         return root
