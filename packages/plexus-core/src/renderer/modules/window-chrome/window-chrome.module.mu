@@ -75,7 +75,7 @@ shell module PragmaticWindowChrome {
         // Flat rectangular menu-bar button face with @Fg2 hover/press layers.
         Template x:key="FileMenuTriggerChrome" [ TargetType = Button ] {
             Border x:name="PART_Primary" [ Fill = #00000000, CornerRadius = @RadiusSm ] {
-                Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (10,4,10,4) ] {
+                Border x:name="PART_PrimaryState" [ Fill = #00000000, CornerRadius = @RadiusSm, Padding = (8,4,8,4) ] {
                     ContentPresenter [ HorizontalAlignment = Center, VerticalAlignment = Center ]
                 }
             }
