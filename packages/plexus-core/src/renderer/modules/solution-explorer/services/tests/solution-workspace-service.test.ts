@@ -82,13 +82,20 @@ async function harness(opts: HarnessOpts = {})
     const provider = new ServiceProvider()
     const host = new FakeHost(log)
     const factory = new FakeDocFactory(storage)
+    // Every dialog shown, captured by title + message (the VM's Message) so a test can assert
+    // the right feedback surfaced.
+    const shown: { title: string; message: string }[] = []
     provider.registerInstance(ContentHostService.Key, host as never)
     provider.registerInstance(DocumentTypeRegistry.Key, {
         GetByExtension: (ext: string) => (ext === '.todl' ? { Factory: FakeDocFactory } : undefined),
     } as never)
     provider.registerInstance(ServiceProvider.tokenFor(FakeDocFactory), factory as never)
     provider.registerInstance(DialogService.Key, {
-        Show: async () => { log.push('confirm'); return opts.dialogResult },
+        Show: async (opt: { Title: string; Content: { Message?: string } }) => {
+            log.push('confirm')
+            shown.push({ title: opt.Title, message: opt.Content?.Message ?? '' })
+            return opts.dialogResult
+        },
         Close: () => {},
     } as never)
     provider.registerInstance(DocumentCloseGuard.Key, new DocumentCloseGuard(provider, {
@@ -102,7 +109,7 @@ async function harness(opts: HarnessOpts = {})
     if (opts.participant !== undefined) provider.registerInstance(MemberNewFileParticipantKey, opts.participant)
 
     const service = new SolutionWorkspaceService(provider)
-    return { service, member, storage, host, factory, log, sol }
+    return { service, member, storage, host, factory, log, sol, shown }
 }
 
 describe('SolutionWorkspaceService', () =>
@@ -177,5 +184,40 @@ describe('SolutionWorkspaceService', () =>
         doc.IsDirty = true
         await service.CloseMember(member)
         expect(closed).toBe(true)
+    })
+
+    it('Rename to an existing name surfaces a collision message (not a silent no-op)', async () =>
+    {
+        const { service, member, storage, shown } = await harness()
+        await storage.WriteText('b.todl', 'y')
+        await service.RenameMemberFile(member, 'a.todl', 'b.todl')
+        expect(shown).toContainEqual({ title: 'Rename', message: '"b.todl" already exists.' })
+        expect(await storage.Exists('a.todl')).toBe(true)   // not renamed away
+    })
+
+    it('Rename to an invalid name surfaces feedback', async () =>
+    {
+        const { service, member, shown } = await harness()
+        await service.RenameMemberFile(member, 'a.todl', 'x/y')
+        expect(shown).toContainEqual({ title: 'Rename', message: "That name isn't valid." })
+    })
+
+    it('Move reports skipped items when the destination already has the name', async () =>
+    {
+        const { service, member, storage, shown } = await harness()
+        await storage.CreateDirectory('dest')
+        await storage.WriteText('dest/a.todl', 'z')
+        await service.MoveMemberNodes(member, ['a.todl'], 'dest')
+        expect(shown.some((s) => s.title === 'Move' && s.message.includes('1 item'))).toBe(true)
+    })
+
+    it('Delete confirm count collapses a folder + a file inside it to the one root deleted', async () =>
+    {
+        const { service, member, storage, shown } = await harness({ dialogResult: false })
+        await storage.CreateDirectory('dir')
+        await storage.WriteText('dir/x.todl', 'q')
+        await service.DeleteMemberFiles(member, ['dir', 'dir/x.todl'])
+        expect(shown[0]!.message).toContain('folder "dir"')          // single-root wording
+        expect(shown[0]!.message).not.toContain('these 2 items')     // not a 2-item batch
     })
 })

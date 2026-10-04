@@ -67,6 +67,7 @@ import { BuildProgressReporter } from './build-progress-reporter.js'
 import { DocOwnership, type ReloadableDocument } from './doc-ownership.js'
 import {
     MemberContentOps,
+    RenameError,
     ReferenceEditor,
     ProjectLifecycle,
     type IContentLifecycleGuard,
@@ -95,6 +96,15 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     private static readonly SetVersionTitle = 'Set Version'
     private static readonly ManageReferencesTitle = 'Manage References'
     private static readonly DeleteConfirmLabel = 'Delete'
+
+    // Failure feedback (no notification/toast channel exists in solution-explorer, so a brief
+    // info dialog reusing ConfirmDialogModel — OK-only — surfaces these; was a silent swallow).
+    private static readonly RenameTitle = 'Rename'
+    private static readonly MoveTitle = 'Move'
+    private static readonly OkLabel = 'OK'
+    private static readonly InvalidNameMessage = "That name isn't valid."
+    private static readonly NameExistsSuffix = '" already exists.'
+    private static readonly NameExistsPrefix = '"'
 
     // OS picker titles (prefixes; the member name is appended).
     private static readonly ImportFilesTitlePrefix = 'Import files into '
@@ -161,17 +171,30 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // ── IContentMutations: file/folder ──────────────────────────────────────
     public async RenameMemberFile(member: SolutionMember, path: string, newName: string): Promise<void>
     {
-        // Engine renames on storage and fires OnMoved on success → tabs re-point.
-        await new MemberContentOps(member, this).Rename(path, newName)
+        // Engine renames on storage and fires OnMoved on success → tabs re-point. A failed
+        // outcome must not be swallowed: surface a collision / invalid name to the user (a
+        // blank name is an abandoned edit — no feedback, matching the legacy explorer).
+        const result = await new MemberContentOps(member, this).Rename(path, newName)
+        if (result.ok) return
+        if (result.error === RenameError.Collision)
+        {
+            await this.Inform(SolutionWorkspaceService.RenameTitle, SolutionWorkspaceService.NameExistsMessage(newName.trim()))
+        }
+        else if (result.error === RenameError.Invalid)
+        {
+            await this.Inform(SolutionWorkspaceService.RenameTitle, SolutionWorkspaceService.InvalidNameMessage)
+        }
     }
 
     public async DeleteMemberFiles(member: SolutionMember, paths: readonly string[]): Promise<void>
     {
-        const real = paths.filter((p) => p !== '')   // the project root ('') is never deletable
-        if (real.length === 0) return
+        // Collapse nested selections to the roots the engine actually deletes (a folder carries
+        // its descendants), so the confirm count matches what is removed.
+        const roots = SolutionWorkspaceService.Roots(paths.filter((p) => p !== ''))   // the project root ('') is never deletable
+        if (roots.length === 0) return
         // The irreversible delete confirm is the UI's; the engine Delete then calls
         // CanRemove (dirty-tab guard) BEFORE touching disk, then OnRemoved after.
-        if (!(await this.ConfirmDelete(member, real))) return
+        if (!(await this.ConfirmDelete(member, roots))) return
         await new MemberContentOps(member, this).Delete(paths)
     }
 
@@ -254,8 +277,13 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     public async MoveMemberNodes(member: SolutionMember, paths: readonly string[], destPath: string): Promise<void>
     {
         // Engine plans + executes the move (ancestor-filter, collision-skip) and fires
-        // OnMoved per moved path → tabs re-point.
-        await new MemberContentOps(member, this).Move(paths, destPath)
+        // OnMoved per moved path → tabs re-point. Report anything skipped (a name already
+        // exists at the destination, or the move was into itself) rather than swallowing it.
+        const result = await new MemberContentOps(member, this).Move(paths, destPath)
+        if (result.skipped.length > 0)
+        {
+            await this.Inform(SolutionWorkspaceService.MoveTitle, SolutionWorkspaceService.MoveSkippedMessage(result.skipped.length))
+        }
     }
 
     // ── IContentMutations: version / publish / scaffold / bases ──────────────
@@ -534,6 +562,14 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         return this.Provider.get(PublishedBasesKey) as IPublishedBaseCatalog | undefined
     }
 
+    // Surface an operation failure through a brief OK-only info dialog (reusing
+    // ConfirmDialogModel) — solution-explorer has no notification/toast/status channel.
+    private async Inform(title: string, message: string): Promise<void>
+    {
+        const vm = new ConfirmDialogModel(message, SolutionWorkspaceService.OkLabel, (r) => this.dialogs.Close(r))
+        await this.dialogs.Show<boolean>({ Title: title, Content: vm, Width: SolutionWorkspaceService.ConfirmWidth })
+    }
+
     // Confirm an irreversible delete before the engine touches disk. A single item
     // detects folder-vs-file (so the prompt names the recursion); a batch uses a count.
     private async ConfirmDelete(member: SolutionMember, paths: readonly string[]): Promise<boolean>
@@ -573,6 +609,24 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     private static DeleteBatchMessage(count: number): string
     {
         return `Delete these ${count} items? This can't be undone.`
+    }
+
+    private static NameExistsMessage(name: string): string
+    {
+        return SolutionWorkspaceService.NameExistsPrefix + name + SolutionWorkspaceService.NameExistsSuffix
+    }
+
+    private static MoveSkippedMessage(count: number): string
+    {
+        return `Couldn't move ${count} item(s) — a name already exists at the destination.`
+    }
+
+    // The roots of a selection — paths not nested under another selected path (a folder move/
+    // delete carries its descendants). Mirrors the engine's own Roots() so the confirm count
+    // matches what is actually deleted.
+    private static Roots(paths: readonly string[]): string[]
+    {
+        return paths.filter((path) => !paths.some((p) => p !== path && path.startsWith(p + SolutionWorkspaceService.Separator)))
     }
 
     // The open-dialog filters for importing: one entry per factory format plus an
