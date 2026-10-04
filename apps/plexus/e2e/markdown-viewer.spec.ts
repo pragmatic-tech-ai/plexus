@@ -71,7 +71,7 @@ function openMarkdown(l: Launched, relPath: string)
 
         // Extension routing: the explorer resolves .md to our factory (lazily
         // instantiating the service), which we then open the file with.
-        const factory = explorer['docs']?.FactoryFor?.('.md')
+        const factory = explorer.DocumentFactoryFor('.md')
         const routed = factory
         if (!factory) return { ok: false as const, reason: '.md did not resolve to a factory' }
 

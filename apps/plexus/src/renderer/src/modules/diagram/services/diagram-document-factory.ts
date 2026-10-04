@@ -13,7 +13,7 @@ import { reloadMediaBitmaps } from '../media/media-drop-handler.js'
 // The `.diagram` editor: a diagram file is a DiagramDocument persisted through
 // mural's native Save()/Load() over a FileDiagramStorage (the full scene
 // round-trips). Contributed as the DocumentDefinition.Factory for the diagram
-// module's `.documents:` entry; the ProjectExplorerService resolves it by the
+// module's `.documents:` entry; the DocumentTypeRegistry resolves it by the
 // `.diagram` extension and delegates. All persistence flows through the
 // project's IStorage (rooted, project-relative paths).
 export class DiagramDocumentFactory extends ServiceBase implements IDocumentFactory, IRelocatableDocumentFactory

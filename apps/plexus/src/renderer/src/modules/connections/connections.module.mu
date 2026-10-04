@@ -2,7 +2,7 @@
 //
 // Registers the two app collaborators plexus-core's connection surface resolves through DI:
 //   * ConnectionsClient — the renderer client over window.api.connections (ConnectionsClientKey),
-//     which ProjectExplorerService's ConnectionEditingService consumes.
+//     which the solution-explorer's ConnectionEditingService consumes.
 //   * ConnectionEditorLauncher — the New/Edit dialog launcher (ConnectionEditorLauncherKey) the
 //     Solution Explorer's ConnectionActionsContributor calls.
 // Composed before SolutionExplorerModule so both are available when the tree first builds. The

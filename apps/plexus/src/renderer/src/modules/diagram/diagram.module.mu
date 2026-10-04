@@ -137,7 +137,7 @@ shell module DiagramModule [ Name = "Diagram" ] {
     // The document type this module edits. Declarative schema aggregated by the
     // framework DocumentTypeRegistry (Type + extensions → file-open by extension;
     // CommandContexts → the toolbar contexts a diagram activates). Factory is the
-    // .diagram editor the ProjectExplorerService resolves for open/save/new.
+    // .diagram editor the DocumentTypeRegistry resolves for open/save/new.
     .documents: {
         DocumentDefinition
             [ Type            = "diagram",

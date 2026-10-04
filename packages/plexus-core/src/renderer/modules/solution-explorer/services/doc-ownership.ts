@@ -13,11 +13,11 @@ import { samePath } from '../../../file-watch/path-utils.js'
 
 // A document that can reload itself from disk (the code buffer can). IDocument
 // supplies Id/IsDirty; Reload is the buffer's own. Duck-typed so this stays
-// decoupled from the code-editor module. Ported from ProjectExplorerService.
+// decoupled from the code-editor module. Ported from the retired ProjectExplorerService.
 export type ReloadableDocument = IDocument & { Reload(): Promise<void> }
 
 // The open-document map keyed by (member, project-relative path) — ported from
-// ProjectExplorerService's docOwners/docPaths plus its open/close/repoint helpers,
+// the retired ProjectExplorerService's docOwners/docPaths plus its open/close/repoint helpers,
 // re-keyed off SolutionMember (no OpenProject). It is the UI side of the engine
 // content lifecycle: SolutionWorkspaceService opens tabs through it, and its
 // IContentLifecycleGuard/ICloseGuard implementations drive the close/repoint here.

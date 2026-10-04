@@ -1,6 +1,6 @@
 // The app-side read/subscribe view over the engine's active solution members
 // (SolutionManagerService.ActiveSolution.Members). It replaces the retired
-// ProjectExplorerService.OpenProjects collection for consumers that only need
+// OpenProjects collection of the retired ProjectExplorerService for consumers that only need
 // to enumerate resolved projects and react when that set changes.
 //
 // "Resolved" mirrors what OpenProjects used to contain: a member whose Project

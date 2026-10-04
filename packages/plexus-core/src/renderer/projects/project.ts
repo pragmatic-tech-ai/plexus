@@ -27,12 +27,12 @@ export class ProjectNode extends MuralBase
     static readonly ChildrenKey = MuralBase.RegisterProperty<ObservableCollection<ProjectNode>>(
         ProjectNode, 'Children', undefined as unknown as ObservableCollection<ProjectNode>, MetaData.None)
     // The action to run when this node is activated in the tree — set by the
-    // host (ProjectExplorerService) so the row can bind `Command = $OpenCommand`
+    // solution-explorer Hierarchy contributors so the row can bind `Command = $OpenCommand`
     // without threading the node through a CommandParameter.
     static readonly OpenCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         ProjectNode, 'OpenCommand', undefined, MetaData.None)
     // The "Add New" submenu's choices for this node's container — one per the
-    // factory's declared formats, set by the host (ProjectExplorerService.wireNodes).
+    // factory's declared formats, set by the host.
     // A folder node creates inside itself; a file node beside itself.
     static readonly NewItemChoicesKey = MuralBase.RegisterProperty<ObservableCollection<NewItemChoice>>(
         ProjectNode, 'NewItemChoices', undefined as unknown as ObservableCollection<NewItemChoice>, MetaData.None)
@@ -53,7 +53,7 @@ export class ProjectNode extends MuralBase
     static readonly BeginRenameCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         ProjectNode, 'BeginRenameCommand', undefined, MetaData.None)
     // Delete this node (file or folder, with its contents) from the project,
-    // after a confirmation. Set by the host (ProjectExplorerService.wireNodes)
+    // after a confirmation. Set by the host
     // so a row's context menu can bind `Command = $DeleteCommand`; disabled on
     // the (unshown) root. When the node is part of a multi-selection, deleting
     // it removes the whole selected set.

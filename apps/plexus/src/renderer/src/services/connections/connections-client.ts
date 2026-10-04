@@ -4,7 +4,7 @@ import type { ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/pac
 import type { IConnectionsApi } from '../../../../shared/connections-api.js'
 
 // The renderer-side connections client: the concrete IConnectionsClient plexus-core's
-// ConnectionEditingService resolves (through ProjectExplorerService). A thin wrapper over the
+// ConnectionEditingService resolves (through SolutionWorkspaceService). A thin wrapper over the
 // preload bridge (window.api.connections) — the same pattern as FileSystemService over
 // window.api.fs — so plexus-core stays host-agnostic. Registered under ConnectionsClientKey.
 // Tokens are write-only: SetToken sends a secret, but no method ever returns one.

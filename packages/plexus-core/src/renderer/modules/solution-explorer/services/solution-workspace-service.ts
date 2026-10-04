@@ -143,7 +143,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
 
     // Engine ops that are per-service (not per-member): resolved lazily because the
     // solution engine seams they need are registered after this service's ctor runs
-    // at mount (same reason ProjectExplorerService defers its wiring).
+    // at mount (the ctor runs before those seams register).
     private memberOps: MemberProjectOps | undefined
     private lifecycle: ProjectLifecycle | undefined
     private readonly referenceView: SolutionReferenceView
@@ -558,6 +558,13 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         if (doc !== undefined && SolutionWorkspaceService.IsRevealable(doc)) doc.RequestReveal(line, column)
     }
 
+    // The document factory registered for a file extension (e.g. `.md`), or undefined when no
+    // editor handles it. Public read seam over the document-type registry (used by e2e).
+    public DocumentFactoryFor(extension: string): IDocumentFactory | undefined
+    {
+        return this.docs.FactoryFor(extension)
+    }
+
     // The open reloadable document whose resolved OS path matches `absPath` — the
     // file-watch editor-reload consumer.
     public FindOpenCodeDocByOsPath(absPath: string): ReloadableDocument | undefined
@@ -583,7 +590,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         }
     }
 
-    // ── publish helpers (ported from ProjectExplorerService, member-keyed) ────
+    // ── publish helpers (ported from the retired ProjectExplorerService, member-keyed) ────
     private PublishThroughWork(member: SolutionMember, build: BuildService): Promise<BuildPublishOutcome>
     {
         const storage = member.Storage as IStorage

@@ -33,7 +33,7 @@ shell module MetaModelModule [ Name = "Meta-model" ] {
 
     Capability [ Name = "Meta-models", Icon = @MetaModels, ServiceKey = MetaModelsService ]
 
-    // The `.todl` editor — resolved by the ProjectExplorerService for open/save/
+    // The `.todl` editor — resolved by the DocumentTypeRegistry for open/save/
     // new of any `.todl` file (in any project). Factory is TodlDocumentFactory.
     .documents: {
         DocumentDefinition

@@ -4,7 +4,7 @@ import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 // The file-editing half of the old IProjectFactory — extracted so an EDITOR owns
 // a file format, not a project. A module contributes a DocumentDefinition (mural)
 // whose `Factory` service token resolves to an IDocumentFactory; the generic
-// ProjectExplorerService resolves it by extension (DocumentTypeRegistry) and
+// content-host layer (SolutionWorkspaceService) resolves it by extension (DocumentTypeRegistry) and
 // delegates open/save/new. Any project can open any file whose extension a
 // registered editor handles — the editor opens it, regardless of project type.
 //

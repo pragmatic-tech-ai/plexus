@@ -12,7 +12,7 @@ import type { IContentMutations } from './content-mutations.js'
 // Dispatches the project-lifecycle context-menu commands for a member (project) row —
 // Remove from Solution / Bump Version ▸ / Set Version… / Manage References… / Refresh
 // Bases / Update Agent Metadata — to the IContentMutations façade (the re-typed
-// ProjectExplorerService). An action-only contributor: Contribute yields no nodes (the
+// SolutionWorkspaceService). An action-only contributor: Contribute yields no nodes (the
 // project rows come from ProjectsProvider); it exists to Resolve the commands
 // its DSL-declared CommandDefinitions carry. Producer/version gating rides each resolved
 // command's CanExecute. (Publish is contributed by the build module — Task 6.)

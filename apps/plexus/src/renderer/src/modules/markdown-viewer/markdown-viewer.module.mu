@@ -2,7 +2,7 @@
 // document type.
 //
 // A ShellModule with NO nav Capability (like code-editor/problems): it only
-// registers a document VIEWER so the ProjectExplorerService opens .md files as a
+// registers a document VIEWER so the content-host layer (DocumentTypeRegistry) opens .md files as a
 // rendered MarkdownDocument (a RichTextBlock over the parsed FlowDocument) instead
 // of raw text. The DataTemplate[MarkdownDocument] is composed by app.mu; this
 // module adds the extension→factory routing.
