@@ -9,10 +9,9 @@
   "scripts": {
     "//": "compile:mu compiles the mural UI .mu -> .mu.js via the mural CLI (Vite then bundles it). dev runs electron-vite with HMR; build produces the packaged renderer/main/preload under out/. mural is consumed from the local registry (Verdaccio); when framework source changes, republish mural and reinstall here (or `npm link` for live iteration) - the renderer bundles mural's built dist.",
     "compile:mu": "node scripts/compile-mu.mjs",
-    "build:todl-server": "node scripts/build-todl-server.mjs",
     "generate:icon": "node scripts/generate-icon.mjs",
-    "dev": "npm run compile:mu && npm run build:todl-server && electron-vite dev",
-    "build": "npm run compile:mu && npm run build:todl-server && electron-vite build",
+    "dev": "npm run compile:mu && electron-vite dev",
+    "build": "npm run compile:mu && electron-vite build",
     "start": "electron-vite preview",
     "test": "vitest run",
     "pretest": "npm run compile:mu",

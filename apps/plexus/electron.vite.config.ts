@@ -28,12 +28,8 @@ const TODL_DIST: string = (() => {
 // where mural lives: Vite bundles `mural/*` from the
 // `file:../..` linked dependency.
 export default defineConfig({
-  // Don't empty out/main on build: the vendored TODL language-server bundle
-  // (out/main/todl-language-server.cjs, produced by scripts/build-todl-server.mjs
-  // before electron-vite runs) lives here and must survive the main build.
   main: {
     plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
-    build: { emptyOutDir: false },
   },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: [CORE] })],

@@ -10,7 +10,6 @@ import {
   Updater,
 } from '@pragmatic-tech-ai/plexus-core/main'
 import { registerAgentHandlers } from './agent.js'
-import { registerTodlServerHandlers } from './todl/register.js'
 import { TITLE_BAR_HEIGHT } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
 import {
   PackageEngine,
@@ -145,7 +144,6 @@ app.whenReady().then(async () => {
   // TODL language server: fork the vendored stdio server and relay LSP JSON-RPC
   // to the renderer. Registered before the window so the ToServer channel is
   // listening when the renderer builds its connection on load.
-  registerTodlServerHandlers()
   // Window chrome: re-tint the native caption buttons (WCO) when the renderer's
   // theme changes.
   registerWindowHandlers()
