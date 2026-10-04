@@ -49,7 +49,7 @@ import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-pr
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
-import { SolutionStudioSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-studio'
+import { SolutionSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { DurableStoreRegistration, BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
 import { RendererPackageSource } from './services/projects/renderer-package-source.js'
 
@@ -106,12 +106,12 @@ try {
     // ProjectExplorerService (via ProjectTreeHostKey), whose ctor builds
     // SolutionManagerService, which getRequired's these seams. SolutionServicesEngine
     // (app.mu .modules) already registered SolutionManagerService.Key +
-    // ProjectFactoryRegistryKey; SolutionStudioSeams adds the generic host seams
+    // ProjectFactoryRegistryKey; SolutionSeams adds the generic host seams
     // (PromptServiceKey over DialogService, StorageRegistryKey over StorageService);
     // PackageSourceKey is app-specific (RendererPackageSource, over the same
     // published-packages backend PlexusPackageStore reads). All are lazy factories —
     // registering here constructs nothing; the singletons are resolved further below.
-    SolutionStudioSeams.Register(app.Services)
+    SolutionSeams.Register(app.Services)
     app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
     // Bind the durable application store BEFORE the manager is constructed (its ctor registers its
     // session bag with DurableApplicationStoreKey). Nothing bound this key before, so the session
