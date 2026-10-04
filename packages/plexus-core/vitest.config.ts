@@ -116,6 +116,7 @@ const todlShimPlugin: Plugin = {
             // SettingKind) — the mural dist alias resolves + externalizes them (native load, cycle intact).
             `export { ConnectionBag, ConnectionBagKind, TokenSource } from ${p('solution-services/property-bags/connection-bag.js')}`,
             `export { ConnectionResolution, ConnectionPurpose, ConnectionSelectionKind } from ${p('solution-services/property-bags/connection-resolution.js')}`,
+            `export { ConnectionSelection } from ${p('solution-services/property-bags/connection-selection.js')}`,
             `export { BagMigration } from ${p('solution-services/property-bags/bag-migration.js')}`,
             `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
             `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,

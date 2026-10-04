@@ -33,13 +33,12 @@ import {
     ProjectEventsKey,
     ProjectType,
     ProjectNodeKind,
-    ProjectSharedBagPersister,
-    ProjectLocalBagPersister,
     SolutionBaseResolver,
     SolutionManagerService,
     UniqueName,
     VersionPart as EngineVersionPart,
     type BagVantage,
+    type IBagPersister,
     type BuildPublishOutcome,
     type SolutionMember,
 } from '@pragmatic-tech-ai/todl'
@@ -72,7 +71,6 @@ import type { IConnectionView } from './connection-view.js'
 import { ConnectionsClientKey } from './connections-client.js'
 import { SolutionReferenceView } from './solution-reference-view.js'
 import { ConnectionEditingService, type IConnectionHost } from './connection-editing-service.js'
-import { SavingSolutionBagPersister } from './saving-solution-bag-persister.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { InfoDialog } from './info-dialog.js'
 import { DocOwnership, type ReloadableDocument } from './doc-ownership.js'
@@ -81,6 +79,7 @@ import {
     RenameError,
     ReferenceEditor,
     ProjectLifecycle,
+    ConnectionSelection,
     type IContentLifecycleGuard,
     type ICloseGuard,
     type IPublishedBaseCatalog,
@@ -148,6 +147,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     private lifecycle: ProjectLifecycle | undefined
     private readonly referenceView: SolutionReferenceView
     private connectionView: ConnectionEditingService | undefined
+    private connectionSelection: ConnectionSelection | undefined
     // The Publish-kind background-work executor is registered once, lazily.
     private publishExecutorRegistered = false
 
@@ -182,7 +182,8 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     {
         if (this.connectionView === undefined)
         {
-            this.connectionView = new ConnectionEditingService(this.Provider.getRequired(ConnectionsClientKey), this.ConnectionHost())
+            this.connectionView = new ConnectionEditingService(
+                this.Provider.getRequired(ConnectionsClientKey), this.ConnectionHost(), this.Selection())
         }
         return this.connectionView
     }
@@ -193,21 +194,18 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // member produces that id or no connection applies.
     public async EffectiveConnectionIdForConsumer(consumerId: string): Promise<string | undefined>
     {
-        const member = await this.MemberForConsumerId(consumerId)
+        const member = await this.Selection().MemberForConsumerId(consumerId)
         if (member === undefined) return undefined
         return (await this.Connections.ActiveConnectionFor(member))?.Id
     }
 
-    private async MemberForConsumerId(consumerId: string): Promise<SolutionMember | undefined>
+    // The engine connection-selection ops (bag reads/writes live there). The global bag
+    // persister is app-registered, so this is resolved lazily; absent (headless) -> the
+    // engine ops no-op.
+    private Selection(): ConnectionSelection
     {
-        const solution = this.manager.ActiveSolution
-        if (solution === undefined) return undefined
-        for (const member of solution.Members.ToArray())
-        {
-            if (member.Storage === undefined) continue
-            if (await this.resolver.ConsumerIdOf(member.Storage) === consumerId) return member
-        }
-        return undefined
+        return (this.connectionSelection ??= new ConnectionSelection(
+            this.manager, this.resolver, this.Provider.get(GlobalBagPersisterKey) as IBagPersister))
     }
 
     // The host ConnectionEditingService needs: the requiresMetaModel factory gate, base
@@ -215,6 +213,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     private ConnectionHost(): IConnectionHost
     {
         return {
+            ConsumerIdOf: async (m) => (m.Storage === undefined ? undefined : this.resolver.ConsumerIdOf(m.Storage)),
             ProjectFor: (m) =>
             {
                 const factory = m.IsResolved ? this.factoryFor(m) : undefined
@@ -229,20 +228,9 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // The bag vantage for connection resolution: always global; the active solution when one
     // is open; and, for a member, that project's shared + local scopes. Undefined when the
     // global persister is not wired (headless) — callers then use the client inventory alone.
-    private async BuildVantage(member?: SolutionMember): Promise<BagVantage | undefined>
+    private BuildVantage(member?: SolutionMember): Promise<BagVantage | undefined>
     {
-        const global = this.Provider.get(GlobalBagPersisterKey)
-        if (global === undefined) return undefined
-        const vantage: BagVantage = { Global: global }
-        const solution = this.manager.ActiveSolution
-        if (solution !== undefined) vantage.Solution = new SavingSolutionBagPersister(solution, this.manager)
-        const storage = member?.Storage
-        if (storage !== undefined)
-        {
-            vantage.ProjectShared = await ProjectSharedBagPersister.Open(storage)
-            vantage.ProjectLocal = await ProjectLocalBagPersister.Open(storage)
-        }
-        return vantage
+        return this.manager.BuildVantage(this.Provider.get(GlobalBagPersisterKey), member)
     }
 
     public override dispose(): void

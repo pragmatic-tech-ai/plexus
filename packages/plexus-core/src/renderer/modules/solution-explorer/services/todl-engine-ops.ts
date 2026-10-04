@@ -8,6 +8,8 @@ export {
     type ImportFile,
     type IContentLifecycleGuard,
     ReferenceEditor,
+    ConnectionSelection,
+    type AdoptableConnection,
     ReferenceResolutionKind,
     type IPublishedBaseCatalog,
     type RefChoiceDTO,

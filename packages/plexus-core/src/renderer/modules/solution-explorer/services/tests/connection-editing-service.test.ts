@@ -7,6 +7,7 @@ import {
     ConnectionBag,
     ConnectionBagKind,
     ConnectionSelectionKind,
+    ConnectionSelection,
     ConnectionPurpose,
     RecordPropertyBag,
     type BagVantage,
@@ -53,7 +54,7 @@ class FakeClient implements IConnectionsClient
     EnvVars(): Promise<readonly string[]> { return Promise.resolve([]) }
 }
 
-const MEMBER = { Ref: { path: 'projA' } } as unknown as SolutionMember
+const MEMBER = { Ref: { path: 'projA' }, Storage: {} } as unknown as SolutionMember
 
 function setup(globals: ConnectionView[] = [globalConnection('gh', true)])
 {
@@ -61,18 +62,27 @@ function setup(globals: ConnectionView[] = [globalConnection('gh', true)])
     const solution = new FakeBagPersister(BagScope.Solution)
     const projectLocal = new FakeBagPersister(BagScope.Project)
     let status = ''
-    // Realistic host vantage: the solution-wide view (no member) carries Global + Solution only; a
-    // member's view adds that project's local scope — matching the real project-explorer host.
+    // Realistic vantage: the solution-wide view (no member) carries Global + Solution only; a
+    // member's view adds that project's local scope. Both the host (reads) and the REAL engine
+    // ConnectionSelection (writes, via its manager) see the same fake bags.
+    const vantageFor = (member?: SolutionMember): BagVantage => (member === undefined
+        ? { Global: global, Solution: solution }
+        : { Global: global, Solution: solution, ProjectLocal: projectLocal })
+    const manager = {
+        ActiveSolution: { Members: [MEMBER] },
+        BuildVantage: (_g: unknown, member?: SolutionMember) => Promise.resolve(vantageFor(member)),
+    }
+    const resolver = { ConsumerIdOf: () => Promise.resolve('projA') }
+    const selection = new ConnectionSelection(manager as never, resolver as never, global)
     const host: IConnectionHost =
     {
         ProjectFor: () => undefined,
+        ConsumerIdOf: () => Promise.resolve('projA'),
         SetStatus: (s) => { status = s },
         RefreshBasesFor: () => Promise.resolve(),
-        Vantage: (member) => Promise.resolve(member === undefined
-            ? { Global: global, Solution: solution }
-            : { Global: global, Solution: solution, ProjectLocal: projectLocal }),
+        Vantage: (member) => Promise.resolve(vantageFor(member)),
     }
-    const service = new ConnectionEditingService(new FakeClient(globals), host)
+    const service = new ConnectionEditingService(new FakeClient(globals), host, selection)
     return { service, solution, projectLocal, get status() { return status } }
 }
 
@@ -102,6 +112,19 @@ describe('ConnectionEditingService over the bag catalog', () =>
         expect(sel.GetValue(ConnectionPurpose.ReferenceResolution)).toBe(BagAddress.Key(new BagAddress(BagScope.Solution, ConnectionBagKind, 'sol-conn')))
         expect(solution.Ids(ConnectionSelectionKind)).toEqual([])   // never written to the solution
         expect((await service.ActiveConnectionFor(MEMBER))?.Id).toBe('sol-conn')
+
+        await service.SetActiveConnectionFor(MEMBER, undefined)   // clear -> falls back to the default
+        expect(projectLocal.Bag(ConnectionSelectionKind, 'main').GetValue(ConnectionPurpose.ReferenceResolution)).toBeFalsy()
+        expect((await service.ActiveConnectionFor(MEMBER))?.Id).toBe('gh')
+    })
+
+    it('SetSolutionDefault adopts a global-only connection at solution scope with its inventory identity', async () =>
+    {
+        const { service, solution } = setup([globalConnection('gh', true)])
+        await service.SetSolutionDefault('gh')
+        const adopted = new ConnectionBag(solution.Bag(ConnectionBagKind, 'gh'))
+        expect(adopted.IsDefault).toBe(true)
+        expect(adopted.RegistryType).toBe('npm')
     })
 
     it('SetSolutionDefault maps onto solution-scope IsDefault; IsSolutionDefault reflects it', async () =>

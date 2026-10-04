@@ -102,7 +102,7 @@ import { StorageService } from '../../storage/index.js'
 import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { IDisposable, CollectionChange } from '@pragmatic-tech-ai/todl-runtime'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
-import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService, ProjectSharedBagPersister, ProjectLocalBagPersister, BuildService } from '@pragmatic-tech-ai/todl'
+import { ProjectEventKind, ProjectEventsKey, ProjectType, ProjectNodeKind, SolutionBaseResolver, SolutionManagerService, ProjectSharedBagPersister, ProjectLocalBagPersister, BuildService, ConnectionSelection } from '@pragmatic-tech-ai/todl'
 import type { SolutionMember, ProjectManifest, BagVantage, BuildPublishOutcome } from '@pragmatic-tech-ai/todl'
 import { MemberProjection } from './member-projection.js'
 
@@ -277,7 +277,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
         if (this.connections === undefined)
         {
             const client = this.Provider.getRequired(ConnectionsClientKey)
-            this.connections = new ConnectionEditingService(client, this.connectionHost())
+            this.connections = new ConnectionEditingService(client, this.connectionHost(), new ConnectionSelection(this.manager, this.Provider.getRequired(SolutionBaseResolver.Key), this.Provider.get(GlobalBagPersisterKey)!))
         }
         return this.connections
     }
@@ -323,6 +323,7 @@ export class ProjectExplorerService extends ServiceBase implements IProjectTreeH
     {
         return {
             ProjectFor: (m) => this.projected.get(m),
+            ConsumerIdOf: async (m) => { const st = this.projected.get(m)?.Storage ?? m.Storage; return st === undefined ? undefined : this.Provider.getRequired(SolutionBaseResolver.Key).ConsumerIdOf(st) },
             SetStatus: (s) => { this.Status = s },
             RefreshBasesFor: async (m) => { this.RefreshMemberBases(m) },
             Vantage: (m) => this.buildVantage(m),
