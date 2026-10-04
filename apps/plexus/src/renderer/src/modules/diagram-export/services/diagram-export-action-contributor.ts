@@ -5,10 +5,9 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { FileTreeContributor } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { DiagramExportFormat } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { ContentNodeKey, type ProjectContentNode } from '@pragmatic-tech-ai/todl'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { DiagramTreeExport } from './diagram-tree-export.js'
 
 // The "Export ▸ SVG / PowerPoint" command for a .diagram node — the DiagramTreeExportKey
@@ -40,7 +39,7 @@ export class DiagramExportActionContributor extends ServiceBase implements IHier
         const member = FileTreeContributor.MemberOf(anchor)
         const node = anchor.ExtObject as ProjectContentNode | undefined
         if (member === undefined || node === undefined) return undefined
-        const op = this.Provider.getRequired(ProjectExplorerService.Key).ProjectedOpFor(member)
+        const op = ActiveSolutionMembers.From(this.Provider).HandleFor(member)
         const isDiagram = (): boolean => op !== undefined && node.Path.toLowerCase().endsWith(DiagramExportActionContributor.DiagramExt)
         switch (commandId)
         {
@@ -55,7 +54,7 @@ export class DiagramExportActionContributor extends ServiceBase implements IHier
         }
     }
 
-    private async run(op: OpenProject, path: string, format: DiagramExportFormat): Promise<void>
+    private async run(op: IProjectHandle, path: string, format: DiagramExportFormat): Promise<void>
     {
         await this.Provider.get(DiagramTreeExport.Key)?.Export(op, path, format)
     }

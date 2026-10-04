@@ -11,7 +11,7 @@ import {
 } from '@pragmatic-tech-ai/todl'
 import { FileTreeContributor } from '../file-tree-contributor.js'
 import type { ProjectHierarchyProvider } from '../project-hierarchy-provider.js'
-import type { IContentMutations } from '../../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from '../content-mutations.js'
 
 const tick = () => new Promise((r) => setTimeout(r, 10))
 

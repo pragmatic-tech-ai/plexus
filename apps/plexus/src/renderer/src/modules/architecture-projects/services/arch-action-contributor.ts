@@ -5,15 +5,16 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { FileTreeContributor } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
+import { ActiveSolutionMembers } from '../../../services/solution/active-solution-members.js'
 import { ContentNodeKey, type ProjectContentNode } from '@pragmatic-tech-ai/todl'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
 import { DiagramViewpointsEditor } from './diagram-viewpoints-editor.js'
 
 // The "Edit Viewpoints…" command for a .diagram node in an architecture project — the
 // INodeCommandContributor replacement on the command-dispatch seam, Context-tagged to the
-// diagram content key. Resolves the member's projected OpenProject, opens/focuses the
+// diagram content key. Resolves the member's resolved project, opens/focuses the
 // diagram, ensures its arch binding, then runs the shared viewpoints editor. Gating (arch
 // project + .diagram) rides the resolved command's CanExecute.
 export class ArchActionContributor extends ServiceBase implements IHierarchyContributor
@@ -41,17 +42,17 @@ export class ArchActionContributor extends ServiceBase implements IHierarchyCont
         const member = FileTreeContributor.MemberOf(anchor)
         const node = anchor.ExtObject as ProjectContentNode | undefined
         if (member === undefined || node === undefined) return undefined
-        const op = this.Provider.getRequired(ProjectExplorerService.Key).ProjectedOpFor(member)
+        const handle = ActiveSolutionMembers.From(this.Provider).HandleFor(member)
         const canEdit = (): boolean =>
-            op !== undefined
-            && op.Project.Type === ArchActionContributor.ArchType
+            handle !== undefined
+            && handle.Project.Type === ArchActionContributor.ArchType
             && node.Path.toLowerCase().endsWith(ArchActionContributor.DiagramExt)
-        return new RelayCommand(() => { if (op !== undefined) void this.edit(op, node.Path) }, canEdit)
+        return new RelayCommand(() => { if (handle !== undefined) void this.edit(member, node.Path) }, canEdit)
     }
 
-    private async edit(op: OpenProject, path: string): Promise<void>
+    private async edit(member: SolutionMember, path: string): Promise<void>
     {
-        const doc = await this.Provider.getRequired(ProjectExplorerService.Key).OpenPath(op, path)
+        const doc = await this.Provider.getRequired(SolutionWorkspaceService.Key).OpenPath(member, path)
         if (doc === undefined) return
         await this.Provider.get(ArchDiagramBindingService.Key)?.ensureBound(doc)
         await this.Provider.get(DiagramViewpointsEditor.Key)?.edit(doc)

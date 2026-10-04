@@ -3,3 +3,7 @@ export { ProjectsProvider, ProjectsRootContributor } from './services/projects-p
 export { FileTreeContributor } from './services/file-tree-contributor.js'
 export { IconKeyToGeometry, IconKeyGlyphs } from './services/icon-key-to-geometry.js'
 export { LazySubmenuPlaceholder } from './services/lazy-submenu-placeholder.js'
+export { SolutionWorkspaceService } from './services/solution-workspace-service.js'
+export { ProjectCommandsService, type CreateOutcome } from './services/project-commands-service.js'
+export { LiveValidationSync } from './services/live-validation-sync.js'
+export type { ReloadableDocument } from './services/doc-ownership.js'

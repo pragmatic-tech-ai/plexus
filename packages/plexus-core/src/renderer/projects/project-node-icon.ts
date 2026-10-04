@@ -1,7 +1,7 @@
 // project-node-icon.ts — the project explorer's small glyph converters.
 //
 // The project tree renders declaratively (a HierarchicalDataTemplate over
-// ProjectNode.Children — see project-explorer.resources.mu). Two bits are
+// ProjectNode.Children). Two bits are
 // data-driven glyphs a template can't express as a static resource, so each
 // flows through a value converter: the per-kind node icon (`$Kind <<
 // KindToGeometry`) and the project header's expand/collapse chevron

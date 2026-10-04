@@ -1,10 +1,9 @@
-import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { VersionPart } from '../../../projects/semver-bump.js'
 
 // The member-keyed mutation surface the Solution Explorer's contributors + host call.
-// Implemented by ProjectExplorerService (which resolves the projected OpenProject and
+// Implemented by SolutionWorkspaceService, which
 // keeps open-doc relocation / close-guard / dialogs). One seam so contributors don't
 // depend on the whole service.
 export interface IContentMutations
@@ -34,5 +33,3 @@ export interface IContentMutations
     CanRefreshBasesMember(member: SolutionMember): boolean
     SupportsScaffoldMember(member: SolutionMember): boolean
 }
-
-export const ContentMutationsKey = new ServiceKey<IContentMutations>('ContentMutations')

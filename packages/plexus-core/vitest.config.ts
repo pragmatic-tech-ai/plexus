@@ -86,8 +86,8 @@ const todlShimPlugin: Plugin = {
             // solution-session's domain/compiler-services imports, down through
             // manifest/reflection + binary-codec — none reach mural).
             `export { SolutionManagerService } from ${p('solution-services/solution-manager/engine/solution-manager-service.js')}`,
-            // Task 5 (W3b): project-explorer-service.ts's manageReferences/
-            // RefreshProjects now import the ProjectType enum (a runtime value) and
+            // Task 5 (W3b): the retired project explorer's manageReferences/
+            // RefreshProjects (now in the solution-explorer services) import the ProjectType enum (a runtime value) and
             // resolve SolutionBaseResolver.Key directly (for Invalidate) alongside
             // BaseResolverKey. ProjectType lives in the already-shimmed manifest.js
             // (no imports of its own — trivially mural-free). SolutionBaseResolver's
@@ -116,6 +116,7 @@ const todlShimPlugin: Plugin = {
             // SettingKind) — the mural dist alias resolves + externalizes them (native load, cycle intact).
             `export { ConnectionBag, ConnectionBagKind, TokenSource } from ${p('solution-services/property-bags/connection-bag.js')}`,
             `export { ConnectionResolution, ConnectionPurpose, ConnectionSelectionKind } from ${p('solution-services/property-bags/connection-resolution.js')}`,
+            `export { ConnectionSelection } from ${p('solution-services/property-bags/connection-selection.js')}`,
             `export { BagMigration } from ${p('solution-services/property-bags/bag-migration.js')}`,
             `export { SolutionMemberStatus } from ${p('solution-services/solution-manager/engine/solution-member-status.js')}`,
             `export { ProjectContentStore } from ${p('solution-services/project-services/content/project-content-store.js')}`,
@@ -134,6 +135,23 @@ const todlShimPlugin: Plugin = {
             `export { BuildService } from ${p('solution-services/todl-build-system/build-service.js')}`,
             `export { BuildSystemRegistryKey } from ${p('solution-services/project-services/composition/build-system-registry-key.js')}`,
             `export { parseManifest } from ${p('solution-services/package-manager/manifest.js')}`,
+            // Task 9 (SolutionWorkspaceService): the member-keyed mutation UI over the engine ops
+            // (todl 0.40.1 exports all of these from its index; the service imports them bare, so the
+            // shim must mirror them). MemberProjectOps imports only project-factory.js (already
+            // shimmed, mural-free) + semver.js (pure); SemVer/VersionPart (semver.js) have no imports;
+            // UniqueName (content/unique-name.js) imports only a todl-runtime IStorage type;
+            // MemberContentOps (content/member-content-ops.js) imports only UniqueName; ReferenceEditor
+            // (references/reference-editor.js) imports manifest/project-factory/project-events;
+            // ProjectLifecycle (solution-manager/engine/project-lifecycle.js) imports the already-
+            // shimmed SolutionManagerService + project-events/manifest/project-factory; ProjectEventsKey
+            // (generators/project-events.js) imports only ServiceKey from todl-runtime — all mural-free.
+            `export { MemberProjectOps } from ${p('solution-services/project-services/core/member-project-ops.js')}`,
+            `export { SemVer, VersionPart } from ${p('solution-services/project-services/core/semver.js')}`,
+            `export { UniqueName } from ${p('solution-services/project-services/content/unique-name.js')}`,
+            `export { ProjectEvents, ProjectEventsKey, ProjectEventKind } from ${p('solution-services/project-services/generators/project-events.js')}`,
+            `export { MemberContentOps, RenameError } from ${p('solution-services/project-services/content/member-content-ops.js')}`,
+            `export { ReferenceEditor, ReferenceResolutionKind } from ${p('solution-services/project-services/references/reference-editor.js')}`,
+            `export { ProjectLifecycle, CreateError, OpenError } from ${p('solution-services/solution-manager/engine/project-lifecycle.js')}`,
         ].join('\n')
     },
 }

@@ -21,7 +21,7 @@ import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/m
 import { TaskKind } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { OpenProjectsStore } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ProjectCommandsService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js'
 import type { NewProjectResult } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
 import { NewProjectCard } from './new-project-card.js'
 import { ModelPatchHandler } from './model-patch-handler.js'
@@ -538,7 +538,7 @@ export class ChatSessionsService extends ServiceBase
     // back to unblock the tool. Same flow as the old AgentService.handleCreateProject.
     private async handleCreateProject(_sessionId: string, req: CreateProjectRequest, reducer: TranscriptReducer): Promise<void>
     {
-        const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
+        const commands = this.Provider.getRequired(ProjectCommandsService.Key)
         const card = new NewProjectCard(req.id)
         const close = (result?: NewProjectResult): void => {
             if (result === undefined)
@@ -549,13 +549,13 @@ export class ChatSessionsService extends ServiceBase
                 return
             }
             void (async () => {
-                const outcome = await explorer.CreateProject(result)
+                const outcome = await commands.CreateProject(result)
                 card.showResult(outcome)
                 void this.agent.createProjectResult({ id: req.id, ...outcome })
                 reducer.releasePending(req.id)
             })()
         }
-        card.Form = await explorer.NewProjectFormFor(close, req.prefill)
+        card.Form = await commands.NewProjectFormFor(close, req.prefill)
         reducer.addPendingCard(req.id, card)
     }
 

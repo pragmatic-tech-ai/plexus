@@ -6,7 +6,7 @@ import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diag
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { ViewportService } from '../../services/viewport/viewport-service.js'
 import { ClipboardService } from '../../services/clipboard/clipboard-service.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 
 // The Problems popup caps its scrollable list at this fraction of the live
 // window height. When no ViewportService is available (headless edge cases), fall
@@ -79,7 +79,7 @@ export class ProblemsRow extends MuralBase
 // A grouped, observable view over the DiagnosticsService, rendered in the shell's
 // Status region as the Problems dock. Rebuilds its flat Rows whenever the store
 // changes; exposes rolled-up counts, an expand toggle, and row activation
-// (open file + reveal the span through the project explorer).
+// (open file + reveal the span through the solution workspace).
 //
 // The Key is the standalone ProblemsServiceKey (below the imports) — the .mu
 // StatusBar control references THAT ServiceKey as its DataContext, because the
@@ -181,7 +181,7 @@ export class ProblemsService extends ServiceBase
     public ActivateRow(row: ProblemsRow): void
     {
         if (row.Uri === null) return
-        void this.Provider.get(ProjectExplorerService.Key)?.OpenFileInProject(row.ProjectId, row.Uri, row.Line, row.Column)
+        void this.Provider.get(SolutionWorkspaceService.Key)?.OpenFileInProject(row.ProjectId, row.Uri, row.Line, row.Column)
         this.IsOpen = false
     }
 

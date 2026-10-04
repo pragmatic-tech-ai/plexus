@@ -1,10 +1,11 @@
 import { describe, expect, test, vi } from 'vitest'
 import { FileChangeKind, type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from '../file-watch-service.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { FakeSolutionManager } from '../../solution/tests/fake-solution-manager.js'
 
-// Minimal fakes: a fake preload bridge and a fake explorer exposing an OpenProjects
-// collection with a Subscribe(cb) + ToArray().
+// Minimal fakes: a fake preload bridge and a fake SolutionManagerService whose
+// ActiveSolution.Members carries the open projects.
 function makeBridge()
 {
   let changedCb: ((e: FileChangeEvent) => void) | undefined
@@ -17,34 +18,26 @@ function makeBridge()
   return { api, watch, unwatch, fire: (e: FileChangeEvent) => changedCb?.(e) }
 }
 
-function makeExplorer(folders: string[])
+function makeManager(folders: string[])
 {
-  let subCb: (() => void) | undefined
-  const items = folders.map((f) => ({ Folder: f }))
-  const OpenProjects = {
-    ToArray: () => items.slice(),
-    Subscribe: (cb: () => void) => { subCb = cb; return () => { subCb = undefined } },
-    _set: (next: string[]) => { items.length = 0; next.forEach((f) => items.push({ Folder: f })); subCb?.() },
-  }
-  return { OpenProjects }
+  const manager = new FakeSolutionManager()
+  for (const f of folders) manager.AddResolved({ RootPath: f, Name: f })
+  return manager
 }
 
-function makeProvider(explorer: unknown)
+function makeProvider(manager: FakeSolutionManager)
 {
-  return {
-    getRequired: (key: unknown) => {
-      if (key === ProjectExplorerService.Key) return explorer
-      throw new Error('unexpected key')
-    },
-  }
+  const provider = new ServiceProvider()
+  manager.RegisterOn(provider)
+  return provider
 }
 
 describe('FileWatchService', () => {
   test('watches the roots of already-open projects on construction', () => {
     const b = makeBridge()
     ;(globalThis as unknown as { api?: unknown }).api = { fileWatch: b.api }
-    const explorer = makeExplorer(['C:/proj/a'])
-    const svc = new FileWatchService(makeProvider(explorer) as never)
+    const manager = makeManager(['C:/proj/a'])
+    const svc = new FileWatchService(makeProvider(manager) as never)
     expect(b.watch).toHaveBeenCalledWith('C:/proj/a')
     svc.dispose()
   })
@@ -52,11 +45,11 @@ describe('FileWatchService', () => {
   test('watches on open and unwatches on close', () => {
     const b = makeBridge()
     ;(globalThis as unknown as { api?: unknown }).api = { fileWatch: b.api }
-    const explorer = makeExplorer([])
-    const svc = new FileWatchService(makeProvider(explorer) as never)
-    ;(explorer.OpenProjects as unknown as { _set: (f: string[]) => void })._set(['C:/proj/b'])
+    const manager = makeManager([])
+    const svc = new FileWatchService(makeProvider(manager) as never)
+    const added = manager.AddResolved({ RootPath: 'C:/proj/b', Name: 'b' })
     expect(b.watch).toHaveBeenCalledWith('C:/proj/b')
-    ;(explorer.OpenProjects as unknown as { _set: (f: string[]) => void })._set([])
+    manager.Remove(added)
     expect(b.unwatch).toHaveBeenCalledWith('C:/proj/b')
     svc.dispose()
   })
@@ -64,8 +57,8 @@ describe('FileWatchService', () => {
   test('broadcasts Changed events to subscribers', () => {
     const b = makeBridge()
     ;(globalThis as unknown as { api?: unknown }).api = { fileWatch: b.api }
-    const explorer = makeExplorer([])
-    const svc = new FileWatchService(makeProvider(explorer) as never)
+    const manager = makeManager([])
+    const svc = new FileWatchService(makeProvider(manager) as never)
     const seen: FileChangeEvent[] = []
     svc.Subscribe((e) => seen.push(e))
     b.fire({ path: 'C:/proj/b/x.todl', kind: FileChangeKind.Changed })

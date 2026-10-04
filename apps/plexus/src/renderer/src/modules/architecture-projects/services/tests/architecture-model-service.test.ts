@@ -5,6 +5,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { ArchitectureModelService } from '../architecture-model-service.js'
 
 const MM = `namespace archmm {
@@ -32,6 +33,7 @@ function providerWithBase(baseDoc: TodlDocument): ServiceProvider
 function providerWithBases(bases: TodlDocument[]): ServiceProvider
 {
     const provider = new ServiceProvider()
+    new FakeSolutionManager().RegisterOn(provider)
     provider.registerInstance(SolutionBaseResolver.Key, {
         ResolveBasesFor: async () => ({ bases, problems: [] }),
     } as unknown as SolutionBaseResolver)

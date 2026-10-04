@@ -13,7 +13,8 @@ import {
 } from '@pragmatic-tech-ai/todl'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
-import { ProjectExplorerService } from '../../project-explorer/services/project-explorer-service.js'
+import { SolutionWorkspaceService } from './solution-workspace-service.js'
+import { ProjectCommandsService } from './project-commands-service.js'
 import { ProjectsRootContributor } from './projects-provider.js'
 import { FileTreeContributor, AddNewSubmenuContributor } from './file-tree-contributor.js'
 import { ReferencesContributor } from './references-contributor.js'
@@ -34,7 +35,7 @@ import { SolutionTreeStateService } from './solution-tree-state-service.js'
 // follows ActiveSolution, seeds the (unrendered) Solution root once, and re-registers the
 // per-solution contributors on every rebuild (they close over the active solution). The default
 // @HierarchyTreeView template binds $Hierarchy.Roots / $Hierarchy.Host. Open-on-activate climbs
-// a row to its member and delegates to ProjectExplorerService.
+// a row to its member and delegates to SolutionWorkspaceService.
 export class SolutionExplorerService extends Observable implements HierarchyHost
 {
     public static readonly Key = new ServiceKey<SolutionExplorerService>('SolutionExplorerService')
@@ -69,11 +70,12 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     public get HasNoSolution(): boolean { return this._hasNoSolution }
 
     // Command pass-throughs so the panel's DataContext (this service) still exposes the
-    // surviving Open/New-project lifecycle commands (ProjectExplorerService owns them).
-    public get OpenProjectCommand(): ICommand { return this.explorer.OpenProjectCommand }
-    public get NewProjectCommand(): ICommand { return this.explorer.NewProjectCommand }
+    // Open/New-project commands (ProjectCommandsService owns them).
+    public get OpenProjectCommand(): ICommand { return this.commands.OpenProjectCommand }
+    public get NewProjectCommand(): ICommand { return this.commands.NewProjectCommand }
 
-    private get explorer(): ProjectExplorerService { return this.provider.getRequired(ProjectExplorerService.Key) }
+    private get workspace(): SolutionWorkspaceService { return this.provider.getRequired(SolutionWorkspaceService.Key) }
+    private get commands(): ProjectCommandsService { return this.provider.getRequired(ProjectCommandsService.Key) }
 
     public Start(): void
     {
@@ -104,8 +106,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // submenu contributors registered there (e.g. SkillRunSubmenuContributor) — a parentless
         // provider found no owner and threw when the project-row "Run Agent / Skill ▸" opened.
         const services = this.provider.createScope()
-        services.registerInstance(ReferenceSubmenuContributor.Key, new ReferenceSubmenuContributor(this.explorer.References))
-        services.registerInstance(ConnectionActiveSubmenuContributor.Key, new ConnectionActiveSubmenuContributor(this.explorer.Connections))
+        services.registerInstance(ReferenceSubmenuContributor.Key, new ReferenceSubmenuContributor(this.workspace.References))
+        services.registerInstance(ConnectionActiveSubmenuContributor.Key, new ConnectionActiveSubmenuContributor(this.workspace.Connections))
         services.registerTransient(AddNewSubmenuContributor.Key, () => new AddNewSubmenuContributor(this.requireFiles()))
         // The Build ▸ flavor submenu reads the composed per-project build systems (absent in
         // headless/unit contexts — the submenu then yields nothing rather than throwing).
@@ -135,30 +137,30 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.rootItem.ExtObject = solution
         }
         this.files = new FileTreeContributor()
-        this.files.SetMutations(this.explorer)
-        this.files.SetReferenceView(this.explorer.References)
-        this.files.SetConnectionView(this.explorer.Connections)
+        this.files.SetMutations(this.workspace)
+        this.files.SetReferenceView(this.workspace.References)
+        this.files.SetConnectionView(this.workspace.Connections)
         // The global Connections branch (a keyed node under the Solution root) is an INDEPENDENT
         // peer contributor. The per-project References branch is now a factory the project-rows
         // provider delegates to (not a registered contributor) — see ProjectsProvider.
-        this.connectionsRoot = new ConnectionsRootContributor(this.explorer.Connections)
-        this.references = new ReferencesContributor(this.explorer.References)
+        this.connectionsRoot = new ConnectionsRootContributor(this.workspace.Connections)
+        this.references = new ReferencesContributor(this.workspace.References)
         // The project rows are now a delta-pushing provider (ProjectsProvider, owned by the
         // Solution root) rather than a keyed contributor: a keyed listing was skipped by
         // hierarchy.reRealize once present, so member add/remove/status never repainted. The
         // provider delegates each row's file-tree / References subtree to this.files / this.references.
         this.projectsRoot = new ProjectsRootContributor(solution, this.files, this.references)
         const launcher = this.provider.getRequired(ConnectionEditorLauncherKey)
-        const projectActions = new ProjectActionsContributor(this.explorer)
-        const referenceActions = new ReferenceActionsContributor(this.explorer.References)
-        const connectionActions = new ConnectionActionsContributor(this.explorer.Connections, launcher)
+        const projectActions = new ProjectActionsContributor(this.workspace)
+        const referenceActions = new ReferenceActionsContributor(this.workspace.References)
+        const connectionActions = new ConnectionActionsContributor(this.workspace.Connections, launcher)
         // The Build/Publish contributor needs runtime collaborators (BuildService + the
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
         // path like the other action contributors. BuildService is a thin provider wrapper;
         // resolve a registered/substituted one and fall back to a direct construction (nothing
         // registers BuildService.Key today — Task 7's DI pass) — the same idiom publishProject uses.
         const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
-        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.explorer)
+        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.workspace)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         this.handles.push(registry.RegisterInstance(this.projectsRoot))
@@ -204,7 +206,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // reference leaf) via the reference view — the key-Delete peer of the menu Remove.
     private async removeReferenceSelection(anchor: HierarchyItem): Promise<void>
     {
-        const view = this.explorer.References
+        const view = this.workspace.References
         const selection = this.selection().filter((item) => item.Key === ReferenceNodeKey.Leaf)
         const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
         for (const item of targets)
@@ -221,7 +223,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // connection leaf) via the connection view — the key-Delete peer of the menu Remove.
     private async removeConnectionSelection(anchor: HierarchyItem): Promise<void>
     {
-        const view = this.explorer.Connections
+        const view = this.workspace.Connections
         const selection = this.selection().filter((item) => item.Key === ConnectionNodeKey.Leaf)
         const targets = selection.includes(anchor) && selection.length > 0 ? selection : [anchor]
         for (const item of targets)
@@ -237,7 +239,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         if (content === undefined || content.Path === undefined) return   // a member / synthetic row — nothing to open
         const member = FileTreeContributor.MemberOf(item)
         if (member === undefined) return
-        await this.explorer.OpenMemberFile(member, content.Path, content.Kind as ProjectNodeKind)
+        await this.workspace.OpenMemberFile(member, content.Path, content.Kind as ProjectNodeKind)
     }
 
     private teardownCurrent(): void

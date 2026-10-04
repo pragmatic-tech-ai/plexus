@@ -73,3 +73,21 @@ test('Remove notifies; Current reflects the mirror; unsubscribe stops delivery',
     await s.Remove('/b')
     expect(seen).toEqual([['/b']])   // only the pre-unsubscribe change delivered
 })
+
+test('Remove of a normalized key removes a raw-backslash entry loaded from the backing store', async () => {
+    const fs = fakeFs()
+    await fs.WriteText('/data/open-projects.json', JSON.stringify(['C:\\work\\p1\\', '/b']))
+    const s = store(fs)
+    expect(await s.List()).toEqual(['C:/work/p1', '/b'])   // migrated on read
+    await s.Remove('C:/work/p1')
+    expect(await s.List()).toEqual(['/b'])
+})
+
+test('Add and Remove normalize their input (idempotent)', async () => {
+    const s = store()
+    await s.Add('C:\\work\\p1\\')
+    await s.Add('C:/work/p1')
+    expect(await s.List()).toEqual(['C:/work/p1'])
+    await s.Remove('C:\\work\\p1')
+    expect(await s.List()).toEqual([])
+})

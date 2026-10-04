@@ -6,7 +6,8 @@ import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
 import { CodeEditorService } from '../../modules/code-editor/code-editor-service.js'
-import { ProjectExplorerService, type ReloadableDocument } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
+import type { ReloadableDocument } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/doc-ownership.js'
 import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 
 export class EditorReloadService extends ServiceBase
@@ -44,7 +45,7 @@ export class EditorReloadService extends ServiceBase
         const editor = this.Provider.getRequired(CodeEditorService.Key)
         const fromEditor = editor.FindOpenByOsPath(absPath)
         if (fromEditor !== undefined) return fromEditor
-        return this.Provider.getRequired(ProjectExplorerService.Key).FindOpenCodeDocByOsPath(absPath)
+        return this.Provider.getRequired(SolutionWorkspaceService.Key).FindOpenCodeDocByOsPath(absPath)
     }
 
     public dispose(): void { this.unsubscribe() }

@@ -6,7 +6,7 @@
 // these two ControlTemplates are the Plexus-specific fills the module hosts via
 // ContentControl[Template].
 import DiagramExportService from "../modules/diagram-export/services/diagram-export-service.js"
-import ProjectExplorerService from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer"
+import ProjectCommandsService from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js"
 import EditCommandsService from "../services/menu/edit-commands-service.js"
 import ViewCommandsService from "../services/menu/view-commands-service.js"
 import HelpCommandsService from "../services/menu/help-commands-service.js"
@@ -65,8 +65,8 @@ resources PlexusWindowChrome {
                   Template          = @WindowMenuPopup,
                   TriggerTemplate   = @FileMenuTrigger,
                   VerticalAlignment = Center ] {
-                MenuItem [ Header = "New Project",  RowTemplate = @CompactMenuItemRow, Command = $service(ProjectExplorerService).NewProjectCommand ]
-                MenuItem [ Header = "Open Project", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectExplorerService).OpenProjectCommand ]
+                MenuItem [ Header = "New Project",  RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).NewProjectCommand ]
+                MenuItem [ Header = "Open Project", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenProjectCommand ]
                 MenuSeparator
                 MenuItem [ Header = "Save",     RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveActiveCommand ]
                 MenuItem [ Header = "Save All", RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveAllCommand ]

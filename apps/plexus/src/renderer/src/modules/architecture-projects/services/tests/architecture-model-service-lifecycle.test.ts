@@ -1,8 +1,8 @@
 import { test, expect } from 'vitest'
-import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { load, toJSON, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
@@ -20,25 +20,24 @@ function fakeOpenProject(storage: FakeStorage): OpenProject
 }
 
 test('removing an open project drops its cached model', async () => {
-    const open = new ObservableCollection<OpenProject>()
-    const explorer = { OpenProjects: open } as unknown as ProjectExplorerService
+    const manager = new FakeSolutionManager()
     const baseDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
 
     const provider = new ServiceProvider()
     provider.registerInstance(SolutionBaseResolver.Key, {
         ResolveBasesFor: async () => ({ bases: [baseDoc], problems: [] }),
     } as unknown as SolutionBaseResolver)
-    provider.registerInstance(ProjectExplorerService.Key, explorer)
+    manager.RegisterOn(provider)
 
     const storage = new FakeStorage('fake://Acme')
     await storage.WriteText('m.todl', `namespace archmm {\n  model Arch : archmm conforms ComponentView { Component web {} }\n}`)
     const op = fakeOpenProject(storage)
-    open.Add(op)
+    const member = manager.AddResolved(op.Project, storage)
 
     const service = new ArchitectureModelService(provider)
     await service.modelFor(op)
     expect(service.peek(op.Project.RootPath)).toBeDefined()
 
-    open.Remove(op)                                   // fires the collection listener
+    manager.Remove(member)                            // fires the Members listener
     expect(service.peek(op.Project.RootPath)).toBeUndefined()
 })

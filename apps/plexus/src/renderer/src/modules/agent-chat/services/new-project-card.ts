@@ -1,6 +1,6 @@
 import { MetaData, MuralBase } from '@pragmatic-tech-ai/mural/runtime'
 import type { NewProjectDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/projects/new-project-dialog-model.js'
-import type { CreateOutcome } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import type { CreateOutcome } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js'
 
 // The in-chat New Project card: hosts the reused NewProjectDialogModel form while
 // pending, then collapses to a one-line recap once the project is created or the

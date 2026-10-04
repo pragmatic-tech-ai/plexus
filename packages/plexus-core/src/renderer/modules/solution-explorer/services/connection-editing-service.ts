@@ -10,20 +10,17 @@ import { Disposable, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import {
     BagCatalog,
-    BagAddress,
     BagScope,
     ConnectionBag,
     ConnectionBagKind,
-    ConnectionResolution,
-    ConnectionPurpose,
-    ConnectionSelectionKind,
+    type ConnectionSelection,
     type IBagCatalog,
     type BagVantage,
     type ResolvedBag,
 } from '@pragmatic-tech-ai/todl'
 import type { ConnectionSpec, ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { IConnectionsClient, ConnectionTestResult } from '../../solution-explorer/services/connections-client.js'
-import { ConnectionHealth, ConnectionScope, type IConnectionView, type ConnectionLeafView } from '../../solution-explorer/services/connection-view.js'
+import type { IConnectionsClient, ConnectionTestResult } from './connections-client.js'
+import { ConnectionHealth, ConnectionScope, type IConnectionView, type ConnectionLeafView } from './connection-view.js'
 
 // A project the host resolves for a member — only the factory flag the consumer gate needs.
 // requiresMetaModel is optional to match IProjectFactory (an OpenProject.Factory); the gate
@@ -36,6 +33,8 @@ interface HostProject
 export interface IConnectionHost
 {
     ProjectFor(member: SolutionMember): HostProject | undefined
+    // The consumer id the engine ConnectionSelection resolves a member by (its manifest id).
+    ConsumerIdOf(member: SolutionMember): Promise<string | undefined>
     SetStatus(message: string): void
     RefreshBasesFor(member: SolutionMember): Promise<void>
     // The property-bag vantage: the whole solution (no member) or one member's projects (with
@@ -46,16 +45,16 @@ export interface IConnectionHost
 export class ConnectionEditingService implements IConnectionView
 {
     private static readonly StatusActiveConnection = 'Active connection updated'
-    // Must match ConnectionResolution's private selection instance id, so a selection written here is
-    // the same one the build-system's ConnectionResolution reads.
-    private static readonly SelectionInstanceId = 'main'
-
     private readonly handlers = new Set<(affected: SolutionMember | undefined) => void>()
     private readonly lastTest = new Map<string, ConnectionTestResult>()
     private readonly catalog: IBagCatalog = new BagCatalog()
-    private readonly resolution = new ConnectionResolution(this.catalog)
 
-    constructor(private readonly client: IConnectionsClient, private readonly host: IConnectionHost)
+    // The bag ops (solution default, per-project active selection, consumer lookup) live in the
+    // engine ConnectionSelection; this service keeps the view / health / host / signal surface.
+    constructor(
+        private readonly client: IConnectionsClient,
+        private readonly host: IConnectionHost,
+        private readonly selection: ConnectionSelection)
     {
     }
 
@@ -111,29 +110,17 @@ export class ConnectionEditingService implements IConnectionView
         this.fire(undefined)
     }
 
-    // Set the active solution's default connection — now a solution-scope `IsDefault` on the
-    // connection bag (was solution.json). A default that is only a global connection is adopted at
-    // solution scope (its identity copied), so it resolves as this solution's default.
+    // Set the active solution's default connection (engine: solution-scope `IsDefault`). A
+    // default that is only a global connection is adopted at solution scope, using the identity
+    // the global inventory (the client) knows it by.
     public async SetSolutionDefault(id: string): Promise<void>
     {
-        const solution = (await this.host.Vantage())?.Solution
-        if (solution === undefined) return
-        for (const existing of solution.Ids(ConnectionBagKind))
-        {
-            new ConnectionBag(solution.Bag(ConnectionBagKind, existing)).IsDefault = existing === id
-        }
-        if (!solution.Ids(ConnectionBagKind).includes(id))
-        {
-            const adopted = new ConnectionBag(solution.Create(ConnectionBagKind, id))
-            adopted.IsDefault = true
-            const global = (await this.client.List()).find((v) => v.Id === id)
-            if (global !== undefined)
-            {
-                adopted.DisplayName = global.DisplayName
-                adopted.RegistryType = global.RegistryType
-            }
-        }
-        await solution.Flush()
+        const global = (await this.client.List()).find((v) => v.Id === id)
+        await this.selection.SetSolutionDefault({
+            Id: id,
+            DisplayName: global?.DisplayName ?? '',
+            RegistryType: global?.RegistryType ?? '',
+        })
         this.fire(undefined)
     }
 
@@ -160,40 +147,23 @@ export class ConnectionEditingService implements IConnectionView
 
     public async ActiveConnectionFor(member: SolutionMember): Promise<ConnectionLeafView | undefined>
     {
-        const vantage = await this.host.Vantage(member)
         const views = await this.ConnectionsView()
-        if (vantage !== undefined)
-        {
-            const selectedKey = this.selectedAddressKey(vantage)
-            if (selectedKey !== undefined)
-            {
-                const selected = views.find((v) => ConnectionEditingService.selectionKeyOf(v) === selectedKey)
-                if (selected !== undefined) return selected
-            }
-        }
+        // The engine resolves the effective id (project-local selection, else nearest default).
+        const consumerId = await this.host.ConsumerIdOf(member)
+        const effectiveId = consumerId === undefined ? undefined : await this.selection.EffectiveConnectionIdForConsumer(consumerId)
+        const effective = effectiveId === undefined ? undefined : views.find((v) => v.Id === effectiveId)
+        if (effective !== undefined) return effective
         const solutionDefault = views.find((v) => v.IsSolutionDefault)
         if (solutionDefault !== undefined) return solutionDefault
         return views.find((v) => v.IsDefault)
     }
 
-    // Record the per-project active connection as a PROJECT-LOCAL selection (connection-selection),
-    // never solution.json. Clearing it falls back to the solution/global default.
+    // Record the per-project active connection as a PROJECT-LOCAL selection (engine), never
+    // solution.json. Clearing it falls back to the solution/global default.
     public async SetActiveConnectionFor(member: SolutionMember, connectionId: string | undefined): Promise<void>
     {
-        const vantage = await this.host.Vantage(member)
-        if (vantage !== undefined)
-        {
-            if (connectionId === undefined)
-            {
-                this.resolution.Clear(ConnectionPurpose.ReferenceResolution, vantage)
-            }
-            else
-            {
-                const address = new BagAddress(this.scopeOf(connectionId, vantage), ConnectionBagKind, connectionId)
-                this.resolution.Select(ConnectionPurpose.ReferenceResolution, address, vantage)
-            }
-            await vantage.ProjectLocal?.Flush()
-        }
+        if (connectionId === undefined) await this.selection.ClearActiveFor(member)
+        else await this.selection.SetActiveConnectionFor(member, connectionId)
         await this.host.RefreshBasesFor(member)
         this.host.SetStatus(ConnectionEditingService.StatusActiveConnection)
         this.fire(member)
@@ -250,39 +220,6 @@ export class ConnectionEditingService implements IConnectionView
             if (new ConnectionBag(solution.Bag(ConnectionBagKind, id)).IsDefault) return id
         }
         return undefined
-    }
-
-    // The raw BagAddress.Key a project-local selection points at (scope-preserving — compared, not
-    // parsed, so a connection id containing ':' or a same-id-at-another-scope never collapses).
-    private selectedAddressKey(vantage: BagVantage): string | undefined
-    {
-        const local = vantage.ProjectLocal
-        if (local === undefined || !local.Ids(ConnectionSelectionKind).includes(ConnectionEditingService.SelectionInstanceId)) return undefined
-        const key = local.Bag(ConnectionSelectionKind, ConnectionEditingService.SelectionInstanceId).GetValue(ConnectionPurpose.ReferenceResolution)
-        return typeof key === 'string' && key.length > 0 ? key : undefined
-    }
-
-    // The selection key SetActiveConnectionFor would store for a view — its scope + id, matching the
-    // BagAddress that write constructs (no ProjectStore, as scopeOf produces).
-    private static selectionKeyOf(view: ConnectionLeafView): string
-    {
-        return BagAddress.Key(new BagAddress(ConnectionEditingService.bagScopeOf(view.Scope), ConnectionBagKind, view.Id))
-    }
-
-    private static bagScopeOf(scope: ConnectionScope): BagScope
-    {
-        if (scope === ConnectionScope.Solution) return BagScope.Solution
-        if (scope === ConnectionScope.Project) return BagScope.Project
-        return BagScope.Global
-    }
-
-    // The scope a connection id lives at: a project/solution bag if present, else the global inventory.
-    private scopeOf(connectionId: string, vantage: BagVantage): BagScope
-    {
-        if (vantage.ProjectLocal?.Ids(ConnectionBagKind).includes(connectionId) === true) return BagScope.Project
-        if (vantage.ProjectShared?.Ids(ConnectionBagKind).includes(connectionId) === true) return BagScope.Project
-        if (vantage.Solution?.Ids(ConnectionBagKind).includes(connectionId) === true) return BagScope.Solution
-        return BagScope.Global
     }
 
     private static bagHasToken(bag: ConnectionBag): boolean

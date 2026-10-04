@@ -36,7 +36,7 @@ import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/
 import { ArchDiagramBindingService } from '../../architecture-projects/services/arch-diagram-binding-service.js'
 import { ArchitectureModelService } from '../../architecture-projects/services/architecture-model-service.js'
 import type { ArchModel } from '../../architecture-projects/services/arch-model.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers } from '../../../services/solution/active-solution-members.js'
 import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
 import { MetaModelsService } from '../../meta-model/services/meta-models-service.js'
 import { LibraryToolboxPage } from './library-toolbox-page.js'
@@ -102,7 +102,7 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     private wireTriggers(): void
     {
         const services = this.services()
-        services.get(ProjectExplorerService.Key)?.OpenProjects.Subscribe(() => { void this.syncPageSet() })
+        ActiveSolutionMembers.From(services).Subscribe(() => { void this.syncPageSet() })
         services.get(LibrariesPanelService.Key)?.onLibrariesChanged(() => { void this.syncPageSet() })
         services.get(MetaModelsService.Key)?.onMetaModelsChanged(() => { void this.syncPageSet() })
         const host = services.get(ContentHostService.Key) as DocumentsContentHostService | undefined
@@ -290,11 +290,10 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
     // model service's cache). Overridable seam for tests.
     protected async openArchModels(): Promise<Array<{ model: ArchModel; namespace: string }>>
     {
-        const explorer = this.services().get(ProjectExplorerService.Key)
         const modelSvc = this.services().get(ArchitectureModelService.Key)
-        if (explorer === undefined || modelSvc === undefined) return []
+        if (modelSvc === undefined) return []
         const out: Array<{ model: ArchModel; namespace: string }> = []
-        for (const op of explorer.OpenProjects.ToArray())
+        for (const op of ActiveSolutionMembers.From(this.services()).Resolved())
         {
             if (op.Project.Type !== 'architecture') continue
             try { const model = await modelSvc.modelFor(op); out.push({ model, namespace: model.namespace }) }

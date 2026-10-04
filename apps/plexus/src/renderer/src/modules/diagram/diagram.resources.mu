@@ -627,7 +627,7 @@ resources DiagramResources {
         // $HasWiki, so nodes keep the full diagram menu — see PART_TileStack above.)
         // Reveal the inline title editor while this node is being renamed (data
         // trigger — `$IsEditing`, not a root-property trigger — so it fires on the
-        // ArchNodeVM's DP; see the project-explorer rename template for the idiom).
+        // ArchNodeVM's DP; see the solution-explorer rename template for the idiom).
         when ( $IsEditing = true ) {
             PART_Title.Visibility       = Collapsed;
             PART_TitleEditor.Visibility = Visible;

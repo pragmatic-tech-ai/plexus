@@ -1,7 +1,7 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { PackageStoreKey, StoragePackageStore, type IPackageStore, type PackageRef, type SourcedPackage } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/services/project-explorer-service.js'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 
 import { ensurePackagesBackend } from './packages-backend.js'
 import { ConnectionAwarePackageStore, type IConnectionPackageResolver } from './connection-aware-package-store.js'
@@ -56,20 +56,20 @@ export class ConnectionAwarePlexusPackageStore extends ConnectionAwarePackageSto
     }
 
     // Resolve missing bases from the consuming project's EFFECTIVE connection (per-project
-    // override → solution default → global default, via ProjectExplorerService) when the
+    // override → solution default → global default, via SolutionWorkspaceService) when the
     // connections bridge is present; local-only otherwise (non-Electron host / test).
     private static resolver(provider: IServiceProvider): IConnectionPackageResolver
     {
         const api = (globalThis as unknown as { api?: { connections?: ConnectionResolveApi } }).api?.connections
         if (api === undefined) return new LocalOnlyPackageResolver()
-        return new AppConnectionPackageResolver(api, new ProjectExplorerEffectiveConnection(provider))
+        return new AppConnectionPackageResolver(api, new WorkspaceEffectiveConnection(provider))
     }
 }
 
-// Bridges the package store's effective-connection seam to ProjectExplorerService, which owns
+// Bridges the package store's effective-connection seam to SolutionWorkspaceService, which owns
 // the per-project override store + the effective-connection precedence. Resolved lazily (on a
-// base-resolution miss), by which time ProjectExplorerService is registered.
-export class ProjectExplorerEffectiveConnection implements IEffectiveConnection
+// base-resolution miss), by which time SolutionWorkspaceService is registered.
+export class WorkspaceEffectiveConnection implements IEffectiveConnection
 {
     constructor(private readonly provider: IServiceProvider)
     {
@@ -77,8 +77,8 @@ export class ProjectExplorerEffectiveConnection implements IEffectiveConnection
 
     public EffectiveConnectionIdFor(consumerId: string): Promise<string | undefined>
     {
-        const explorer = this.provider.get(ProjectExplorerService.Key)
-        return explorer?.EffectiveConnectionIdForConsumer(consumerId) ?? Promise.resolve(undefined)
+        const workspace = this.provider.get(SolutionWorkspaceService.Key)
+        return workspace?.EffectiveConnectionIdForConsumer(consumerId) ?? Promise.resolve(undefined)
     }
 }
 

@@ -1,15 +1,10 @@
-// project-explorer.resources.mu — the Project Explorer's SHARED DIALOG templates.
-//
-// The legacy open-projects tree panel (ProjectContextMenu / NodeContextMenu /
-// TreeKeyStyle / the ProjectNode + OpenProject row templates + the
-// DataTemplate[ProjectExplorerService] panel) was retired in the C2 Solution
-// Explorer migration — the left panel is now the Solution Explorer's
-// HierarchyItem TreeView (solution-explorer.resources.mu). ProjectExplorerService
-// survives only as the lifecycle + mutation + dialog back-end, so what remains
-// here are the dialog bodies it still shows through DialogService: New Project,
-// Manage References, Confirm, Set Version and Open Project. app.mu still merges
-// ProjectExplorerResources for these.
+// solution-dialogs.resources.mu -- the Solution Explorer's DIALOG templates, moved here
+// from project-explorer.resources.mu (project-explorer retirement): New Project, Manage
+// References, Set Version and Open Project, plus the shared reference-tree row template
+// and the list-row button template they use, plus the shared Confirm dialog template
+// (save-prompt and every destructive confirm resolve it).
 
+import ConfirmDialogModel from "../../dialogs/confirm-dialog-model.js"
 import NewProjectDialogModel from "../../projects/new-project-dialog-model.js"
 import ProjectTypeChoice from "../../projects/new-project-dialog-model.js"
 import ReferenceNode from "../../projects/reference-node.js"
@@ -17,10 +12,9 @@ import ManageReferencesDialogModel from "../../projects/manage-references-dialog
 import OpenProjectDialogModel from "../../projects/open-project-dialog-model.js"
 import RecentProjectItem from "../../projects/open-project-dialog-model.js"
 import ShortenPath from "../../projects/shorten-path.js"
-import ConfirmDialogModel from "../../dialogs/confirm-dialog-model.js"
 import SetVersionDialogModel from "../../projects/set-version-dialog-model.js"
 
-resources ProjectExplorerResources {
+resources SolutionDialogsResources {
 
     // ── New Project dialog ───────────────────────────────────────────────
     // One project-type choice: a full row (always shown, even for a single
@@ -123,20 +117,6 @@ resources ProjectExplorerResources {
         }
     }
 
-    // ── Confirm dialog ───────────────────────────────────────────────────
-    // A reusable message + Cancel / confirm pair (DialogService supplies the
-    // title/surface). The confirm button's label comes from the VM so it reads
-    // as the action ("Delete"); it's Filled to sit as the primary affordance.
-    DataTemplate [ DataType = ConfirmDialogModel ] {
-        StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
-            TextBlock [ Style = @Body, Text = $Message, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,0,0,16) ]
-            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
-                Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = $ConfirmLabel ] }
-            }
-        }
-    }
-
     DataTemplate [ DataType = SetVersionDialogModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
             TextBlock [ Style = @BodySm, Text = $Current, Foreground = @Fg2, Margin = (0,0,0,2) ]
@@ -191,6 +171,21 @@ resources ProjectExplorerResources {
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Outlined, Command = $BrowseCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Browse…" ] }
                 Button [ Variant = Text, Command = $CancelCommand ] { TextBlock [ Text = "Cancel" ] }
+            }
+        }
+    }
+
+    // -- Confirm dialog -----------------------------------------------------
+    // A reusable message + Cancel / confirm pair (DialogService supplies the
+    // title/surface). The confirm button's label comes from the VM so it reads
+    // as the action ("Delete"); it's Filled to sit as the primary affordance.
+    // ShowCancel (default true) hides the Cancel button for an OK-only info dialog.
+    DataTemplate [ DataType = ConfirmDialogModel ] {
+        StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
+            TextBlock [ Style = @Body, Text = $Message, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,0,0,16) ]
+            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
+                Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0), Visibility = $ShowCancel << ToVisibility ] { TextBlock [ Text = "Cancel" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = $ConfirmLabel ] }
             }
         }
     }

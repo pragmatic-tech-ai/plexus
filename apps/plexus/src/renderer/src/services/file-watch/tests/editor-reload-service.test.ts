@@ -3,7 +3,7 @@ import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-
 import { EditorReloadService } from '../editor-reload-service.js'
 import { FileWatchService } from '../file-watch-service.js'
 import { CodeEditorService } from '../../../modules/code-editor/code-editor-service.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 
 function fakeDoc(dirty: boolean)
@@ -16,13 +16,13 @@ function harness(opts: { doc?: ReturnType<typeof fakeDoc>; confirm?: boolean })
   let changedCb: ((e: FileChangeEvent) => void) | undefined
   const fileWatch = { Subscribe: (cb: (e: FileChangeEvent) => void) => { changedCb = cb; return () => {} } }
   const codeEditor = { FindOpenByOsPath: vi.fn(() => opts.doc) }
-  const explorer = { FindOpenCodeDocByOsPath: vi.fn(() => undefined) }
+  const workspace = { FindOpenCodeDocByOsPath: vi.fn(() => undefined) }
   const dialogs = { Show: vi.fn(async () => opts.confirm), Close: vi.fn() }
   const provider = {
     getRequired: (key: unknown) => {
       if (key === FileWatchService.Key) return fileWatch
       if (key === CodeEditorService.Key) return codeEditor
-      if (key === ProjectExplorerService.Key) return explorer
+      if (key === SolutionWorkspaceService.Key) return workspace
       if (key === DialogService.Key) return dialogs
       throw new Error('unexpected key')
     },

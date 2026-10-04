@@ -1,26 +1,27 @@
 import { test, expect } from 'vitest'
-import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ModelDraft } from '@pragmatic-tech-ai/todl'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { FakeSolutionManager } from '../../solution/tests/fake-solution-manager.js'
 import { WikiLocator, wikiPathOf } from '../wiki-locator.js'
 
-// A fake OpenProject: its Storage yields one .todl source (its own model text).
+// A fake resolved member: its Storage yields one .todl source (its own model text).
 // collectTodlSources walks with storage.List(dir) → [{Name, IsDirectory}] and
 // reads with storage.ReadText(path); the fake models exactly those two calls.
-function fakeProject(root: string, name: string, todl: string): unknown
+function fakeProject(root: string, name: string, todl: string): { project: { RootPath: string; Name: string }; storage: object }
 {
     const storage = {
         List: () => Promise.resolve([{ Name: 'model.todl', IsDirectory: false }]),
         ReadText: () => Promise.resolve(todl),
     }
-    return { Project: { RootPath: root, Name: name }, Storage: storage }
+    return { project: { RootPath: root, Name: name }, storage }
 }
 
-function locatorWith(...projects: unknown[]): WikiLocator
+function locatorWith(...projects: Array<ReturnType<typeof fakeProject>>): WikiLocator
 {
-    const explorer = { OpenProjects: new ObservableCollection(projects) } as unknown as ProjectExplorerService
+    const manager = new FakeSolutionManager()
+    for (const p of projects) manager.AddResolved(p.project, p.storage)
     const provider = new ServiceProvider()
-    provider.registerInstance(ProjectExplorerService.Key, explorer)
+    manager.RegisterOn(provider)
     return new WikiLocator(provider)
 }
 

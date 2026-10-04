@@ -1,8 +1,8 @@
 // solution-explorer.resources.mu — the Solution Explorer's left-panel view.
 //
 // Renders SolutionExplorerService: a small command bar (the surviving Open / New
-// project commands, surfaced by the capability as pass-throughs to the lifecycle
-// ProjectExplorerService), a hairline, an empty-state line, and ONE virtualized
+// project commands, surfaced by the capability as pass-throughs to the
+// ProjectCommandsService), a hairline, an empty-state line, and ONE virtualized
 // TreeView over the stable Hierarchy. The tree opts into mural's default
 // @HierarchyTreeView style (tree chrome + the default ItemTemplate's structure —
 // icon + caption + inline-rename) and attaches the four default hierarchy

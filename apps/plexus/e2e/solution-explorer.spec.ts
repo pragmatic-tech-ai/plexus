@@ -98,7 +98,7 @@ test.describe.serial('Solution Explorer (P2 hierarchy panel)', () =>
         await l.win.waitForTimeout(1500)
 
         // Double-click the file to activate it → SolutionExplorerService.onActivate →
-        // ProjectExplorerService.OpenMemberFile opens it in a document tab.
+        // SolutionWorkspaceService.OpenMemberFile opens it in a document tab.
         const opened = await l.win
             .getByText('microsoft.todl', { exact: true })
             .first()
