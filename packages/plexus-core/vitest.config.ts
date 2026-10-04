@@ -96,6 +96,9 @@ const todlShimPlugin: Plugin = {
             // no mural import.
             `export { ProjectType } from ${p('solution-services/package-manager/manifest.js')}`,
             `export { SolutionBaseResolver } from ${p('solution-services/solution-manager/engine/solution-base-resolver.js')}`,
+            // Wave 2: every base-resolution consumer resolves the SolutionLanguageService facade
+            // (IBaseResolver + StaleMembers signal) instead of the raw resolver.
+            `export { SolutionLanguageService } from ${p('solution-services/lsp/host/solution-language-service.js')}`,
             // P2 (solution-hierarchy): the Solution Explorer contributors/capability consume
             // the P1 content store + provider and member status/kind. ProjectContentProvider
             // imports @pragmatic-tech-ai/mural/framework/hierarchy, which the mural dist alias

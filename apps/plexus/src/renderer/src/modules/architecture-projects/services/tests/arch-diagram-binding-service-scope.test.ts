@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DiagramDocument, type IDocument, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
+import { load, toJSON, Repository, graphFromJSON, ModelDraft, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
@@ -41,7 +41,7 @@ async function scenario(seedScope?: string[])
 
     const provider = new ServiceProvider()
     provider.registerInstance(ContentHostService.Key, host as unknown as ContentHostService)
-    provider.registerInstance(SolutionBaseResolver.Key, { ResolveBasesFor: async () => ({ bases: [], problems: [] }) } as unknown as SolutionBaseResolver)
+    provider.registerInstance(SolutionLanguageService.Key, { ResolveBasesFor: async () => ({ bases: [], problems: [] }) } as unknown as SolutionLanguageService)
     manager.RegisterOn(provider)
     provider.registerInstance(ArchitectureModelService.Key, { modelFor: async () => model } as unknown as ArchitectureModelService)
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, DocumentTypeRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { Solution, ProjectFactoryRegistryKey, SolutionBaseResolver, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { Solution, ProjectFactoryRegistryKey, SolutionLanguageService, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { LiveValidationKey } from '../../../../projects/index.js'
 import { DocumentCloseGuard } from '../../../../documents/document-close-guard.js'
 import { SavePromptResult } from '../../../../dialogs/save-prompt-model.js'
@@ -119,7 +119,7 @@ async function harness(opts: HarnessOpts = {})
     {
         const calls = opts.calls
         provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => undefined } as never)
-        provider.registerInstance(SolutionBaseResolver.Key, {
+        provider.registerInstance(SolutionLanguageService.Key, {
             ConsumerIdOf: async () => 'consumer-id',
             Invalidate: (id: string) => { calls.push(`invalidate:${id}`) },
         } as never)

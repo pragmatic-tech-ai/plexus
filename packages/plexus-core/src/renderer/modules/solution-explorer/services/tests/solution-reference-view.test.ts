@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { Observable, ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    ProjectEventsKey, ProjectType, Solution, SolutionBaseResolver, SolutionMemberStatus,
+    ProjectEventsKey, ProjectType, Solution, SolutionLanguageService, SolutionMemberStatus,
 } from '@pragmatic-tech-ai/todl'
 import { PublishedBasesKey, LiveValidationKey } from '../../../../projects/index.js'
 import { ProjectFactoryRegistryKey } from '../../../../projects/project-factory.js'
@@ -20,7 +20,7 @@ interface HarnessOpts
     workspaceProducers?: Partial<Record<ProjectType, { id: string; version: string }[]>>
 }
 
-// A stand-in SolutionBaseResolver: an Observable (StaleMemberIds signal) with the three
+// A stand-in SolutionLanguageService: an Observable (StaleMembers signal) with the three
 // members the engine ReferenceEditor calls.
 class FakeResolver extends Observable
 {
@@ -29,7 +29,7 @@ class FakeResolver extends Observable
     public async WorkspaceProducers(kind: ProjectType): Promise<{ id: string; version: string }[]> { return this.producers?.[kind] ?? [] }
     public async ConsumerIdOf(): Promise<string | undefined> { return 'consumer' }
     public Invalidate(id: string): void { this.invalidated.push(id) }
-    public RaiseStale(): void { this.RaisePropertyChanged('StaleMemberIds', undefined, undefined) }
+    public RaiseStale(): void { this.RaisePropertyChanged('StaleMembers', undefined, undefined) }
 }
 
 async function harnessWith(opts: HarnessOpts)
@@ -44,7 +44,7 @@ async function harnessWith(opts: HarnessOpts)
         ListMetaModels: async () => opts.published?.metaModels ?? [],
         ListLibraries: async () => opts.published?.libraries ?? [],
     } as never)
-    provider.registerInstance(SolutionBaseResolver.Key, resolver as unknown as SolutionBaseResolver)
+    provider.registerInstance(SolutionLanguageService.Key, resolver as unknown as SolutionLanguageService)
     provider.registerInstance(LiveValidationKey, { RefreshBases: async (s: unknown) => { refreshedBases.push(s) } } as never)
     provider.registerInstance(ProjectEventsKey, { Raise: async (e: unknown) => { raised.push(e) } } as never)
     provider.registerInstance(ProjectFactoryRegistryKey, {

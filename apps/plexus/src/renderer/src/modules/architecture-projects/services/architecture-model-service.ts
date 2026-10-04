@@ -1,5 +1,5 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ModelDraft, SolutionBaseResolver, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
+import { ModelDraft, SolutionLanguageService, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
 
 import { collectTodlSources } from '../../../services/todl/todl-sources.js'
 import { ActiveSolutionMembers, type IMembersSubscription, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
@@ -31,7 +31,7 @@ export class ArchitectureModelService extends ServiceBase
         super(provider)
         // Drop a project's model when it leaves the open set. Subscribe is a
         // generic change callback, so diff the live RootPaths against the cache
-        // (mirrors SolutionBaseResolver's own member-subscription pattern).
+        // (mirrors SolutionLanguageService's own member-subscription pattern).
         const members = ActiveSolutionMembers.From(this.Provider)
         this.membersSubscription = members.Subscribe(() => {
             const live = new Set(members.Resolved().map((op) => op.Folder))
@@ -90,7 +90,7 @@ export class ArchitectureModelService extends ServiceBase
         const cached = this.models.get(key)
         if (cached !== undefined) return cached
 
-        const resolver = this.Provider.getRequired(SolutionBaseResolver.Key)
+        const resolver = this.Provider.getRequired(SolutionLanguageService.Key)
         const { bases, originOf } = await resolver.ResolveBasesFor(op.Storage)
         const sources = await collectTodlSources(op.Storage)
         const namespace = deriveNamespace(sources, op.Project.Name)

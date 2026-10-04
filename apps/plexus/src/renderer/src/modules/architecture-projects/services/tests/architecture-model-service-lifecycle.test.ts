@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { load, toJSON, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
+import { load, toJSON, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
@@ -24,9 +24,9 @@ test('removing an open project drops its cached model', async () => {
     const baseDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
 
     const provider = new ServiceProvider()
-    provider.registerInstance(SolutionBaseResolver.Key, {
+    provider.registerInstance(SolutionLanguageService.Key, {
         ResolveBasesFor: async () => ({ bases: [baseDoc], problems: [] }),
-    } as unknown as SolutionBaseResolver)
+    } as unknown as SolutionLanguageService)
     manager.RegisterOn(provider)
 
     const storage = new FakeStorage('fake://Acme')

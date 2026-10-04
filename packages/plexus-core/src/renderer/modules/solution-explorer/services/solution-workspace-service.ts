@@ -33,7 +33,8 @@ import {
     ProjectEventsKey,
     ProjectType,
     ProjectNodeKind,
-    SolutionBaseResolver,
+    SolutionLanguageService,
+    type IBaseResolver,
     SolutionManagerService,
     UniqueName,
     VersionPart as EngineVersionPart,
@@ -161,7 +162,10 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
 
     // ── collaborators (lazy) ────────────────────────────────────────────────
     private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionManagerService.Key) }
-    private get resolver(): SolutionBaseResolver { return this.Provider.getRequired(SolutionBaseResolver.Key) }
+    private get resolver(): IBaseResolver
+    {
+        return this.Provider.getRequired(SolutionLanguageService.Key)
+    }
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
     private get host(): DocumentsContentHostService
@@ -574,7 +578,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
 
     // Awaitable folder-keyed refresh (file-watch rescan + the agent's refresh_project): for each
     // open member rooted at a folder, drop its cached bases (engine; also invalidates dependents,
-    // raising StaleMemberIds), reconcile the language server's document set, and revalidate.
+    // raising StaleMembers), reconcile the language server's document set, and revalidate.
     // Unknown folders are skipped. Resolves once validation has settled.
     public async RefreshFolders(folders: readonly string[]): Promise<void>
     {

@@ -1,6 +1,6 @@
 // solution-reference-view.ts — the IReferenceView the Solution Explorer's References branch
 // reads and mutates through, built over the todl engine's ReferenceEditor (member storage +
-// SolutionBaseResolver) instead of the legacy OpenProject projection. The engine writes the
+// SolutionLanguageService) instead of the legacy OpenProject projection. The engine writes the
 // manifest, invalidates the resolver and raises ReferencesChanged; this adapter adds the UI
 // concerns the engine stays free of: the factory.offersLibraries / requiresMetaModel gates
 // (the engine applies none), the immediate LiveValidation base refresh, and the
@@ -8,7 +8,7 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { Disposable, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    ProjectEventsKey, ProjectType, SolutionBaseResolver, type SolutionMember,
+    ProjectEventsKey, ProjectType, SolutionLanguageService, type SolutionMember,
 } from '@pragmatic-tech-ai/todl'
 import { ProjectFactoryRegistryKey, type IProjectFactory } from '../../../projects/project-factory.js'
 import { PublishedBasesKey, LiveValidationKey } from '../../../projects/index.js'
@@ -22,7 +22,7 @@ import {
 
 export class SolutionReferenceView implements IReferenceView
 {
-    private static readonly StaleMemberIdsProperty = 'StaleMemberIds'
+    private static readonly StaleMembersProperty = 'StaleMembers'
 
     private readonly handlers = new Set<(affected: SolutionMember | undefined) => void>()
     private staleSubscribed = false
@@ -151,7 +151,7 @@ export class SolutionReferenceView implements IReferenceView
     private editorFor(member: SolutionMember): ReferenceEditor | undefined
     {
         const storage = member.Storage
-        const resolver = this.provider.get(SolutionBaseResolver.Key)
+        const resolver = this.provider.get(SolutionLanguageService.Key)
         if (storage === undefined || resolver === undefined) return undefined
         return new ReferenceEditor(
             resolver, storage, this.provider.get(PublishedBasesKey) as IPublishedBaseCatalog | undefined, this.provider.get(ProjectEventsKey))
@@ -161,8 +161,8 @@ export class SolutionReferenceView implements IReferenceView
     {
         if (this.staleSubscribed) return
         this.staleSubscribed = true
-        const resolver = this.provider.get(SolutionBaseResolver.Key)
+        const resolver = this.provider.get(SolutionLanguageService.Key)
         if (resolver === undefined) return
-        this.staleOff = resolver.PropertyChanged(SolutionReferenceView.StaleMemberIdsProperty).subscribe(() => this.NotifyChanged(undefined))
+        this.staleOff = resolver.PropertyChanged(SolutionReferenceView.StaleMembersProperty).subscribe(() => this.NotifyChanged(undefined))
     }
 }

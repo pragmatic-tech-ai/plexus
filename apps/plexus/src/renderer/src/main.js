@@ -45,7 +45,7 @@ import { ProblemsService } from './modules/problems/problems-service.js'
 import { LiveValidationKey, BaseResolverKey, ProblemsDockKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
-import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
+import { SolutionManagerService, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
 import { BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
 
@@ -94,7 +94,7 @@ try {
     // adapter-backed capabilities (PublishedBases/DiagramTreeExport/ProjectMenuSource)
     // ARE registered via the `.mu` alias, since each has only the one instance.
     app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
-    app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionBaseResolver.Key))
+    app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionLanguageService.Key))
     app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
     // The SolutionManagerService host seams (StorageRegistry/Prompt/PackageSource +
     // the durable session store) are registered by SolutionSeamsHostModule in app.mu's
@@ -226,11 +226,11 @@ try {
     // constructed SolutionManagerService via the workspace service; resolving here just
     // returns that same singleton (or builds it once if nothing did yet), before
     // the session restore below, so the ambient untitled solution's
-    // ActiveSolution/Members chain is live from boot. SolutionBaseResolver likewise —
+    // ActiveSolution/Members chain is live from boot. SolutionLanguageService likewise —
     // its own ActiveSolution/Members subscription must be live before session
     // restore; BaseResolverKey resolves this SAME singleton.
     app.Services.get(SolutionManagerService.Key)
-    app.Services.get(SolutionBaseResolver.Key)
+    app.Services.get(SolutionLanguageService.Key)
     // The manager now exists and has registered its session bag with the durable store; Restore it
     // so any persisted slice is applied before the session-restoring code below reads it, and so the
     // bag persists (debounced) from here on.
@@ -238,9 +238,9 @@ try {
     // One-shot: lift a legacy userData/connections.json into the global connection bags (idempotent
     // via its marker), so existing connections surface through the bag catalog.
     await BagMigrationRunner.RunGlobal(app.Services)
-    // Now that both the language client and SolutionBaseResolver are resolved,
-    // subscribe once to the resolver's StaleMemberIds push (W3b Task 6): a producer
-    // change → SolutionBaseResolver.Invalidate → StaleMemberIds raise → coalesced
+    // Now that both the language client and SolutionLanguageService are resolved,
+    // subscribe once to the resolver's StaleMembers push (W3b Task 6): a producer
+    // change → SolutionLanguageService.Invalidate → StaleMembers raise → coalesced
     // editor refresh here, with the resolver never blocking on this client.
     todlClient?.SubscribeToStaleMembers()
 

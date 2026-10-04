@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { load, toJSON, compilePackage, SolutionBaseResolver, type TodlDocument } from '@pragmatic-tech-ai/todl'
+import { load, toJSON, compilePackage, SolutionLanguageService, type TodlDocument } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
@@ -22,7 +22,7 @@ function fakeOpenProject(storage: FakeStorage): OpenProject
     return { Project: project, Storage: storage } as unknown as OpenProject
 }
 
-// A provider whose SolutionBaseResolver returns the meta-model as the base doc.
+// A provider whose SolutionLanguageService returns the meta-model as the base doc.
 function providerWithBase(baseDoc: TodlDocument): ServiceProvider
 {
     return providerWithBases([baseDoc])
@@ -34,9 +34,9 @@ function providerWithBases(bases: TodlDocument[]): ServiceProvider
 {
     const provider = new ServiceProvider()
     new FakeSolutionManager().RegisterOn(provider)
-    provider.registerInstance(SolutionBaseResolver.Key, {
+    provider.registerInstance(SolutionLanguageService.Key, {
         ResolveBasesFor: async () => ({ bases, problems: [] }),
-    } as unknown as SolutionBaseResolver)
+    } as unknown as SolutionLanguageService)
     return provider
 }
 

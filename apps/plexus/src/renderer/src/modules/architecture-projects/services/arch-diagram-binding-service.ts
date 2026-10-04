@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DiagramDocument, DialogService, StatusService, type DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
-import { SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
+import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 
 import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
 import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
@@ -148,7 +148,7 @@ export class ArchDiagramBindingService extends ServiceBase
             const contexts = new Set<string>(['model:' + model.namespace])
             try
             {
-                const resolver = this.Provider.get(SolutionBaseResolver.Key)
+                const resolver = this.Provider.get(SolutionLanguageService.Key)
                 if (resolver !== undefined) for (const r of await resolver.ReferencedPublishedRefs(model.Storage)) contexts.add(r)
             }
             catch { /* leave contexts at just the model token */ }
