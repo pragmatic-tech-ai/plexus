@@ -119,7 +119,7 @@ function routing(origin: 'published' | 'project')
   class RouteNav extends ArchNavigationService
   {
     public constructor() { super({ get: () => undefined } as never) }
-    protected override resolveExplorer() { return { OpenFileInProject: (p: string, u: string, l: number) => { opened.push({ p, u, l }); return Promise.resolve() } } }
+    protected override resolveWorkspace() { return { OpenFileInProject: (p: string, u: string, l: number) => { opened.push({ p, u, l }); return Promise.resolve() } } }
     protected override resolveLibraries() { return { RevealTerm: (t: string) => { revealed.push(t); return true } } }
     protected override activateLibraries() { activated = true }
   }

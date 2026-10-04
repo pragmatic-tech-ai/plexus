@@ -1,15 +1,15 @@
 import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { WorkspaceRefreshService } from '../workspace-refresh-service.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 import { FakeSolutionManager } from '../../solution/tests/fake-solution-manager.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { AgentEventKind, type AgentEvent, type GetProblemsResult, type RefreshProjectResult, type TaggedAgentEvent } from '../../../../../shared/agent-api.js'
 
 // Minimal fakes. onEvent captures the handler so the test can push events; the
-// bridge records the results the service sends back. A fake ProjectExplorerService
-// exposes two open projects and records the folders passed to RefreshProjects.
+// bridge records the results the service sends back. A fake SolutionWorkspaceService
+// exposes two open projects and records the folders passed to RefreshFolders.
 function harness(): {
     provider: ServiceProvider
     results: RefreshProjectResult[]
@@ -37,9 +37,9 @@ function harness(): {
     manager.AddResolved({ RootPath: '/p/a', Name: 'A' })
     manager.AddResolved({ RootPath: '/p/b', Name: 'B' })
     manager.RegisterOn(provider)
-    provider.registerInstance(ProjectExplorerService.Key, {
-        RefreshProjects: async (folders: readonly string[]) => { refreshedWith.push([...folders]) },
-    } as unknown as ProjectExplorerService)
+    provider.registerInstance(SolutionWorkspaceService.Key, {
+        RefreshFolders: async (folders: readonly string[]) => { refreshedWith.push([...folders]) },
+    } as unknown as SolutionWorkspaceService)
 
     const diagnostics = new DiagnosticsService(provider)
     provider.registerInstance(DiagnosticsService.Key, diagnostics)
@@ -50,7 +50,7 @@ function harness(): {
     return { provider, results, problems, diagnostics, refreshedWith, push: (e) => handler?.({ SessionId: '', Event: e }) }
 }
 
-// Let the async event handler settle (it awaits RefreshProjects).
+// Let the async event handler settle (it awaits RefreshFolders).
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 describe('WorkspaceRefreshService', () => {

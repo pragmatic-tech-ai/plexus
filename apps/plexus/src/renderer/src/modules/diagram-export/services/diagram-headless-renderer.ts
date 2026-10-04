@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, ServiceProvider, type IServiceProvider } from 
 import { Diagram, DiagramDocument, DocumentTypeRegistry } from '@pragmatic-tech-ai/mural/framework'
 import { HeadlessTarget } from '@pragmatic-tech-ai/mural/visual-engine'
 import { PaginatedCanvas, ItemsPanelTemplate } from '@pragmatic-tech-ai/mural/basic'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import type { IDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 import { ArchDiagramBindingService } from '../../architecture-projects/services/arch-diagram-binding-service.js'
 import { DiagramSvgRenderer } from './diagram-svg-renderer.js'
@@ -31,7 +31,7 @@ export class DiagramHeadlessRenderer extends ServiceBase
   }
 
   // Render `path` (project-relative) in `op` to an SVG string sized to its content.
-  public async renderFile(op: OpenProject, path: string): Promise<{ svg: string; width: number; height: number } | undefined>
+  public async renderFile(op: IProjectHandle, path: string): Promise<{ svg: string; width: number; height: number } | undefined>
   {
     const factory = this.resolveDiagramFactory()
     if (factory === undefined) return undefined

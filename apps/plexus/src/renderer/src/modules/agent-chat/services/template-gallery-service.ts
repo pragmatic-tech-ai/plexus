@@ -8,7 +8,7 @@ import {
     MuralBase, ObservableCollection, ServiceBase, ServiceKey, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import type { IDockPanel } from '@pragmatic-tech-ai/mural/framework'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ProjectCommandsService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js'
 import { NewProjectCard } from './new-project-card.js'
 import { galleryCards } from './gallery-fixtures.js'
 
@@ -29,13 +29,13 @@ export class TemplateGalleryService extends ServiceBase implements IDockPanel
         for (const card of galleryCards()) cards.Add(card)
 
         // The New Project card hosts the real New-Project form, which is built
-        // asynchronously and needs the explorer. Skipped when it isn't available
+        // asynchronously and needs the project commands. Skipped when it isn't available
         // (e.g. unit tests) so the gallery still renders the rest.
-        const explorer = provider.get(ProjectExplorerService.Key)
-        if (explorer !== undefined)
+        const commands = provider.get(ProjectCommandsService.Key)
+        if (commands !== undefined)
         {
             const card = new NewProjectCard('gallery-new-project')
-            void explorer.NewProjectFormFor(() => card.showCancelled()).then((form) =>
+            void commands.NewProjectFormFor(() => card.showCancelled()).then((form) =>
             {
                 card.Form = form
                 cards.Add(card)

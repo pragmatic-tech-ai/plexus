@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
+import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
 import { DiagramViewpointsEditor } from '../diagram-viewpoints-editor.js'
 import { ArchNodeCommandContributor } from '../arch-node-command-contributor.js'
@@ -38,7 +39,11 @@ test('running the action opens the diagram, binds it, then runs the editor', asy
     const calls: string[] = []
     const doc = {}
     const provider = new ServiceProvider()
-    provider.registerInstance(ProjectExplorerService.Key, { OpenPath: async () => { calls.push('open'); return doc } } as unknown as ProjectExplorerService)
+    const manager = new FakeSolutionManager()
+    const member = manager.AddResolved({ RootPath: 'fake://Acme', Name: 'Acme', Type: 'architecture' })
+    manager.RegisterOn(provider)
+    const opened: Array<{ m: unknown; p: string }> = []
+    provider.registerInstance(SolutionWorkspaceService.Key, { OpenPath: async (m: unknown, p: string) => { calls.push('open'); opened.push({ m, p }); return doc } } as unknown as SolutionWorkspaceService)
     provider.registerInstance(ArchDiagramBindingService.Key, { ensureBound: async () => { calls.push('bind') } } as unknown as ArchDiagramBindingService)
     provider.registerInstance(DiagramViewpointsEditor.Key, { edit: async () => { calls.push('edit') } } as unknown as DiagramViewpointsEditor)
 
@@ -46,4 +51,5 @@ test('running the action opens the diagram, binds it, then runs the editor', asy
     action.command.Execute(undefined)
     await flush()
     expect(calls).toEqual(['open', 'bind', 'edit'])
+    expect(opened).toEqual([{ m: member, p: 'd.diagram' }])
 })

@@ -1,6 +1,6 @@
 import { ServiceBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/services/project-explorer-service.js'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { ConnectionsClientKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 import type { IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
@@ -28,7 +28,7 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
     public OpenEdit(connectionId: string): void { void this.open(connectionId) }
 
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
-    private get connections(): IConnectionView { return this.Provider.getRequired(ProjectExplorerService.Key).Connections }
+    private get connections(): IConnectionView { return this.Provider.getRequired(SolutionWorkspaceService.Key).Connections }
 
     private async open(id: string | undefined): Promise<void>
     {

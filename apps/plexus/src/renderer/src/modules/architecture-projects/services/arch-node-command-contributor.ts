@@ -2,7 +2,8 @@ import { RelayCommand, ServiceBase, ServiceKey, type IServiceProvider } from '@p
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import type { ProjectNode } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 import type { INodeCommandContributor, NodeAction } from '@pragmatic-tech-ai/plexus-core/renderer/documents/node-command-contributor.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
+import { ActiveSolutionMembers } from '../../../services/solution/active-solution-members.js'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
 import { DiagramViewpointsEditor } from './diagram-viewpoints-editor.js'
 
@@ -27,7 +28,9 @@ export class ArchNodeCommandContributor extends ServiceBase implements INodeComm
 
     private async edit(op: OpenProject, path: string): Promise<void>
     {
-        const doc = await this.Provider.getRequired(ProjectExplorerService.Key).OpenPath(op, path)
+        const member = ActiveSolutionMembers.From(this.Provider).MemberForFolder(op.Project.RootPath)
+        if (member === undefined) return
+        const doc = await this.Provider.getRequired(SolutionWorkspaceService.Key).OpenPath(member, path)
         if (doc === undefined) return
         await this.Provider.get(ArchDiagramBindingService.Key)?.ensureBound(doc)
         await this.Provider.get(DiagramViewpointsEditor.Key)?.edit(doc)

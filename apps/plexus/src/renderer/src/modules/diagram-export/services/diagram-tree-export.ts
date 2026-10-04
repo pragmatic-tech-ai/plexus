@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramExportFormat, type IDiagramTreeExport } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import type { IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { DiagramHeadlessRenderer } from './diagram-headless-renderer.js'
 import { DiagramExportService } from './diagram-export-service.js'
 import { ExportFormat } from './export-options.js'
@@ -13,7 +13,7 @@ export class DiagramTreeExport extends ServiceBase implements IDiagramTreeExport
 {
     public static readonly Key = new ServiceKey<DiagramTreeExport>('DiagramTreeExport')
 
-    public async Export(op: OpenProject, path: string, format: DiagramExportFormat): Promise<void>
+    public async Export(op: IProjectHandle, path: string, format: DiagramExportFormat): Promise<void>
     {
         const renderer = this.Provider.getRequired(DiagramHeadlessRenderer.Key)
         const exporter = this.Provider.getRequired(DiagramExportService.Key)

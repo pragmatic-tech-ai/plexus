@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, DocumentTypeRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { Solution, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { Solution, ProjectFactoryRegistryKey, SolutionBaseResolver, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { LiveValidationKey } from '../../../../projects/index.js'
 import { DocumentCloseGuard } from '../../../../documents/document-close-guard.js'
 import { SavePromptResult } from '../../../../dialogs/save-prompt-model.js'
 import { SolutionWorkspaceService, MemberNewFileParticipantKey, type IMemberNewFileParticipant } from '../solution-workspace-service.js'
@@ -62,6 +63,7 @@ interface HarnessOpts
     promptResult?: SavePromptResult
     participant?: IMemberNewFileParticipant
     closeProject?: (m: SolutionMember) => void
+    calls?: string[]
 }
 
 async function harness(opts: HarnessOpts = {})
@@ -107,6 +109,19 @@ async function harness(opts: HarnessOpts = {})
         CloseProject: async (m: SolutionMember) => { opts.closeProject?.(m) },
     } as never)
     if (opts.participant !== undefined) provider.registerInstance(MemberNewFileParticipantKey, opts.participant)
+    if (opts.calls !== undefined)
+    {
+        const calls = opts.calls
+        provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => undefined } as never)
+        provider.registerInstance(SolutionBaseResolver.Key, {
+            ConsumerIdOf: async () => 'consumer-id',
+            Invalidate: (id: string) => { calls.push(`invalidate:${id}`) },
+        } as never)
+        provider.registerInstance(LiveValidationKey, {
+            ResyncProject: async (id: string) => { calls.push(`resync:${id}`) },
+            RefreshBases: async () => { calls.push('validation-refresh') },
+        } as never)
+    }
 
     const service = new SolutionWorkspaceService(provider)
     return { service, member, storage, host, factory, log, sol, shown }
@@ -219,5 +234,15 @@ describe('SolutionWorkspaceService', () =>
         await service.DeleteMemberFiles(member, ['dir', 'dir/x.todl'])
         expect(shown[0]!.message).toContain('folder "dir"')          // single-root wording
         expect(shown[0]!.message).not.toContain('these 2 items')     // not a 2-item batch
+    })
+
+    it('RefreshFolders invalidates the member bases then resyncs + refreshes validation; unknown folders are skipped', async () =>
+    {
+        const calls: string[] = []
+        const { service } = await harness({ calls })
+        await service.RefreshFolders(['mem://p', 'mem://nope'])
+        expect(calls[0]).toBe('invalidate:consumer-id')
+        expect(calls.filter((c) => c.startsWith('resync:'))).toHaveLength(1)
+        expect(calls.filter((c) => c === 'validation-refresh')).toHaveLength(1)
     })
 })

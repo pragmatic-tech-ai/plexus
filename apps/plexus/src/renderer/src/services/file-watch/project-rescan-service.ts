@@ -5,7 +5,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from './file-watch-service.js'
 import { normalizePath } from '@pragmatic-tech-ai/plexus-core/renderer/file-watch/path-utils.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 import { ActiveSolutionMembers } from '../solution/active-solution-members.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
@@ -33,7 +33,7 @@ export class ProjectRescanService extends ServiceBase
         if (existing !== undefined) clearTimeout(existing)
         this.pending.set(folder, setTimeout(() => {
             this.pending.delete(folder)
-            void this.Provider.getRequired(ProjectExplorerService.Key).RefreshProjects([folder])
+            void this.Provider.getRequired(SolutionWorkspaceService.Key).RefreshFolders([folder])
         }, DEBOUNCE_MS))
     }
 

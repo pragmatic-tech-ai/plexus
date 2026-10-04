@@ -566,6 +566,24 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         return this.docs.FindOpenCodeDocByOsPath(absPath)
     }
 
+    // Awaitable folder-keyed refresh (file-watch rescan + the agent's refresh_project): for each
+    // open member rooted at a folder, drop its cached bases (engine; also invalidates dependents,
+    // raising StaleMemberIds), reconcile the language server's document set, and revalidate.
+    // Unknown folders are skipped. Resolves once validation has settled.
+    public async RefreshFolders(folders: readonly string[]): Promise<void>
+    {
+        const validation = this.Provider.get(LiveValidationKey)
+        for (const folder of folders)
+        {
+            const member = this.MemberByFolder(folder)
+            const storage = member?.Storage
+            if (member === undefined || storage === undefined) continue
+            await this.projectOps.RefreshBases(member)
+            await validation?.ResyncProject(storage.Root, storage)
+            await validation?.RefreshBases(storage)
+        }
+    }
+
     // ── publish helpers (ported from ProjectExplorerService, member-keyed) ────
     private PublishThroughWork(member: SolutionMember, build: BuildService): Promise<BuildPublishOutcome>
     {

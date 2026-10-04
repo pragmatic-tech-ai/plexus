@@ -2,7 +2,7 @@ import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { NavigationService, type NavigationDestination } from '@pragmatic-tech-ai/mural/framework'
 import { WikiOriginKind } from '../../../services/projects/wiki-origin.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 import { LibrariesPanelService } from '../../library/services/libraries-panel-service.js'
 import { collectScenarioFlow, type FlowEntity } from './scenario-flow.js'
 import type { ArchModel } from './arch-model.js'
@@ -10,7 +10,7 @@ import { ElementProjection, type Element } from './element-projection.js'
 
 // The two navigator surfaces the routing needs — narrowed so tests can supply
 // doubles without the full services.
-interface IExplorer { OpenFileInProject(projectId: string, uri: string, line: number, column: number): Promise<void> }
+interface IWorkspace { OpenFileInProject(projectId: string, uri: string, line: number, column: number): Promise<void> }
 interface ILibraries { RevealTerm(termId: string): boolean }
 
 // Which relation a nav target represents. String-backed so it can drive markup
@@ -144,7 +144,7 @@ export class ArchNavigationService extends ServiceBase
         const uri = model.homeOf(target.id)
         if (uri === undefined) return
         const line = await this.lineOfDeclaration(model, uri, target.id)
-        await this.resolveExplorer()?.OpenFileInProject(projectId, uri, line, 1)
+        await this.resolveWorkspace()?.OpenFileInProject(projectId, uri, line, 1)
     }
 
     // 1-based line of the entity's declaration in its source; 1 when not found.
@@ -160,12 +160,12 @@ export class ArchNavigationService extends ServiceBase
         return idx >= 0 ? idx + 1 : 1
     }
 
-    private explorer?: IExplorer
+    private workspace?: IWorkspace
     private libraries?: ILibraries
 
-    protected resolveExplorer(): IExplorer | undefined
+    protected resolveWorkspace(): IWorkspace | undefined
     {
-        return this.explorer ??= this.provider.get(ProjectExplorerService.Key)
+        return this.workspace ??= this.provider.get(SolutionWorkspaceService.Key)
     }
 
     protected resolveLibraries(): ILibraries | undefined

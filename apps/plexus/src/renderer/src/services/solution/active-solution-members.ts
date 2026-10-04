@@ -62,6 +62,18 @@ export class ActiveSolutionMembers
         return out
     }
 
+    // The resolved project a member is projected onto, or undefined (unresolved / closed).
+    public HandleFor(member: SolutionMember): IResolvedProject | undefined
+    {
+        return this.Resolved().find((r) => r.Member === member)
+    }
+
+    // The resolved member rooted at `folder` (exact Project.RootPath match), or undefined.
+    public MemberForFolder(folder: string): SolutionMember | undefined
+    {
+        return this.Resolved().find((r) => r.Folder === folder)?.Member
+    }
+
     // Call `onChange` whenever the resolved set may have changed: the active
     // solution switches, a member is added/removed/replaced/cleared/reset, or a
     // member (re)resolves. Per-member subscriptions are kept in a map reconciled
