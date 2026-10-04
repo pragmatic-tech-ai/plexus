@@ -19,7 +19,7 @@ export class OpenProject extends MuralBase
     static readonly RootKey = MuralBase.RegisterProperty<ProjectNode>(
         OpenProject, 'Root', undefined as unknown as ProjectNode, MetaData.None)
     // The "Add New" submenu's choices — one per the factory's declared formats,
-    // set by the host (ProjectExplorerService.wireProjectCommands).
+    // set by the host that uses this VM.
     static readonly NewItemChoicesKey = MuralBase.RegisterProperty<ObservableCollection<NewItemChoice>>(
         OpenProject, 'NewItemChoices', undefined as unknown as ObservableCollection<NewItemChoice>, MetaData.None)
     static readonly ImportFileCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
@@ -95,8 +95,8 @@ export class OpenProject extends MuralBase
         this.set_property_value(OpenProject.RootKey, ProjectNode.FromData(project.Root))
     }
 
-    // Activate the node the tree just selected — run its OpenCommand (wired by
-    // ProjectExplorerService.wireNodes: a leaf opens its file, a folder no-ops).
+    // Activate the node the tree just selected — run its OpenCommand (set by the
+    // solution-explorer Hierarchy contributors: a leaf opens its file, a folder no-ops).
     protected override OnPropertyChanged(descriptor: PropertyDescriptor, oldValue: unknown, newValue: unknown): void
     {
         super.OnPropertyChanged(descriptor, oldValue, newValue)
@@ -139,7 +139,7 @@ export class OpenProject extends MuralBase
     public EditingNode: ProjectNode | undefined = undefined
 
     // The tree's full multi-selection — the set of selected ProjectNodes,
-    // pushed here by TreeSelectionBehavior (the TreeView runs in Extended
+    // pushed here by the host (the TreeView runs in Extended
     // selection mode). SelectedNode above stays the anchor (what opens on
     // click); this is what a Delete acts on when several rows are selected.
     // Not bound to the view (the host reads it), so a plain field.

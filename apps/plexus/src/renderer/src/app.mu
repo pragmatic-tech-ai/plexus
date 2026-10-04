@@ -390,7 +390,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // One live architecture model per open architecture project (keyed by
         // RootPath): composes the project's bases + .todl files via
         // ModelDraft.fromSources. Built lazily on first modelFor; its
-        // OpenProjects subscription drops a model when its project closes.
+        // ActiveSolutionMembers subscription drops a model when its project closes.
         ArchitectureModelService
         // Observes opened documents and binds architecture-project diagrams to
         // their ArchModel (label sync + orphan removal); eagerly resolved in

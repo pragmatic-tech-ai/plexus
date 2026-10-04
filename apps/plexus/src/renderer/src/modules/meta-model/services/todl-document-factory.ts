@@ -12,7 +12,7 @@ import { toEditorDiagnostic } from '../../code-editor/editor-diagnostic.js'
 // The `.todl` editor: a definition file is plain-text TODL edited in the Monaco
 // CodeEditor (a CodeDocument over the project's IStorage). Contributed as the
 // DocumentDefinition.Factory for the meta-model module's `.documents:` entry; the
-// ProjectExplorerService resolves it by the `.todl` extension and delegates.
+// DocumentTypeRegistry resolves it by the `.todl` extension and delegates.
 export class TodlDocumentFactory extends ServiceBase implements IDocumentFactory, IRelocatableDocumentFactory
 {
     public static readonly Key = new ServiceKey<TodlDocumentFactory>('TodlDocumentFactory')

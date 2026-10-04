@@ -12,7 +12,7 @@ import { ReferenceNode } from './reference-node.js'
 
 // The New Project dialog's view-model + its per-type choice model. Rendered by
 // DataTemplate[NewProjectDialogModel] / DataTemplate[ProjectTypeChoice]. It is a
-// plain MuralBase (not a service): the ProjectExplorerService builds one, hands it a
+// plain MuralBase (not a service): the project-commands layer (ProjectCommandsService) builds one, hands it a
 // `close` callback wired to DialogService.Close, and awaits the result.
 
 export interface NewProjectResult

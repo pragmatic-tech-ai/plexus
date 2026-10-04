@@ -21,7 +21,7 @@ type ProjectBuildSystems = BuildSystemRegistry<TodlBuildContext, ProjectManifest
 // Contributes the Build ▸ / Publish commands to a project (member) row. Build runs
 // BuildService.Build for a chosen build-system flavor as a background-work task (its
 // IBuildProgress maps onto the task through BuildProgressReporter); Publish delegates to
-// the surviving ProjectExplorerService publish path (IContentMutations.PublishMember),
+// SolutionWorkspaceService's publish path (IContentMutations.PublishMember),
 // which itself runs BuildService.Publish through background-work. An action-only
 // contributor (Contribute yields no nodes — the rows are ProjectsProvider's);
 // the applicable systems/flavors are queried per open by BuildFlavorSubmenuContributor, so

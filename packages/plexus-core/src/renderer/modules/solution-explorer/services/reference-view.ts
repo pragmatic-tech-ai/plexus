@@ -32,7 +32,7 @@ export interface MemberReferencesView
 }
 
 // The read + mutate + refresh-signal seam the References branch depends on, implemented
-// by ProjectExplorerService. The provider and the action contributor take this one
+// by SolutionWorkspaceService. The provider and the action contributor take this one
 // interface so both are fakeable with a single stub. Every mutator writes the manifest
 // through the same engine ReferenceEditor tail (RefreshBases + ReferencesChanged) and
 // then fires OnReferencesViewChanged so the tree repaints; the modal "Manage

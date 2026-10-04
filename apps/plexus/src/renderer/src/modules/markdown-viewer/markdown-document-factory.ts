@@ -6,7 +6,7 @@ import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { MarkdownDocument } from './markdown-document.js'
 
 // Opens .md/.markdown files as READ-ONLY rendered MarkdownDocuments. Registered by
-// MarkdownViewerModule and resolved by the ProjectExplorerService via the file
+// MarkdownViewerModule and resolved by the DocumentTypeRegistry via the file
 // extension. Unlike CodeDocumentFactory it wires no editing — a markdown file is
 // shown rendered (a RichTextBlock over the parsed FlowDocument), not as raw text.
 export class MarkdownDocumentFactory extends ServiceBase implements IDocumentFactory

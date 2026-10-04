@@ -129,7 +129,7 @@ try {
     // to the mural header's surface on every scheme change (+ tag <body> on mac).
     // The title strip itself is painted by mural (Header region → @PlexusTitleBar).
     attachTitleBar(app)
-    // Title feed: construct now so its ActiveDocument / OpenProjects subscriptions
+    // Title feed: construct now so its ActiveDocument / ActiveSolutionMembers subscriptions
     // are live and document.title tracks from boot — even before the header view
     // first binds $service(TitleService).Title.
     app.Services.get(TitleService.Key)
