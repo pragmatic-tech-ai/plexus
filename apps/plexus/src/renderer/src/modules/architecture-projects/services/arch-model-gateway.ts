@@ -2,10 +2,9 @@ import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { checkAgainst, Severity, SolutionBaseResolver, type SourceFile } from '@pragmatic-tech-ai/todl'
 import { PatchOpKind, type PatchOp } from '../../../../../shared/model-patch-api.js'
 import { SkillProblemSeverity, type SkillProblem } from '../../../../../shared/skill-api.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import type { ArchModel } from './arch-model.js'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import type { ArchModelHandle, IArchModelGateway } from './model-patch-applier.js'
 
 // Production IArchModelGateway: resolves the open architecture project containing a
@@ -31,9 +30,7 @@ export class ArchModelGateway implements IArchModelGateway
 
     async resolve(projectPath: string): Promise<ArchModelHandle | undefined>
     {
-        const explorer = this.provider.get(ProjectExplorerService.Key)
-        if (explorer === undefined) return undefined
-        const op = explorer.OpenProjects.ToArray().find(p => ArchModelGateway.pathInProject(projectPath, p.Folder))
+        const op = ActiveSolutionMembers.From(this.provider).Resolved().find(p => ArchModelGateway.pathInProject(projectPath, p.Folder))
         if (op === undefined) return undefined
         const model = await this.provider.getRequired(ArchitectureModelService.Key).modelFor(op)
         return {
@@ -48,7 +45,7 @@ export class ArchModelGateway implements IArchModelGateway
 
     // Validate the model's own instances against its resolved bases (meta-model +
     // libraries) — the same composition modelFor uses, but returning diagnostics.
-    private async validate(op: OpenProject, model: ArchModel): Promise<SkillProblem[]>
+    private async validate(op: IProjectHandle, model: ArchModel): Promise<SkillProblem[]>
     {
         const { bases } = await this.provider.getRequired(SolutionBaseResolver.Key).ResolveBasesFor(op.Storage)
         const sources: SourceFile[] = [...model.toTodlByFile()].map(([uri, text]) => ({ uri, text }))

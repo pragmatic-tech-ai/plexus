@@ -1,7 +1,7 @@
 import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ModelDraft, parse, type Repository, type SourceFile } from '@pragmatic-tech-ai/todl'
 
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers } from '../solution/active-solution-members.js'
 import { collectTodlSources } from '../todl/todl-sources.js'
 
 // The wiki page `path` a concept declares via `annotate wiki { path }`, read
@@ -32,9 +32,7 @@ export class WikiLocator
     // { root, relPath } for the open project declaring `concept`, else undefined.
     public async resolveWiki(concept: string): Promise<{ root: string; relPath: string } | undefined>
     {
-        const explorer = this.provider.get(ProjectExplorerService.Key)
-        if (explorer === undefined) return undefined
-        for (const op of explorer.OpenProjects.ToArray())
+        for (const op of ActiveSolutionMembers.From(this.provider).Resolved())
         {
             let relPath: string | undefined
             try

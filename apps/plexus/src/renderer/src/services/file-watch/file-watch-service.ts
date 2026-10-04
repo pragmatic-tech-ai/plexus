@@ -4,7 +4,7 @@
 // at startup (main.js) so it listens before any project work.
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers } from '../solution/active-solution-members.js'
 
 export class FileWatchService extends ServiceBase
 {
@@ -29,8 +29,8 @@ export class FileWatchService extends ServiceBase
         this.api = bridge.fileWatch
         this.disposers.push(this.api.onChanged((e) => { for (const cb of this.subscribers) cb(e) }))
 
-        const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
-        this.disposers.push(explorer.OpenProjects.Subscribe(() => this.reconcile()))
+        const sub = this.members().Subscribe(() => this.reconcile())
+        this.disposers.push(() => sub.dispose())
         this.reconcile()
     }
 
@@ -44,10 +44,14 @@ export class FileWatchService extends ServiceBase
     // unwatch gone.
     private reconcile(): void
     {
-        const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
-        const current = new Set(explorer.OpenProjects.ToArray().map((p) => p.Folder))
+        const current = new Set(this.members().Resolved().map((p) => p.Folder))
         for (const folder of current) if (!this.watched.has(folder)) { this.watched.add(folder); void this.api.watch(folder) }
         for (const folder of [...this.watched]) if (!current.has(folder)) { this.watched.delete(folder); void this.api.unwatch(folder) }
+    }
+
+    private members(): ActiveSolutionMembers
+    {
+        return ActiveSolutionMembers.From(this.Provider)
     }
 
     public dispose(): void

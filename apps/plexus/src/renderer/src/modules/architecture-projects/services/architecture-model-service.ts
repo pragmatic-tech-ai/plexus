@@ -2,8 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { ModelDraft, SolutionBaseResolver, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
 
 import { collectTodlSources } from '../../../services/todl/todl-sources.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { ArchModel } from './arch-model.js'
 import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
@@ -31,9 +30,9 @@ export class ArchitectureModelService extends ServiceBase
         // Drop a project's model when it leaves the open set. Subscribe is a
         // generic change callback, so diff the live RootPaths against the cache
         // (mirrors SolutionBaseResolver's own member-subscription pattern).
-        const explorer = this.Provider.get(ProjectExplorerService.Key)
-        explorer?.OpenProjects.Subscribe(() => {
-            const live = new Set(explorer.OpenProjects.ToArray().map((op) => op.Project.RootPath))
+        const members = ActiveSolutionMembers.From(this.Provider)
+        members.Subscribe(() => {
+            const live = new Set(members.Resolved().map((op) => op.Folder))
             for (const key of [...this.models.keys()])
                 if (!live.has(key)) this.close(key)
         })
@@ -83,7 +82,7 @@ export class ArchitectureModelService extends ServiceBase
     }
 
     // Lazy build + cache. Idempotent: a second call returns the cached model.
-    public async modelFor(op: OpenProject): Promise<ArchModel>
+    public async modelFor(op: IProjectHandle): Promise<ArchModel>
     {
         const key = op.Project.RootPath
         const cached = this.models.get(key)

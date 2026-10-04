@@ -10,6 +10,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import type { GetProblemsRequest, IAgentApi, RefreshProjectRequest } from '../../../../shared/agent-api.js'
 import { AgentEventKind } from '../../../../shared/agent-api.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers } from '../solution/active-solution-members.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { collectProblems, resolveOwningProject, summarizeProject, type OpenProjectRef } from './refresh-targets.js'
 
@@ -48,17 +49,22 @@ export class WorkspaceRefreshService extends ServiceBase
     // (shouldn't happen in the host) yields an empty list rather than a throw.
     private handleProblems(req: GetProblemsRequest): void
     {
-        const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
-        const open: OpenProjectRef[] = explorer.OpenProjects.ToArray().map((o) => ({ folder: o.Folder, name: o.Name }))
+        const open = this.openProjects()
         const diagnostics = this.Provider.get(DiagnosticsService.Key)?.All.ToArray() ?? []
         const payload = collectProblems(diagnostics, open, req.path, req.severity)
         void this.agent.getProblemsResult({ id: req.id, ...payload })
     }
 
+    // The open projects, read from the engine's active-solution members.
+    private openProjects(): OpenProjectRef[]
+    {
+        return ActiveSolutionMembers.From(this.Provider).Resolved().map((o) => ({ folder: o.Folder, name: o.Name }))
+    }
+
     private async handle(req: RefreshProjectRequest): Promise<void>
     {
         const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
-        const open: OpenProjectRef[] = explorer.OpenProjects.ToArray().map((o) => ({ folder: o.Folder, name: o.Name }))
+        const open = this.openProjects()
 
         let targets = open
         let note: string | undefined

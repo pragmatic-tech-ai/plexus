@@ -3,6 +3,8 @@ import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-
 import { ProjectRescanService } from '../project-rescan-service.js'
 import { FileWatchService } from '../file-watch-service.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { FakeSolutionManager } from '../../solution/tests/fake-solution-manager.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
 function harness(folders: string[])
@@ -10,12 +12,12 @@ function harness(folders: string[])
   let changedCb: ((e: FileChangeEvent) => void) | undefined
   const fileWatch = { Subscribe: (cb: (e: FileChangeEvent) => void) => { changedCb = cb; return () => {} } }
   const RefreshProjects = vi.fn(async () => {})
-  const explorer = {
-    OpenProjects: { ToArray: () => folders.map((f) => ({ Folder: f })) },
-    RefreshProjects,
-  }
+  const explorer = { RefreshProjects }
+  const manager = new FakeSolutionManager()
+  for (const f of folders) manager.AddResolved({ RootPath: f, Name: f })
   const env = { IsWindows: true }
   const provider = {
+    get: (key: unknown) => (key === SolutionManagerService.Key ? manager : undefined),
     getRequired: (key: unknown) => {
       if (key === FileWatchService.Key) return fileWatch
       if (key === ProjectExplorerService.Key) return explorer

@@ -6,6 +6,7 @@ import { type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file
 import { FileWatchService } from './file-watch-service.js'
 import { normalizePath } from '@pragmatic-tech-ai/plexus-core/renderer/file-watch/path-utils.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { ActiveSolutionMembers } from '../solution/active-solution-members.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 
 const DEBOUNCE_MS = 250
@@ -41,8 +42,7 @@ export class ProjectRescanService extends ServiceBase
     {
         const ci = this.Provider.getRequired(EnvironmentService.Key).IsWindows
         const target = normalizePath(absPath, ci)
-        const explorer = this.Provider.getRequired(ProjectExplorerService.Key)
-        for (const p of explorer.OpenProjects.ToArray())
+        for (const p of ActiveSolutionMembers.From(this.Provider).Resolved())
         {
             const root = normalizePath(p.Folder, ci)
             if (target === root || target.startsWith(root + '/')) return p.Folder

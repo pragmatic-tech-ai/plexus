@@ -3,8 +3,7 @@ import { ContentHostService, DiagramDocument, DialogService, StatusService, type
 import { SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 
 import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
+import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import { ArchDiagramBinding } from './arch-diagram-binding.js'
 import { ArchNavigationService } from './arch-navigation-service.js'
@@ -179,7 +178,7 @@ export class ArchDiagramBindingService extends ServiceBase
     // liveness guard (the caller owns a freshly-loaded, definitely-live doc) and
     // WITHOUT the open-time toolbox-context side effects (which would perturb the
     // live UI). The caller MUST dispose() the returned binding when done.
-    public async bindForRender(op: OpenProject, doc: DiagramDocument): Promise<ArchDiagramBinding>
+    public async bindForRender(op: IProjectHandle, doc: DiagramDocument): Promise<ArchDiagramBinding>
     {
         const model = await this.Provider.getRequired(ArchitectureModelService.Key).modelFor(op)
         const chooser = this.Provider.get(DropCandidateChooserService.Key)
@@ -292,14 +291,12 @@ export class ArchDiagramBindingService extends ServiceBase
         binding.model.notifyChanged()
     }
 
-    // The architecture OpenProject that owns this diagram's storage, if any.
-    private projectFor(doc: DiagramDocument): OpenProject | undefined
+    // The architecture project (resolved solution member) that owns this diagram's storage, if any.
+    private projectFor(doc: DiagramDocument): IProjectHandle | undefined
     {
         const store = doc.Storage
         if (!(store instanceof FileDiagramStorage)) return undefined
-        const explorer = this.Provider.get(ProjectExplorerService.Key)
-        if (explorer === undefined) return undefined
-        for (const op of explorer.OpenProjects.ToArray())
+        for (const op of ActiveSolutionMembers.From(this.Provider).Resolved())
         {
             if (op.Storage === store.ProjectStorage && op.Project.Type === 'architecture') return op
         }

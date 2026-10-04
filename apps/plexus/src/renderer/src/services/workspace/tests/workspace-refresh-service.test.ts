@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { WorkspaceRefreshService } from '../workspace-refresh-service.js'
 import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
+import { FakeSolutionManager } from '../../solution/tests/fake-solution-manager.js'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { AgentEventKind, type AgentEvent, type GetProblemsResult, type RefreshProjectResult, type TaggedAgentEvent } from '../../../../../shared/agent-api.js'
@@ -32,11 +33,11 @@ function harness(): {
     }
 
     const provider = new ServiceProvider()
+    const manager = new FakeSolutionManager()
+    manager.AddResolved({ RootPath: '/p/a', Name: 'A' })
+    manager.AddResolved({ RootPath: '/p/b', Name: 'B' })
+    manager.RegisterOn(provider)
     provider.registerInstance(ProjectExplorerService.Key, {
-        OpenProjects: { ToArray: () => [
-            { Folder: '/p/a', Name: 'A' },
-            { Folder: '/p/b', Name: 'B' },
-        ] },
         RefreshProjects: async (folders: readonly string[]) => { refreshedWith.push([...folders]) },
     } as unknown as ProjectExplorerService)
 
