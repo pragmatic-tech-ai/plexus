@@ -28,6 +28,6 @@ export interface IConnectionsClient
     EnvVars(): Promise<readonly string[]>
 }
 
-// DI token the connection consumers (ConnectionEditingService, via ProjectExplorerService)
+// DI token the connection consumers (ConnectionEditingService, via SolutionWorkspaceService)
 // resolve the client under; apps/plexus registers a concrete impl over window.api.connections.
 export const ConnectionsClientKey = new ServiceKey<IConnectionsClient>('IConnectionsClient')

@@ -22,8 +22,8 @@ import {
     type ResolvedBag,
 } from '@pragmatic-tech-ai/todl'
 import type { ConnectionSpec, ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { IConnectionsClient, ConnectionTestResult } from '../../solution-explorer/services/connections-client.js'
-import { ConnectionHealth, ConnectionScope, type IConnectionView, type ConnectionLeafView } from '../../solution-explorer/services/connection-view.js'
+import type { IConnectionsClient, ConnectionTestResult } from './connections-client.js'
+import { ConnectionHealth, ConnectionScope, type IConnectionView, type ConnectionLeafView } from './connection-view.js'
 
 // A project the host resolves for a member — only the factory flag the consumer gate needs.
 // requiresMetaModel is optional to match IProjectFactory (an OpenProject.Factory); the gate

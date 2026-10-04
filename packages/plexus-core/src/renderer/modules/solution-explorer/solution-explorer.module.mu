@@ -8,14 +8,16 @@
 
 import SolutionExplorerService from "./services/solution-explorer-service.js"
 import SolutionWorkspaceService from "./services/solution-workspace-service.js"
+import ProjectCommandsService from "./services/project-commands-service.js"
 
 shell module SolutionExplorerModule [ Name = "Solution Explorer" ] {
     .services: {
         SolutionExplorerService
-        // The new member-keyed IContentMutations implementer (over todl engine ops). Registered
-        // so it is resolvable; the Solution Explorer is rewired onto it in a later PE-retirement
-        // task — ProjectExplorerService stays the wired implementer for now.
+        // The member-keyed IContentMutations implementer (over todl engine ops) + the
+        // References / Connections views the explorer reads through.
         SolutionWorkspaceService
+        // The Open / New project commands + New Project form the command bar binds to.
+        ProjectCommandsService
     }
 
     Capability [ Name = "Solution Explorer", Icon = @ProjectExplorer, ServiceKey = SolutionExplorerService ]

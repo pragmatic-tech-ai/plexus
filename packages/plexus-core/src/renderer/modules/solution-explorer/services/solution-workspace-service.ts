@@ -16,10 +16,10 @@
 // a Cancel vetoes the whole project close). The engine calls back into these as it
 // runs, so disk mutation and tab bookkeeping never fall out of step.
 //
-// Scope note (PE retirement): this coexists with ProjectExplorerService — both
-// implement IContentMutations in parallel until the Solution Explorer is rewired
-// onto this one (a later task). It does NOT own OpenProjects / Open·New-project
-// commands / References·Connections views; those stay on ProjectExplorerService.
+// Scope note (PE retirement): the Solution Explorer is now wired onto this service. It
+// also exposes the References / Connections views (IReferenceView / IConnectionView) the
+// reference + connection branches read and mutate through. The Open / New project
+// commands live on ProjectCommandsService; ProjectExplorerService still coexists (Task 15).
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import {
     ContentHostService,
@@ -33,10 +33,13 @@ import {
     ProjectEventsKey,
     ProjectType,
     ProjectNodeKind,
+    ProjectSharedBagPersister,
+    ProjectLocalBagPersister,
     SolutionBaseResolver,
     SolutionManagerService,
     UniqueName,
     VersionPart as EngineVersionPart,
+    type BagVantage,
     type BuildPublishOutcome,
     type SolutionMember,
 } from '@pragmatic-tech-ai/todl'
@@ -64,6 +67,14 @@ import { BackgroundWorkService, TaskKind, type InlineJob } from '../../backgroun
 import { PublishTaskExecutor } from '../../../projects/publish-task-executor.js'
 import { PublishFailure } from '../../../projects/publish-failure.js'
 import { BuildProgressReporter } from './build-progress-reporter.js'
+import type { IReferenceView } from './reference-view.js'
+import type { IConnectionView } from './connection-view.js'
+import { ConnectionsClientKey } from './connections-client.js'
+import { SolutionReferenceView } from './solution-reference-view.js'
+import { ConnectionEditingService, type IConnectionHost } from './connection-editing-service.js'
+import { SavingSolutionBagPersister } from './saving-solution-bag-persister.js'
+import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
+import { InfoDialog } from './info-dialog.js'
 import { DocOwnership, type ReloadableDocument } from './doc-ownership.js'
 import {
     MemberContentOps,
@@ -98,10 +109,9 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     private static readonly DeleteConfirmLabel = 'Delete'
 
     // Failure feedback (no notification/toast channel exists in solution-explorer, so a brief
-    // info dialog reusing ConfirmDialogModel — OK-only — surfaces these; was a silent swallow).
+    // OK-only info dialog — a ConfirmDialogModel with ShowCancel=false — surfaces these).
     private static readonly RenameTitle = 'Rename'
     private static readonly MoveTitle = 'Move'
-    private static readonly OkLabel = 'OK'
     private static readonly InvalidNameMessage = "That name isn't valid."
     private static readonly NameExistsSuffix = '" already exists.'
     private static readonly NameExistsPrefix = '"'
@@ -136,6 +146,8 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // at mount (same reason ProjectExplorerService defers its wiring).
     private memberOps: MemberProjectOps | undefined
     private lifecycle: ProjectLifecycle | undefined
+    private readonly referenceView: SolutionReferenceView
+    private connectionView: ConnectionEditingService | undefined
     // The Publish-kind background-work executor is registered once, lazily.
     private publishExecutorRegistered = false
 
@@ -143,6 +155,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     {
         super(provider)
         this.docs = new DocOwnership(this.Provider)
+        this.referenceView = new SolutionReferenceView(this.Provider)
     }
 
     // ── collaborators (lazy) ────────────────────────────────────────────────
@@ -158,6 +171,84 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     private get projectOps(): MemberProjectOps
     {
         return (this.memberOps ??= new MemberProjectOps(this.Provider.getRequired(ProjectFactoryRegistryKey), this.resolver))
+    }
+
+    // The References branch view (engine ReferenceEditor + the offersLibraries gate).
+    public get References(): IReferenceView { return this.referenceView }
+
+    // The Connections branch + per-project active-connection view, built lazily: the
+    // connections client (window.api.connections) is registered after this ctor runs at boot.
+    public get Connections(): IConnectionView
+    {
+        if (this.connectionView === undefined)
+        {
+            this.connectionView = new ConnectionEditingService(this.Provider.getRequired(ConnectionsClientKey), this.ConnectionHost())
+        }
+        return this.connectionView
+    }
+
+    // The effective connection id a consuming project (identified by its manifest id — the
+    // resolution context's consumerId) resolves its published bases against: the project-local
+    // selection, else the solution default, else the global default. Undefined when no open
+    // member produces that id or no connection applies.
+    public async EffectiveConnectionIdForConsumer(consumerId: string): Promise<string | undefined>
+    {
+        const member = await this.MemberForConsumerId(consumerId)
+        if (member === undefined) return undefined
+        return (await this.Connections.ActiveConnectionFor(member))?.Id
+    }
+
+    private async MemberForConsumerId(consumerId: string): Promise<SolutionMember | undefined>
+    {
+        const solution = this.manager.ActiveSolution
+        if (solution === undefined) return undefined
+        for (const member of solution.Members.ToArray())
+        {
+            if (member.Storage === undefined) continue
+            if (await this.resolver.ConsumerIdOf(member.Storage) === consumerId) return member
+        }
+        return undefined
+    }
+
+    // The host ConnectionEditingService needs: the requiresMetaModel factory gate, base
+    // re-resolution on an active-connection change, and the property-bag vantage.
+    private ConnectionHost(): IConnectionHost
+    {
+        return {
+            ProjectFor: (m) =>
+            {
+                const factory = m.IsResolved ? this.factoryFor(m) : undefined
+                return factory === undefined ? undefined : { Factory: factory }
+            },
+            SetStatus: () => { /* solution-explorer has no status channel */ },
+            RefreshBasesFor: async (m) => { this.RefreshMemberBases(m) },
+            Vantage: (m) => this.BuildVantage(m),
+        }
+    }
+
+    // The bag vantage for connection resolution: always global; the active solution when one
+    // is open; and, for a member, that project's shared + local scopes. Undefined when the
+    // global persister is not wired (headless) — callers then use the client inventory alone.
+    private async BuildVantage(member?: SolutionMember): Promise<BagVantage | undefined>
+    {
+        const global = this.Provider.get(GlobalBagPersisterKey)
+        if (global === undefined) return undefined
+        const vantage: BagVantage = { Global: global }
+        const solution = this.manager.ActiveSolution
+        if (solution !== undefined) vantage.Solution = new SavingSolutionBagPersister(solution, this.manager)
+        const storage = member?.Storage
+        if (storage !== undefined)
+        {
+            vantage.ProjectShared = await ProjectSharedBagPersister.Open(storage)
+            vantage.ProjectLocal = await ProjectLocalBagPersister.Open(storage)
+        }
+        return vantage
+    }
+
+    public override dispose(): void
+    {
+        this.referenceView.dispose()
+        super.dispose()
     }
 
     private get projects(): ProjectLifecycle
@@ -346,6 +437,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
             libraries: offersLibraries ? (result.libraries ?? []) : undefined,
         })
         this.RefreshMemberBases(member)
+        this.referenceView.NotifyChanged(member)   // repaint the References branch
     }
 
     // Publish through the engine BuildService as a background-work Publish task (its
@@ -562,12 +654,12 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         return this.Provider.get(PublishedBasesKey) as IPublishedBaseCatalog | undefined
     }
 
-    // Surface an operation failure through a brief OK-only info dialog (reusing
-    // ConfirmDialogModel) — solution-explorer has no notification/toast/status channel.
+    // Surface an operation failure through a brief OK-only info dialog (ConfirmDialogModel
+    // with ShowCancel=false, so only the OK button renders) — solution-explorer has no
+    // notification/toast/status channel.
     private async Inform(title: string, message: string): Promise<void>
     {
-        const vm = new ConfirmDialogModel(message, SolutionWorkspaceService.OkLabel, (r) => this.dialogs.Close(r))
-        await this.dialogs.Show<boolean>({ Title: title, Content: vm, Width: SolutionWorkspaceService.ConfirmWidth })
+        await InfoDialog.Show(this.dialogs, title, message)
     }
 
     // Confirm an irreversible delete before the engine touches disk. A single item

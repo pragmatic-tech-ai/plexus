@@ -155,6 +155,9 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 // Project Explorer view — the generic project tree + command bar
 // (DataTemplate[ProjectExplorerService] + recursive DataTemplate[ProjectNode]).
 import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
+// The New/Open project, references and set-version DIALOG templates (moved out of the
+// project-explorer resources; Confirm stays there until Task 15).
+import SolutionDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-dialogs.resources.mu.js"
 // Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
 // + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
 // [HierarchyItem]. ProjectExplorerResources is still merged below for its Open/New
@@ -599,6 +602,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Its DataTemplate[ProjectExplorerService] panel view is now dormant (no
         // Capability points at it); the Solution Explorer resources render the panel.
         merge ProjectExplorerResources
+        merge SolutionDialogsResources
 
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +
         // HierarchicalDataTemplate[HierarchyItem].

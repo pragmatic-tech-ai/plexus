@@ -13,13 +13,16 @@ import {
 // Deliberately generic — it carries only a message and the confirm-button label,
 // so any destructive action (delete, discard, overwrite) can reuse it. The
 // DialogService supplies the title/surface; the caller passes the confirm label
-// so the primary button reads as the action ("Delete", "Discard", …).
+// so the primary button reads as the action ("Delete", "Discard", …). An optional
+// ShowCancel (default true) lets a caller present an OK-only information dialog.
 export class ConfirmDialogModel extends MuralBase
 {
     static readonly MessageKey = MuralBase.RegisterProperty<string>(
         ConfirmDialogModel, 'Message', '', MetaData.None)
     static readonly ConfirmLabelKey = MuralBase.RegisterProperty<string>(
         ConfirmDialogModel, 'ConfirmLabel', 'OK', MetaData.None)
+    static readonly ShowCancelKey = MuralBase.RegisterProperty<boolean>(
+        ConfirmDialogModel, 'ShowCancel', true, MetaData.None)
     static readonly ConfirmCommandKey = MuralBase.RegisterProperty<ICommand>(
         ConfirmDialogModel, 'ConfirmCommand', undefined as unknown as ICommand, MetaData.None)
     static readonly CancelCommandKey = MuralBase.RegisterProperty<ICommand>(
@@ -29,9 +32,11 @@ export class ConfirmDialogModel extends MuralBase
         message: string,
         confirmLabel: string,
         private readonly close: (confirmed: boolean) => void,
+        showCancel: boolean = true,
     )
     {
         super()
+        this.set_property_value(ConfirmDialogModel.ShowCancelKey, showCancel)
         this.set_property_value(ConfirmDialogModel.MessageKey, message)
         this.set_property_value(ConfirmDialogModel.ConfirmLabelKey, confirmLabel)
         this.set_property_value(ConfirmDialogModel.ConfirmCommandKey, new RelayCommand(() => this.close(true)))
@@ -40,6 +45,8 @@ export class ConfirmDialogModel extends MuralBase
 
     public get Message(): string { return this.get_property_value(ConfirmDialogModel.MessageKey) }
     public get ConfirmLabel(): string { return this.get_property_value(ConfirmDialogModel.ConfirmLabelKey) }
+    // False hides the Cancel button (an OK-only info dialog). Defaults to true.
+    public get ShowCancel(): boolean { return this.get_property_value(ConfirmDialogModel.ShowCancelKey) }
     public get ConfirmCommand(): ICommand { return this.get_property_value(ConfirmDialogModel.ConfirmCommandKey) }
     public get CancelCommand(): ICommand { return this.get_property_value(ConfirmDialogModel.CancelCommandKey) }
 }

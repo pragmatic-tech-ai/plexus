@@ -1,9 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { Observable, ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { Observable, ServiceProvider, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { Hierarchy, HierarchyContributorRegistry, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { SolutionManagerService, Solution, SolutionMemberStatus, type SolutionMember, type ProjectNodeKind, type ProjectFileFormat } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/services/project-explorer-service.js'
+import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
+import { ProjectCommandsService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js'
 import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-explorer-service.js'
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { type IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
@@ -23,9 +24,9 @@ class FakeManager extends Observable
     }
 }
 
-// Records OpenMemberFile + IContentMutations calls; stands in for the surviving
-// ProjectExplorerService (which implements IContentMutations).
-class FakeExplorer
+// Records OpenMemberFile + IContentMutations calls; stands in for SolutionWorkspaceService
+// (the IContentMutations implementer that also supplies the References / Connections views).
+class FakeWorkspace
 {
     public readonly opened: Array<[SolutionMember, string, ProjectNodeKind]> = []
     public readonly renamed: Array<[SolutionMember, string, string]> = []
@@ -50,9 +51,9 @@ class FakeExplorer
     public IsVersionedMember(): boolean { return false }
     public CanRefreshBasesMember(): boolean { return false }
     public SupportsScaffoldMember(): boolean { return false }
-    // P5b: the Solution Explorer resolves the connection view through the explorer. A minimal
+    // The Solution Explorer resolves the connection view through the workspace service. A minimal
     // stand-in — an empty connection list, non-consumer members (no per-project active rows).
-    public get Connections(): IConnectionView { return FakeExplorer.connections }
+    public get Connections(): IConnectionView { return FakeWorkspace.connections }
     private static readonly connections: IConnectionView = {
         ConnectionsView: async () => [],
         EnvVars: async () => [],
@@ -71,23 +72,32 @@ class FakeExplorer
     }
 }
 
+// Stands in for ProjectCommandsService: the command bar binds to these two commands.
+class FakeCommands
+{
+    public readonly OpenProjectCommand: ICommand = new RelayCommand(() => {})
+    public readonly NewProjectCommand: ICommand = new RelayCommand(() => {})
+}
+
 // Records editor-launch requests; the Connections actions contributor needs a launcher.
 function fakeLauncher(): IConnectionEditorLauncher
 {
     return { OpenNew: () => {}, OpenEdit: () => {} }
 }
 
-function make(): { svc: SolutionExplorerService; manager: FakeManager; explorer: FakeExplorer }
+function make(): { svc: SolutionExplorerService; manager: FakeManager; explorer: FakeWorkspace; commands: FakeCommands }
 {
     const provider = new ServiceProvider()
     const manager = new FakeManager()
     const registry = new HierarchyContributorRegistry(provider)
-    const explorer = new FakeExplorer()
+    const explorer = new FakeWorkspace()
+    const commands = new FakeCommands()
     provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
     provider.registerInstance(HierarchyContributorRegistry.Key, registry)
-    provider.registerInstance(ProjectExplorerService.Key, explorer as unknown as ProjectExplorerService)
+    provider.registerInstance(SolutionWorkspaceService.Key, explorer as unknown as SolutionWorkspaceService)
+    provider.registerInstance(ProjectCommandsService.Key, commands as unknown as ProjectCommandsService)
     provider.registerInstance(ConnectionEditorLauncherKey, fakeLauncher())
-    return { svc: new SolutionExplorerService(provider), manager, explorer }
+    return { svc: new SolutionExplorerService(provider), manager, explorer, commands }
 }
 
 function solutionWith(...names: string[]): Solution
@@ -138,6 +148,27 @@ describe('SolutionExplorerService', () =>
         manager.SetActive(solutionWith('x', 'y'))
         expect(svc.Hierarchy).toBe(first)          // stable instance — the template binds it once
         expect(svc.Hierarchy!.Roots.Count).toBe(3) // Connections + two members, rebuilt in place
+    })
+
+    it('resolves SolutionWorkspaceService + ProjectCommandsService: the command bar commands pass through', () =>
+    {
+        const { svc, commands } = make()
+        expect(svc.OpenProjectCommand).toBe(commands.OpenProjectCommand)
+        expect(svc.NewProjectCommand).toBe(commands.NewProjectCommand)
+    })
+
+    it('activating a file row opens it through the workspace service', async () =>
+    {
+        const { svc, manager, explorer } = make()
+        svc.Start()
+        manager.SetActive(solutionWith('a'))
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const member = manager.ActiveSolution!.Members.Get(0)
+        const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
+        svc.Activate(fileVm)
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl'])
     })
 
     it('activating a member row (not a file) does not call OpenMemberFile', () =>

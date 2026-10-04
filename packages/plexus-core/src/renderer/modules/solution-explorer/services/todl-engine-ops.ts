@@ -8,10 +8,13 @@ export {
     type ImportFile,
     type IContentLifecycleGuard,
     ReferenceEditor,
+    ReferenceResolutionKind,
     type IPublishedBaseCatalog,
     type RefChoiceDTO,
     type ReferenceBindingsInput,
     ProjectLifecycle,
+    CreateError,
+    OpenError,
     type ICloseGuard,
     type IProjectSessionStore,
 } from '@pragmatic-tech-ai/todl'

@@ -13,8 +13,8 @@ import {
     type IBagPersister,
 } from '@pragmatic-tech-ai/todl'
 import type { ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { IConnectionsClient, ConnectionTestResult } from '../../../solution-explorer/services/connections-client.js'
-import { ConnectionScope } from '../../../solution-explorer/services/connection-view.js'
+import type { IConnectionsClient, ConnectionTestResult } from '../connections-client.js'
+import { ConnectionScope } from '../connection-view.js'
 import { ConnectionEditingService, type IConnectionHost } from '../connection-editing-service.js'
 
 class FakeBagPersister implements IBagPersister
