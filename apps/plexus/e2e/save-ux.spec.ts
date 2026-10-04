@@ -167,11 +167,11 @@ async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void>
     await l.win.evaluate(async (relPath) => {
         const S = Symbol.for('mural:visual-backref')
         let explorer: any
-        for (const el of document.querySelectorAll('*'))
-        {
-            const dc = (el as any)[S]?.DataContext
-            if (dc && typeof dc.OpenFileInProject === 'function') { explorer = dc; break }
-        }
+        { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
+        let ws: any, mgr: any
+        for (let p = rt?.Services; p; p = p._parent) for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n === 'SolutionWorkspaceService') ws = e; if (n === 'SolutionManagerService') mgr = e }
+        const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
+        if (ws) explorer = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
         if (!explorer) return
         const proj = explorer.OpenProjects.ToArray().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
         if (proj) await explorer.OpenFileInProject(proj.Folder, relPath, 0, 0)

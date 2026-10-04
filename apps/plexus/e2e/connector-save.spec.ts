@@ -159,7 +159,7 @@ async function openDiagram2(l: Launched): Promise<boolean>
 }
 
 // Reliably CLOSE then REOPEN the active diagram tab, the way a user does it —
-// close via the content host, reopen via ProjectExplorer.OpenFileInProject
+// close via the content host, reopen via SolutionWorkspaceService.OpenFileInProject
 // (folder + project-relative path off the doc's FileDiagramStorage). This is the
 // EXACT in-session tab close+reopen path; the explorer double-click is flaky
 // after a close, so we drive the service method the double-click ultimately calls.
@@ -190,11 +190,11 @@ async function openDiagramFile(l: Launched, relPath: string): Promise<any>
     const r = await l.win.evaluate(async (relPath) => {
         const S = Symbol.for('mural:visual-backref')
         let explorer: any
-        for (const el of document.querySelectorAll('*'))
-        {
-            const dc = (el as any)[S]?.DataContext
-            if (dc && typeof dc.OpenFileInProject === 'function') { explorer = dc; break }
-        }
+        { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
+        let ws: any, mgr: any
+        for (let p = rt?.Services; p; p = p._parent) for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n === 'SolutionWorkspaceService') ws = e; if (n === 'SolutionManagerService') mgr = e }
+        const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
+        if (ws) explorer = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
         if (!explorer) return { ok: false, reason: 'no explorer' }
         const proj = explorer.OpenProjects.ToArray().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
         if (!proj) return { ok: false, reason: 'no arch project' }
@@ -209,13 +209,25 @@ async function closeAndReopenActive(l: Launched, fileHint: string): Promise<any>
 {
     const r = await l.win.evaluate(async (fileHint) => {
         const S = Symbol.for('mural:visual-backref')
-        let host: any, explorer: any
+        let host: any, explorer: any, root: any
         for (const el of document.querySelectorAll('*'))
         {
             const dc = (el as any)[S]?.DataContext
+            if (!root && (el as any)[S]) root = (el as any)[S]
             if (!host && dc && typeof dc.CloseById === 'function' && dc.OpenDocuments) host = dc
-            if (!explorer && dc && typeof dc.OpenFileInProject === 'function') explorer = dc
         }
+        let ws: any, mgr: any
+        for (let p = root?.Services; p; p = p._parent)
+        {
+            for (const [, e] of (p._cache ?? new Map()))
+            {
+                const n = (e as any)?.constructor?.name
+                if (n === 'SolutionWorkspaceService') ws = e
+                if (n === 'SolutionManagerService') mgr = e
+            }
+        }
+        const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
+        if (ws) explorer = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } }
         if (!host) return { ok: false, reason: 'no content host' }
         if (!explorer) return { ok: false, reason: 'no explorer service' }
         // The open doc whose FileDiagramStorage path is the target diagram file.

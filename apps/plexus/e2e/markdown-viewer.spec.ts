@@ -1,6 +1,6 @@
 // Live smoke for the rendered Markdown viewer:
 //  - The MarkdownViewerModule registers MarkdownDocumentFactory for .md, so the
-//    ProjectExplorerService resolves it by extension.
+//    SolutionWorkspaceService's DocOwnership resolves it by extension.
 //  - Opening a .md builds a MarkdownDocument (marked → FlowDocument: headings,
 //    highlighted code, lists, tables, links, a local image), and the content host
 //    applies DataTemplate[MarkdownDocument] → a RichTextBlock that lays it out.
@@ -56,30 +56,31 @@ function openMarkdown(l: Launched, relPath: string)
         const S = Symbol.for('mural:visual-backref')
         let root: any
         for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
-        let host: any, explorer: any
+        let host: any, explorer: any, mgr: any
         for (let p = root?.Services; p && (!host || !explorer); p = p._parent)
         {
             for (const [, e] of (p._cache ?? new Map()))
             {
                 const n = (e as any)?.constructor?.name
                 if (n === 'DocumentsContentHostService') host = e
-                if (n === 'ProjectExplorerService') explorer = e
+                if (n === 'SolutionWorkspaceService') explorer = e
+                if (n === 'SolutionManagerService') mgr = e
             }
         }
-        if (!host || !explorer) return { ok: false as const, reason: `host=${!!host} explorer=${!!explorer}` }
+        if (!host || !explorer || !mgr) return { ok: false as const, reason: `host=${!!host} explorer=${!!explorer} mgr=${!!mgr}` }
 
         // Extension routing: the explorer resolves .md to our factory (lazily
         // instantiating the service), which we then open the file with.
-        const factory = explorer['resolveDocumentFactory']?.('.md')
+        const factory = explorer['docs']?.FactoryFor?.('.md')
         const routed = factory
         if (!factory) return { ok: false as const, reason: '.md did not resolve to a factory' }
 
         // Open the file from whichever project actually holds it.
         let opened: any
         const diag: string[] = []
-        for (const op of explorer.OpenProjects.ToArray())
+        for (const op of mgr.ActiveSolution?.Members.ToArray() ?? [])
         {
-            const storage = op['storage']
+            const storage = op.Storage
             try
             {
                 const doc = await factory.openFile(storage, relPath)
@@ -89,7 +90,7 @@ function openMarkdown(l: Launched, relPath: string)
             }
             catch (e)
             {
-                diag.push(`${op?.Name}: storage=${!!storage} err=${(e as Error)?.message}`)
+                diag.push(`${op?.Title}: storage=${!!storage} err=${(e as Error)?.message}`)
             }
         }
         if (!opened) return { ok: false as const, reason: `no open project held the fixture — ${diag.join(' | ')}` }

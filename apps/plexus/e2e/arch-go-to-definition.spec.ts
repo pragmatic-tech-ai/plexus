@@ -34,7 +34,11 @@ test.describe.serial('arch-go-to-definition', () => {
     await l.win.evaluate(async () => {
       const S = Symbol.for('mural:visual-backref')
       let ex: any
-      for (const el of document.querySelectorAll('*')) { const dc = (el as any)[S]?.DataContext; if (dc && typeof dc.OpenFileInProject === 'function') { ex = dc; break } }
+      { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
+      let ws: any, mgr: any
+      for (let p = rt?.Services; p; p = p._parent) for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n === 'SolutionWorkspaceService') ws = e; if (n === 'SolutionManagerService') mgr = e }
+      const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
+      if (ws) ex = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
       const proj = ex?.OpenProjects?.ToArray?.().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
       if (proj) await ex.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
     })
@@ -55,7 +59,11 @@ test.describe.serial('arch-go-to-definition', () => {
     await l.win.evaluate(async () => {
       const S = Symbol.for('mural:visual-backref')
       let ex: any
-      for (const el of document.querySelectorAll('*')) { const dc = (el as any)[S]?.DataContext; if (dc && typeof dc.OpenFileInProject === 'function') { ex = dc; break } }
+      { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
+      let ws: any, mgr: any
+      for (let p = rt?.Services; p; p = p._parent) for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n === 'SolutionWorkspaceService') ws = e; if (n === 'SolutionManagerService') mgr = e }
+      const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
+      if (ws) ex = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
       const proj = ex?.OpenProjects?.ToArray?.().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
       if (proj) await ex.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
     })
