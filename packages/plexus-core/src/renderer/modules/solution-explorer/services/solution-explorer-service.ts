@@ -54,6 +54,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private references: ReferencesContributor | undefined
     private readonly handles: IDisposable[] = []
     private activeOff: IDisposable | undefined
+    private selectionOff: (() => void) | undefined
     private _hasNoSolution = true
 
     constructor(private readonly provider: ServiceProvider)
@@ -89,6 +90,12 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             IsExpandable: true,
         })
         this.RaisePropertyChanged(SolutionExplorerService.HierarchyProp, undefined, undefined)
+        // Single-click opens: the mural TreeView fires host.Activate only on DOUBLE-click,
+        // so wire open-on-select here — a single click (or keyboard move) selects the row,
+        // and we open the file it resolves to. onActivate only opens a file row (a member /
+        // folder / synthetic row resolves to no content path and no-ops), and OpenMemberFile
+        // re-activates an already-open tab, so the double-click path stays harmless.
+        this.selectionOff = this.hierarchy.Selection.Subscribe(() => this.onSelectionChanged())
         const manager = this.provider.getRequired(SolutionManagerService.Key)
         this.activeOff = manager.PropertyChanged('ActiveSolution').subscribe(() => this.rebuild(manager.ActiveSolution))
         this.rebuild(manager.ActiveSolution)
@@ -233,6 +240,16 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         }
     }
 
+    // Open-on-select: a single click (or keyboard move) that lands on exactly one row opens
+    // the file it resolves to. A multi-selection (Ctrl/Shift) does not open — it is a bulk
+    // gesture for delete/menu, not a navigation. onActivate decides what is openable.
+    private onSelectionChanged(): void
+    {
+        const selection = this.selection()
+        if (selection.length !== 1) return
+        void this.onActivate(selection[0]!)
+    }
+
     private async onActivate(item: HierarchyItem): Promise<void>
     {
         const content = item.ExtObject as ProjectContentNode | undefined
@@ -267,6 +284,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
 
     public dispose(): void
     {
+        this.selectionOff?.()
+        this.selectionOff = undefined
         this.activeOff?.dispose()
         this.activeOff = undefined
         this.teardownCurrent()

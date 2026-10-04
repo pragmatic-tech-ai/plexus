@@ -171,6 +171,49 @@ describe('SolutionExplorerService', () =>
         expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl'])
     })
 
+    it('single-click (selecting one file row) opens it through the workspace service', async () =>
+    {
+        const { svc, manager, explorer } = make()
+        svc.Start()
+        manager.SetActive(solutionWith('a'))
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const member = manager.ActiveSolution!.Members.Get(0)
+        const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
+        svc.Hierarchy!.Selection.Add(fileVm)   // the TreeView selects on single click
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl'])
+    })
+
+    it('selecting a member row (not a file) does not open anything', async () =>
+    {
+        const { svc, manager, explorer } = make()
+        svc.Start()
+        manager.SetActive(solutionWith('a'))
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        svc.Hierarchy!.Selection.Add(memberRow)
+        await Promise.resolve()
+        await Promise.resolve()
+        expect(explorer.opened).toHaveLength(0)   // a member row has no content path
+    })
+
+    it('a multi-selection does not open (bulk gesture, not navigation)', async () =>
+    {
+        const { svc, manager, explorer } = make()
+        svc.Start()
+        manager.SetActive(solutionWith('a'))
+        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const member = manager.ActiveSolution!.Members.Get(0)
+        const f1 = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
+        const f2 = { ExtObject: { Path: 'b.todl', Kind: 'todl' }, Parent: memberRow, Id: 1 } as unknown as HierarchyItem
+        svc.Hierarchy!.Selection.Add(f1)
+        svc.Hierarchy!.Selection.Add(f2)
+        await Promise.resolve()
+        await Promise.resolve()
+        // Only the first (single-item) selection opened; the second made it a multi-selection.
+        expect(explorer.opened).toEqual([[member, 'a.todl', 'todl']])
+    })
+
     it('activating a member row (not a file) does not call OpenMemberFile', () =>
     {
         const { svc, manager, explorer } = make()
