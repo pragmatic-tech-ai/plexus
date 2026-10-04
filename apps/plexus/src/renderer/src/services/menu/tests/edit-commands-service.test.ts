@@ -1,6 +1,7 @@
 import { test, expect, vi } from 'vitest'
 import { ServiceProvider, RelayCommand, Signal } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, Diagram, DiagramDocument, type IDocument } from '@pragmatic-tech-ai/mural/framework'
+import { MenuItem } from '@pragmatic-tech-ai/mural/framework/surface.js'
 import { EditCommandsService } from '../edit-commands-service.js'
 
 // A real class implementing just the ContentHostService.ActiveDocument surface
@@ -183,4 +184,16 @@ test('dispose releases the ActiveDocument subscription so later changes do not r
     host.ActiveDocument = new FakeNonDiagramDocument()
 
     expect(listener).not.toHaveBeenCalled()
+})
+
+test('a MenuItem bound to UndoCommand is disabled with no active diagram, and re-enables on CanExecuteChanged', async () => {
+    const host = new FakeDocumentsContentHostService(undefined)
+    const svc = buildService(host)
+    const item = new MenuItem()
+    item.Command = svc.UndoCommand
+    expect(item.IsEnabled).toBe(false)
+
+    host.ActiveDocument = await diagramWithOneUndoableEdit()
+
+    expect(item.IsEnabled).toBe(true)
 })
