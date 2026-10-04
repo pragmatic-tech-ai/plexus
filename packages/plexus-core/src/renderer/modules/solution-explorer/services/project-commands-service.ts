@@ -13,6 +13,7 @@ import { PublishedBasesKey } from '../../../projects/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 import type { ReferenceNode } from '../../../projects/reference-node.js'
 import { RecentProjectsService } from '../../../projects/recent-projects-service.js'
+import { OpenProjectsStore } from '../../../projects/open-projects-store.js'
 import {
     NewProjectDialogModel, ProjectTypeChoice, type NewProjectResult,
 } from '../../../projects/new-project-dialog-model.js'
@@ -63,12 +64,19 @@ export class ProjectCommandsService extends ServiceBase
     private get recents(): RecentProjectsService { return this.Provider.getRequired(RecentProjectsService.Key) }
 
     // Created lazily: the solution engine seams ProjectLifecycle needs are registered after
-    // this service's ctor runs at mount. Recents are tracked here; session pruning stays with
-    // the open-projects store owner (ProjectExplorerService) while the two coexist.
+    // this service's ctor runs at mount. Recents and the open-projects session (persisted via
+    // OpenProjectsStore) are both tracked by the lifecycle.
     private get projects(): ProjectLifecycle
     {
         return (this.lifecycle ??= new ProjectLifecycle(
-            this.Provider, this.Provider.getRequired(SolutionManagerService.Key), undefined, this.recents))
+            this.Provider, this.Provider.getRequired(SolutionManagerService.Key),
+            this.Provider.getRequired(OpenProjectsStore.Key), this.recents))
+    }
+
+    // Reopen the previous session's projects (startup); prunes folders whose manifest is gone.
+    public RestoreSession(): Promise<void>
+    {
+        return this.projects.RestoreSession()
     }
 
     // Open Project: present the recents-or-Browse dialog; open whatever folder it resolves to.

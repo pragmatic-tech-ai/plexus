@@ -51,6 +51,7 @@ import {
 } from '../../../projects/project-factory.js'
 import { PublishedBasesKey, LiveValidationKey, ProblemsDockKey } from '../../../projects/index.js'
 import type { IContentMutations } from './content-mutations.js'
+import { OpenProjectsStore } from '../../../projects/open-projects-store.js'
 import { VersionPart } from '../../../projects/semver-bump.js'
 import { ConfirmDialogModel } from '../../../dialogs/confirm-dialog-model.js'
 import { SetVersionDialogModel, type SetVersionResult } from '../../../projects/set-version-dialog-model.js'
@@ -241,10 +242,8 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
 
     private get projects(): ProjectLifecycle
     {
-        // Session pruning on close is left to the parallel ProjectExplorerService (it owns
-        // OpenProjectsStore); passing no session here avoids a double-remove with a
-        // differently-normalized key while the two implementers coexist (PE retirement).
-        return (this.lifecycle ??= new ProjectLifecycle(this.Provider, this.manager))
+        // The session store lets CloseProject drop the folder from the persisted open set.
+        return (this.lifecycle ??= new ProjectLifecycle(this.Provider, this.manager, this.Provider.getRequired(OpenProjectsStore.Key)))
     }
 
     // ── IContentMutations: file/folder ──────────────────────────────────────

@@ -26,8 +26,7 @@ import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
 import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
 import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
-import { ProjectExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer'
-import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
+import { SolutionExplorerService, SolutionWorkspaceService, ProjectCommandsService, LiveValidationSync } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-service.js'
 import { FileWatchService } from './services/file-watch/file-watch-service.js'
 import { EditorReloadService } from './services/file-watch/editor-reload-service.js'
@@ -43,7 +42,7 @@ import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
 import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
 import { TodlLanguageClient } from './services/todl/todl-language-client.js'
 import { ProblemsService } from './modules/problems/problems-service.js'
-import { LiveValidationKey, BaseResolverKey, ProblemsDockKey, ProjectTreeHostKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+import { LiveValidationKey, BaseResolverKey, ProblemsDockKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { createTodlLspConnection } from './services/todl/todl-lsp-connection.js'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
@@ -91,20 +90,19 @@ try {
     if (!app.Services.has(SettingSourceKey)) {
         app.Services.register(SettingSourceKey, (p) => p.getRequired(ApplicationSettings.Key))
     }
-    // Project Explorer capability seams (interfaces in plexus-core) backed by an
+    // Project capability seams (interfaces in plexus-core) backed by an
     // already-registered singleton: bind each capability key to the SAME instance.
     // The `.mu` `Impl -> Key` alias can't express instance-sharing (it lowers to
-    // `new Impl(p)` — a duplicate), so these four are wired code-side. The three
+    // `new Impl(p)` — a duplicate), so these three are wired code-side. The three
     // adapter-backed capabilities (PublishedBases/DiagramTreeExport/ProjectMenuSource)
     // ARE registered via the `.mu` alias, since each has only the one instance.
     app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
     app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionBaseResolver.Key))
     app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
-    app.Services.register(ProjectTreeHostKey, (p) => p.getRequired(ProjectExplorerService.Key))
     // Solution engine collaborators must be REGISTERED up front — before the eager
     // service block below — because several of those services resolve
-    // ProjectExplorerService (via ProjectTreeHostKey), whose ctor builds
-    // SolutionManagerService, which getRequired's these seams. SolutionServicesEngine
+    // SolutionWorkspaceService, which builds SolutionManagerService, which
+    // getRequired's these seams. SolutionServicesEngine
     // (app.mu .modules) already registered SolutionManagerService.Key +
     // ProjectFactoryRegistryKey; SolutionSeams adds the generic host seams
     // (PromptServiceKey over DialogService, StorageRegistryKey over StorageService);
@@ -203,7 +201,7 @@ try {
         setCrossFileOpener((uri, selection) => {
             const r = todlClient.resolveUri(uri)
             if (r === null) return false
-            void app.Services.get(ProjectExplorerService.Key)?.OpenFileInProject(
+            void app.Services.get(SolutionWorkspaceService.Key)?.OpenFileInProject(
                 r.projectId, r.relpath, selection?.startLineNumber ?? 1, selection?.startColumn ?? 1)
             return true
         })
@@ -242,9 +240,9 @@ try {
 
     // Construct the solution engine singletons now — their collaborators were
     // registered up front (above), and the eager service block may already have
-    // constructed SolutionManagerService via the explorer; resolving here just
+    // constructed SolutionManagerService via the workspace service; resolving here just
     // returns that same singleton (or builds it once if nothing did yet), before
-    // the explorer restores its session below, so the ambient untitled solution's
+    // the session restore below, so the ambient untitled solution's
     // ActiveSolution/Members chain is live from boot. SolutionBaseResolver likewise —
     // its own ActiveSolution/Members subscription must be live before session
     // restore; BaseResolverKey resolves this SAME singleton.
@@ -263,26 +261,25 @@ try {
     // editor refresh here, with the resolver never blocking on this client.
     todlClient?.SubscribeToStaleMembers()
 
-    // Restore the previous session's open projects into the explorer (skips
-    // folders whose project manifest is gone). Fire-and-forget after mount.
-    // Start() is what subscribes the explorer to the manager's Members — it is
-    // deliberately NOT in the ctor (the explorer is a mounted Capability, so its
-    // ctor runs during app.initialize above, before the solution-engine seams are
-    // registered; building the manager there threw "no service registered for
-    // SolutionStorageProviderRegistry"). Called here, after the seams are wired and
-    // the manager is resolved, and BEFORE RestoreSession — so the member-sync
-    // subscription is live to catch the members session-restore adds.
-    const explorer = app.Services.get(ProjectExplorerService.Key)
-    if (explorer !== undefined) {
-        explorer.Start()
-        void explorer.RestoreSession()
+    // Keep live validation attached to the active solution's members. Started here, after
+    // the solution-engine seams are wired and the manager is resolved, and BEFORE the session
+    // restore below -- so its Members subscription is live to catch the members restore adds.
+    // (Deliberately not in a ctor: the services mount during app.initialize, before the
+    // engine seams are registered.)
+    app.Services.get(LiveValidationSync.Key)?.Start()
+    // Restore the previous session's open projects (skips + prunes folders whose project
+    // manifest is gone) via the engine ProjectLifecycle behind ProjectCommandsService, which
+    // is wired to the OpenProjectsStore session. Fire-and-forget after mount.
+    const commands = app.Services.get(ProjectCommandsService.Key)
+    if (commands !== undefined)
+    {
+        void commands.RestoreSession()
     }
 
-    // Start the Solution Explorer capability AFTER the project explorer's Start()
-    // (which wires the member-sync) and RestoreSession() — so the active solution
-    // and its members exist when the Solution Explorer subscribes to ActiveSolution
-    // and builds its Hierarchy. Same deferral reason as ProjectExplorer.Start:
-    // the solution-engine seams are registered above, not in the ctor.
+    // Start the Solution Explorer capability AFTER the session restore kicks off, so the
+    // active solution and its members exist when it subscribes to ActiveSolution and
+    // builds its Hierarchy. Deferred (not in the ctor) because the solution-engine
+    // seams are registered above, after mount.
     const solutionExplorer = app.Services.get(SolutionExplorerService.Key)
     if (solutionExplorer !== undefined) {
         solutionExplorer.Start()

@@ -6,6 +6,7 @@ import { Solution, ProjectFactoryRegistryKey, SolutionBaseResolver, SolutionMana
 import { LiveValidationKey } from '../../../../projects/index.js'
 import { DocumentCloseGuard } from '../../../../documents/document-close-guard.js'
 import { SavePromptResult } from '../../../../dialogs/save-prompt-model.js'
+import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
 import { SolutionWorkspaceService, MemberNewFileParticipantKey, type IMemberNewFileParticipant } from '../solution-workspace-service.js'
 
 // A tracked document: the factory returns one of these per open so a test can assert
@@ -108,6 +109,11 @@ async function harness(opts: HarnessOpts = {})
         ActiveSolution: sol,
         CloseProject: async (m: SolutionMember) => { opts.closeProject?.(m) },
     } as never)
+    const removedFromSession: string[] = []
+    provider.registerInstance(OpenProjectsStore.Key, {
+        List: async () => [], Add: async () => {},
+        Remove: async (f: string) => { removedFromSession.push(f) },
+    } as never)
     if (opts.participant !== undefined) provider.registerInstance(MemberNewFileParticipantKey, opts.participant)
     if (opts.calls !== undefined)
     {
@@ -124,7 +130,7 @@ async function harness(opts: HarnessOpts = {})
     }
 
     const service = new SolutionWorkspaceService(provider)
-    return { service, member, storage, host, factory, log, sol, shown }
+    return { service, member, storage, host, factory, log, sol, shown, removedFromSession }
 }
 
 describe('SolutionWorkspaceService', () =>
@@ -199,6 +205,13 @@ describe('SolutionWorkspaceService', () =>
         doc.IsDirty = true
         await service.CloseMember(member)
         expect(closed).toBe(true)
+    })
+
+    it('CloseMember drops the project from the persisted open-projects session', async () =>
+    {
+        const { service, member, removedFromSession } = await harness()
+        await service.CloseMember(member)
+        expect(removedFromSession).toHaveLength(1)
     })
 
     it('Rename to an existing name surfaces a collision message (not a silent no-op)', async () =>

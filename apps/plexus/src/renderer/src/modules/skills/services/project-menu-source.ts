@@ -1,5 +1,6 @@
 import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import { ProjectMenuChoice, ProjectTreeHostKey, type IProjectMenuSource } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { ProjectMenuChoice, type IProjectMenuSource } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { SkillCatalog } from './skill-catalog.js'
 import { SkillRunner } from './skill-runner.js'
@@ -18,10 +19,11 @@ export class SkillProjectMenuSource extends ServiceBase implements IProjectMenuS
         const catalog = this.Provider.get(SkillCatalog.Key)
         const runner = this.Provider.get(SkillRunner.Key)
         if (catalog === undefined || runner === undefined) return []
-        // Discover across every open project (plus op, in case it isn't in the tree
-        // host's list yet), then narrow to op's own skills so the union catalog
+        // Discover across every open project (plus op, in case it isn't a solution
+        // member yet), then narrow to op's own skills so the union catalog
         // doesn't leak other projects' project-scoped skills into this menu.
-        const openFolders = this.Provider.get(ProjectTreeHostKey)?.OpenProjects.ToArray().map((o) => o.Folder) ?? []
+        const members = this.Provider.get(SolutionManagerService.Key)?.ActiveSolution?.Members.ToArray() ?? []
+        const openFolders = members.map((m) => m.Storage?.Root).filter((r): r is string => r !== undefined)
         const dirs = [...new Set([...openFolders, op.Folder])]
         await catalog.discoverAll(dirs)
         const pt = this.projectTypeOf(op)

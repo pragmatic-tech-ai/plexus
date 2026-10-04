@@ -5,7 +5,7 @@
 // Cancel / Don't Save / Save row. Save is Filled as the primary affordance; the
 // Save/Don't-Save labels come from the VM so the one template serves both the
 // tab-close ("Save" / "Don't Save") and quit ("Save All" / "Discard All") cases.
-// Mirrors the ConfirmDialogModel template in project-explorer.resources.mu.
+// Mirrors the ConfirmDialogModel template in solution-dialogs.resources.mu.
 
 import SavePromptModel from "@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js"
 

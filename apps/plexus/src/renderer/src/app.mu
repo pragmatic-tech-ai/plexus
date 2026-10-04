@@ -36,14 +36,10 @@ import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 import DiagramModule from "./modules/diagram/diagram.module.mu.js"
 import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
-// Project Explorer is now a LIFECYCLE service only (open/close/restore + the
-// New/Open commands + OpenMemberFile) — its panel Capability was retired in the
-// Solution Hierarchy P2 migration. The left-panel tree is the Solution Explorer.
-import ProjectExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.module.mu.js"
 // The Solution Explorer module — its Capability is the left-panel tree (a
 // Hierarchy over the active solution's members + their file trees), backed
-// by SolutionExplorerService. Registered after ProjectExplorerModule so the
-// lifecycle service it delegates to is composed.
+// by SolutionExplorerService, with SolutionWorkspaceService (project ops + open
+// documents), ProjectCommandsService (New/Open) and LiveValidationSync composed alongside.
 import SolutionExplorerModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.module.mu.js"
 // The P5b Connections wiring: registers the renderer connections client (over
 // window.api.connections) and the editor-dialog launcher the Solution Explorer resolves.
@@ -55,7 +51,7 @@ import HierarchyContributorRegistry from "@pragmatic-tech-ai/mural/framework/hie
 // project TYPES (meta-model / library / architecture) + the ONE registry that
 // indexes them under ProjectFactoryRegistryKey, the build-system + generator
 // registries, the default presentation baker, and the ProjectEvents/GeneratorScheduler
-// lifecycle. The ProjectExplorer's New-Project gallery + open routing resolve that
+// lifecycle. The New-Project gallery + open routing resolve that
 // registry. Listed by class name: the class itself satisfies IModule statically.
 import TodlProjectSystemModule from "@pragmatic-tech-ai/todl"
 // The solution ENGINE module (todl): SolutionManagerService + settings registry only
@@ -108,7 +104,7 @@ import ClipboardService from "./services/clipboard/clipboard-service.js"
 import RecentProjectsService from "@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js"
 
 // Open-projects set — persists which projects are open to a JSON file under
-// userData, so the workspace restores on launch (ProjectExplorer.RestoreSession).
+// userData, so the workspace restores on launch (ProjectCommandsService.RestoreSession).
 import OpenProjectsStore from "@pragmatic-tech-ai/plexus-core/renderer/projects/open-projects-store.js"
 
 // The shared window chrome — PragmaticWindowChrome (plexus-core) — owns the title
@@ -152,16 +148,11 @@ import DiagramResources from "./modules/diagram/diagram.resources.mu.js"
 import LayoutPipelineService from "./modules/diagram/layout/layout-pipeline-service.js"
 import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.resources.mu.js"
 
-// Project Explorer view — the generic project tree + command bar
-// (DataTemplate[ProjectExplorerService] + recursive DataTemplate[ProjectNode]).
-import ProjectExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/project-explorer/project-explorer.resources.mu.js"
-// The New/Open project, references and set-version DIALOG templates (moved out of the
-// project-explorer resources; Confirm stays there until Task 15).
+// The New/Open project, references, set-version and shared Confirm DIALOG templates.
 import SolutionDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-dialogs.resources.mu.js"
 // Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
 // + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
-// [HierarchyItem]. ProjectExplorerResources is still merged below for its Open/New
-// project + reference/confirm DIALOG templates, which the surviving commands present.
+// [HierarchyItem]. The dialog templates come from SolutionDialogsResources (below).
 import SolutionExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.resources.mu.js"
 // The connection editor dialog's DataTemplate (ConnectionEditorDialogModel).
 import ConnectionsResources from "./modules/connections/connections.resources.mu.js"
@@ -238,7 +229,7 @@ import ArchNewDiagramParticipant from "./modules/architecture-projects/services/
 import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
 import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"
 import DiagramCommandExtensionKey from "./modules/diagram/services/diagram-command-extension.js"
-// Project Explorer capability impls + their DI keys (interfaces in plexus-core).
+// Solution workspace capability impls + their DI keys (interfaces in plexus-core).
 import PublishedBases from "./modules/meta-model/services/published-bases.js"
 import PublishedBasesKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
 
@@ -310,11 +301,11 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Per-project Build/Publish facade over the composed build-system registry
         // (BuildSystemRegistryKey, seeded by TodlProjectSystemModule). Registered under
         // BuildService.Key (ServiceProvider.tokenFor uses the static Key), so the
-        // ProjectExplorer publish path and the Solution Explorer Build/Publish
+        // workspace publish path and the Solution Explorer Build/Publish
         // contributor both resolve this single instance.
         BuildService
         // Unified skill catalog across project/global/packaged scopes. Root-
-        // registered so the Project Explorer resolves it to build the
+        // registered so the Solution workspace resolves it to build the
         // Run Agent/Skill submenu; lazily discovers per project on demand.
         SkillCatalog
         // Typed/model-aware skill runner (#3): collects inputs + resolves bindings,
@@ -377,11 +368,11 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // (The project-type registry is no longer registered here: it is the
         // engine's IProjectFactoryRegistry, registered under ProjectFactoryRegistryKey
         // by TodlProjectSystemModule at the head of `.modules:` below. Module services
-        // compose into the ROOT provider, so the root-scoped ProjectExplorerService
+        // compose into the ROOT provider, so the root-scoped SolutionWorkspaceService
         // reaches it — the same root-reachability the old app-level registration
         // guaranteed.)
         // Document-type registry (module .documents → editors). Root-registered so
-        // the root-scoped ProjectExplorerService resolves a file's editor (by
+        // the root-scoped SolutionWorkspaceService resolves a file's editor (by
         // extension) through it. Its constructor populates from module .documents:
         // blocks.
         DocumentTypeRegistry
@@ -457,7 +448,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // context-menu action (NodeCommandContributor).
         ArchNewDiagramParticipant -> NewFileParticipantKey
         ArchEditViewpointsCommand -> DiagramCommandExtensionKey
-        // Project Explorer capability impls (DI seams defined in plexus-core). Each
+        // Solution workspace capability impls (DI seams defined in plexus-core). Each
         // is registered ONLY under its interface key ⇒ a single instance (the alias
         // `Impl -> Key` lowers to `register(Key, p => new Impl(p))`). The four
         // capabilities backed by an already-registered singleton (live validation,
@@ -474,7 +465,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         TodlProjectSystemModule
         // Shared storage: registers FileSystemService (native file system via
         // window.api.fs) + StorageService (universal front door, local-FS provider
-        // seeded). The Project Explorer resolves StorageService to build a project's
+        // seeded). The Solution workspace resolves StorageService to build a project's
         // rooted IStorage; remote backends (cloud/REST) register more providers.
         Storage
         DiagramModule
@@ -483,9 +474,6 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Solution engine module (todl): SolutionManagerService + settings registry
         // (no project types — those come from TodlProjectSystemModule above).
         SolutionServicesEngine
-        // Project Explorer LIFECYCLE service (no Capability). Composed before the
-        // Solution Explorer, which delegates its command bar to this service.
-        ProjectExplorerModule
         // Connections wiring (client + editor launcher) — before the Solution Explorer,
         // which resolves both when its tree builds.
         ConnectionsModule
@@ -597,11 +585,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Layout pipeline builder view (DataTemplate[LayoutInspector]).
         merge LayoutInspectorResources
 
-        // Project Explorer DIALOG templates (New/Open project, references, confirm,
-        // set-version) — still presented by the surviving New/Open-project commands.
-        // Its DataTemplate[ProjectExplorerService] panel view is now dormant (no
-        // Capability points at it); the Solution Explorer resources render the panel.
-        merge ProjectExplorerResources
+        // Solution dialog templates (New/Open project, references, set-version, confirm).
         merge SolutionDialogsResources
 
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +

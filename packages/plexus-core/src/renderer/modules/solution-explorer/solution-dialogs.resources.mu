@@ -1,9 +1,10 @@
 // solution-dialogs.resources.mu -- the Solution Explorer's DIALOG templates, moved here
 // from project-explorer.resources.mu (project-explorer retirement): New Project, Manage
 // References, Set Version and Open Project, plus the shared reference-tree row template
-// and the list-row button template they use. ConfirmDialogModel's template deliberately
-// stays in project-explorer.resources.mu (shared; save-prompt relies on it).
+// and the list-row button template they use, plus the shared Confirm dialog template
+// (save-prompt and every destructive confirm resolve it).
 
+import ConfirmDialogModel from "../../dialogs/confirm-dialog-model.js"
 import NewProjectDialogModel from "../../projects/new-project-dialog-model.js"
 import ProjectTypeChoice from "../../projects/new-project-dialog-model.js"
 import ReferenceNode from "../../projects/reference-node.js"
@@ -170,6 +171,21 @@ resources SolutionDialogsResources {
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Outlined, Command = $BrowseCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Browse…" ] }
                 Button [ Variant = Text, Command = $CancelCommand ] { TextBlock [ Text = "Cancel" ] }
+            }
+        }
+    }
+
+    // -- Confirm dialog -----------------------------------------------------
+    // A reusable message + Cancel / confirm pair (DialogService supplies the
+    // title/surface). The confirm button's label comes from the VM so it reads
+    // as the action ("Delete"); it's Filled to sit as the primary affordance.
+    // ShowCancel (default true) hides the Cancel button for an OK-only info dialog.
+    DataTemplate [ DataType = ConfirmDialogModel ] {
+        StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
+            TextBlock [ Style = @Body, Text = $Message, Foreground = @Fg1, TextWrapping = Wrap, Margin = (0,0,0,16) ]
+            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
+                Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0), Visibility = $ShowCancel << ToVisibility ] { TextBlock [ Text = "Cancel" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = $ConfirmLabel ] }
             }
         }
     }
