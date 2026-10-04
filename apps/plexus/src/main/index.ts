@@ -141,9 +141,6 @@ app.whenReady().then(async () => {
   // pushed event stream (AgentChannel.Event). Awaited so the tool server is
   // listening before the first turn.
   await registerAgentHandlers()
-  // TODL language server: fork the vendored stdio server and relay LSP JSON-RPC
-  // to the renderer. Registered before the window so the ToServer channel is
-  // listening when the renderer builds its connection on load.
   // Window chrome: re-tint the native caption buttons (WCO) when the renderer's
   // theme changes.
   registerWindowHandlers()
