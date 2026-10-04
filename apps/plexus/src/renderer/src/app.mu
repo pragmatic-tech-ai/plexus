@@ -58,6 +58,9 @@ import TodlProjectSystemModule from "@pragmatic-tech-ai/todl"
 // (project types now come from TodlProjectSystemModule). Rides along lazily (unused
 // here → dormant); its manager resolves the composed ProjectFactoryRegistryKey.
 import SolutionServicesEngine from "@pragmatic-tech-ai/todl"
+// The solution-scoped language service (SolutionLanguageService + AnalysisEngine) that
+// Monaco + the architecture services consume.
+import LspServicesEngine from "@pragmatic-tech-ai/todl"
 // The HOST seams SolutionServicesEngine's SolutionManagerService needs at
 // construction (StorageRegistry/Prompt/PackageSource + the durable session store).
 // A composition module so the seams are registered when AddModule runs — BEFORE the
@@ -485,6 +488,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Solution engine module (todl): SolutionManagerService + settings registry
         // (no project types — those come from TodlProjectSystemModule above).
         SolutionServicesEngine
+        // Hosts the in-process TODL language service; composes after SolutionServicesEngine
+        // so it inherits SolutionManagerService + the package-source seam.
+        LspServicesEngine
         // Connections wiring (client + editor launcher) — before the Solution Explorer,
         // which resolves both when its tree builds.
         ConnectionsModule

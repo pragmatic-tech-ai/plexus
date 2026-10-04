@@ -1,8 +1,12 @@
 import { describe, test, expect } from 'vitest'
 import { HostKind, ShellCompositionRoot } from '@pragmatic-tech-ai/mural/runtime'
+import type { IModule, IServiceContainer } from '@pragmatic-tech-ai/todl-runtime'
 import {
     TodlProjectSystemModule,
     SolutionServicesEngine,
+    LspServicesEngine,
+    SolutionLanguageService,
+    SolutionManagerService,
     ProjectFactoryRegistry,
     ProjectFactoryRegistryKey,
     MetaModelProjectFactory,
@@ -14,6 +18,21 @@ import {
 // (listed by CLASS name — the compiler lowers it to `AddModule(TodlProjectSystemModule)`
 // with no `new`) followed by SolutionServicesEngine. The composed registry is the one
 // the ProjectExplorer's New-Project gallery (All) + open routing (factoryFor) resolve.
+// The host seams SolutionSeamsHostModule supplies in the real app; the manager (resolved by
+// the language service's base resolver) requires them at construction. Inert stand-ins
+// suffice: nothing here opens a solution.
+class HostSeamsStandIn implements IModule
+{
+    public readonly Targets: ReadonlySet<HostKind> = new Set<HostKind>()
+
+    public RegisterServices(container: IServiceContainer): void
+    {
+        container.register(SolutionManagerService.StorageRegistryKey, () => ({}) as never)
+        container.register(SolutionManagerService.PromptServiceKey, () => ({}) as never)
+        container.register(SolutionManagerService.PackageSourceKey, () => ({}) as never)
+    }
+}
+
 class AppCompositionFixture
 {
     public static readonly Host = new HostKind('plexus-test')
@@ -24,6 +43,14 @@ class AppCompositionFixture
         const root = new ShellCompositionRoot(AppCompositionFixture.Host)
         root.AddModule(TodlProjectSystemModule)
         root.AddModule(SolutionServicesEngine)
+        return root
+    }
+
+    public static ComposeWithLsp(): ShellCompositionRoot
+    {
+        const root = AppCompositionFixture.Compose()
+        root.AddModule(new HostSeamsStandIn())
+        root.AddModule(LspServicesEngine)
         return root
     }
 }
@@ -58,5 +85,12 @@ describe('app project-system composition', () =>
         expect(registry.factoryFor(MetaModelProjectFactory.ProjectType)).toBe(provider.getRequired(MetaModelProjectFactory))
         expect(registry.factoryFor(LibraryProjectFactory.ProjectType)).toBe(provider.getRequired(LibraryProjectFactory))
         expect(registry.factoryFor(ArchitectureProjectFactory.ProjectType)).toBe(provider.getRequired(ArchitectureProjectFactory))
+    })
+
+    test('the lsp module registers a resolvable SolutionLanguageService', () =>
+    {
+        const provider = AppCompositionFixture.ComposeWithLsp().Provider
+
+        expect(provider.getRequired(SolutionLanguageService.Key)).toBeInstanceOf(SolutionLanguageService)
     })
 })
