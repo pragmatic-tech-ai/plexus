@@ -237,7 +237,10 @@ export class TodlLanguageClient extends ServiceBase
   // How to find an open editor's Monaco model by URI (production wires
   // monaco.editor.getModel; tests pass a fake). Null ⇒ the file is closed.
   private findModel: ((uri: string) => EditableModel | null) | undefined
-  public setModelFinder(fn: (uri: string) => EditableModel | null): void { this.findModel = fn }
+  public setModelFinder(fn: (uri: string) => EditableModel | null): void
+  {
+    this.findModel = fn
+  }
 
   // Apply a WorkspaceEdit through one path: open buffers via their Monaco model
   // (preserving dirty tracking + undo), closed files via storage. Rename and
@@ -370,17 +373,26 @@ export class TodlLanguageClient extends ServiceBase
     return resolved === null ? uri : TodlLanguageClient.ServiceUriFor(resolved.storage, resolved.relpath)
   }
 
-  // Service → Monaco: find the registered project whose service root is a prefix of
-  // the service URI, strip it to recover relpath, and rebuild the todl:// URI.
-  // Returns the input unchanged if no project matches (defensive).
+  // Service → Monaco: among all registered projects whose service root is a prefix
+  // of the service URI, pick the LONGEST-prefix match (symmetric with the service's
+  // ProjectRegistry.ProjectFor, so nested roots attribute identically), strip it to
+  // recover relpath, and rebuild the todl:// URI. Returns the input unchanged if no
+  // project matches (defensive).
   private toMonacoUri(serviceUri: string): string
   {
+    let bestProject: RegisteredProject | undefined
+    let bestPrefix = ''
     for (const project of this.projects.values())
     {
       const prefix = TodlLanguageClient.RootUriOf(project.storage)
-      if (serviceUri.startsWith(prefix)) return this.uriFor(project.projectId, serviceUri.slice(prefix.length))
+      if (serviceUri.startsWith(prefix) && prefix.length > bestPrefix.length)
+      {
+        bestProject = project
+        bestPrefix = prefix
+      }
     }
-    return serviceUri
+    if (bestProject === undefined) return serviceUri
+    return this.uriFor(bestProject.projectId, serviceUri.slice(bestPrefix.length))
   }
 
   private projectByStorage(storage: IStorage): { key: string; project: RegisteredProject } | null

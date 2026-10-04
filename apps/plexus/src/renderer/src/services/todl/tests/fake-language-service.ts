@@ -64,27 +64,85 @@ export class FakeLanguageService extends Observable
     return Promise.resolve(this.diagnostics.get(uri) ?? [])
   }
 
-  public HoverAt(_uri: string, _pos: Position): Promise<Hover | null> { return Promise.resolve(this.HoverResult) }
-  public DefinitionAt(_uri: string, _pos: Position): Promise<Location | null> { return Promise.resolve(this.DefinitionResult) }
-  public ReferencesAt(_uri: string, _pos: Position, _includeDecl: boolean): Promise<Location[]> { return Promise.resolve(this.ReferenceResults) }
-  public CompletionsAt(_uri: string, _pos: Position): Promise<CompletionItem[]> { return Promise.resolve([]) }
-  public FoldingRanges(_uri: string): Promise<FoldingRange[]> { return Promise.resolve([]) }
-  public DocumentSymbols(_uri: string): Promise<DocumentSymbol[]> { return Promise.resolve([]) }
-  public SemanticTokens(_uri: string): Promise<SemanticTokens> { return Promise.resolve({ data: [] }) }
-  public SignatureHelpAt(_uri: string, _pos: Position): Promise<SignatureHelp | null> { return Promise.resolve(null) }
-  public PrepareRename(_uri: string, _pos: Position): Promise<Range | null> { return Promise.resolve(null) }
-  public RenameEdits(_uri: string, _pos: Position, _newName: string): Promise<WorkspaceEdit | RenameError> { return Promise.resolve(this.RenameResult) }
-  public CodeActions(_uri: string, _range: Range, _diags: readonly Diagnostic[]): Promise<CodeAction[]> { return Promise.resolve(this.CodeActionResults) }
-  public FormatDocument(_uri: string): Promise<TextEdit[]> { return Promise.resolve([]) }
+  public HoverAt(_uri: string, _pos: Position): Promise<Hover | null>
+  {
+    return Promise.resolve(this.HoverResult)
+  }
+
+  public DefinitionAt(_uri: string, _pos: Position): Promise<Location | null>
+  {
+    return Promise.resolve(this.DefinitionResult)
+  }
+
+  public ReferencesAt(_uri: string, _pos: Position, _includeDecl: boolean): Promise<Location[]>
+  {
+    return Promise.resolve(this.ReferenceResults)
+  }
+
+  public CompletionsAt(_uri: string, _pos: Position): Promise<CompletionItem[]>
+  {
+    return Promise.resolve([])
+  }
+
+  public FoldingRanges(_uri: string): Promise<FoldingRange[]>
+  {
+    return Promise.resolve([])
+  }
+
+  public DocumentSymbols(_uri: string): Promise<DocumentSymbol[]>
+  {
+    return Promise.resolve([])
+  }
+
+  public SemanticTokens(_uri: string): Promise<SemanticTokens>
+  {
+    return Promise.resolve({ data: [] })
+  }
+
+  public SignatureHelpAt(_uri: string, _pos: Position): Promise<SignatureHelp | null>
+  {
+    return Promise.resolve(null)
+  }
+
+  public PrepareRename(_uri: string, _pos: Position): Promise<Range | null>
+  {
+    return Promise.resolve(null)
+  }
+
+  public RenameEdits(_uri: string, _pos: Position, _newName: string): Promise<WorkspaceEdit | RenameError>
+  {
+    return Promise.resolve(this.RenameResult)
+  }
+
+  public CodeActions(_uri: string, _range: Range, _diags: readonly Diagnostic[]): Promise<CodeAction[]>
+  {
+    return Promise.resolve(this.CodeActionResults)
+  }
+
+  public FormatDocument(_uri: string): Promise<TextEdit[]>
+  {
+    return Promise.resolve([])
+  }
 
   public ResolveBasesFor(storage: IStorage): Promise<{ bases: never[]; problems: string[]; originOf: ReadonlyMap<string, never> }>
   {
     return Promise.resolve({ bases: [], problems: this.BaseProblems.get(storage) ?? [], originOf: new Map() })
   }
 
-  public ReferencedPublishedRefs(_storage: IStorage): Promise<Set<string>> { return Promise.resolve(new Set()) }
-  public ProducedIdOf(_storage: IStorage): Promise<string | undefined> { return Promise.resolve(undefined) }
-  public WhenIdle(): Promise<void> { return Promise.resolve() }
+  public ReferencedPublishedRefs(_storage: IStorage): Promise<Set<string>>
+  {
+    return Promise.resolve(new Set())
+  }
+
+  public ProducedIdOf(_storage: IStorage): Promise<string | undefined>
+  {
+    return Promise.resolve(undefined)
+  }
+
+  public WhenIdle(): Promise<void>
+  {
+    return Promise.resolve()
+  }
 }
 
 // A service provider with the fake language service registered under the key the
