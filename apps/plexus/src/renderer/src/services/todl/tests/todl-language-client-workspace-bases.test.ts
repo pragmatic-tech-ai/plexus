@@ -1,41 +1,37 @@
 import { test, expect } from 'vitest'
-import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { toJSON, check, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
-
-import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { TodlLanguageClient } from '../todl-language-client.js'
+import { FakeServiceHarness, FakeLanguageService } from './fake-language-service.js'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 
-function fakeConn()
+// The "Unresolved base" project-level diagnostic is now sourced from the service's
+// ResolveBasesFor(storage).problems rather than a client-side base push.
+test('AttachProject surfaces unresolved-base problems as a project-level diagnostic', async () =>
 {
-  const notes: Array<{ method: string; params: unknown }> = []
-  return {
-    conn: {
-      sendNotification: (method: string, params: unknown) => { notes.push({ method, params }); return Promise.resolve() },
-      sendRequest: () => Promise.resolve(null),
-      onNotification: () => ({ dispose() {} }),
-      listen: () => {},
-    },
-    notes,
-  }
-}
-
-test('AttachProject resolves bases through SolutionBaseResolver (local-first)', async () => {
-  const provider = new ServiceProvider()
-  const doc = toJSON(check([{ uri: 'p.todl', text: 'namespace ea { concept ViaResolver { label : string; } }' }]).model)
-  let called = false
-  provider.registerInstance(SolutionBaseResolver.Key, {
-    ResolveBasesFor: async () => { called = true; return { bases: [doc], problems: [] } },
-  } as unknown as SolutionBaseResolver)
-
-  const client = new TodlLanguageClient(provider)
-  const { conn, notes } = fakeConn()
-  await client.Initialize(conn as never)
-
+  const service = new FakeLanguageService()
   const storage = new FakeStorage('C:/arch')
+  await storage.WriteText('a.todl', 'namespace demo {\n}')
+  service.BaseProblems.set(storage, ['ea-core@1.0.0'])
+  const { provider, diagnostics } = FakeServiceHarness.Provider(service)
+  const client = new TodlLanguageClient(provider)
+
   await client.AttachProject('C:/arch', 'Arch', storage)
 
-  expect(called).toBe(true)
-  const setBases = notes.find((n) => n.method === 'todl/setBases')
-  const bases = (setBases!.params as { bases: typeof doc[] }).bases
-  expect(bases[0]!.nodes.some((n) => n.id === 'ViaResolver')).toBe(true)
+  const projectLevel = [...diagnostics.All].filter((d) => d.uri === null)
+  expect(projectLevel).toHaveLength(1)
+  expect(projectLevel[0]!.projectId).toBe('C:/arch')
+  expect(projectLevel[0]!.message).toContain('Unresolved base')
+  expect(projectLevel[0]!.message).toContain('ea-core@1.0.0')
+})
+
+test('no unresolved-base diagnostic when the service reports no base problems', async () =>
+{
+  const service = new FakeLanguageService()
+  const storage = new FakeStorage('C:/arch')
+  await storage.WriteText('a.todl', 'namespace demo {\n}')
+  const { provider, diagnostics } = FakeServiceHarness.Provider(service)
+  const client = new TodlLanguageClient(provider)
+
+  await client.AttachProject('C:/arch', 'Arch', storage)
+
+  expect([...diagnostics.All].filter((d) => d.uri === null)).toHaveLength(0)
 })

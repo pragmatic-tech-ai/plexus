@@ -1,45 +1,31 @@
 import { test, expect, vi } from 'vitest'
-import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { toJSON, check, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
-
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { SemanticTokensProvider } from '@pragmatic-tech-ai/todl'
 import { TodlLanguageClient } from '../todl-language-client.js'
-import { TodlSemanticScope } from '../semantic-scopes.js'
+import { FakeServiceHarness } from './fake-language-service.js'
+import { editorSemanticLegend, TodlSemanticScope } from '../semantic-scopes.js'
 
-const LEGEND = { tokenTypes: ['type', 'class', 'property'], tokenModifiers: [] }
-
-function fakeConn()
+class Fixture
 {
-  return {
-    // handshake's `initialize` request returns the server capabilities incl. legend.
-    sendRequest: () => Promise.resolve({ capabilities: { semanticTokensProvider: { legend: LEGEND } } }),
-    sendNotification: () => Promise.resolve(),
-    onNotification: () => ({ dispose() {} }),
-    listen: () => {},
+  public static Client(): TodlLanguageClient
+  {
+    return new TodlLanguageClient(FakeServiceHarness.Provider().provider)
   }
 }
 
-function providerWithBase()
+test('advertises the engine legend renamed to TODL-namespaced scopes', () =>
 {
-  const provider = new ServiceProvider()
-  const doc = toJSON(check([{ uri: 'p.todl', text: 'namespace ea { concept C { label : string; } }' }]).model)
-  provider.registerInstance(SolutionBaseResolver.Key, {
-    ResolveBasesFor: async () => ({ bases: [doc], problems: [] }),
-  } as unknown as SolutionBaseResolver)
-  return provider
-}
-
-test('advertises the TODL-renamed semantic legend to the editor', async () => {
-  const client = new TodlLanguageClient(providerWithBase())
-  await client.Initialize(fakeConn() as never)
-  expect(client.SemanticLegend().tokenTypes).toEqual([
-    TodlSemanticScope.Type, TodlSemanticScope.Class, 'todlProperty',
-  ])
+  const client = Fixture.Client()
+  const legend = client.SemanticLegend()
+  expect(legend).toEqual(editorSemanticLegend(SemanticTokensProvider.Legend))
+  // The concept-bearing types are renamed so a blue theme rule can target them.
+  expect(legend.tokenTypes).toContain(TodlSemanticScope.Type)
+  expect(legend.tokenTypes).toContain(TodlSemanticScope.Class)
 })
 
-test('refreshing a known project bases fires the semantic-stale event', async () => {
-  const client = new TodlLanguageClient(providerWithBase())
-  await client.Initialize(fakeConn() as never)
+test('refreshing a known project bases fires the semantic-stale event', async () =>
+{
+  const client = Fixture.Client()
   const storage = new FakeStorage('C:/arch')
   await client.AttachProject('C:/arch', 'Arch', storage)
 
@@ -53,9 +39,9 @@ test('refreshing a known project bases fires the semantic-stale event', async ()
   expect(stale).toHaveBeenCalledTimes(1) // no further calls after unsubscribe
 })
 
-test('refreshing an unknown storage does not fire (nothing to recolor)', async () => {
-  const client = new TodlLanguageClient(providerWithBase())
-  await client.Initialize(fakeConn() as never)
+test('refreshing an unknown storage does not fire (nothing to recolor)', async () =>
+{
+  const client = Fixture.Client()
   const stale = vi.fn()
   client.onSemanticTokensStale(stale)
   await client.RefreshBases(new FakeStorage('C:/unknown'))
