@@ -7,7 +7,6 @@ import { AgentChannel, type ApprovalRule, type IAgentApi, type ProjectCatalog, t
 import { SkillChannel, type SkillDescriptor } from '../shared/skill-api.js'
 import { SkillContextChannel, type SkillContext, type ISkillContextApi } from '../shared/skill-context-api.js'
 import { ModelPatchChannel } from '../shared/model-patch-api.js'
-import { TodlLspChannel, type ITodlLspApi } from '../shared/todl-lsp-api.js'
 import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
@@ -74,23 +73,6 @@ const agent: IAgentApi = {
   },
 }
 
-// TODL language server pipe. An opaque bridge: send/receive already-framed
-// JSON-RPC message objects (no LSP types), plus a server-restart signal. The
-// renderer builds its vscode-jsonrpc MessageConnection over this.
-const todlLsp: ITodlLspApi = {
-  send: (msg: unknown): void => ipcRenderer.send(TodlLspChannel.ToServer, msg),
-  onMessage: (cb: (msg: unknown) => void): (() => void) => {
-    const listener = (_e: unknown, msg: unknown): void => cb(msg)
-    ipcRenderer.on(TodlLspChannel.FromServer, listener)
-    return () => { ipcRenderer.removeListener(TodlLspChannel.FromServer, listener) }
-  },
-  onServerRestart: (cb: () => void): (() => void) => {
-    const listener = (): void => cb()
-    ipcRenderer.on(TodlLspChannel.ServerRestart, listener)
-    return () => { ipcRenderer.removeListener(TodlLspChannel.ServerRestart, listener) }
-  },
-}
-
 // External file-change watcher bridge. watch/unwatch are invoke round-trips;
 // onChanged subscribes to the pushed FileWatchChannel.Changed stream and returns
 // an unsubscribe — same shape as agent.onEvent.
@@ -145,7 +127,7 @@ const connections: IConnectionsApi = {
   Resolve: (id, version, connectionId) => ipcRenderer.invoke(ConnectionChannel.Resolve, id, version, connectionId),
 }
 
-const api = { fs, environment, settings, agent, todlLsp, fileWatch, titlebar, mcp, skillContext, connections }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections }
 
 if (process.contextIsolated)
 {
