@@ -1,11 +1,10 @@
-import { MuralBase, Observable } from '@pragmatic-tech-ai/mural/runtime'
+import { Observable } from '@pragmatic-tech-ai/mural/runtime'
 
 // One row of the Keyboard Shortcuts dialog: a key gesture plus what it does.
 // Plain Observable (default VM base) — it is a list ITEM rendered by its own
 // nested DataTemplate (ItemsControl resolves per-item templates the same way
 // ContentPresenter does, by constructor identity, not by MuralBase), never
-// handed to DialogService as dialog Content itself, so it carries none of
-// AboutDialogVm/ShortcutsDialogVm's MuralBase constraint.
+// handed to DialogService as dialog Content itself.
 export class ShortcutEntry extends Observable
 {
     private readonly _gesture: string
@@ -26,10 +25,8 @@ export class ShortcutEntry extends Observable
 // keyboard shortcuts. Read-only — no commands, no mutable state, the list
 // never changes after construction.
 //
-// Extends MuralBase (not the usual default, Observable) for the same reason
-// as AboutDialogVm: DialogService.Show({ Content }) requires the Content
-// root to be a MuralBase | Visual.
-export class ShortcutsDialogVm extends MuralBase
+// Extends Observable (the VM default): DialogService.Show accepts any Observable as Content (mural 0.61.3+).
+export class ShortcutsDialogVm extends Observable
 {
     private static readonly SaveGesture = 'Ctrl/⌘+S'
     private static readonly SaveDescription = 'Save'

@@ -1,17 +1,11 @@
-import { MuralBase } from '@pragmatic-tech-ai/mural/runtime'
+import { Observable } from '@pragmatic-tech-ai/mural/runtime'
 import { OperatingSystem, type IEnvironment } from '@pragmatic-tech-ai/todl-runtime'
 
 // About-dialog body: app name + host version info (EnvironmentService's
 // one-time startup snapshot). Read-only — no commands, no mutable state.
 //
-// Extends MuralBase rather than the usual default (Observable) because
-// DialogService.Show({ Content }) types Content as `MuralBase | Visual`
-// (DialogOptions.Content) — the Content root itself must be a MuralBase.
-// None of its members are registered dependency properties (MuralBase
-// extends Observable, so plain getters bind exactly like an Observable VM's
-// — see mural's muralbase-plain-property binding tests); this VM just needs
-// no DP system of its own.
-export class AboutDialogVm extends MuralBase
+// Extends Observable (the VM default): DialogService.Show accepts any Observable as Content (mural 0.61.3+).
+export class AboutDialogVm extends Observable
 {
     private static readonly PlexusAppName = 'Plexus'
     private static readonly VersionLabelPrefix = 'Version '
