@@ -43,7 +43,6 @@ import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
 import { TodlLanguageClient } from './services/todl/todl-language-client.js'
 import { ProblemsService } from './modules/problems/problems-service.js'
 import { LiveValidationKey, BaseResolverKey, ProblemsDockKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
-import { createTodlLspConnection } from './services/todl/todl-lsp-connection.js'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
@@ -172,15 +171,12 @@ try {
     // edit-viewpoints toolbar command, explorer node context action) are now
     // alias-registered in app.mu's .services: block under the generic
     // framework/document extension keys — no bootstrap wiring needed here.
-    // Wire the out-of-process TODL language client: build the JSON-RPC connection
-    // over the preload pipe, handshake with the forked server, register the Monaco
-    // provider adapters, and resync every project after a server restart.
+    // Wire the in-process TODL language client: register the Monaco provider
+    // adapters against the in-renderer SolutionLanguageService and set the
+    // cross-file opener. No out-of-process server/connection — the language
+    // service runs in-process, so there is no handshake or server-restart resync.
     const todlClient = app.Services.get(TodlLanguageClient.Key)
-    const todlBridge = window.api?.todlLsp
-    if (todlClient !== undefined && todlBridge !== undefined) {
-        const connection = createTodlLspConnection(todlBridge)
-        await todlClient.Initialize(connection)
-        todlBridge.onServerRestart(() => { void todlClient.Reinitialize() })
+    if (todlClient !== undefined) {
         registerTodlProviders(todlClient)
         // Cross-file go-to-definition: resolve a todl:// target back to its
         // (project, path) and open it in a tab + reveal, so navigation reaches
