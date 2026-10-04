@@ -6,6 +6,7 @@ import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
 import { RecentProjectsService } from '../../../../projects/recent-projects-service.js'
 import { StorageService } from '../../../storage/index.js'
 import { ProjectCommandsService } from '../project-commands-service.js'
+import { NewProjectDialogModel, ProjectTypeChoice } from '../../../../projects/new-project-dialog-model.js'
 
 describe('ProjectCommandsService', () =>
 {
@@ -44,4 +45,63 @@ describe('ProjectCommandsService', () =>
         await new ProjectCommandsService(provider).RestoreSession()
         expect(opened).toEqual(['/work/a', '/work/b'])
     })
+
+    it('ApplyPrefill sets name/location and selects the matching type', () =>
+    {
+        const form = ProjectCommandsServiceTestForms.Plain(['diagram', 'library'])
+        ProjectCommandsService.ApplyPrefill(form, { name: 'Acme', location: 'C:/acme', type: 'library' })
+        expect(form.Name).toBe('Acme')
+        expect(form.Location).toBe('C:/acme')
+        expect(form.SelectedType?.Type).toBe('library')
+    })
+
+    it('ApplyPrefill ignores an unknown type and missing fields', () =>
+    {
+        const form = ProjectCommandsServiceTestForms.Plain(['diagram'])
+        ProjectCommandsService.ApplyPrefill(form, { type: 'nope' })
+        expect(form.SelectedType?.Type).toBe('diagram')
+        expect(form.Name).toBe('')
+    })
+
+    it('ApplyPrefill selects the prefilled meta-model and checks the prefilled libraries', () =>
+    {
+        const form = ProjectCommandsServiceTestForms.Arch()
+        ProjectCommandsService.ApplyPrefill(form, {
+            type: 'architecture',
+            metaModels: [{ id: 'tech-architecture', version: '0.1.0' }],
+            libraries: [{ id: 'microsoft', version: '0.1.0' }],
+        })
+        expect(form.SelectedMetaModels).toEqual([{ id: 'tech-architecture', version: '0.1.0' }])
+        expect(form.SelectedLibraries).toEqual([{ id: 'microsoft', version: '0.1.0' }])
+    })
+
+    it('ApplyPrefill ignores meta-model/library refs not among the published choices', () =>
+    {
+        const form = ProjectCommandsServiceTestForms.Arch()
+        ProjectCommandsService.ApplyPrefill(form, {
+            type: 'architecture',
+            metaModels: [{ id: 'nope', version: '9' }],
+            libraries: [{ id: 'ghost', version: '1' }],
+        })
+        expect(form.SelectedMetaModels).toEqual([])
+        expect(form.SelectedLibraries).toEqual([])
+    })
 })
+
+// Inert-stub New Project forms (fs/validate/close are unused by ApplyPrefill).
+class ProjectCommandsServiceTestForms
+{
+    public static Plain(types: string[]): NewProjectDialogModel
+    {
+        const choices = types.map((t) => new ProjectTypeChoice(t, t, `${t} project`))
+        return new NewProjectDialogModel(choices, {} as never, async () => null, () => {})
+    }
+
+    public static Arch(): NewProjectDialogModel
+    {
+        const choices = [new ProjectTypeChoice('architecture', 'Architecture', 'arch project', true, true)]
+        const metaModels = [{ id: 'tech-architecture', version: '0.1.0' }]
+        const libraries = [{ id: 'microsoft', version: '0.1.0' }, { id: 'aws', version: '0.2.0' }]
+        return new NewProjectDialogModel(choices, {} as never, async () => null, () => {}, metaModels, libraries)
+    }
+}

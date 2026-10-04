@@ -8,7 +8,7 @@ export {
     ProducerKind,
     isPublishable,
     isVersioned,
-    // The engine project-factory registry — the single source a project-explorer
+    // The engine project-factory registry — the single source a solution-explorer
     // resolves for the New-Project gallery (All) and open routing (factoryFor).
     // Supersedes mural's retired shell-side ProjectFactoryRegistry.
     ProjectFactoryRegistryKey,

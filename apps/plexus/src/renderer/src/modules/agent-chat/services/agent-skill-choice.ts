@@ -23,7 +23,7 @@ export class AgentSkillChoice extends MuralBase
 
 // One choice per catalog item — agents first, then skills — each running `run(item)`.
 // Legacy ProjectCatalog path, retained for back-compat; the SkillCatalog path below
-// supersedes it in the project-explorer wiring.
+// supersedes it in the solution-explorer wiring.
 export function buildAgentSkillChoices(catalog: ProjectCatalog, run: (item: CatalogItem) => void): AgentSkillChoice[]
 {
     const items = [...catalog.agents, ...catalog.skills]

@@ -258,7 +258,7 @@ test.describe.serial('connector dirty + save', () => {
         restoreSession = seedSession(PROJECT_RELS.map((rel) => path.join(copyRoot, rel)))
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
-        // Render the project-explorer panel (select its nav item) so its service
+        // Render the solution-explorer panel (select its nav item) so its service
         // DataContext (OpenFileInProject) is reachable in the visual tree.
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])

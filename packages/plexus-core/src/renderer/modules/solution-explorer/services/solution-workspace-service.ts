@@ -19,7 +19,7 @@
 // Scope note (PE retirement): the Solution Explorer is now wired onto this service. It
 // also exposes the References / Connections views (IReferenceView / IConnectionView) the
 // reference + connection branches read and mutate through. The Open / New project
-// commands live on ProjectCommandsService; ProjectExplorerService still coexists (Task 15).
+// commands live on ProjectCommandsService.
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import {
     ContentHostService,

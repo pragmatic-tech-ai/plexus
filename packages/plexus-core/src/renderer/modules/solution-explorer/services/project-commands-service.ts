@@ -19,7 +19,7 @@ import {
 } from '../../../projects/new-project-dialog-model.js'
 import { OpenProjectDialogModel, type OpenProjectResult } from '../../../projects/open-project-dialog-model.js'
 import { FileSystemService, StorageService } from '../../storage/index.js'
-import type { CreateProjectPrefill, CreateProjectResult } from '../../project-explorer/services/project-create-contract.js'
+import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 import { InfoDialog } from './info-dialog.js'
 import { ProjectLifecycle, CreateError, OpenError } from './todl-engine-ops.js'
 

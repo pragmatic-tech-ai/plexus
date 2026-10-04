@@ -70,7 +70,7 @@ export class DiagramExportService extends ServiceBase
   // Save an ALREADY-rendered diagram (svg + content size) as SVG or PPTX,
   // prompting for a location with `baseName` as the default filename. Shared by
   // the active-document commands (which render the live diagram) and the
-  // project-explorer surface (which renders a .diagram file headlessly via
+  // solution-explorer surface (which renders a .diagram file headlessly via
   // DiagramHeadlessRenderer, without opening it). Renderer-only — the existing
   // fs IPC owns the dialog + write.
   public async exportRendered(

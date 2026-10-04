@@ -23,8 +23,6 @@
     "./renderer/diagnostics/*": "./dist/renderer/diagnostics/*",
     "./renderer/dialogs/*": "./dist/renderer/dialogs/*",
     "./renderer/file-watch/*": "./dist/renderer/file-watch/*",
-    "./renderer/modules/project-explorer": "./dist/renderer/modules/project-explorer/index.js",
-    "./renderer/modules/project-explorer/*": "./dist/renderer/modules/project-explorer/*",
     "./renderer/modules/solution-explorer": "./dist/renderer/modules/solution-explorer/index.js",
     "./renderer/modules/solution-explorer/*": "./dist/renderer/modules/solution-explorer/*",
     "./renderer/modules/background-work": "./dist/renderer/modules/background-work/index.js",

@@ -22,9 +22,8 @@ export interface IResolvedProject
     readonly Name: string
 }
 
-// The slice of a resolved project that model/binding code needs. OpenProject
-// satisfies it structurally, so callers not yet migrated off the explorer can
-// still pass one.
+// The slice of a resolved project that model/binding code needs. IResolvedProject
+// and OpenProject both satisfy it structurally.
 export type IProjectHandle = Pick<IResolvedProject, 'Project' | 'Storage'>
 
 export interface IMembersSubscription
@@ -66,12 +65,6 @@ export class ActiveSolutionMembers
     public HandleFor(member: SolutionMember): IResolvedProject | undefined
     {
         return this.Resolved().find((r) => r.Member === member)
-    }
-
-    // The resolved member rooted at `folder` (exact Project.RootPath match), or undefined.
-    public MemberForFolder(folder: string): SolutionMember | undefined
-    {
-        return this.Resolved().find((r) => r.Folder === folder)?.Member
     }
 
     // Call `onChange` whenever the resolved set may have changed: the active

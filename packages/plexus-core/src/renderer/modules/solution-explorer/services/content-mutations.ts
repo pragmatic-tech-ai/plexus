@@ -3,7 +3,7 @@ import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { VersionPart } from '../../../projects/semver-bump.js'
 
 // The member-keyed mutation surface the Solution Explorer's contributors + host call.
-// Implemented by SolutionWorkspaceService (and, until Task 15, ProjectExplorerService), which
+// Implemented by SolutionWorkspaceService, which
 // keeps open-doc relocation / close-guard / dialogs). One seam so contributors don't
 // depend on the whole service.
 export interface IContentMutations

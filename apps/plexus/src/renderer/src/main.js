@@ -175,7 +175,7 @@ try {
     app.Services.get(DiagramGuidesService.Key)
     app.Services.get(DiagramCanvasService.Key)
     // Document close guard (app.mu .services:): prompts Save / Don't Save / Cancel
-    // before a dirty tab closes — the tab template's ✕ and the project-explorer/quit
+    // before a dirty tab closes — the tab template's ✕ and the solution-explorer/quit
     // paths reach this same instance. Woken now so it's ready before any close.
     app.Services.get(DocumentCloseGuard.Key)
     // Autosave (app.mu .services:): periodically saves every dirty document (interval
