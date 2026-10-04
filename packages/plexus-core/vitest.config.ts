@@ -134,18 +134,23 @@ const todlShimPlugin: Plugin = {
             `export { BuildService } from ${p('solution-services/todl-build-system/build-service.js')}`,
             `export { BuildSystemRegistryKey } from ${p('solution-services/project-services/composition/build-system-registry-key.js')}`,
             `export { parseManifest } from ${p('solution-services/package-manager/manifest.js')}`,
-            // Task 9 (SolutionWorkspaceService): the member-keyed mutation UI over the engine ops.
-            // MemberProjectOps (version/scaffold/base ops + capability queries) imports only
-            // project-factory.js (already shimmed, mural-free) + semver.js (pure); SemVer/VersionPart
-            // (semver.js) have no imports; UniqueName (content/unique-name.js) imports only a
-            // todl-runtime IStorage type; ProjectEventsKey (generators/project-events.js) imports
-            // only ServiceKey from todl-runtime — all mural-free. (MemberContentOps / ReferenceEditor /
-            // ProjectLifecycle are NOT in todl's public index, so the service bridges to them by
-            // relative dist path in todl-engine-ops.ts — see that file; they are not shimmed here.)
+            // Task 9 (SolutionWorkspaceService): the member-keyed mutation UI over the engine ops
+            // (todl 0.40.1 exports all of these from its index; the service imports them bare, so the
+            // shim must mirror them). MemberProjectOps imports only project-factory.js (already
+            // shimmed, mural-free) + semver.js (pure); SemVer/VersionPart (semver.js) have no imports;
+            // UniqueName (content/unique-name.js) imports only a todl-runtime IStorage type;
+            // MemberContentOps (content/member-content-ops.js) imports only UniqueName; ReferenceEditor
+            // (references/reference-editor.js) imports manifest/project-factory/project-events;
+            // ProjectLifecycle (solution-manager/engine/project-lifecycle.js) imports the already-
+            // shimmed SolutionManagerService + project-events/manifest/project-factory; ProjectEventsKey
+            // (generators/project-events.js) imports only ServiceKey from todl-runtime — all mural-free.
             `export { MemberProjectOps } from ${p('solution-services/project-services/core/member-project-ops.js')}`,
             `export { SemVer, VersionPart } from ${p('solution-services/project-services/core/semver.js')}`,
             `export { UniqueName } from ${p('solution-services/project-services/content/unique-name.js')}`,
             `export { ProjectEvents, ProjectEventsKey, ProjectEventKind } from ${p('solution-services/project-services/generators/project-events.js')}`,
+            `export { MemberContentOps, RenameError } from ${p('solution-services/project-services/content/member-content-ops.js')}`,
+            `export { ReferenceEditor, ReferenceResolutionKind } from ${p('solution-services/project-services/references/reference-editor.js')}`,
+            `export { ProjectLifecycle, CreateError, OpenError } from ${p('solution-services/solution-manager/engine/project-lifecycle.js')}`,
         ].join('\n')
     },
 }
