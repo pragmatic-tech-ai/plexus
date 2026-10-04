@@ -20,6 +20,7 @@ function harness(folders: string[])
     get: (key: unknown) => (key === SolutionManagerService.Key ? manager : undefined),
     getRequired: (key: unknown) => {
       if (key === FileWatchService.Key) return fileWatch
+      if (key === SolutionManagerService.Key) return manager
       if (key === ProjectExplorerService.Key) return explorer
       if (key === EnvironmentService.Key) return env
       throw new Error('unexpected key')

@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { ModelDraft, SolutionBaseResolver, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
 
 import { collectTodlSources } from '../../../services/todl/todl-sources.js'
-import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
+import { ActiveSolutionMembers, type IMembersSubscription, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { ArchModel } from './arch-model.js'
 import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
@@ -23,6 +23,8 @@ export class ArchitectureModelService extends ServiceBase
     private readonly models = new Map<string, ArchModel>()
     // Per-project debounce timers for the .todl-change → reload path.
     private readonly reloadPending = new Map<string, ReturnType<typeof setTimeout>>()
+    private readonly membersSubscription: IMembersSubscription
+    private readonly fileWatchUnsubscribe: (() => void) | undefined
 
     public constructor(provider: IServiceProvider)
     {
@@ -31,7 +33,7 @@ export class ArchitectureModelService extends ServiceBase
         // generic change callback, so diff the live RootPaths against the cache
         // (mirrors SolutionBaseResolver's own member-subscription pattern).
         const members = ActiveSolutionMembers.From(this.Provider)
-        members.Subscribe(() => {
+        this.membersSubscription = members.Subscribe(() => {
             const live = new Set(members.Resolved().map((op) => op.Folder))
             for (const key of [...this.models.keys()])
                 if (!live.has(key)) this.close(key)
@@ -40,7 +42,7 @@ export class ArchitectureModelService extends ServiceBase
         // (external edit, or the in-app TODL editor saving). Without this the model
         // is a stale snapshot: a diagram re-projects deleted/edited entities from it
         // and only a project-close or app-restart clears it. Debounced per project.
-        this.Provider.get(FileWatchService.Key)?.Subscribe((e) => this.onTodlChange(e))
+        this.fileWatchUnsubscribe = this.Provider.get(FileWatchService.Key)?.Subscribe((e) => this.onTodlChange(e))
     }
 
     // A watched file changed — if it is a .todl under a cached model's project
@@ -105,6 +107,14 @@ export class ArchitectureModelService extends ServiceBase
         const model = new ArchModel(draft, op.Storage, namespace, merged, originOf ?? new Map())
         this.models.set(key, model)
         return model
+    }
+
+    public dispose(): void
+    {
+        this.membersSubscription.dispose()
+        this.fileWatchUnsubscribe?.()
+        for (const t of this.reloadPending.values()) clearTimeout(t)
+        this.reloadPending.clear()
     }
 
     public peek(rootPath: string): ArchModel | undefined

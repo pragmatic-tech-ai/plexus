@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ToolboxRepository, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
+import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { ToolboxService } from '../diagram-panel-services.js'
 import { ArchToolboxVisualKey } from '../arch-toolbox-item.js'
 import { ArchInstanceDropFactoryKey } from '../../../architecture-projects/services/arch-instance-drop-factory.js'
@@ -39,7 +41,8 @@ class TestToolbox extends ToolboxService
 {
   public active: unknown = undefined
   protected activeDoc(): unknown { return this.active }
-  protected async openArchModels(): Promise<Array<{ model: never; namespace: string }>> { return [] }
+  public archScans = 0
+  protected async openArchModels(): Promise<Array<{ model: never; namespace: string }>> { this.archScans++; return [] }
 }
 
 // A meta-model / library seeder over the SINGLE packages backend: each writes the
@@ -76,6 +79,7 @@ function librarySeeder(backend: FakeStorage): KindSeeder
 function provider(seed: (mm: KindSeeder, lib: KindSeeder) => void): ServiceProvider
 {
   const p = new ServiceProvider()
+  new FakeSolutionManager().RegisterOn(p)
   const reg = new StorageService(p)
   const packages = new FakeStorage('fake://packages')
   reg.Register(PACKAGES_BACKEND_ID, () => packages)
@@ -88,6 +92,16 @@ const pageIds = (svc: ToolboxService): string[] => svc.Pages.ToArray().map((p) =
 const page = (svc: ToolboxService, id: string) => svc.Pages.ToArray().find((p) => p.Id === id)
 
 describe('ToolboxService', () => {
+  it('re-syncs its page set when a solution member is added', async () => {
+    const p = provider(() => {})
+    const svc = new TestToolbox(p)
+    await new Promise((r) => setTimeout(r, 0))
+    const before = svc.archScans
+    ;(p.get(SolutionManagerService.Key) as unknown as FakeSolutionManager).AddResolved({ RootPath: '/a', Name: 'A' })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(svc.archScans).toBeGreaterThan(before)
+  })
+
   it('keeps mural Shapes and adds a page per visible taxonomy, keyed on the term', async () => {
     const svc = new TestToolbox(provider((mm) => { void mm.WriteText('tech/0.1.0/model.json', MODEL) }))
     await svc.syncPageSet()

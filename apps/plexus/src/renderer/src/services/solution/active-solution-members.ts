@@ -7,7 +7,6 @@
 // and Storage the engine has opened. Unresolved members (still opening, unknown
 // type, load failure) are skipped on read; their later resolution re-notifies.
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import type { CollectionChange } from '@pragmatic-tech-ai/mural/runtime'
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { SolutionManagerService, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
@@ -41,9 +40,10 @@ export class ActiveSolutionMembers
 
     constructor(private readonly manager: SolutionManagerService | undefined) {}
 
+    // Fail-fast: every host that runs these consumers registers the manager.
     public static From(provider: IServiceProvider): ActiveSolutionMembers
     {
-        return new ActiveSolutionMembers(provider.get(SolutionManagerService.Key))
+        return new ActiveSolutionMembers(provider.getRequired(SolutionManagerService.Key))
     }
 
     // Every resolved member of the active solution, in Members order.
@@ -63,34 +63,51 @@ export class ActiveSolutionMembers
     }
 
     // Call `onChange` whenever the resolved set may have changed: the active
-    // solution switches, a member is added/removed, or a member (re)resolves.
+    // solution switches, a member is added/removed/replaced/cleared/reset, or a
+    // member (re)resolves. Per-member subscriptions are kept in a map reconciled
+    // against the live collection on every change, so removed members are released
+    // immediately and every CollectionChange kind is handled.
     public Subscribe(onChange: () => void): IMembersSubscription
     {
         const manager = this.manager
         if (manager === undefined) return { dispose: () => undefined }
-        let inner: Array<() => void> = []
-        const teardownInner = (): void =>
+        const perMember = new Map<SolutionMember, () => void>()
+        let collection: (() => void) | undefined
+        const releaseAll = (): void =>
         {
-            for (const d of inner) d()
-            inner = []
+            for (const d of perMember.values()) d()
+            perMember.clear()
         }
-        const watchMember = (member: SolutionMember): void =>
+        const reconcile = (): void =>
         {
-            const project = member.PropertyChanged(ActiveSolutionMembers.ProjectProperty).subscribe(() => onChange())
-            const status = member.PropertyChanged(ActiveSolutionMembers.StatusProperty).subscribe(() => onChange())
-            inner.push(() => project.dispose(), () => status.dispose())
+            const current = new Set(manager.ActiveSolution?.Members.ToArray() ?? [])
+            for (const [member, dispose] of [...perMember])
+            {
+                if (current.has(member)) continue
+                dispose()
+                perMember.delete(member)
+            }
+            for (const member of current)
+            {
+                if (perMember.has(member)) continue
+                const project = member.PropertyChanged(ActiveSolutionMembers.ProjectProperty).subscribe(() => onChange())
+                const status = member.PropertyChanged(ActiveSolutionMembers.StatusProperty).subscribe(() => onChange())
+                perMember.set(member, () => { project.dispose(); status.dispose() })
+            }
         }
         const rewire = (): void =>
         {
-            teardownInner()
+            collection?.()
+            collection = undefined
+            releaseAll()
             const members = manager.ActiveSolution?.Members
+            reconcile()
             if (members === undefined) return
-            for (const member of members.ToArray()) watchMember(member)
-            inner.push(members.Subscribe((change: CollectionChange<SolutionMember>) =>
+            collection = members.Subscribe(() =>
             {
-                if (change.kind === 'inserted') for (const member of change.items) watchMember(member)
+                reconcile()
                 onChange()
-            }))
+            })
         }
         const active = manager.PropertyChanged(ActiveSolutionMembers.ActiveSolutionProperty).subscribe(() =>
         {
@@ -102,7 +119,9 @@ export class ActiveSolutionMembers
             dispose: () =>
             {
                 active.dispose()
-                teardownInner()
+                collection?.()
+                collection = undefined
+                releaseAll()
             },
         }
     }
