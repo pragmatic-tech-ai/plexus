@@ -22,6 +22,7 @@ import { ProjectActionsContributor } from './project-actions-contributor.js'
 import { ReferenceActionsContributor, ReferenceSubmenuContributor } from './reference-actions-contributor.js'
 import { ReferenceNodeKey } from './reference-node-key.js'
 import { ConnectionsRootContributor } from './connections-root-contributor.js'
+import { SolutionRootContributor } from './solution-root-contributor.js'
 import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, ConnectionEditorLauncherKey } from './connection-actions-contributor.js'
 import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contributor.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
@@ -83,9 +84,13 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const registry = this.provider.getRequired(HierarchyContributorRegistry.Key)
         this.menuServices = this.buildMenuServices()
         this.hierarchy = new Hierarchy(registry, this, { Services: this.menuServices })
-        this.rootItem = this.hierarchy.SeedRoot(NodeKey.Solution, {
+        // The seeded root is an INVISIBLE container (mural projects a root's children
+        // onto Roots). Its key is deliberately NOT NodeKey.Solution so the
+        // Solution-keyed branch contributors fire under the single visible Solution
+        // node (emitted by SolutionRootContributor), not here — giving the tree one
+        // top-level row (the solution) instead of bare project/Connections rows.
+        this.rootItem = this.hierarchy.SeedRoot(SolutionRootContributor.ContainerKey, {
             Caption: SolutionExplorerService.RootCaptionFallback,
-            IconKey: NodeKey.Solution,
             Severity: NodeSeverity.Ok,
             IsExpandable: true,
         })
@@ -170,6 +175,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.workspace)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
+        // The Solution root node (single visible top-level row) is registered first so it exists
+        // before the branch contributors that hang off it.
+        this.handles.push(registry.RegisterInstance(new SolutionRootContributor(solution)))
         this.handles.push(registry.RegisterInstance(this.projectsRoot))
         this.handles.push(registry.RegisterInstance(this.files, this.files.Actions))
         this.handles.push(registry.RegisterInstance(this.connectionsRoot))
@@ -187,6 +195,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.treeState = new SolutionTreeStateService(this.hierarchy, solution, bags)
             this.treeState.Start()
         }
+        // Expand the single Solution root by default so its project / Connections rows
+        // show without a manual click (Visual Studio parity). The node is realized into
+        // Roots synchronously by the SolutionRootContributor registration above.
+        const solutionNode = this.hierarchy?.Roots.ToArray().find((r) => r.Key === NodeKey.Solution)
+        solutionNode?.OnExpand()
     }
 
     // ── HierarchyHost ────────────────────────────────────────────────────────

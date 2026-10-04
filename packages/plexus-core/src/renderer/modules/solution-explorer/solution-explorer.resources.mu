@@ -64,14 +64,34 @@ import IconKeyToGeometry from "./services/icon-key-to-geometry.js"
 
 resources SolutionExplorerResources {
 
+    // Compact command-bar button. The default PanelButton template (@DefaultIconButton)
+    // is a FIXED 40dp box — far too tall for the Solution Explorer command strip. This
+    // sizes to content (16dp icon + 4dp padding ≈ 24dp) and hovers to @Bg3 (not @Bg2,
+    // which is invisible on the @Bg2 side pane — same contrast rule as the tree rows).
+    Template x:key="CompactPanelButton" [ TargetType = PanelButton ] {
+        Border x:name="PART_FocusRing"
+            [ Fill = #00000000, Padding = (@FocusRingOffset), CornerRadius = $$CornerRadius ] {
+            Border x:name="PART_Root"
+                [ Fill = #00000000, CornerRadius = $$CornerRadius, Padding = (4,4,4,4),
+                  TextBlock.Foreground = @Fg1 ] {
+                ContentPresenter x:name="PART_Content" [ HorizontalAlignment = Center, VerticalAlignment = Center ]
+            }
+        }
+        when ( IsMouseOver )       { PART_Root.Fill = @Bg3; }
+        when ( IsPressed )         { PART_Root.Fill = @Bg3; }
+        when ( IsFocused )         { PART_FocusRing.Stroke = Pen [ Brush = @BorderFocus, Thickness = 2 ]; }
+        when ( IsEnabled = false ) { PART_Root.Opacity = @OpacityDisabled; }
+    }
+
     // Thin override of mural's default @HierarchyItemTemplate (hierarchy.template.mu)
     // — same shape, Plexus's own icon resolution. See the file header comment above.
     HierarchicalDataTemplate x:key="SolutionExplorerItemTemplate"
         [ DataType = HierarchyItem, itemsselector = Children ] {
         StackPanel [ Orientation = Horizontal ] {
             Shape x:name="PART_Icon" [ Geometry = $IconKey << IconKeyToGeometry, Width = 16, Height = 16 ]
+            // Gap between the icon and the caption so glyph and label don't touch.
             EditableTextBlock x:name="PART_Caption"
-                [ Text = $Caption, IsEditing = $IsEditing, EditingText = $EditingName ]
+                [ Text = $Caption, IsEditing = $IsEditing, EditingText = $EditingName, Margin = (6,0,0,0) ]
         }
     }
 
@@ -79,18 +99,21 @@ resources SolutionExplorerResources {
     // surfaced by the capability), a hairline, the empty-state line pinned bottom, and
     // the virtualized hierarchy TreeView filling the space between.
     DataTemplate [ DataType = SolutionExplorerService ] {
-        DockPanel [ LastChildFill = true, Margin = (8,8,8,8) ] {
-            StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,8) ] {
-                PanelButton [ Margin = (0,0,4,0), Command = $OpenProjectCommand ] {
-                    Shape [ Geometry = @Folder, Fill = @Fg2, Width = 20, Height = 20 ]
+        DockPanel [ LastChildFill = true, Margin = (8,3,8,6) ] {
+            // Compact command bar: a tight button row (@CompactPanelButton keeps the
+            // vertical footprint small — the default PanelButton is a fixed 40dp box,
+            // far too tall here). 3dp above / 4dp below keeps the strip slim.
+            StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,4) ] {
+                PanelButton [ Margin = (0,0,4,0), Template = @CompactPanelButton, Command = $OpenProjectCommand ] {
+                    Shape [ Geometry = @Folder, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
-                PanelButton [ Command = $NewProjectCommand ] {
-                    Shape [ Geometry = @NewFolder, Fill = @Fg2, Width = 20, Height = 20 ]
+                PanelButton [ Template = @CompactPanelButton, Command = $NewProjectCommand ] {
+                    Shape [ Geometry = @NewFolder, Fill = @Fg2, Width = 16, Height = 16 ]
                 }
             }
 
             // Hairline separating the command bar from the tree.
-            Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border, Margin = (0,0,0,8) ]
+            Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border, Margin = (0,0,0,4) ]
 
             // Empty state — shown (ToVisibility: true → Visible) when no solution is open.
             TextBlock [ DockPanel.Dock = Bottom, Style = @BodySm, Foreground = @Fg2,
