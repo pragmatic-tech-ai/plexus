@@ -7,7 +7,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider, type CollectionChange } from '@pragmatic-tech-ai/mural/runtime'
 import type { IDisposable, IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    SolutionManagerService, SolutionMemberStatus, ProjectEventsKey, ProjectEvents, ProjectEventKind,
+    SolutionManagerService, ProjectEventsKey, type Solution, ProjectEvents, ProjectEventKind,
     type SolutionMember, type ProjectEvent,
 } from '@pragmatic-tech-ai/todl'
 import { LiveValidationKey, type ILiveValidation } from '../../../projects/capabilities/live-validation.js'
@@ -40,8 +40,9 @@ export class LiveValidationSync extends ServiceBase
     private membersSub: IDisposable | undefined
     // Members currently registered with live validation, and the storage they were registered under.
     private readonly attached = new Map<SolutionMember, IStorage>()
-    // Members still waiting for their Project to settle.
-    private readonly pending = new Map<SolutionMember, IDisposable>()
+    // Per-member Status subscriptions, alive while the member is in the tracked collection.
+    private readonly watching = new Map<SolutionMember, IDisposable>()
+    private currentMembers: Solution['Members'] | undefined
 
     constructor(provider: IServiceProvider)
     {
@@ -90,7 +91,8 @@ export class LiveValidationSync extends ServiceBase
         this.Teardown()
         const members = this.manager.ActiveSolution?.Members
         if (members === undefined) return
-        for (const member of members.ToArray()) this.Track(member)
+        this.currentMembers = members
+        this.TrackAll()
         this.membersSub = new FunctionDisposable(members.Subscribe((change) => this.OnMembersChanged(change)))
     }
 
@@ -98,7 +100,19 @@ export class LiveValidationSync extends ServiceBase
     {
         this.membersSub?.dispose()
         this.membersSub = undefined
-        for (const member of [...this.pending.keys()]) this.Untrack(member)
+        this.currentMembers = undefined
+        this.UntrackAll()
+    }
+
+    private TrackAll(): void
+    {
+        if (this.currentMembers === undefined) return
+        for (const member of this.currentMembers.ToArray()) this.Track(member)
+    }
+
+    private UntrackAll(): void
+    {
+        for (const member of [...this.watching.keys()]) this.Untrack(member)
         for (const member of [...this.attached.keys()]) this.Untrack(member)
     }
 
@@ -112,47 +126,57 @@ export class LiveValidationSync extends ServiceBase
             case 'removed':
                 for (const member of change.items) this.Untrack(member)
                 return
+            case 'cleared':
+            case 'reset':
+            case 'replaced':
+                // The delta is not enumerable: detach everything, then re-track the collection as it now stands.
+                this.UntrackAll()
+                this.TrackAll()
+                return
             default:
                 return
         }
     }
 
-    // Attach now if the member is resolved; otherwise wait for its Status to settle (the engine
-    // appends to Members before it awaits the open, and sets Project/Storage BEFORE flipping
-    // Status to Resolved - so Status, not Project, is the settle signal). An unresolvable
-    // member (unknown type / load failure) settles without ever being attached.
+    // Follow the member's Status for as long as it is in the collection (until Untrack): attach
+    // when it becomes Resolved, detach when it leaves Resolved (the engine sets Project/Storage
+    // BEFORE flipping Status, so Status - not Project - is the signal). A load-failed member that
+    // later resolves (re-open / rescan) therefore attaches, and a resolved one that fails detaches.
     private Track(member: SolutionMember): void
     {
-        if (this.attached.has(member) || this.pending.has(member)) return
+        if (this.watching.has(member)) return
+        const sub = member.PropertyChanged(LiveValidationSync.MemberStatusPropertyName)
+            .subscribe(() => this.Reconcile(member))
+        this.watching.set(member, sub)
+        this.Reconcile(member)
+    }
+
+    private Reconcile(member: SolutionMember): void
+    {
+        if (this.disposed) return
         if (member.IsResolved)
         {
-            this.Attach(member)
-            return
+            if (!this.attached.has(member)) this.Attach(member)
         }
-        const sub = member.PropertyChanged(LiveValidationSync.MemberStatusPropertyName).subscribe(() =>
+        else
         {
-            if (member.Status === SolutionMemberStatus.Unopened) return
-            this.pending.get(member)?.dispose()
-            this.pending.delete(member)
-            if (!this.disposed && member.IsResolved) this.Attach(member)
-        })
-        this.pending.set(member, sub)
+            this.Detach(member)
+        }
     }
 
     private Untrack(member: SolutionMember): void
     {
-        const waiting = this.pending.get(member)
-        if (waiting !== undefined)
-        {
-            waiting.dispose()
-            this.pending.delete(member)
-        }
+        this.watching.get(member)?.dispose()
+        this.watching.delete(member)
+        this.Detach(member)
+    }
+
+    private Detach(member: SolutionMember): void
+    {
         const storage = this.attached.get(member)
-        if (storage !== undefined)
-        {
-            this.attached.delete(member)
-            this.validation?.DetachProject(storage)
-        }
+        if (storage === undefined) return
+        this.attached.delete(member)
+        this.validation?.DetachProject(storage)
     }
 
     private Attach(member: SolutionMember): void

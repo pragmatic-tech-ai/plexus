@@ -153,12 +153,43 @@ describe('LiveValidationSync', () =>
     {
         const h = new Harness()
         const sol = new Solution('S')
-        const member = Harness.Resolve(sol.AddMember('./a', 'architecture'), 'a') && sol.Members.ToArray()[0]
+        const member = sol.AddMember('./a', 'architecture')
+        Harness.Resolve(member, 'a')
         h.manager.Swap(sol)
         h.sync.Start()
         h.sync.ResyncMember(member)
         h.sync.ResyncMember(new Solution('X').AddMember('./x', 'architecture'))
         expect(h.validation.calls).toEqual(['attach:/a:A:a', 'resync:/a:a'])
+    })
+
+    it('a cleared collection detaches all attached members', () =>
+    {
+        const h = new Harness()
+        const sol = new Solution('S')
+        Harness.Resolve(sol.AddMember('./a', 'architecture'), 'a')
+        Harness.Resolve(sol.AddMember('./b', 'architecture'), 'b')
+        h.manager.Swap(sol)
+        h.sync.Start()
+        h.validation.calls.length = 0
+        sol.Members.Clear()
+        expect(h.validation.calls).toEqual(['detach:a', 'detach:b'])
+    })
+
+    it('follows Status both ways: LoadFailed then Resolved attaches; Resolved then LoadFailed detaches', () =>
+    {
+        const h = new Harness()
+        const sol = new Solution('S')
+        h.manager.Swap(sol)
+        h.sync.Start()
+        const member = sol.AddMember('./a', 'architecture')
+        member.Status = SolutionMemberStatus.LoadFailed
+        expect(h.validation.calls).toEqual([])
+        Harness.Resolve(member, 'a')
+        expect(h.validation.calls).toEqual(['attach:/a:A:a'])
+        member.Status = SolutionMemberStatus.LoadFailed
+        expect(h.validation.calls).toEqual(['attach:/a:A:a', 'detach:a'])
+        member.Status = SolutionMemberStatus.Resolved
+        expect(h.validation.calls).toEqual(['attach:/a:A:a', 'detach:a', 'attach:/a:A:a'])
     })
 
     it('dispose detaches everything and stops reacting', async () =>
