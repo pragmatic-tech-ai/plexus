@@ -48,9 +48,7 @@ import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-pr
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionBaseResolver } from '@pragmatic-tech-ai/todl'
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
-import { SolutionSeams } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
-import { DurableStoreRegistration, BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
-import { RendererPackageSource } from './services/projects/renderer-package-source.js'
+import { BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
 
 // Register the 'todl' Monaco language once, before any editor mounts, so .todl
 // documents get syntax colouring. (Diagnostics/squiggles are independent of it.)
@@ -99,23 +97,12 @@ try {
     app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
     app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionBaseResolver.Key))
     app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
-    // Solution engine collaborators must be REGISTERED up front — before the eager
-    // service block below — because several of those services resolve
-    // SolutionWorkspaceService, which builds SolutionManagerService, which
-    // getRequired's these seams. SolutionServicesEngine
-    // (app.mu .modules) already registered SolutionManagerService.Key +
-    // ProjectFactoryRegistryKey; SolutionSeams adds the generic host seams
-    // (PromptServiceKey over DialogService, StorageRegistryKey over StorageService);
-    // PackageSourceKey is app-specific (RendererPackageSource, over the same
-    // published-packages backend PlexusPackageStore reads). All are lazy factories —
-    // registering here constructs nothing; the singletons are resolved further below.
-    SolutionSeams.Register(app.Services)
-    app.Services.register(SolutionManagerService.PackageSourceKey, (p) => new RendererPackageSource(p))
-    // Bind the durable application store BEFORE the manager is constructed (its ctor registers its
-    // session bag with DurableApplicationStoreKey). Nothing bound this key before, so the session
-    // bag — recent/last solutions — never survived a run; registering here fixes that dormant bug.
-    // The store is Restored below, once the manager exists, before session restore.
-    DurableStoreRegistration.Register(app.Services)
+    // The SolutionManagerService host seams (StorageRegistry/Prompt/PackageSource +
+    // the durable session store) are registered by SolutionSeamsHostModule in app.mu's
+    // .modules: block — NOT here. They must exist before the shell mount resolves
+    // TitleService/ToolboxService (both build the manager), which happens during app.mu's
+    // compose IIFE, before this file runs; a module's RegisterServices composes in time.
+    // The durable store is Restored below, once the manager exists, before session restore.
     // The shell chrome (title strip + @Surface) has mounted; drop the boot
     // splash once the browser has flushed a real frame. Double-rAF: the first
     // callback runs before paint, the second after — so we never reveal a blank

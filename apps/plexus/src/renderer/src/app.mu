@@ -58,6 +58,13 @@ import TodlProjectSystemModule from "@pragmatic-tech-ai/todl"
 // (project types now come from TodlProjectSystemModule). Rides along lazily (unused
 // here → dormant); its manager resolves the composed ProjectFactoryRegistryKey.
 import SolutionServicesEngine from "@pragmatic-tech-ai/todl"
+// The HOST seams SolutionServicesEngine's SolutionManagerService needs at
+// construction (StorageRegistry/Prompt/PackageSource + the durable session store).
+// A composition module so the seams are registered when AddModule runs — BEFORE the
+// EditorShell (built later in this same compose) resolves TitleService/ToolboxService,
+// which build the manager. Registering these in main.js is too late: that resolution
+// happens during compose, before main.js runs.
+import SolutionSeamsHostModule from "./services/solution/solution-seams-host-module.js"
 // Per-project Build/Publish facade (todl) over the composed BuildSystemRegistryKey
 // (seeded by TodlProjectSystemModule below). Root-registered here so publishProject
 // and the Solution Explorer's Build/Publish contributor resolve the one instance via
@@ -471,6 +478,10 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         DiagramModule
         DiagramExportModule
         ArchitectureProjectsModule
+        // Host seams for the solution engine's SolutionManagerService — MUST compose
+        // before the EditorShell resolves TitleService/ToolboxService (both build the
+        // manager, whose ctor getRequired's these). Placed before SolutionServicesEngine.
+        SolutionSeamsHostModule
         // Solution engine module (todl): SolutionManagerService + settings registry
         // (no project types — those come from TodlProjectSystemModule above).
         SolutionServicesEngine
