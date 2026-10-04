@@ -314,8 +314,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Recent-projects MRU (persisted under userData) — the Open Project
         // dialog lists it; open/create push to it.
         RecentProjectsService
-        // Open-projects set (persisted under userData) — the explorer updates it
-        // on open/close and restores it at launch.
+        // Open-projects set (persisted under userData) — ProjectLifecycle updates it
+        // on open/close and ProjectCommandsService.RestoreSession reads it at launch.
         OpenProjectsStore
         // Persistence backend for ApplicationSettings, bound to the framework's
         // SettingsStoreKey (a different token than the impl class itself).
@@ -450,9 +450,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         ArchEditViewpointsCommand -> DiagramCommandExtensionKey
         // Solution workspace capability impls (DI seams defined in plexus-core). Each
         // is registered ONLY under its interface key ⇒ a single instance (the alias
-        // `Impl -> Key` lowers to `register(Key, p => new Impl(p))`). The four
+        // `Impl -> Key` lowers to `register(Key, p => new Impl(p))`). The three
         // capabilities backed by an already-registered singleton (live validation,
-        // base resolver, problems dock, tree host) are instance-shared code-side in
+        // base resolver, problems dock) are instance-shared code-side in
         // main.js instead, so they don't spawn a duplicate.
         PublishedBases         -> PublishedBasesKey
     }

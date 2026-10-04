@@ -52,13 +52,25 @@ export class OpenProjectsStore extends ServiceBase
                 return this.folders;
             }
             const parsed = JSON.parse(await this.fs.ReadText(this.filePath));
-            this.folders = Array.isArray(parsed) ? (parsed as string[]) : [];
+            this.folders = Array.isArray(parsed) ? OpenProjectsStore.NormalizeAll(parsed as string[]) : [];
         }
         catch
         {
             this.folders = [];
         }
         return this.folders;
+    }
+
+    // The one key form the engine ProjectLifecycle stores: backslashes -> '/', trailing
+    // slashes stripped. Applied on read (migrating older raw entries) and on Add/Remove.
+    public static Normalize(folder: string): string
+    {
+        return folder.replace(/\\/g, '/').replace(/\/+$/, '');
+    }
+
+    private static NormalizeAll(folders: readonly string[]): string[]
+    {
+        return [...new Set(folders.map((f) => OpenProjectsStore.Normalize(f)))];
     }
 
     // The current open folders (the in-memory mirror; [] until first load).
@@ -79,6 +91,7 @@ export class OpenProjectsStore extends ServiceBase
     // no-op does not notify — the set didn't change.
     public async Add(folder: string): Promise<void>
     {
+        folder = OpenProjectsStore.Normalize(folder);
         const list = [...(await this.List())];
         if (list.includes(folder)) return;
         list.push(folder);
@@ -89,6 +102,7 @@ export class OpenProjectsStore extends ServiceBase
 
     public async Remove(folder: string): Promise<void>
     {
+        folder = OpenProjectsStore.Normalize(folder);
         const list = (await this.List()).filter((f) => f !== folder);
         this.folders = list;
         await this.write(list);

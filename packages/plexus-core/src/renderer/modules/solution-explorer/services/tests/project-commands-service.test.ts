@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { PublishedBasesKey } from '../../../../projects/index.js'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
+import { RecentProjectsService } from '../../../../projects/recent-projects-service.js'
 import { StorageService } from '../../../storage/index.js'
 import { ProjectCommandsService } from '../project-commands-service.js'
 
@@ -22,5 +25,23 @@ describe('ProjectCommandsService', () =>
         const outcome = await svc.CreateProject({ type: 'architecture', name: 'p', location: '/work' })
         expect(outcome.created).toBe(false)
         expect(outcome.error).toBe('That folder already contains a project.')
+    })
+
+    it('RestoreSession reopens every folder in the session store via the engine lifecycle', async () =>
+    {
+        const opened: string[] = []
+        const provider = new ServiceProvider()
+        provider.registerInstance(OpenProjectsStore.Key, {
+            List: async () => ['/work/a', '/work/b'], Add: async () => {}, Remove: async () => {},
+        } as never)
+        provider.registerInstance(RecentProjectsService.Key, { Add: async () => {} } as never)
+        provider.registerInstance(SolutionManagerService.StorageRegistryKey, {
+            CreateStorage: () => ({ Exists: async () => true }),
+        } as never)
+        provider.registerInstance(SolutionManagerService.Key, {
+            OpenProject: async (folder: string) => { opened.push(folder); return {} },
+        } as never)
+        await new ProjectCommandsService(provider).RestoreSession()
+        expect(opened).toEqual(['/work/a', '/work/b'])
     })
 })
