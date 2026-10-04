@@ -1,4 +1,3 @@
-import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { VersionPart } from '../../../projects/semver-bump.js'
@@ -34,5 +33,3 @@ export interface IContentMutations
     CanRefreshBasesMember(member: SolutionMember): boolean
     SupportsScaffoldMember(member: SolutionMember): boolean
 }
-
-export const ContentMutationsKey = new ServiceKey<IContentMutations>('ContentMutations')

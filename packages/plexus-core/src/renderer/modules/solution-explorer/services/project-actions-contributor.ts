@@ -7,7 +7,7 @@ import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/h
 import { CommandDefinition, type CommandContext } from '@pragmatic-tech-ai/mural/framework'
 import { VersionPart } from '../../../projects/semver-bump.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
-import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from './content-mutations.js'
 
 // Dispatches the project-lifecycle context-menu commands for a member (project) row —
 // Remove from Solution / Bump Version ▸ / Set Version… / Manage References… / Refresh

@@ -12,7 +12,7 @@ import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { BuildProgressReporter } from './build-progress-reporter.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
-import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from './content-mutations.js'
 
 // The resolved type of the composed BuildSystemRegistryKey — the per-project build systems
 // the todl project-system module seeds. Named once so the submenu and wiring agree.

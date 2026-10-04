@@ -11,7 +11,7 @@ import {
     SolutionMember, SolutionMemberStatus, type ProjectContentNode,
 } from '@pragmatic-tech-ai/todl'
 import type { ProjectFileFormat } from '../../../projects/project-factory.js'
-import type { IContentMutations } from '../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from './content-mutations.js'
 import { ProjectHierarchyProvider } from './project-hierarchy-provider.js'
 import type { IProjectContentSource } from './projects-provider.js'
 import type { IReferenceView } from './reference-view.js'

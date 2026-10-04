@@ -3,7 +3,7 @@ import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { Solution, type SolutionMember, type BuildService } from '@pragmatic-tech-ai/todl'
 import { BuildContributor } from '../build-contributor.js'
-import type { IContentMutations } from '../../../project-explorer/services/content-mutations.js'
+import type { IContentMutations } from '../content-mutations.js'
 
 // A fake project row: it carries its member as ExtObject (what FileTreeContributor.MemberOf
 // matches when BuildContributor.Resolve climbs to the owning member).
