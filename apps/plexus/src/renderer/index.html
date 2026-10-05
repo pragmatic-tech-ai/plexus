@@ -74,16 +74,21 @@
            at the compositor, and a no-drag overlay won't reliably pass clicks
            through to the SVG beneath), so the affordance is split into two strips
            that FLANK the menu region: the 48px logo box stays draggable on the
-           left, the title area stays draggable on the right, and the menu hole
-           (48px..112px) is left uncovered so its clicks reach mural. Sized for the
-           current File menu; a future task adding Edit/View widens the hole. */
+           left, the title area stays draggable on the right, and the menu hole is
+           left uncovered so its clicks reach mural.
+           The hole's right boundary is NOT hardcoded: MenuDragRegion (wired in
+           main.js) measures the mural-painted menu bar's rendered right edge and
+           sets #drag-strip.style.left to it, re-measuring on resize + theme change
+           — so File/Edit/View/Help all stay clickable no matter how wide the menu
+           grows. The `left` below is only a pre-measure baseline (and the fallback
+           if the live measure is unavailable): sized to clear all four menus. */
         #drag-logo {
             position: absolute; top: 0; left: 0; width: 48px; height: 32px;
             -webkit-app-region: drag;
             background: transparent; z-index: 10;
         }
         #drag-strip {
-            position: absolute; top: 0; left: 112px; right: 0; height: 32px;
+            position: absolute; top: 0; left: 260px; right: 0; height: 32px;
             -webkit-app-region: drag;
             background: transparent; z-index: 10;
         }
