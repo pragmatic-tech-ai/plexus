@@ -130,6 +130,20 @@ describe('ProjectsProvider', () =>
         expect(ctx.Children.map((c) => c.CanonicalSegment)).toEqual([a.Ref.path, b.Ref.path])
     })
 
+    it('a project row caption is the member name alone — directory path and extension stripped', () =>
+    {
+        const sol = new Solution('S')
+        const m = resolved(sol, 'architectures/test_architecture/test_architecture.todlproj')
+        const p = new ProjectsProvider(sol, new FakeContent(), new FakeRefs(true))
+        const ctx = new FakeContext()
+        p.Realize(rootItem(), ctx)
+        // The row shows just the name, not the full path the manifest ref carries.
+        expect(ctx.Children[0]!.Caption).toBe('test_architecture')
+        // The shared Title (dialog prefixes, build titles) is unchanged — still the full ref path.
+        expect(m.Title).toBe(m.Ref.path)
+        expect(m.Ref.path).toContain('/')
+    })
+
     it('adding a member pushes a new row (InsertChild)', () =>
     {
         const sol = new Solution('S')

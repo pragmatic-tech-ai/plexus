@@ -190,7 +190,7 @@ export class ProjectsProvider implements IHierarchyProvider
     private static rowInit(member: SolutionMember): HierarchyItemInit
     {
         return {
-            Caption: member.Title,
+            Caption: ProjectsProvider.displayName(member),
             IconKey: NodeKey.Project,
             Severity: ProjectsProvider.severityOf(member),
             Error: member.Error,
@@ -202,11 +202,24 @@ export class ProjectsProvider implements IHierarchyProvider
 
     private static applyRow(row: HierarchyItem, member: SolutionMember): void
     {
-        row.Caption = member.Title
+        row.Caption = ProjectsProvider.displayName(member)
         row.IconKey = NodeKey.Project
         row.Severity = ProjectsProvider.severityOf(member)
         row.Error = member.Error
         row.IsExpandable = member.Status === SolutionMemberStatus.Resolved
+    }
+
+    // The project row shows the member's name alone, not its location. SolutionMember.Title
+    // defaults to the raw manifest ref path (a relative POSIX path, or an absolute path for an
+    // ambient/out-of-folder project) and includes the project-file extension, so using it
+    // verbatim paints the full path in the tree. Strip the directory and the trailing extension
+    // for display only; the shared Title (dialog prefixes, build titles) is left unchanged. A
+    // leading-dot basename (no other dot) keeps its name.
+    private static displayName(member: SolutionMember): string
+    {
+        const base = member.Title.split(/[\\/]/).pop() ?? member.Title
+        const dot = base.lastIndexOf('.')
+        return dot > 0 ? base.slice(0, dot) : base
     }
 
     private static severityOf(member: SolutionMember): NodeSeverity
