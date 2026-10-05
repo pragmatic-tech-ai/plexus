@@ -172,7 +172,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // resolve a registered/substituted one and fall back to a direct construction (nothing
         // registers BuildService.Key today — Task 7's DI pass) — the same idiom publishProject uses.
         const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
-        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.workspace)
+        // Hand the Build/Publish contributor the flavor submenu instance (registered in
+        // buildMenuServices) so it can warm the manifest cache at context-menu open — the Build ▸
+        // submenu then shows its real rows on first open instead of a stuck "Loading…" row.
+        const buildSubmenu = this.menuServices?.get(BuildFlavorSubmenuContributor.Key)
+        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         // The Solution root node (single visible top-level row) is registered first so it exists

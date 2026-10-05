@@ -63,7 +63,10 @@ export class BuildContributor implements IHierarchyContributor
     constructor(
         private readonly build: BuildService,
         private readonly work: BackgroundWorkService | undefined,
-        private readonly mutations: IContentMutations)
+        private readonly mutations: IContentMutations,
+        // The flavor submenu contributor, warmed at context-menu open so the Build ▸ children are
+        // ready before the submenu opens. Optional — absent in headless/unit contexts.
+        private readonly submenu: BuildFlavorSubmenuContributor | undefined = undefined)
     {
         const buildMenu = BuildContributor.command(BuildContributor.BuildMenuId, BuildContributor.BuildMenuLabel, 50, true)
         buildMenu.ChildrenContributor = BuildFlavorSubmenuContributor.Key
@@ -112,7 +115,11 @@ export class BuildContributor implements IHierarchyContributor
         }
         if (commandId === BuildContributor.BuildMenuId)
         {
-            // The submenu header: always openable; the flavor children do the work.
+            // The submenu header: always openable; the flavor children do the work. Resolving the
+            // header happens at context-menu open, so warm the flavor submenu's manifest cache now
+            // — the read finishes before the hover-dwell opens the submenu, so its first open shows
+            // the real build rows rather than a "Loading…" placeholder.
+            this.submenu?.Warm(member)
             return new RelayCommand(() => {}, () => true)
         }
         const placeholder = BuildFlavorSubmenuContributor.PlaceholderCommand(commandId)
@@ -161,11 +168,41 @@ export class BuildFlavorSubmenuContributor implements ICommandContributor
 
     // Cache the parsed manifest only; `null` records a read/parse failure (a member that never
     // builds) so a failed read is not retried every open. Rows are recomputed from the live
-    // registry each open.
+    // registry each open. `loading` guards an in-flight read so concurrent Warm/Contribute calls
+    // for the same member start the read once.
     private readonly manifests = new Map<SolutionMember, ProjectManifest | null>()
+    private readonly loading = new Set<SolutionMember>()
 
     constructor(private readonly systems: ProjectBuildSystems | undefined)
     {
+    }
+
+    // Begin reading + parsing a member's manifest into the per-member cache unless it is already
+    // loaded or in flight — idempotent, fire-and-forget. Called at context-menu open (the Build ▸
+    // header resolves then, see BuildContributor.Resolve) so the flavor children are ready by the
+    // time the hover-dwell opens the submenu: the first Contribute hits a warm cache and renders
+    // the real rows instead of a "Loading…" placeholder that only filled on the NEXT open.
+    public Warm(member: SolutionMember): void
+    {
+        if (this.manifests.has(member) || this.loading.has(member)) return
+        const storage = member.Storage
+        if (storage === undefined) return
+        this.loading.add(member)
+        void (async () =>
+        {
+            try
+            {
+                this.manifests.set(member, parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME)))
+            }
+            catch
+            {
+                this.manifests.set(member, null)
+            }
+            finally
+            {
+                this.loading.delete(member)
+            }
+        })()
     }
 
     public Contribute(_parent: CommandDefinition, context: CommandContext): readonly CommandDefinition[]
@@ -178,17 +215,9 @@ export class BuildFlavorSubmenuContributor implements ICommandContributor
         const manifest = this.manifests.get(member)
         if (manifest === undefined)
         {
-            void (async () =>
-            {
-                try
-                {
-                    this.manifests.set(member, parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME)))
-                }
-                catch
-                {
-                    this.manifests.set(member, null)
-                }
-            })()
+            // Not warmed yet (menu opened faster than the read) — kick it off and show Loading…;
+            // it fills on the next open, and pre-warming at header-resolve makes this rare.
+            this.Warm(member)
             return [BuildFlavorSubmenuContributor.row(BuildFlavorSubmenuContributor.LoadingId, BuildFlavorSubmenuContributor.LoadingLabel)]
         }
         if (manifest === null) return [BuildFlavorSubmenuContributor.row(BuildFlavorSubmenuContributor.EmptyId, BuildFlavorSubmenuContributor.NothingToBuildLabel)]
