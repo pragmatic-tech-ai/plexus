@@ -9,6 +9,10 @@
     "packages/*",
     "apps/*"
   ],
+  "//overrides": "fresco + todl cap mural at ^0.61.4; force ONE mural across the tree so a minor bump (0.62.0) does not split into a dual-mural runtime (instanceof/theme crashes). Keep in step with the mural dep pins in apps/plexus + packages/plexus-core.",
+  "overrides": {
+    "@pragmatic-tech-ai/mural": "^0.62.0"
+  },
   "scripts": {
     "build:core": "npm run build -w @pragmatic-tech-ai/plexus-core",
     "build:plexus": "npm run build:core && npm run build -w @pragmatic-tech-ai/plexus",
