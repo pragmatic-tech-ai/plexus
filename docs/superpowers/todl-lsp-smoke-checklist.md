@@ -1,23 +1,29 @@
-# TODL Language Server — Manual Smoke Checklist
+# TODL Language Service — Manual Smoke Checklist
 
-The irreducibly visual gate for Spec 3 (Plexus client). Everything below is
-headless-tested where possible; this checklist covers what only real Monaco +
-Electron can prove. Run with `npm run dev`.
+The irreducibly visual gate for the Plexus TODL language features. Everything
+below is headless-tested where possible; this checklist covers what only real
+Monaco + Electron can prove. Run with `npm run dev`.
 
-**Prerequisite:** `@pragmatic-tech-ai/todl` must expose the `language-server` subpath
-(TODL 0.3.0 published to Verdaccio, or `npm link` to a local TODL checkout with
-`dist` built). `npm run build:todl-server` must have produced
-`out/main/todl-language-server.cjs`.
+**Architecture (LSP Wave 2):** the TODL language service runs **in-process** in the
+renderer — `LspServicesEngine` hosts `SolutionLanguageService` (the single
+`ILanguageService` + base-resolution authority); `TodlLanguageClient` is a thin
+in-process adapter that keeps the synthetic `todl://` URI scheme, diagnostics
+routing, and the `applyWorkspaceEdit` path. There is **no** out-of-process server,
+no `build:todl-server`, and no `todlLsp` IPC bridge.
+
+**Prerequisite:** `@pragmatic-tech-ai/todl` (≥ 0.44.0) installed; for live iteration
+`npm link` a local TODL checkout with `dist` built. No server bundle is produced.
 
 ## Startup / plumbing
-- [ ] App launches with no console errors about `todlLsp`, the language client, or a failed server fork.
-- [ ] Main process spawns the server child (Task Manager shows an extra Electron/Node process after launch).
+- [ ] App launches with no console errors about the language client or base resolution.
+- [ ] No extra server child process is spawned (analysis runs in the renderer).
 
-## Diagnostics (server-owned)
-- [ ] Open a TODL project (meta-model / library / architecture). The Problems panel populates from the server (not the retired in-renderer validator).
-- [ ] Introduce an error (e.g. a missing required field on an instance) → a red squiggle appears within ~1s and a Problems entry shows.
+## Diagnostics (in-process, whole-project)
+- [ ] Open a TODL project (meta-model / library / architecture). The Problems panel populates from the in-process service.
+- [ ] Introduce an error (e.g. a missing required field on an instance) → a red squiggle appears and a Problems entry shows.
 - [ ] Fix it → the squiggle and Problems entry clear.
 - [ ] A file with an unresolved base binding still shows the "Unresolved base: …" project-level problem.
+- [ ] An **unpublished in-solution member** (e.g. a library binding a sibling meta-model that is open but never published) resolves its symbols — NO "not published" / "no publishable version" / mass "undefined symbol" problems (the "0 bases" fix).
 - [ ] Edit a `.todl` file that is NOT the active tab (via a second open project) → its diagnostics still update (whole-project analysis).
 
 ## Navigation & hover
@@ -42,5 +48,5 @@ Electron can prove. Run with `npm run dev`.
 - [ ] Semantic colouring distinguishes concepts / primitives / enums / instances (richer than the Monarch base).
 
 ## Resilience
-- [ ] Kill the server child (Task Manager) → main restarts it and the renderer resyncs; diagnostics reappear and providers work again without an app reload.
-- [ ] Create / delete / rename a `.todl` file in the Project Explorer → the server picks it up (diagnostics for the new/removed file appear/clear) via the rescan → ResyncProject path.
+- [ ] Create / delete / rename a `.todl` file in the Solution Explorer → the service picks it up (diagnostics for the new/removed file appear/clear) via the rescan → ResyncProject path.
+- [ ] A reference (re)publish / reference edit refreshes bases live (the dependent project's diagnostics update without an app reload).

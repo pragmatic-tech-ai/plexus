@@ -426,11 +426,27 @@ export class TodlLanguageClient extends ServiceBase
   {
     const found = this.projectByStorage(storage)
     if (found === null) return
+    this.DisposeProjectDocuments(found.key)
     this.openDocs.delete(found.key)
     this.projects.delete(found.key)
     this.baseProblems.delete(storage)
     this.diagsByProject.delete(found.project.projectId)
     this.diagnostics?.ClearProject(found.project.projectId)
+  }
+
+  // Tear down the per-document Content subscriptions (and drop the doc→uri map
+  // entries) for every open document under the detached project, so a project
+  // open/close cycle doesn't pin closed documents or leak their listeners.
+  private DisposeProjectDocuments(projectKey: string): void
+  {
+    const prefix = TodlLanguageClient.TodlUriScheme + projectKey + TodlLanguageClient.RootSeparator
+    for (const [doc, uri] of [...this.docUris])
+    {
+      if (!uri.startsWith(prefix)) continue
+      this.docListeners.get(doc)?.dispose()
+      this.docListeners.delete(doc)
+      this.docUris.delete(doc)
+    }
   }
 
   // Re-pull a project's diagnostics after its bases may have changed. The service
