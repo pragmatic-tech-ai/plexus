@@ -17,15 +17,24 @@ export function extname(name: string): string
     return i > 0 ? name.slice(i).toLowerCase() : ''
 }
 
+// Top-level directories that hold build OUTPUT, not source: a producer project's
+// `dist/` is its published artifact tree (a compiled copy of `concepts/` etc.), so
+// walking it as source re-declares every node ("node already exists"). Skipped at the
+// project root only — a nested `dist/` folder is not special.
+const BUILD_OUTPUT_DIRS: readonly string[] = ['dist']
+
 // Recursively collect every `.todl` file in the project as a TODL SourceFile
-// (uri = project-relative POSIX path). This is what check() and publish consume.
+// (uri = project-relative POSIX path), EXCLUDING top-level build-output folders
+// (`dist/`). This is what check() and publish consume.
 export async function collectTodlSources(storage: IStorage): Promise<SourceFile[]>
 {
+    const skip = new Set(BUILD_OUTPUT_DIRS)
     const out: SourceFile[] = []
     async function walk(dir: string): Promise<void>
     {
         for (const e of await storage.List(dir))
         {
+            if (dir === '' && e.IsDirectory && skip.has(e.Name)) continue
             const path = joinRel(dir, e.Name)
             if (e.IsDirectory) await walk(path)
             else if (extname(e.Name) === '.todl') out.push({ uri: path, text: await storage.ReadText(path) })
