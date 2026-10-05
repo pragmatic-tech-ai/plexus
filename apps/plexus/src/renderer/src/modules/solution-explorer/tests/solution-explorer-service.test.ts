@@ -114,6 +114,13 @@ function solutionWith(...names: string[]): Solution
 
 const actionCtx = (anchor: HierarchyItem): HierarchyActionContext => new HierarchyActionContext(anchor, [anchor])
 
+// After a solution opens, the tree is ONE visible Solution root (expanded by the
+// service on rebuild) whose children are the global Connections branch followed by a
+// row per member. These reach the nested rows the old flat Roots layout exposed directly.
+const solutionRoot = (svc: SolutionExplorerService): HierarchyItem => svc.Hierarchy!.Roots.Get(0)!
+// Child 0 under the Solution root is the Connections branch; the member rows follow it.
+const projectRow = (svc: SolutionExplorerService, index: number): HierarchyItem => solutionRoot(svc).Children.Get(index + 1)!
+
 describe('SolutionExplorerService', () =>
 {
     it('builds a Hierarchy with a row per member when a solution opens', () =>
@@ -123,9 +130,11 @@ describe('SolutionExplorerService', () =>
         expect(svc.Hierarchy).toBeInstanceOf(Hierarchy)
         expect(svc.Hierarchy!.Roots.Count).toBe(0)   // no solution yet
         manager.SetActive(solutionWith('a', 'b'))
-        // The global Connections branch leads the two member rows.
-        expect(svc.Hierarchy!.Roots.Count).toBe(3)
-        expect(svc.Hierarchy!.Roots.Get(0)!.Caption).toBe('Connections')
+        // One visible Solution root; under it the Connections branch leads the two member rows.
+        expect(svc.Hierarchy!.Roots.Count).toBe(1)
+        const root = solutionRoot(svc)
+        expect(root.Children.Count).toBe(3)
+        expect(root.Children.Get(0)!.Caption).toBe('Connections')
     })
 
     it('closing the solution clears the Hierarchy roots', () =>
@@ -146,8 +155,9 @@ describe('SolutionExplorerService', () =>
         manager.SetActive(solutionWith('a'))
         const first = svc.Hierarchy!
         manager.SetActive(solutionWith('x', 'y'))
-        expect(svc.Hierarchy).toBe(first)          // stable instance — the template binds it once
-        expect(svc.Hierarchy!.Roots.Count).toBe(3) // Connections + two members, rebuilt in place
+        expect(svc.Hierarchy).toBe(first)                 // stable instance — the template binds it once
+        expect(svc.Hierarchy!.Roots.Count).toBe(1)        // still one Solution root, rebuilt in place
+        expect(solutionRoot(svc).Children.Count).toBe(3)  // Connections + two members
     })
 
     it('resolves SolutionWorkspaceService + ProjectCommandsService: the command bar commands pass through', () =>
@@ -162,7 +172,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const memberRow = projectRow(svc, 0)
         const member = manager.ActiveSolution!.Members.Get(0)
         const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
         svc.Activate(fileVm)
@@ -176,7 +186,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const memberRow = projectRow(svc, 0)
         const member = manager.ActiveSolution!.Members.Get(0)
         const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
         svc.Hierarchy!.Selection.Add(fileVm)   // the TreeView selects on single click
@@ -190,7 +200,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const memberRow = projectRow(svc, 0)
         svc.Hierarchy!.Selection.Add(memberRow)
         await Promise.resolve()
         await Promise.resolve()
@@ -202,7 +212,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!
+        const memberRow = projectRow(svc, 0)
         const member = manager.ActiveSolution!.Members.Get(0)
         const f1 = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
         const f2 = { ExtObject: { Path: 'b.todl', Kind: 'todl' }, Parent: memberRow, Id: 1 } as unknown as HierarchyItem
@@ -219,7 +229,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
+        const memberRow = projectRow(svc, 0)   // child 0 under the Solution root is the Connections branch
         memberRow.OnActivate()
         expect(explorer.opened).toHaveLength(0)   // a member row's ExtObject is a SolutionMember, not a file
     })
@@ -240,7 +250,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
+        const memberRow = projectRow(svc, 0)   // child 0 under the Solution root is the Connections branch
         const titles = svc.Hierarchy!.BuildActions(memberRow, actionCtx(memberRow)).ToArray().map((a) => a.Title)
         expect(titles).toContain('Remove from Solution')
     })
@@ -263,7 +273,7 @@ describe('SolutionExplorerService', () =>
         const { svc, manager, explorer } = make()
         svc.Start()
         manager.SetActive(solutionWith('a'))
-        const memberRow = svc.Hierarchy!.Roots.Get(1)!   // Roots.Get(0) is the Connections branch
+        const memberRow = projectRow(svc, 0)   // child 0 under the Solution root is the Connections branch
         const member = manager.ActiveSolution!.Members.Get(0)
         const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
         svc.CommitRename(fileVm, 'b.todl')
