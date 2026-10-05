@@ -137,6 +137,18 @@ describe('SolutionExplorerService', () =>
         expect(root.Children.Get(0)!.Caption).toBe('Connections')
     })
 
+    it('exposes a Hierarchy BEFORE Start() — the panel can bind it as the default destination (regression: empty tree)', () =>
+    {
+        // When the Solution Explorer is the shell's first rail destination, its pane resolves at
+        // startup and attaches HierarchyContextMenuBehavior (which throws on an undefined Hierarchy)
+        // BEFORE the host calls Start(). The hierarchy must therefore exist on first access.
+        const { svc } = make()
+        expect(svc.Hierarchy).toBeInstanceOf(Hierarchy)   // created lazily, no Start() yet
+        const early = svc.Hierarchy!
+        svc.Start()
+        expect(svc.Hierarchy).toBe(early)                 // Start() reuses the same instance
+    })
+
     it('closing the solution clears the Hierarchy roots', () =>
     {
         const { svc, manager } = make()

@@ -57,6 +57,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private activeOff: IDisposable | undefined
     private selectionOff: (() => void) | undefined
     private _hasNoSolution = true
+    private disposed = false
 
     constructor(private readonly provider: ServiceProvider)
     {
@@ -64,8 +65,36 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     }
 
     // The stable Hierarchy the panel template binds ($Hierarchy.Roots / $Hierarchy.Host). Never
-    // swapped after Start — only its contributors change per solution.
-    public get Hierarchy(): Hierarchy | undefined { return this.hierarchy }
+    // swapped after creation — only its contributors change per solution. Created lazily on first
+    // access: the panel binds $Hierarchy on its behaviors at ATTACH time, and when the Solution
+    // Explorer is the shell's default navigation destination that pane resolves at startup BEFORE
+    // Start() runs — HierarchyContextMenuBehavior throws on an undefined Hierarchy, so it must
+    // already exist. Not recreated after dispose() (stays undefined, as the lifecycle tests expect).
+    public get Hierarchy(): Hierarchy | undefined
+    {
+        if (this.hierarchy === undefined && !this.disposed) this.ensureHierarchy()
+        return this.hierarchy
+    }
+
+    // Build the Hierarchy + its menu-service scope + seeded root once. Idempotent and safe to call
+    // from both the lazy getter (pane resolves first) and Start() (service started first).
+    private ensureHierarchy(): void
+    {
+        if (this.hierarchy !== undefined || this.disposed) return
+        const registry = this.provider.getRequired(HierarchyContributorRegistry.Key)
+        this.menuServices = this.buildMenuServices()
+        this.hierarchy = new Hierarchy(registry, this, { Services: this.menuServices })
+        // The seeded root is an INVISIBLE container (mural projects a root's children onto Roots).
+        // Its key is deliberately NOT NodeKey.Solution so the Solution-keyed branch contributors
+        // fire under the single visible Solution node (emitted by SolutionRootContributor), not
+        // here — giving the tree one top-level row (the solution) instead of bare rows.
+        this.rootItem = this.hierarchy.SeedRoot(SolutionRootContributor.ContainerKey, {
+            Caption: SolutionExplorerService.RootCaptionFallback,
+            Severity: NodeSeverity.Ok,
+            IsExpandable: true,
+        })
+        this.RaisePropertyChanged(SolutionExplorerService.HierarchyProp, undefined, undefined)
+    }
 
     // Drives the panel's empty-state text via the ToVisibility converter (true -> Visible).
     // True when no solution is open.
@@ -81,26 +110,16 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
 
     public Start(): void
     {
-        const registry = this.provider.getRequired(HierarchyContributorRegistry.Key)
-        this.menuServices = this.buildMenuServices()
-        this.hierarchy = new Hierarchy(registry, this, { Services: this.menuServices })
-        // The seeded root is an INVISIBLE container (mural projects a root's children
-        // onto Roots). Its key is deliberately NOT NodeKey.Solution so the
-        // Solution-keyed branch contributors fire under the single visible Solution
-        // node (emitted by SolutionRootContributor), not here — giving the tree one
-        // top-level row (the solution) instead of bare project/Connections rows.
-        this.rootItem = this.hierarchy.SeedRoot(SolutionRootContributor.ContainerKey, {
-            Caption: SolutionExplorerService.RootCaptionFallback,
-            Severity: NodeSeverity.Ok,
-            IsExpandable: true,
-        })
-        this.RaisePropertyChanged(SolutionExplorerService.HierarchyProp, undefined, undefined)
+        // Create the hierarchy if the panel hasn't already forced it (lazy getter above).
+        this.ensureHierarchy()
+        const hierarchy = this.hierarchy
+        if (hierarchy === undefined) return
         // Single-click opens: the mural TreeView fires host.Activate only on DOUBLE-click,
         // so wire open-on-select here — a single click (or keyboard move) selects the row,
         // and we open the file it resolves to. onActivate only opens a file row (a member /
         // folder / synthetic row resolves to no content path and no-ops), and OpenMemberFile
         // re-activates an already-open tab, so the double-click path stays harmless.
-        this.selectionOff = this.hierarchy.Selection.Subscribe(() => this.onSelectionChanged())
+        this.selectionOff = hierarchy.Selection.Subscribe(() => this.onSelectionChanged())
         const manager = this.provider.getRequired(SolutionManagerService.Key)
         this.activeOff = manager.PropertyChanged('ActiveSolution').subscribe(() => this.rebuild(manager.ActiveSolution))
         this.rebuild(manager.ActiveSolution)
@@ -301,6 +320,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
 
     public dispose(): void
     {
+        this.disposed = true
         this.selectionOff?.()
         this.selectionOff = undefined
         this.activeOff?.dispose()
