@@ -122,6 +122,17 @@ describe('ReferencesProvider', () =>
         expect(leaves.find((n) => n.Caption === 'core@1.2.0')!.Severity).toBe(NodeSeverity.Ok)
     })
 
+    it('a reference LEAF realizes no children (regression: every row is now expandable)', async () =>
+    {
+        const p = new ReferencesProvider(member, fakeView(viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published]], false)))
+        const { leaves } = await realize(p)
+        expect(leaves.length).toBeGreaterThan(0)
+        const leafCtx = new FakeContext()
+        p.Realize(leaves[0] as unknown as HierarchyItem, leafCtx)
+        await tick()
+        expect(leafCtx.Children.length).toBe(0)   // a leaf must not re-emit the References subtree
+    })
+
     it('omits the Libraries group when OffersLibraries is false', async () =>
     {
         const p = new ReferencesProvider(member, fakeView(viewOf([[ref('core', '1.0.0'), ReferenceResolution.Published]], false)))

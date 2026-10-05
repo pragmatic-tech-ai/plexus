@@ -30,6 +30,9 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
     private readonly itemByPath = new Map<string, HierarchyItem>()
     private readonly pathByItem = new Map<HierarchyItem, string>()
     private readonly itemById = new Map<ItemId, HierarchyItem>()
+    // The project mount row (the provider's realize entry) — only this UNBOUND item binds to
+    // the store root; any other unbound row routed here realizes no children.
+    private mountItem: HierarchyItem | undefined
 
     constructor(private readonly store: ProjectContentStore)
     {
@@ -37,14 +40,25 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
 
     public Realize(item: HierarchyItem, context: IRealizeContext): IDisposable
     {
-        // A FILE node has no children — never enumerate it. The tree now paints an expand
-        // chevron on every row optimistically (retracted once a node expands to nothing),
-        // so a file row can be expanded; without this guard folderIdOf would hand its own
-        // (non-folder) id to ObserveChildren and the store would re-emit the project tree
-        // under the file. Only folders — and the mount row (no bound node → store root) —
-        // realize children.
+        // The tree now paints an expand chevron on every row optimistically (retracted once
+        // a node expands to nothing), so ANY row can be expanded — and the delegating
+        // ProjectsProvider routes anything that isn't a reference-branch node here. Enumerate
+        // children only for rows this provider actually owns, or folderIdOf would bind an
+        // unrelated row to the store root and re-emit the whole project tree beneath it.
         const node = this.contentByItem.get(item)
-        if (node !== undefined && node.Kind !== ProjectNodeKind.Folder) return Disposable.None
+        if (node !== undefined)
+        {
+            // A bound content node enumerates only when it is a FOLDER; a file is a leaf.
+            if (node.Kind !== ProjectNodeKind.Folder) return Disposable.None
+        }
+        else
+        {
+            // The only UNBOUND row we own is the project mount row — captured on its first
+            // realize and bound to the store root by folderIdOf below. Any other unbound row
+            // (e.g. a reference leaf routed here) is not ours: no children.
+            if (this.mountItem === undefined) this.mountItem = item
+            else if (item !== this.mountItem) return Disposable.None
+        }
         const folderId = this.folderIdOf(item)
         const watch = { disposed: false }
         const off = this.store.ObserveChildren(folderId, (change: ContentChange) =>

@@ -50,6 +50,10 @@ export class ReferencesProvider implements IHierarchyProvider
         {
             return this.realizeGroup(item, item.ExtObject as ProjectType, context)
         }
+        // A reference leaf is a leaf — never realize children. Every row is now optimistically
+        // expandable, so a leaf can be expanded; without this it would fall into realizeRoot and
+        // re-emit the References subtree beneath the leaf.
+        if (item.Key === ReferenceNodeKey.Leaf) return Disposable.None
         return this.realizeRoot(item, context)
     }
 

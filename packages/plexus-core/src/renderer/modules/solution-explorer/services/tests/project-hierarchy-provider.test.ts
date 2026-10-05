@@ -178,6 +178,26 @@ describe('ProjectHierarchyProvider.Realize', () =>
         handle.dispose()                          // a no-op disposer, safe to call
     })
 
+    it('an unbound non-mount row (e.g. a reference leaf routed here) realizes nothing (regression)', () =>
+    {
+        // Only the project mount row (the provider's realize entry) may bind to the store root.
+        // A stray unbound row — a reference leaf the delegating provider routed here, now
+        // expandable — must NOT be treated as the mount, or the whole project tree re-emits
+        // beneath it.
+        const store = new FakeContentStore()
+        const provider = new ProjectHierarchyProvider(store as unknown as ProjectContentStore)
+        provider.Realize(mount(), new FakeContext())
+        expect(store.observeCalls).toBe(1)   // the mount enumerated the root
+
+        const stray = { Id: 99 as ItemId, Key: 'reference-leaf', ExtObject: {}, Caption: 'x', IconKey: '' } as unknown as HierarchyItem
+        const strayCtx = new FakeContext()
+        const handle = provider.Realize(stray, strayCtx)
+
+        expect(store.observeCalls).toBe(1)        // not treated as the root mount
+        expect(strayCtx.Children.length).toBe(0)
+        handle.dispose()
+    })
+
     it('realizing a FOLDER node still enumerates its children', () =>
     {
         const store = new FakeContentStore()
