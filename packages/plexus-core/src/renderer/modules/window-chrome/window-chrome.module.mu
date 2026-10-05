@@ -47,8 +47,12 @@ shell module PragmaticWindowChrome {
                     Line [ DockPanel.Dock = Left, Orientation = Vertical, Stroke = (@Border, 1) ]
                     // Menu bar — the app supplies @WindowMenu (its MenuButton(s),
                     // each carrying its own inline MenuItem children). MenuButton
-                    // self-manages open/close.
-                    ContentControl [ DockPanel.Dock = Left, Template = @WindowMenu ]
+                    // self-manages open/close. x:name'd so the renderer can measure
+                    // this region's rendered right edge and size the HTML #drag-strip
+                    // hole to it (MenuDragRegion) — otherwise a hardcoded no-drag hole
+                    // leaves later menus (Edit/View/Help) under the OS drag strip,
+                    // swallowing their clicks.
+                    ContentControl x:name="PART_WindowMenuHost" [ DockPanel.Dock = Left, Template = @WindowMenu ]
                     // Title — active document / open project / app name. Right margin
                     // keeps it clear of the ~138dp caption buttons.
                     TextBlock

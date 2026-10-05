@@ -86,6 +86,19 @@ resources AgentChatResources {
                               Placeholder = "Ask AI anything…", PlaceholderBrush = @Fg2 ]
                 }
             }
+            // Busy footer — a subtle "working" indicator that rides the bottom of
+            // the transcript, just above the composer card, while a turn is in
+            // flight. Docked Bottom AFTER the composer so it stacks above it;
+            // $IsBusy collapses it out of layout when idle. ProgressIndicator is a
+            // framework-registered control (resolved globally in .mu, like line 321
+            // and background-work.resources.mu), so no import is needed here.
+            StackPanel [ DockPanel.Dock = Bottom, Orientation = Horizontal, Margin = (4,6,0,0),
+                         VerticalAlignment = Center, Visibility = $IsBusy << ToVisibility ] {
+                ProgressIndicator [ Variant = Circular, IsIndeterminate = true,
+                                    Width = 14, Height = 14, VerticalAlignment = Center ]
+                TextBlock [ Text = "Working…", Style = @BodySm, Foreground = @Fg2,
+                            VerticalAlignment = Center, Margin = (6,0,0,0) ]
+            }
             // Scrolling transcript fills the rest. AutoScrollToEnd keeps the
             // latest message pinned to the bottom while the user is at the end
             // (sticky — scrolling up to read history is not interrupted).

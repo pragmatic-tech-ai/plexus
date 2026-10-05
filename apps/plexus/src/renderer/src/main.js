@@ -24,7 +24,7 @@ import { HelpDocumentStore } from './modules/help-overlay/help-document-store.js
 import { attachSaveShortcuts } from './services/documents/save-shortcuts.js'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
-import { attachTitleBar, removeSplash, TitleService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
+import { attachTitleBar, removeSplash, TitleService, MenuDragRegion } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
 import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
 import { SolutionExplorerService, SolutionWorkspaceService, ProjectCommandsService, LiveValidationSync } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-service.js'
@@ -115,6 +115,10 @@ try {
     // to the mural header's surface on every scheme change (+ tag <body> on mac).
     // The title strip itself is painted by mural (Header region → @PlexusTitleBar).
     attachTitleBar(app)
+    // Keep the HTML OS-drag "hole" (#drag-strip) synced to the mural-painted menu
+    // bar's measured width, so Edit/View/Help never sit under the drag strip (which
+    // would swallow their clicks). Re-measures on resize + theme change.
+    MenuDragRegion.Attach(app)
     // Title feed: construct now so its ActiveDocument / ActiveSolutionMembers subscriptions
     // are live and document.title tracks from boot — even before the header view
     // first binds $service(TitleService).Title.
