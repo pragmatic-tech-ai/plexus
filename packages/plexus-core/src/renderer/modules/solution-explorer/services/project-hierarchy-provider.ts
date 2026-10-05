@@ -37,6 +37,14 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
 
     public Realize(item: HierarchyItem, context: IRealizeContext): IDisposable
     {
+        // A FILE node has no children — never enumerate it. The tree now paints an expand
+        // chevron on every row optimistically (retracted once a node expands to nothing),
+        // so a file row can be expanded; without this guard folderIdOf would hand its own
+        // (non-folder) id to ObserveChildren and the store would re-emit the project tree
+        // under the file. Only folders — and the mount row (no bound node → store root) —
+        // realize children.
+        const node = this.contentByItem.get(item)
+        if (node !== undefined && node.Kind !== ProjectNodeKind.Folder) return Disposable.None
         const folderId = this.folderIdOf(item)
         const watch = { disposed: false }
         const off = this.store.ObserveChildren(folderId, (change: ContentChange) =>

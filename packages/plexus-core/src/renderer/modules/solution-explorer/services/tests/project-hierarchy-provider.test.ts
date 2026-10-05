@@ -22,10 +22,12 @@ class FakeContentStore
 {
     public readonly Root = new ProjectContentNode(contentId('root'), '', '', ProjectNodeKind.Folder)
     public disposed = false
+    public observeCalls = 0
     private sink: ((change: ContentChange) => void) | undefined
 
     public ObserveChildren(_folder: ContentNodeId, sink: (change: ContentChange) => void): () => void
     {
+        this.observeCalls++
         this.sink = sink
         return () =>
         {
@@ -151,6 +153,44 @@ describe('ProjectHierarchyProvider.Realize', () =>
         const drop = HierarchyItemsDrop.For([file.Id])
         expect(provider.CanAccept(folder, drop)).toBe(true)
         expect(provider.CanAccept(file as unknown as HierarchyItem, drop)).toBe(false)
+    })
+
+    it('realizing a FILE node enumerates nothing — no store subscription, no children (regression)', () =>
+    {
+        // The tree paints an expand chevron on every row (retracted once a node expands to
+        // nothing), so a file row can be expanded. Realizing a file must NOT enumerate: its
+        // own (non-folder) id handed to ObserveChildren would re-emit the project tree under
+        // the file.
+        const store = new FakeContentStore()
+        const provider = new ProjectHierarchyProvider(store as unknown as ProjectContentStore)
+        const ctx = new FakeContext()
+        provider.Realize(mount(), ctx)
+        expect(store.observeCalls).toBe(1)   // the mount enumerated the root
+
+        store.Emit(new ContentAdded(new ProjectContentNode(contentId('1'), 'a.todl', 'a.todl', ProjectNodeKind.Todl)))
+        const file = ctx.Children[0]! as unknown as HierarchyItem
+
+        const fileCtx = new FakeContext()
+        const handle = provider.Realize(file, fileCtx)
+
+        expect(store.observeCalls).toBe(1)        // no new subscription for the file
+        expect(fileCtx.Children.length).toBe(0)   // and nothing injected under it
+        handle.dispose()                          // a no-op disposer, safe to call
+    })
+
+    it('realizing a FOLDER node still enumerates its children', () =>
+    {
+        const store = new FakeContentStore()
+        const provider = new ProjectHierarchyProvider(store as unknown as ProjectContentStore)
+        const ctx = new FakeContext()
+        provider.Realize(mount(), ctx)
+
+        store.Emit(new ContentAdded(new ProjectContentNode(contentId('f'), 'dir', 'dir', ProjectNodeKind.Folder)))
+        const folder = ctx.Children[0]! as unknown as HierarchyItem
+
+        const folderCtx = new FakeContext()
+        provider.Realize(folder, folderCtx)
+        expect(store.observeCalls).toBe(2)   // the folder enumerated too
     })
 
     it('disposes the store subscription on teardown', () =>
