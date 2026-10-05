@@ -90,9 +90,10 @@ test.describe.serial('arch-node-context-menu', () => {
 
     // The full diagram menu actually RENDERS on the node (visible, not just
     // instantiated in the DOM) — i.e. the node shows this menu, not the bare
-    // Open-Wiki menu it used to swap in.
+    // Open-Wiki menu it used to swap in. (Export/Layout carry a trailing ellipsis
+    // in their menu copy — they open a dialog.)
     expect(menu['Copy']?.visible, 'Copy visible').toBe(true)
-    expect(menu['Export']?.visible, 'Export visible on the node menu').toBe(true)
+    expect(menu['Export…']?.visible, 'Export visible on the node menu').toBe(true)
     expect(menu['Format Shape']?.visible, 'Format Shape visible').toBe(true)
     // $ActiveView resolved through the node's HostDocument alias (Command bound).
     expect(menu['Copy'].hasCmd, 'Copy Command resolved via HostDocument').toBe(true)
