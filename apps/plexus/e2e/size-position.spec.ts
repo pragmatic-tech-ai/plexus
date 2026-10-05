@@ -9,7 +9,7 @@
 // Figure. With the old one-way `$$` the figure would not move and these
 // assertions would fail.
 import { test, expect } from '@playwright/test'
-import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, appErrors, type Launched } from './plexus-app'
+import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, appErrors, openProjectFile, type Launched } from './plexus-app'
 
 // SpinEdit DOM order inside the Size & Position template.
 const SPIN = { Height: 0, Width: 1, Rotation: 2, ScaleHeight: 3, ScaleWidth: 4, Horizontal: 5, Vertical: 6 } as const
@@ -139,28 +139,16 @@ test.describe.serial('Size & Position sub-editors drive the selected shape', () 
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // 1. open the project explorer, wheel the virtualized tree until the
-        //    diagram file renders, then open it.
+        // 1. open the project explorer, then open the diagram through the
+        //    workspace service (the nested solution tree keeps project nodes
+        //    collapsed, so a tree double-click can't see the file row).
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 14; i++)
-        {
-            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300)
-            await l.win.mouse.wheel(0, 400)
-            await l.win.waitForTimeout(250)
-        }
+        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
+        // Shapes project asynchronously after the document opens; poll for them.
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
-        for (let attempt = 0; attempt < 3 && figs.length === 0; attempt++)
-        {
-            const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
-            await dd.scrollIntoViewIfNeeded().catch(() => {})
-            await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            await l.win.waitForTimeout(3500)
-            figs = await canvasFigs(l)
-        }
+        for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }
         expect(figs.length, 'diagram opened with canvas figures').toBeGreaterThan(0)
 
         // 2. Select the first shape through the real selection path

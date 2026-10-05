@@ -20,7 +20,7 @@ import os from 'node:os'
 import { launchPlexus, seedSession, corpusAvailable, appErrors, writeContainmentDemoFixture, type Launched } from './plexus-app'
 
 const ART = path.join(__dirname, '.artifacts')
-const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'C:/Users/Eugene/Projects/plexus_tests'
+const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'c:/Users/Eugene/Projects/architecture-agent/plexus_test_projects'
 const PROJECT_RELS = [
     'meta-models/tech-architecture',
     'libraries/microsoft',
@@ -98,28 +98,12 @@ test.describe.serial('container drag carries nested children', () => {
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // Open the project explorer, scroll the virtualized tree to the demo diagram, open it.
-        const { rectsForCtor, clickCenter } = await import('./plexus-app')
-        const navs = await rectsForCtor(l.win, 'NavigationItem')
-        if (navs[1]) await clickCenter(l.win, navs[1])
-        await l.win.waitForTimeout(1200)
-        const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 20; i++)
-        {
-            if (await l.win.getByText('containment-demo.diagram', { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300)
-            await l.win.mouse.wheel(0, 400)
-            await l.win.waitForTimeout(250)
-        }
-        for (let attempt = 0; attempt < 3; attempt++)
-        {
-            const p = await probe(l)
-            if (p.rows.length > 0) break
-            const dd = l.win.getByText('containment-demo.diagram', { exact: true }).first()
-            await dd.scrollIntoViewIfNeeded().catch(() => {})
-            await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            await l.win.waitForTimeout(3500)
-        }
+        // Open through the workspace service — the nested solution tree keeps
+        // project nodes collapsed, so a tree double-click can't see the file row.
+        const { openProjectFile } = await import('./plexus-app')
+        await openProjectFile(l, 'test_architecture', 'containment-demo.diagram')
+        // Containment projects asynchronously after the open; poll for it.
+        for (let i = 0; i < 40 && (await probe(l)).rows.length === 0; i++) await l.win.waitForTimeout(500)
     })
 
     test.afterAll(async () => {

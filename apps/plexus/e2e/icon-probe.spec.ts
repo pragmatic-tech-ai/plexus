@@ -12,7 +12,7 @@ import os from 'node:os'
 import { launchPlexus, seedSession, corpusAvailable, appErrors, writeNestingFixture, type Launched } from './plexus-app'
 
 const ART = path.join(__dirname, '.artifacts')
-const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'C:/Users/Eugene/Projects/plexus_tests'
+const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'c:/Users/Eugene/Projects/architecture-agent/plexus_test_projects'
 const PROJECT_RELS = [
     'meta-models/tech-architecture',
     'libraries/microsoft',
@@ -34,16 +34,32 @@ async function probeIcons(l: Launched)
             if (!elByVisual.has(v)) elByVisual.set(v, el)
             if (v?.constructor?.name === 'Diagram') diagram = v
         }
+        // Map each ArchNodeVM's Icon (its EntityIconVM instance) → node id + role, so
+        // a PART_Icon can be attributed to its owning node. The icon's string IconKey
+        // is no longer populated (icons resolve through TodlVisualSelector), so a
+        // specific node's icon is located by the EntityIconVM IDENTITY, not by key.
+        const nodes: any[] = []
+        const iconToNode = new Map<any, { id: string; isContainer: boolean }>()
+        const arr: any[] = diagram?.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
+        for (const vm of arr)
+        {
+            if (vm?.constructor?.name !== 'ArchNodeVM') continue
+            nodes.push({ id: vm.Id, isContainer: vm.IsContainer, iconCtor: vm.Icon?.constructor?.name, iconKey: vm.Icon?.IconKey })
+            if (vm.Icon !== undefined) iconToNode.set(vm.Icon, { id: vm.Id, isContainer: !!vm.IsContainer })
+        }
         // Every ContentControl named PART_Icon (the canvas node's icon host).
         for (const [v, el] of elByVisual)
         {
             if (v?.Name !== 'PART_Icon') continue
             const r = (el as Element).getBoundingClientRect()
             const content = v.Content
+            const owner = content !== undefined ? iconToNode.get(content) : undefined
             const images = el.querySelectorAll('image').length
             const paths = el.querySelectorAll('path').length
             const svgLeaves = el.querySelectorAll('image,path,use,rect,circle').length
             parts.push({
+                nodeId: owner?.id,
+                isContainer: owner?.isContainer,
                 rect: { w: Math.round(r.width), h: Math.round(r.height) },
                 elTag: (el as Element).tagName,
                 childElCount: (el as Element).childElementCount,
@@ -53,19 +69,6 @@ async function probeIcons(l: Launched)
                 widthProp: v.Width,       // may be a number if resolved, or NaN/undefined
                 heightProp: v.Height,
                 images, paths, svgLeaves,
-            })
-        }
-        // ArchNodeVMs and whether each carries an Icon EntityIconVM.
-        const nodes: any[] = []
-        const arr: any[] = diagram?.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
-        for (const vm of arr)
-        {
-            if (vm?.constructor?.name !== 'ArchNodeVM') continue
-            nodes.push({
-                id: vm.Id,
-                isContainer: vm.IsContainer,
-                iconCtor: vm.Icon?.constructor?.name,
-                iconKey: vm.Icon?.IconKey,
             })
         }
         // What does the live ApplicationSettings return for the icon-size keys?
@@ -104,27 +107,14 @@ test.describe.serial('canvas icon probe', () => {
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        const { rectsForCtor, clickCenter } = await import('./plexus-app')
+        // Open through the workspace service — the nested solution tree keeps project
+        // nodes collapsed, so a tree double-click can't see the file row.
+        const { rectsForCtor, clickCenter, openProjectFile } = await import('./plexus-app')
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-        for (let i = 0; i < 20; i++)
-        {
-            if (await l.win.getByText('nesting-demo.diagram', { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300)
-            await l.win.mouse.wheel(0, 400)
-            await l.win.waitForTimeout(250)
-        }
-        for (let attempt = 0; attempt < 3; attempt++)
-        {
-            const p = await probeIcons(l)
-            if (p.nodeCount > 0) break
-            const dd = l.win.getByText('nesting-demo.diagram', { exact: true }).first()
-            await dd.scrollIntoViewIfNeeded().catch(() => {})
-            await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            await l.win.waitForTimeout(3500)
-        }
+        await openProjectFile(l, 'test_architecture', 'nesting-demo.diagram')
+        for (let i = 0; i < 40 && (await probeIcons(l)).nodes.length === 0; i++) await l.win.waitForTimeout(500)
     })
 
     test.afterAll(async () => {
@@ -134,8 +124,17 @@ test.describe.serial('canvas icon probe', () => {
     })
 
     test('a leaf arch node renders its icon at the settings-driven size (regression: SettingSourceKey bridge)', async () => {
+        // The leaf node's class icon paints asynchronously after the nodes project,
+        // so poll for business_agent's PART_Icon to render a glyph.
+        const leafOf = (d: Awaited<ReturnType<typeof probeIcons>>): any =>
+            d.parts.find((p: any) => p.nodeId === 'business_agent')
+        let data = await probeIcons(l)
+        for (let i = 0; i < 40 && !(leafOf(data)?.paths > 0); i++)
+        {
+            await l.win.waitForTimeout(500)
+            data = await probeIcons(l)
+        }
         await l.win.screenshot({ path: path.join(ART, 'icon-probe.png') }).catch(() => {})
-        const data = await probeIcons(l)
         fs.writeFileSync(path.join(ART, 'icon-probe.json'), JSON.stringify(data, null, 2))
         console.log('ICON-PROBE ' + JSON.stringify(data))
         expect(appErrors(l.errors), appErrors(l.errors).join('\n')).toEqual([])
@@ -146,9 +145,12 @@ test.describe.serial('canvas icon probe', () => {
         // setting via the SettingSourceKey bridge — a default (0) would collapse it,
         // which is the exact regression (bridge unwired when app.mu owns
         // ApplicationSettings.Key). This is the user-facing guarantee, asserted on the
-        // rendered result rather than a debug seam.
-        const leaf = data.parts.find((p: any) => p.iconKey === 'mm_icon_agent')
-        expect(leaf, 'business_agent PART_Icon present with a resolved iconKey').toBeTruthy()
+        // rendered result rather than a debug seam. The icon is located by its owning
+        // node (its EntityIconVM identity), since the string IconKey is no longer
+        // populated — icons resolve through TodlVisualSelector.
+        const leaf = leafOf(data)
+        expect(leaf, 'business_agent PART_Icon present').toBeTruthy()
+        expect(leaf.isContainer, 'business_agent is a leaf (non-container)').toBe(false)
         expect(leaf.widthProp, 'icon ContentControl width = Diagram.DefaultIconWidth (80)').toBe(80)
         expect(leaf.rect.w, 'icon laid out at a real size, not collapsed').toBeGreaterThan(40)
         expect(leaf.paths, 'icon glyph actually rendered').toBeGreaterThan(0)

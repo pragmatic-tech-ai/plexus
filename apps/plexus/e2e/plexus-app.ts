@@ -271,3 +271,57 @@ export async function clickCenter(win: Page, r: { x: number; y: number; w: numbe
 {
     await win.mouse.click(r.x + r.w / 2, r.y + r.h / 2)
 }
+
+// Open a project-relative file through SolutionWorkspaceService.OpenFileInProject —
+// the exact service the explorer's double-click ultimately calls. The nested
+// solution tree keeps project nodes collapsed (children realize only on expand),
+// so a UI-driven open (wheel the tree + double-click a file row) never sees the
+// file row and silently opens nothing. This bypasses the tree entirely.
+//
+// Robust against a COLD corpus clone: the restored projects + their bases resolve
+// asynchronously, so it polls for the matching project to appear, opens `file`
+// once it does, then polls the content host until ActiveDocument is wired (the
+// document genuinely open). Returns whether a document became active within
+// `timeoutMs`. Callers that need specific projected content (arch nodes, shapes)
+// should poll for it after this resolves — projection can trail the open.
+export async function openProjectFile(
+    l: Launched,
+    folderIncludes: string,
+    file: string,
+    timeoutMs = 25000,
+): Promise<boolean>
+{
+    const deadline = Date.now() + timeoutMs
+    let openCalled = false
+    for (;;)
+    {
+        const r = await l.win.evaluate(
+            ({ folderIncludes, file, doOpen }) => {
+                const S = Symbol.for('mural:visual-backref')
+                let root: any
+                for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) { root = v; break } }
+                let ws: any, mgr: any, host: any
+                for (let p = root?.Services; p; p = p._parent)
+                    for (const [, e] of (p._cache ?? new Map()))
+                    {
+                        const n = (e as any)?.constructor?.name
+                        if (n === 'SolutionWorkspaceService') ws = e
+                        else if (n === 'SolutionManagerService') mgr = e
+                        else if (n === 'PlexusDocumentHost') host = e
+                    }
+                if (host?.ActiveDocument) return { active: true }
+                const members = mgr?.ActiveSolution?.Members?.ToArray?.() ?? []
+                const proj = members
+                    .filter((m: any) => m.Storage !== undefined)
+                    .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(folderIncludes.toLowerCase()))
+                if (doOpen && ws && proj) { try { void ws.OpenFileInProject(proj.Storage.Root, file, 0, 0) } catch { /* retry next tick */ } return { openedNow: true } }
+                return { waiting: true }
+            },
+            { folderIncludes, file, doOpen: !openCalled },
+        )
+        if (r?.active) { await l.win.waitForTimeout(1500); return true }
+        if (r?.openedNow) openCalled = true
+        if (Date.now() > deadline) return false
+        await l.win.waitForTimeout(600)
+    }
+}

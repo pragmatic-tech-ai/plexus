@@ -16,7 +16,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { launchPlexus, seedSession, corpusAvailable, appErrors, rectsForCtor, clickCenter, cloneCorpus, type Launched } from './plexus-app'
+import { launchPlexus, seedSession, corpusAvailable, appErrors, rectsForCtor, clickCenter, cloneCorpus, openProjectFile, type Launched } from './plexus-app'
 
 const ART = path.join(__dirname, '.artifacts')
 const PROBE = 'UndoProbe7391'
@@ -51,13 +51,13 @@ function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string)
     return l.win.evaluate(({ op, probe }) => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) { root = v; break } }
         let host: any
         for (let p = root?.Services; p && !host; p = p._parent)
         {
             for (const [, e] of (p._cache ?? new Map()))
             {
-                if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break }
+                if ((e as any)?.constructor?.name === 'PlexusDocumentHost') { host = e; break }
             }
         }
         const doc = host?.ActiveDocument
@@ -126,26 +126,16 @@ test.describe.serial('arch rename undo/redo (live)', () => {
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // Open the project explorer, wheel the virtualized tree until
-        // diagram-2.diagram (arch nodes) renders, then open it.
+        // Open the project explorer, then open diagram-2.diagram (arch nodes)
+        // through the workspace service (the nested solution tree keeps project
+        // nodes collapsed, so a tree double-click can't see the file row).
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 16; i++)
-        {
-            if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300)
-            await l.win.mouse.wheel(0, 400)
-            await l.win.waitForTimeout(250)
-        }
-        for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++)
-        {
-            const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
-            await dd.scrollIntoViewIfNeeded().catch(() => {})
-            await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            await l.win.waitForTimeout(3500)
-        }
+        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
+        // Arch nodes project asynchronously after the document opens (model load +
+        // binding), so poll generously for them to appear.
+        for (let i = 0; i < 40 && (await archNodes(l)).length === 0; i++) await l.win.waitForTimeout(500)
     })
 
     test.afterAll(async () => {

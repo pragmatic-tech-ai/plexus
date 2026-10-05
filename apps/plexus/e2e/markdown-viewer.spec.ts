@@ -62,7 +62,7 @@ function openMarkdown(l: Launched, relPath: string)
             for (const [, e] of (p._cache ?? new Map()))
             {
                 const n = (e as any)?.constructor?.name
-                if (n === 'DocumentsContentHostService') host = e
+                if (n === 'PlexusDocumentHost') host = e
                 if (n === 'SolutionWorkspaceService') explorer = e
                 if (n === 'SolutionManagerService') mgr = e
             }

@@ -9,7 +9,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { launchPlexus, seedSession, corpusAvailable, appErrors, rectsForCtor, clickCenter, type Launched } from './plexus-app'
 
-const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'C:/Users/Eugene/Projects/plexus_tests'
+const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'c:/Users/Eugene/Projects/architecture-agent/plexus_test_projects'
 const PROJECT_RELS = [
     'meta-models/tech-architecture', 'libraries/microsoft', 'libraries/aws', 'architecures/test_architecture',
 ]

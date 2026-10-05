@@ -132,28 +132,17 @@ async function hasNodes(l: Launched): Promise<boolean>
     })
 }
 
-// Open diagram-2 via the project explorer, verifying it truly opened by a
-// diagram-2-SPECIFIC node (endpoint A), retrying the double-click until it lands.
-// (A generic hasNodes guard is unreliable: another diagram may already be open.)
+// Open diagram-2, verifying it truly opened by a diagram-2-SPECIFIC node
+// (endpoint A), retrying until it lands. (A generic hasNodes guard is unreliable:
+// another diagram may already be open.) Opens through the workspace service — the
+// nested solution tree keeps project nodes collapsed, so a tree double-click
+// can't see the file row.
 async function openDiagram2(l: Launched): Promise<boolean>
 {
-    const navs = await rectsForCtor(l.win, 'NavigationItem')
-    if (navs[1]) await clickCenter(l.win, navs[1])
-    await l.win.waitForTimeout(1200)
-    const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-    for (let attempt = 0; attempt < 6; attempt++)
+    for (let attempt = 0; attempt < 4; attempt++)
     {
         if (await hasNode(l, A)) return true
-        // Scroll the tree until the file row is present, then double-click it.
-        for (let i = 0; i < 25; i++)
-        {
-            if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(150)
-        }
-        const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
-        await dd.scrollIntoViewIfNeeded().catch(() => {})
-        await dd.dblclick({ timeout: 4000 }).catch(() => {})
-        await l.win.waitForTimeout(3500)
+        await openDiagramFile(l, 'diagram-2.diagram')
     }
     return await hasNode(l, A)
 }

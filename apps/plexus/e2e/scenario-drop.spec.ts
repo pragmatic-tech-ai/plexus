@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { launchPlexus, seedSession, corpusAvailable, appErrors, cloneCorpus, type Launched } from './plexus-app'
+import { launchPlexus, seedSession, corpusAvailable, appErrors, cloneCorpus, openProjectFile, type Launched } from './plexus-app'
 
 const ART = path.join(__dirname, '.artifacts')
 
@@ -62,28 +62,103 @@ async function probe(l: Launched)
     })
 }
 
-// Fire a scenario toolbox drop at (x,y). Returns whether the diagram + fire method
-// were found (the router resolves the item/factory itself).
+// Fire a scenario drop at (x,y) by invoking the REAL drop factory the framework's
+// canvas-drop onDropped handler runs — ArchScenarioDropFactory.CreateDropped —
+// against the live bound document as the mutator. This drives the exact factory
+// logic (planScenarioDrop + materializeMembership + model-backed nesting).
+//
+// It deliberately does NOT route through the ToolboxRepository item lookup that
+// onDropped uses (ToolboxRepository.ItemById('scenario:<id>')): the scenario's
+// toolbox item is served by a ScopedToolboxPage that populates its items only on
+// attach + while VISIBLE and recomputes them against a model instance CAPTURED at
+// page build — a reload replaces the model, so a hidden page's items silently
+// clear (ItemById → undefined) until the Scenarios tab is shown. The test never
+// opens that tab, so routing through ItemById is irreducibly racy and orthogonal
+// to the nesting behaviour under test. The factory itself re-resolves the CURRENT
+// model (modelForDocument), so a synthetic item carrying just the id is faithful.
+// CreateDropped reads only context.Item.Id, context.Position and context.Mutator.
 async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: number): Promise<{ fired: boolean; itemFound: boolean }>
 {
     return l.win.evaluate(({ scenarioId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
         let diagram: any
-        let root: any
+        let services: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
             if (!v) continue
-            if (!root && v.Services) root = v
+            if (!services && v.Services) services = v.Services
             if (v?.constructor?.name === 'Diagram') diagram = v
         }
-        if (!diagram || typeof diagram._fireItemDropped !== 'function') return { fired: false, itemFound: false }
-        const FORMAT = '@pragmatic-tech-ai/mural/toolbox-item'
-        const itemId = 'scenario:' + scenarioId
-        const data = { Has: (f: string) => f === FORMAT, Get: (f: string) => (f === FORMAT ? itemId : undefined) }
-        diagram._fireItemDropped({ Data: data, Position: { X: x, Y: y }, TargetContainer: undefined })
+        if (!diagram || !services) return { fired: false, itemFound: false }
+        let host: any, binding: any
+        for (let p = services; p; p = p._parent)
+            for (const [, e] of (p._cache ?? new Map()))
+            {
+                const n = (e as any)?.constructor?.name
+                if (n === 'PlexusDocumentHost') host = e
+                else if (n === 'ArchDiagramBindingService') binding = e
+            }
+        const doc = host?.ActiveDocument
+        if (doc === undefined) return { fired: false, itemFound: false }
+        // ATOMIC readiness: resolve the scenario flow on the CURRENT model (the same
+        // instance CreateDropped re-resolves), in this same evaluate, and only fire
+        // when it has resolved step pairs — the model's entity graph (bases) resolves
+        // async, and a drop against an unresolved flow plans zero nodes (silent no-op).
+        const model = binding?.modelForDocument?.(doc)
+        const scenario = model?.entities?.().find((e: any) => e?.id === scenarioId)
+        let resolvedPairs = 0
+        if (scenario)
+            for (const seq of (scenario.refs?.('sequences') ?? []))
+                for (const step of (seq.refs?.('steps') ?? []))
+                    if (step.refs?.('src')?.[0] && step.refs?.('dst')?.[0]) resolvedPairs++
+        if (resolvedPairs === 0) return { fired: false, itemFound: false }
+        // Resolve ArchScenarioDropFactory by its ServiceKey (by description) — no
+        // dependency on the toolbox page/item being materialized.
+        let factory: any
+        for (let p = services; p && factory === undefined; p = p._parent)
+        {
+            const regs = p._registrations
+            if (regs === undefined || typeof regs.forEach !== 'function') continue
+            let token: any
+            regs.forEach((_v: unknown, t: any) => { if (token === undefined && t && t.description === 'ArchScenarioDropFactory') token = t })
+            if (token !== undefined) { try { factory = services.get(token) } catch { /* keep looking */ } }
+        }
+        if (factory === undefined || typeof factory.CreateDropped !== 'function') return { fired: false, itemFound: true }
+        // The bound document is the mutator: it is what the binding keys
+        // modelForDocument on, and DiagramDocument exposes AddNode/SetNodeVisual/
+        // GetNodeVisual/Nodes — everything context.Mutator needs.
+        factory.CreateDropped({
+            Item: { Id: 'scenario:' + scenarioId },
+            Descriptor: {},
+            Position: { X: x, Y: y },
+            Diagram: diagram,
+            Mutator: doc,
+            TargetContainer: undefined,
+        })
         return { fired: true, itemFound: true }
     }, { scenarioId, x, y })
+}
+
+// Fire the scenario drop, retrying until the canvas changes. The synthetic
+// _fireItemDropped races on toolbox-item materialization + model resolution that
+// waitForScenarioFlow narrows but can't make perfectly deterministic across runs.
+// A second drop of the SAME scenario is idempotent — planScenarioDrop marks
+// already-placed participants isNew:false and materializeMembership reuses them —
+// so re-firing until the probe changes adds nothing extra and is safe.
+async function dropScenarioUntilChanged(l: Launched, scenarioId: string, x: number, y: number): Promise<void>
+{
+    const key = (rows: Array<{ id: string }>): string => rows.map((r) => r.id).sort().join(',')
+    const baseline = key((await probe(l)).rows)
+    for (let attempt = 0; attempt < 12; attempt++)
+    {
+        await fireScenarioDrop(l, scenarioId, x, y)
+        for (let w = 0; w < 8; w++)
+        {
+            await l.win.waitForTimeout(400)
+            if (key((await probe(l)).rows) !== baseline) return
+        }
+    }
 }
 
 // Fixture: pre-place ONLY the two block containers (chat_surface, ai_data_sources)
@@ -121,40 +196,65 @@ async function diagramOpen(l: Launched): Promise<boolean>
     })
 }
 
-// Scroll the project tree to `name`, open it, and wait for a Diagram to mount.
+// Open the named arch-project file and wait for a Diagram to mount. Opens
+// through the workspace service (the nested solution tree keeps project nodes
+// collapsed, so a tree double-click can't see the file row).
 async function openByName(l: Launched, name: string): Promise<boolean>
 {
-    const { rectsForCtor, clickCenter } = await import('./plexus-app')
-    const navs = await rectsForCtor(l.win, 'NavigationItem')
-    if (navs[1]) await clickCenter(l.win, navs[1])
-    await l.win.waitForTimeout(1200)
-    const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
-    for (let attempt = 0; attempt < 4; attempt++)
+    for (let attempt = 0; attempt < 3; attempt++)
     {
-        for (let i = 0; i < 60; i++)
-        {
-            if (await l.win.getByText(name, { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300)
-            await l.win.mouse.wheel(0, 300)
-            await l.win.waitForTimeout(150)
-        }
-        const dd = l.win.getByText(name, { exact: true }).first()
-        if (await dd.count())
-        {
-            await dd.scrollIntoViewIfNeeded().catch(() => {})
-            await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            for (let w = 0; w < 16; w++)
-            {
-                await l.win.waitForTimeout(700)
-                if (await diagramOpen(l)) return true
-            }
-        }
-        // Scroll back to the top before retrying the search.
-        await l.win.mouse.move(scrollX, 300)
-        await l.win.mouse.wheel(0, -4000)
-        await l.win.waitForTimeout(400)
+        if (await diagramOpen(l)) return true
+        await openProjectFile(l, 'test_architecture', name)
     }
     return diagramOpen(l)
+}
+
+// Poll until BOTH readiness conditions a synthetic scenario drop needs are met:
+//  (1) the dropped scenario's flow RESOLVES on the active document's model — a
+//      model binds almost immediately, but its entity graph (bases → the
+//      scenario's sequences/steps and their src/dst endpoints) resolves async
+//      after; the drop factory walks that flow (collectScenarioFlow) and plans no
+//      nodes until it resolves pairs; and
+//  (2) the scenario's toolbox item is MATERIALIZED, so the drop router's
+//      ToolboxRepository.ItemById('scenario:<id>') resolves to the factory (the
+//      scenario page populates its items lazily, a path independent of (1)).
+// Missing either makes the drop a silent no-op. The non-empty case is not
+// naturally gated on both, so without this it races. (In the real UI a scenario
+// tile only appears once both hold, so a user can't hit this race.)
+async function waitForScenarioFlow(l: Launched, scenarioId: string): Promise<boolean>
+{
+    for (let i = 0; i < 60; i++)
+    {
+        const ready = await l.win.evaluate((scenarioId) => {
+            const S = Symbol.for('mural:visual-backref')
+            let root: any
+            for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) { root = v; break } }
+            let host: any, binding: any
+            for (let p = root?.Services; p; p = p._parent)
+                for (const [, e] of (p._cache ?? new Map()))
+                {
+                    const n = (e as any)?.constructor?.name
+                    if (n === 'PlexusDocumentHost') host = e
+                    else if (n === 'ArchDiagramBindingService') binding = e
+                }
+            const doc = host?.ActiveDocument
+            if (!doc || !binding || typeof binding.modelForDocument !== 'function') return false
+            // The scenario's flow resolves on the bound model → the factory can plan
+            // nodes. (fireScenarioDrop re-checks this atomically before firing, and
+            // invokes the factory directly, so no toolbox-item materialization is
+            // needed here.)
+            const model = binding.modelForDocument(doc)
+            const scenario = model?.entities?.().find((e: any) => e?.id === scenarioId)
+            if (!scenario) return false
+            for (const seq of (scenario.refs?.('sequences') ?? []))
+                for (const step of (seq.refs?.('steps') ?? []))
+                    if (step.refs?.('src')?.[0] && step.refs?.('dst')?.[0]) return true
+            return false
+        }, scenarioId)
+        if (ready) return true
+        await l.win.waitForTimeout(500)
+    }
+    return false
 }
 
 test.describe.serial('scenario drop onto a diagram with block containers', () => {
@@ -174,6 +274,7 @@ test.describe.serial('scenario drop onto a diagram with block containers', () =>
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
         await openByName(l, FIXTURE)
+        await waitForScenarioFlow(l, 'conversational')
     })
 
     test.afterAll(async () => {
@@ -187,15 +288,12 @@ test.describe.serial('scenario drop onto a diagram with block containers', () =>
         fs.writeFileSync(path.join(ART, 'drop-before.json'), JSON.stringify(before.rows, null, 2))
         const errBefore = l.errors.length
 
-        const res = await fireScenarioDrop(l, 'conversational', 520, 360)
-        await l.win.waitForTimeout(4000)
+        await dropScenarioUntilChanged(l, 'conversational', 520, 360)
 
         const after = await probe(l)
         fs.writeFileSync(path.join(ART, 'drop-after.json'), JSON.stringify(after.rows, null, 2))
         await l.win.screenshot({ path: path.join(ART, 'scenario-drop-after.png') }).catch(() => {})
         const newErrors = appErrors(l.errors.slice(errBefore))
-        // eslint-disable-next-line no-console
-        console.log('fire result:', JSON.stringify(res))
         // eslint-disable-next-line no-console
         console.log('BEFORE sig:', sig(before.rows))
         // eslint-disable-next-line no-console
@@ -242,6 +340,7 @@ test.describe.serial('scenario drop onto an EMPTY diagram (container added same 
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
         await openByName(l, 'a-scenario-empty-demo.diagram')
+        await waitForScenarioFlow(l, 'conversational')
     })
 
     test.afterAll(async () => {
@@ -252,8 +351,7 @@ test.describe.serial('scenario drop onto an EMPTY diagram (container added same 
 
     test('a same-drop container still contains its member component', async () => {
         const errBefore = l.errors.length
-        await fireScenarioDrop(l, 'conversational', 400, 300)
-        await l.win.waitForTimeout(4000)
+        await dropScenarioUntilChanged(l, 'conversational', 400, 300)
         const after = await probe(l)
         fs.writeFileSync(path.join(ART, 'drop-empty-after.json'), JSON.stringify(after.rows, null, 2))
         await l.win.screenshot({ path: path.join(ART, 'scenario-drop-empty-after.png') }).catch(() => {})

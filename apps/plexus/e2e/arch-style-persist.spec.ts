@@ -7,7 +7,7 @@
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
-import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, cloneCorpus, type Launched } from './plexus-app'
+import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, cloneCorpus, openProjectFile, type Launched } from './plexus-app'
 
 async function canvasFigs(l: Launched)
 {
@@ -22,11 +22,11 @@ function styleArchNodeAndSave(l: Launched)
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         let root: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v) { root = v; break } }
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) { root = v; break } }
         let host: any
         for (let p = root?.Services; p && !host; p = p._parent)
         {
-            for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break } }
+            for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'PlexusDocumentHost') { host = e; break } }
         }
         const doc = host?.ActiveDocument
         const view = doc?.ActiveView
@@ -75,21 +75,12 @@ test.describe.serial('arch node style is saved (dirty-tracking)', () => {
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        const scrollX = navs[1]!.x + navs[1]!.w + 120
-        for (let i = 0; i < 22; i++)
-        {
-            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
-            await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(300)
-        }
+        // Open through the workspace service — the nested solution tree keeps
+        // project nodes collapsed, so a tree double-click can't see the file row.
+        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
+        // Arch cards project asynchronously after the document opens; poll for them.
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
-        for (let a = 0; a < 5 && figs.length === 0; a++)
-        {
-            const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
-            await dd.scrollIntoViewIfNeeded().catch(() => {})
-            await dd.dblclick({ timeout: 4000 }).catch(() => {})
-            await l.win.waitForTimeout(4000)
-            figs = await canvasFigs(l)
-        }
+        for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }
         expect(figs.length, 'diagram opened').toBeGreaterThan(0)
     })
 
