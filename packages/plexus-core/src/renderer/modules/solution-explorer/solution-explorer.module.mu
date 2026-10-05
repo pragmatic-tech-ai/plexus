@@ -20,5 +20,5 @@ shell module SolutionExplorerModule [ Name = "Solution Explorer" ] {
         LiveValidationSync
     }
 
-    Capability [ Name = "Solution Explorer", Icon = @ProjectExplorer, ServiceKey = SolutionExplorerService ]
+    Capability [ Name = "Solution Explorer", Icon = @ProjectExplorer, ServiceKey = SolutionExplorerService, Order = 10 ]
 }

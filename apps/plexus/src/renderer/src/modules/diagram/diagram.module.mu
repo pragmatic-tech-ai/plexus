@@ -419,5 +419,5 @@ shell module DiagramModule [ Name = "Diagram" ] {
     }
 
     // Shapes â€” the toolbox of shapes to drop onto the canvas.
-    Capability [ Name = "Tool Box", Icon = @ToolBox, ServiceKey = ToolboxService ]
+    Capability [ Name = "Tool Box", Icon = @ToolBox, ServiceKey = ToolboxService, Order = 20 ]
 }
