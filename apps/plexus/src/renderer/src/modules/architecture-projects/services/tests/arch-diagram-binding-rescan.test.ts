@@ -29,14 +29,15 @@ test('an ArchNodeVM added after attach gets Label + Icon derived from the entity
     binding.attach()
 
     // Simulate a drop: create the entity, add an ArchNodeVM, set its Id, notify.
-    const e = model.createInViewpoint('component', 'ComponentView')
+    const e = model.createInViewpoint('archmm.component', 'archmm.ComponentView')
     const vm = new ArchNodeVM()
     vm.Id = e.id
     doc.Nodes.Add(vm)
     model.notifyChanged()
 
     // Label is derived from entity (no label/name field → id fallback).
-    expect(vm.Label).toBe(e.id)
+    expect(e.id).toBe('archmm.component1')
+    expect(vm.Label).toBe('component1')
     // Icon is keyed by entity.concept (the concept id, bare — library-term case).
     expect(vm.Icon?.IconKey).toBe(e.concept)
 })
@@ -46,7 +47,7 @@ test('reload-shaped: ArchNodeVM with empty Label/Icon has both derived by rescan
     const doc = new DiagramDocument()
 
     // Pre-populate an entity in the model.
-    const e = model.createInViewpoint('component', 'ComponentView')
+    const e = model.createInViewpoint('archmm.component', 'archmm.ComponentView')
 
     // Simulate post-deserialize state: ArchNodeVM has Id (persisted) but empty Label/Icon.
     const vm = new ArchNodeVM()
@@ -60,7 +61,8 @@ test('reload-shaped: ArchNodeVM with empty Label/Icon has both derived by rescan
     const binding = new ArchDiagramBinding(doc, model, undefined, undefined, undefined, undefined, undefined, undefined, echoRegistry)
     binding.attach()   // triggers rescan()
 
-    expect(vm.Label).toBe(e.id)   // id fallback (no label/name)
+    expect(e.id).toBe('archmm.component1')
+    expect(vm.Label).toBe('component1')   // id fallback (no label/name)
     expect(vm.Icon?.IconKey).toBe(e.concept)
 })
 
@@ -70,7 +72,7 @@ test('deleting the entity removes the ArchNodeVM from the doc', () => {
     const binding = new ArchDiagramBinding(doc, model)
     binding.attach()
 
-    const e = model.createInViewpoint('component', 'ComponentView')
+    const e = model.createInViewpoint('archmm.component', 'archmm.ComponentView')
     const vm = new ArchNodeVM()
     vm.Id = e.id
     doc.Nodes.Add(vm)

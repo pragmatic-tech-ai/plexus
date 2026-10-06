@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import {
@@ -28,7 +28,7 @@ const file = { uri: 'model.todl', text: `namespace archmm {
 
 function build(): ArchModel
 {
-    const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
@@ -40,26 +40,26 @@ test('the default containment member is `in`', () => {
 
 test('isContainmentRelationship recognizes the `in` member by default', () => {
     const repo = build().repository()
-    expect(isContainmentRelationship(repo, 'component', 'in')).toBe(true)
+    expect(isContainmentRelationship(repo, 'archmm.component', 'in')).toBe(true)
 })
 
 test('containment targets are container concepts by default', () => {
     const repo = build().repository()
-    expect(isContainerConcept(repo, 'location')).toBe(true)   // target of component.in
-    expect(isContainerConcept(repo, 'component')).toBe(true)  // target of technology.in
-    expect(isContainerConcept(repo, 'technology')).toBe(false) // target of nothing
+    expect(isContainerConcept(repo, 'archmm.location')).toBe(true)   // target of component.in
+    expect(isContainerConcept(repo, 'archmm.component')).toBe(true)  // target of technology.in
+    expect(isContainerConcept(repo, 'archmm.technology')).toBe(false) // target of nothing
 })
 
 test('@has_children annotation overrides a non-target leaf into a container', () => {
     const repo = build().repository()
-    expect(isContainerConcept(repo, 'region')).toBe(true)
+    expect(isContainerConcept(repo, 'archmm.region')).toBe(true)
 })
 
 test('containmentParentOf returns the container the entity`s `in` ref points at', () => {
     const m = build()
-    const comp = m.entities().find((e) => e.id === 'comp')!
+    const comp = m.entities().find((e) => e.id === 'archmm.comp')!
     const parent = containmentParentOf(m.repository(), comp)
-    expect(parent?.id).toBe('loc')
+    expect(parent?.id).toBe('archmm.loc')
 })
 
 // Self-referential containment: a concept nested in another instance of the SAME
@@ -81,7 +81,7 @@ const nestFile = { uri: 'nest.todl', text: `namespace archmm {
 
 function buildNest(): ArchModel
 {
-    const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: NEST_MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'archmm.todl', text: NEST_MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [nestFile], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Nest'), 'archmm')
@@ -89,22 +89,22 @@ function buildNest(): ArchModel
 
 test('an @containment-annotated `parent` relationship is a containment member', () => {
     const repo = buildNest().repository()
-    expect(isContainmentRelationship(repo, 'location', 'parent')).toBe(true)
-    expect(isContainerConcept(repo, 'location')).toBe(true)   // self-target of location.parent
+    expect(isContainmentRelationship(repo, 'archmm.location', 'parent')).toBe(true)
+    expect(isContainerConcept(repo, 'archmm.location')).toBe(true)   // self-target of location.parent
 })
 
 test('containmentMemberFor(location, location) is `parent` — location nests in location', () => {
     const repo = buildNest().repository()
-    expect(containmentMemberFor(repo, 'location', 'location')).toBe('parent')
+    expect(containmentMemberFor(repo, 'archmm.location', 'archmm.location')).toBe('parent')
 })
 
 test('containmentParentOf walks the location.parent chain (azure ⊃ m365 ⊃ power_platform)', () => {
     const m = buildNest()
     const repo = m.repository()
     const byId = (id: string) => m.entities().find((e) => e.id === id)!
-    expect(containmentParentOf(repo, byId('power_platform'))?.id).toBe('m365')
-    expect(containmentParentOf(repo, byId('m365'))?.id).toBe('azure')
-    expect(containmentParentOf(repo, byId('azure'))).toBeUndefined()
+    expect(containmentParentOf(repo, byId('archmm.power_platform'))?.id).toBe('archmm.m365')
+    expect(containmentParentOf(repo, byId('archmm.m365'))?.id).toBe('archmm.azure')
+    expect(containmentParentOf(repo, byId('archmm.azure'))).toBeUndefined()
 })
 
 // A block owns two containment channels: the child-side @containment up-ref
@@ -137,7 +137,7 @@ const blockFile = { uri: 'block.todl', text: `namespace archmm {
 
 function buildBlocks(): ArchModel
 {
-    const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: BLOCK_MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'archmm.todl', text: BLOCK_MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [blockFile], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Blocks'), 'archmm')
@@ -145,25 +145,25 @@ function buildBlocks(): ArchModel
 
 test('membershipFieldFor finds a container`s forward child-list field, not its scalar/up-ref members', () => {
     const repo = buildBlocks().repository()
-    expect(membershipFieldFor(repo, 'block', 'component')).toBe('components')
+    expect(membershipFieldFor(repo, 'archmm.block', 'archmm.component')).toBe('components')
     // `block.in -> location` is a relationship, not a field → no location membership field.
-    expect(membershipFieldFor(repo, 'block', 'location')).toBeUndefined()
+    expect(membershipFieldFor(repo, 'archmm.block', 'archmm.location')).toBeUndefined()
 })
 
 test('containingContainerOf resolves a member listed only in the block`s `components` field', () => {
     const m = buildBlocks()
     const byId = (id: string) => m.entities().find((e) => e.id === id)!
-    expect(containingContainerOf(m.repository(), byId('listed'))?.id).toBe('chat_surface')
+    expect(containingContainerOf(m.repository(), byId('archmm.listed'))?.id).toBe('archmm.chat_surface')
 })
 
 test('containingContainerOf still resolves the child-side in_block up-ref', () => {
     const m = buildBlocks()
     const byId = (id: string) => m.entities().find((e) => e.id === id)!
-    expect(containingContainerOf(m.repository(), byId('upref'))?.id).toBe('command_bus')
+    expect(containingContainerOf(m.repository(), byId('archmm.upref'))?.id).toBe('archmm.command_bus')
 })
 
 test('containingContainerOf does NOT treat a location as contained in blocks that point at it via `in`', () => {
     const m = buildBlocks()
     const byId = (id: string) => m.entities().find((e) => e.id === id)!
-    expect(containingContainerOf(m.repository(), byId('azure'))).toBeUndefined()
+    expect(containingContainerOf(m.repository(), byId('archmm.azure'))).toBeUndefined()
 })

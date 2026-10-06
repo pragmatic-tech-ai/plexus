@@ -26,27 +26,27 @@ function buildModel(): ArchModel
 
 test('modelPageItems lists in-scope, not-yet-placed entities as instance items', () => {
     const model = buildModel()
-    const svc = model.createInViewpoint('service', 'V')
-    model.createInViewpoint('widget', 'W')   // out of scope for {V}
+    const svc = model.createInViewpoint('archmm.service', 'archmm.V')
+    model.createInViewpoint('archmm.widget', 'archmm.W')   // out of scope for {V}
 
-    const items = modelPageItems(model, new Set(['V']), new Set(), reg)
+    const items = modelPageItems(model, new Set(['archmm.V']), new Set(), reg)
     expect(items.map((i) => i.Id)).toEqual(['instance:' + svc.id])
     expect(items[0].FactoryKey).toBe(ArchModelInstanceDropFactoryKey)
 })
 
 test('modelPageItems excludes already-placed entities', () => {
     const model = buildModel()
-    const svc = model.createInViewpoint('service', 'V')
+    const svc = model.createInViewpoint('archmm.service', 'archmm.V')
 
-    const items = modelPageItems(model, new Set(['V']), new Set([svc.id]), reg)
+    const items = modelPageItems(model, new Set(['archmm.V']), new Set([svc.id]), reg)
     expect(items).toEqual([])
 })
 
 test('modelPageItems excludes out-of-scope entities', () => {
     const model = buildModel()
-    model.createInViewpoint('widget', 'W')
+    model.createInViewpoint('archmm.widget', 'archmm.W')
 
-    expect(modelPageItems(model, new Set(['V']), new Set(), reg)).toEqual([])
+    expect(modelPageItems(model, new Set(['archmm.V']), new Set(), reg)).toEqual([])
 })
 
 test('scenarioPageTitle carries the model namespace, mirroring the model page', () => {

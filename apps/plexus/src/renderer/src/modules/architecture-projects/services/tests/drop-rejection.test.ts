@@ -16,7 +16,7 @@ const MM = `namespace archmm {
 
 test('the rejection message names the term, the blocking viewpoint, the wrong node, and the fix', () => {
     const repo = load([{ uri: 'mm.todl', text: MM }]).model
-    const { title, message } = dropRejectionMessage(repo, 'Regions.azure', new Set(['Scenarios']))
+    const { title, message } = dropRejectionMessage(repo, 'archmm.Regions.azure', new Set(['archmm.Scenarios']))
 
     expect(title).toContain('Azure')                 // what you dropped
     expect(message).toContain('location')            // its concept

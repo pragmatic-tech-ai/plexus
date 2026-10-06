@@ -13,11 +13,11 @@ import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-back
 const MODEL = JSON.stringify({
   nodes: [
     { id: 'actors', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Actors' } },
-    { id: 'actors@toolbox', tier: 'Ontology', type: 'toolbox', attrs: { visible: true } },
+    { id: 'actors@todl.toolbox', tier: 'Ontology', type: 'todl.toolbox', attrs: { visible: true } },
     { id: 'actors.internal', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: { label: 'Internal' } },
   ],
   edges: [
-    { kind: 'Annotated', via: null, from: 'actors', to: 'actors@toolbox' },
+    { kind: 'Annotated', via: null, from: 'actors', to: 'actors@todl.toolbox' },
     { kind: 'Contains', via: null, from: 'actors', to: 'actors.internal' },
   ],
 })
@@ -26,11 +26,11 @@ const MODEL = JSON.stringify({
 const MODEL2 = JSON.stringify({
   nodes: [
     { id: 'services', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Services' } },
-    { id: 'services@toolbox', tier: 'Ontology', type: 'toolbox', attrs: { visible: true } },
+    { id: 'services@todl.toolbox', tier: 'Ontology', type: 'todl.toolbox', attrs: { visible: true } },
     { id: 'services.web', tier: 'Instance', type: 'service', metaKind: 'term', isClass: true, attrs: { label: 'Web' } },
   ],
   edges: [
-    { kind: 'Annotated', via: null, from: 'services', to: 'services@toolbox' },
+    { kind: 'Annotated', via: null, from: 'services', to: 'services@todl.toolbox' },
     { kind: 'Contains', via: null, from: 'services', to: 'services.web' },
   ],
 })

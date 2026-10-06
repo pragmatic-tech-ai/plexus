@@ -29,18 +29,18 @@ function fakes(model: ArchModel, selected: unknown[])
 
 test('maps selected node VMs to Elements of the bound model', () => {
   const model = buildModel()
-  const node = new ArchNodeVM(); node.Id = 'web'
+  const node = new ArchNodeVM(); node.Id = 't.web'
   const { bindingSvc, registry, doc } = fakes(model, [node])
   const els = selectionToElements(doc, bindingSvc, registry)
   expect(els).toHaveLength(1)
-  expect(els[0].id).toBe('web')
-  expect(els[0].concept).toBe('component')
+  expect(els[0].id).toBe('t.web')
+  expect(els[0].concept).toBe('t.component')
 })
 
 test('an unbound document yields no elements', () => {
   const bindingSvc = { modelForDocument: () => undefined } as unknown as ArchDiagramBindingService
   const registry = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
-  const node = new ArchNodeVM(); node.Id = 'web'
+  const node = new ArchNodeVM(); node.Id = 't.web'
   const doc = { ActiveView: { SelectedItems: [node] } } as unknown as DiagramDocument
   expect(selectionToElements(doc, bindingSvc, registry)).toEqual([])
 })

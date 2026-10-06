@@ -95,9 +95,9 @@ test('the composed build validates against the bound meta-model (via PlexusPacka
   const ids = new Set((doc.nodes as { id: string }[]).map((n) => n.id))
   // Own-only: the library's own taxonomy terms are present; the base meta-model's
   // concepts and the prelude are NOT copied in.
-  expect(ids.has('Microsoft.Azure')).toBe(true)
-  expect(ids.has('Location')).toBe(false)
-  expect(ids.has('identifier')).toBe(false)
+  expect(ids.has('lib.Microsoft.Azure')).toBe(true)
+  expect(ids.has('ea.Location')).toBe(false)
+  expect(ids.has('todl.identifier')).toBe(false)
   // The bound meta-model is recorded as a dependency (exact version).
   expect(doc.dependencies).toContainEqual({ kind: 'meta-model', id: 'ea', version: '5' })
 })

@@ -4,24 +4,24 @@ import { projectToolbox } from '../toolbox-projection.js'
 
 // A doc with: a visible taxonomy `actors` (2 terms, one hidden), and a taxonomy
 // `plain` with no toolbox annotation (excluded). Annotations are Annotated edges
-// to `<node>@toolbox` application nodes carrying the `visible` attr.
+// to `<node>@todl.toolbox` application nodes carrying the `visible` attr.
 function doc(): TodlDocument
 {
   return {
     nodes: [
       { id: 'actors', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Actors' } },
-      { id: 'actors@toolbox', tier: 'Ontology', type: 'toolbox', attrs: { visible: true } },
+      { id: 'actors@todl.toolbox', tier: 'Ontology', type: 'todl.toolbox', attrs: { visible: true } },
       { id: 'actors.internal', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: { label: 'Internal' } },
       { id: 'actors.external', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: { label: 'External' } },
-      { id: 'actors.external@toolbox', tier: 'Instance', type: 'toolbox', attrs: { visible: false } },
+      { id: 'actors.external@todl.toolbox', tier: 'Instance', type: 'todl.toolbox', attrs: { visible: false } },
       { id: 'plain', tier: 'Ontology', metaKind: 'taxonomy', attrs: { label: 'Plain' } },
       { id: 'plain.x', tier: 'Instance', type: 'actor', metaKind: 'term', isClass: true, attrs: {} },
     ],
     edges: [
-      { kind: 'Annotated', via: null, from: 'actors', to: 'actors@toolbox' },
+      { kind: 'Annotated', via: null, from: 'actors', to: 'actors@todl.toolbox' },
       { kind: 'Contains', via: null, from: 'actors', to: 'actors.internal' },
       { kind: 'Contains', via: null, from: 'actors', to: 'actors.external' },
-      { kind: 'Annotated', via: null, from: 'actors.external', to: 'actors.external@toolbox' },
+      { kind: 'Annotated', via: null, from: 'actors.external', to: 'actors.external@todl.toolbox' },
       { kind: 'Contains', via: null, from: 'plain', to: 'plain.x' },
     ],
   } as unknown as TodlDocument

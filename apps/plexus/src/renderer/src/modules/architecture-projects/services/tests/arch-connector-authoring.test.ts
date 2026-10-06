@@ -30,8 +30,8 @@ function buildModel(): ArchModel
 // Place a source + target entity as nodes, attach a binding with a stub chooser.
 function setup(model: ArchModel, srcConcept: string, tgtConcept: string)
 {
-    const src = model.createInViewpoint(srcConcept, 'V')
-    const tgt = model.createInViewpoint(tgtConcept, 'V')
+    const src = model.createInViewpoint(srcConcept, 'archmm.V')
+    const tgt = model.createInViewpoint(tgtConcept, 'archmm.V')
     const doc = new DiagramDocument()
     const a = new ArchNodeVM(); a.Id = src.id
     const b = new ArchNodeVM(); b.Id = tgt.id
@@ -45,7 +45,7 @@ function setup(model: ArchModel, srcConcept: string, tgtConcept: string)
 
 test('one candidate → auto-writes the ref (no chooser)', () => {
     const model = buildModel()
-    const { binding, src, tgt, a, b, chooser } = setup(model, 'component', 'technology')
+    const { binding, src, tgt, a, b, chooser } = setup(model, 'archmm.component', 'archmm.technology')
     const addRef = vi.spyOn(model, 'addRef')
 
     binding.handleConnectorCreated(a, b)
@@ -58,7 +58,7 @@ test('one candidate → auto-writes the ref (no chooser)', () => {
 test('zero candidates → no ref written, but the raw connector is reconciled (notifyChanged)', () => {
     const model = buildModel()
     // technology has no relationship members → technology→component yields 0.
-    const { binding, a, b } = setup(model, 'technology', 'component')
+    const { binding, a, b } = setup(model, 'archmm.technology', 'archmm.component')
     const addRef = vi.spyOn(model, 'addRef')
     const notify = vi.spyOn(model, 'notifyChanged')
 
@@ -70,7 +70,7 @@ test('zero candidates → no ref written, but the raw connector is reconciled (n
 
 test('many candidates → chooser, and the pick writes the chosen ref', () => {
     const model = buildModel()
-    const { binding, src, tgt, a, b, chooser, getShown } = setup(model, 'host', 'technology')
+    const { binding, src, tgt, a, b, chooser, getShown } = setup(model, 'archmm.host', 'archmm.technology')
     const addRef = vi.spyOn(model, 'addRef')
 
     binding.handleConnectorCreated(a, b)
@@ -86,7 +86,7 @@ test('many candidates → chooser, and the pick writes the chosen ref', () => {
 
 test('endpoints that are not bound arch nodes are ignored', () => {
     const model = buildModel()
-    const { binding, b } = setup(model, 'component', 'technology')
+    const { binding, b } = setup(model, 'archmm.component', 'archmm.technology')
     const addRef = vi.spyOn(model, 'addRef')
 
     const unbound = new ArchNodeVM(); unbound.Id = 'not-an-entity'

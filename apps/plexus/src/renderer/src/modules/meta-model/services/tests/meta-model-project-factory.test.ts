@@ -141,7 +141,7 @@ test('the composed build emits a bundle.json Plexus reads with identity + packag
     expect(m.id).toBe('acme')
     expect(m.version).toBe('0.1.0')
     expect(m.name).toBe('Acme')
-    expect(m.annotations).toEqual({ author: { name: 'Acme Corp' } })
+    expect(m.annotations).toEqual({ 'd.author': { name: 'Acme Corp' } })
     expect(m.problems).toEqual([])
 })
 

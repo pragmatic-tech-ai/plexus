@@ -9,6 +9,8 @@ import { projectAnnotations, PresentationResourceEmitter, type TodlDocument, typ
 
 import { termsOf } from './meta-model-tree-builder.js'
 
+const ToolboxAnnotationKey = 'todl.toolbox'
+
 // One draggable term on a toolbox page. `concept` is what the drop resolver keys
 // on; `icon`/`label` drive the tile visual.
 export interface ToolboxTermRef { id: string; label: string; icon?: string; concept: string }
@@ -20,7 +22,7 @@ export interface ToolboxTaxonomy { id: string; label: string; terms: ToolboxTerm
 // node carries no `toolbox` annotation.
 function toolboxVisible(doc: TodlDocument, id: string): boolean | undefined
 {
-    const v = projectAnnotations(doc, id)['toolbox']?.['visible']
+    const v = projectAnnotations(doc, id)[ToolboxAnnotationKey]?.['visible']
     return typeof v === 'boolean' ? v : undefined
 }
 

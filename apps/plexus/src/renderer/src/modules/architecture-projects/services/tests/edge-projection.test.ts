@@ -32,29 +32,29 @@ test('edgeKey is stable and unique per (from, member, to)', () => {
 
 test('desiredEdges emits one edge per in-scope relationship between two placed entities', () => {
     const model = buildModel()
-    const comp = model.createInViewpoint('component', 'V')
-    const svc = model.createInViewpoint('service', 'V')
+    const comp = model.createInViewpoint('archmm.component', 'archmm.V')
+    const svc = model.createInViewpoint('archmm.service', 'archmm.V')
     model.addRef(comp.id, 'uses', svc.id)
 
     const placed = placedMap(model, [comp.id, svc.id])
-    const edges = desiredEdges(model.repository(), placed, new Set(['V']))
+    const edges = desiredEdges(model.repository(), placed, new Set(['archmm.V']))
     expect([...edges]).toEqual([edgeKey(comp.id, 'uses', svc.id)])
 })
 
 test('desiredEdges omits edges to an unplaced target', () => {
     const model = buildModel()
-    const comp = model.createInViewpoint('component', 'V')
-    const svc = model.createInViewpoint('service', 'V')
+    const comp = model.createInViewpoint('archmm.component', 'archmm.V')
+    const svc = model.createInViewpoint('archmm.service', 'archmm.V')
     model.addRef(comp.id, 'uses', svc.id)
 
     const placed = placedMap(model, [comp.id])   // svc not placed
-    expect([...desiredEdges(model.repository(), placed, new Set(['V']))]).toEqual([])
+    expect([...desiredEdges(model.repository(), placed, new Set(['archmm.V']))]).toEqual([])
 })
 
 test('desiredEdges omits edges when the target concept is out of scope', () => {
     const model = buildModel()
-    const comp = model.createInViewpoint('component', 'V')
-    const svc = model.createInViewpoint('service', 'V')
+    const comp = model.createInViewpoint('archmm.component', 'archmm.V')
+    const svc = model.createInViewpoint('archmm.service', 'archmm.V')
     model.addRef(comp.id, 'uses', svc.id)
 
     const placed = placedMap(model, [comp.id, svc.id])

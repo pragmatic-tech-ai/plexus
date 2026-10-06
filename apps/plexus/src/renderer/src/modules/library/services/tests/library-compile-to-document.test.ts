@@ -27,7 +27,7 @@ test('compileToDocument compiles the library sources against the given base', as
     const storage = await libraryProject(LIB)
     const { doc, problems } = await factory.compileToDocument(storage, [base], new ServiceProvider())
     expect(problems).toEqual([])
-    expect(doc.nodes.some((n) => n.id === 'special')).toBe(true)
+    expect(doc.nodes.some((n) => n.id === 'acme.special')).toBe(true)
 })
 
 test('compileToDocument reports errors when the base is absent (extends is unresolved)', async () => {

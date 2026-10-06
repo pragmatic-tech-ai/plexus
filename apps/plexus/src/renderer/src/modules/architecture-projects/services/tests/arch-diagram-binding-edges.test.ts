@@ -24,8 +24,8 @@ function buildModel(): ArchModel
 function setup(): { doc: DiagramDocument; model: ArchModel; a: ArchNodeVM; b: ArchNodeVM }
 {
     const model = buildModel()
-    const comp = model.createInViewpoint('component', 'V')
-    const svc = model.createInViewpoint('service', 'V')
+    const comp = model.createInViewpoint('archmm.component', 'archmm.V')
+    const svc = model.createInViewpoint('archmm.service', 'archmm.V')
     model.addRef(comp.id, 'uses', svc.id)
 
     const doc = new DiagramDocument()

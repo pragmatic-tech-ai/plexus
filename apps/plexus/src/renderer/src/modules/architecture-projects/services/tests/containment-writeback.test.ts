@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
 import type { Diagram } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
@@ -24,7 +24,7 @@ const file = { uri: 'model.todl', text: `namespace archmm {
 
 function buildModel(): ArchModel
 {
-    const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
@@ -81,7 +81,7 @@ function setup(): { model: ArchModel; doc: TestDoc; fire: (a: ReparentArgs) => v
 {
     const model = buildModel()
     const doc = new TestDoc()
-    for (const id of ['loc', 'comp', 'tech']) { const vm = new ArchNodeVM(); vm.Id = id; doc.Nodes.Add(vm) }
+    for (const id of ['archmm.loc', 'archmm.comp', 'archmm.tech']) { const vm = new ArchNodeVM(); vm.Id = id; doc.Nodes.Add(vm) }
     const { view, fire, snapBacks } = fakeView()
     doc.fakeView = view
     const { dialogs, shows } = fakeDialogs()
@@ -92,35 +92,35 @@ function setup(): { model: ArchModel; doc: TestDoc; fire: (a: ReparentArgs) => v
 
 test('nesting a component into a location writes the `in` ref', () => {
     const { fire, refsIn } = setup()
-    fire({ Node: { Id: 'comp' }, OldParentId: undefined, NewParentId: 'loc' })
-    expect(refsIn('comp')).toEqual(['loc'])
+    fire({ Node: { Id: 'archmm.comp' }, OldParentId: undefined, NewParentId: 'archmm.loc' })
+    expect(refsIn('archmm.comp')).toEqual(['archmm.loc'])
 })
 
 test('un-nesting removes the `in` ref', () => {
     const { fire, refsIn } = setup()
-    fire({ Node: { Id: 'comp' }, OldParentId: undefined, NewParentId: 'loc' })
-    expect(refsIn('comp')).toEqual(['loc'])
-    fire({ Node: { Id: 'comp' }, OldParentId: 'loc', NewParentId: undefined })
-    expect(refsIn('comp')).toEqual([])
+    fire({ Node: { Id: 'archmm.comp' }, OldParentId: undefined, NewParentId: 'archmm.loc' })
+    expect(refsIn('archmm.comp')).toEqual(['archmm.loc'])
+    fire({ Node: { Id: 'archmm.comp' }, OldParentId: 'archmm.loc', NewParentId: undefined })
+    expect(refsIn('archmm.comp')).toEqual([])
 })
 
 test('an illegal nesting (location into technology) is rejected: no ref, node snapped back', () => {
     const { fire, refsIn, snapBacks } = setup()
-    fire({ Node: { Id: 'loc' }, OldParentId: undefined, NewParentId: 'tech' })
-    expect(refsIn('loc')).toEqual([])          // no ref written
-    expect(snapBacks).toContain('loc')          // un-nested (snapped back)
+    fire({ Node: { Id: 'archmm.loc' }, OldParentId: undefined, NewParentId: 'archmm.tech' })
+    expect(refsIn('archmm.loc')).toEqual([])          // no ref written
+    expect(snapBacks).toContain('archmm.loc')          // un-nested (snapped back)
 })
 
 test('an illegal drag-in shows the rejection modal (same modal as the drop path)', () => {
     const { fire, shows } = setup()
-    fire({ Node: { Id: 'loc' }, OldParentId: undefined, NewParentId: 'tech' })
+    fire({ Node: { Id: 'archmm.loc' }, OldParentId: undefined, NewParentId: 'archmm.tech' })
     expect(shows.length).toBe(1)
     expect(shows[0]!.Title).toBe('Cannot nest here')
 })
 
 test('a legal drag-in shows no modal', () => {
     const { fire, shows } = setup()
-    fire({ Node: { Id: 'comp' }, OldParentId: undefined, NewParentId: 'loc' })
+    fire({ Node: { Id: 'archmm.comp' }, OldParentId: undefined, NewParentId: 'archmm.loc' })
     expect(shows.length).toBe(0)
 })
 
@@ -128,7 +128,7 @@ test('dragging a component into a LIBRARY (non-own) location writes the `in` ref
     // Base repo carries a location INSTANCE (libloc) — like an imported library
     // location. It is NOT an own instance of the project model, so the parent must
     // resolve via repo.entity (resolveEntity), and the write lands on the own child.
-    const baseGraph = toJSON(load([
+    const baseGraph = toJSON(checkAgainst([], [
         { uri: 'archmm.todl', text: MM },
         { uri: 'lib.todl', text: `namespace archmm { model Lib : archmm conforms V { location libloc {} } }` },
     ]).model)
@@ -138,30 +138,30 @@ test('dragging a component into a LIBRARY (non-own) location writes the `in` ref
     const model = new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 
     // libloc is a repo entity but NOT an own instance.
-    expect(model.entities().some((e) => e.id === 'libloc')).toBe(false)
-    expect(model.repository().has('libloc')).toBe(true)
+    expect(model.entities().some((e) => e.id === 'archmm.libloc')).toBe(false)
+    expect(model.repository().has('archmm.libloc')).toBe(true)
 
     const doc = new TestDoc()
-    for (const id of ['comp', 'libloc']) { const vm = new ArchNodeVM(); vm.Id = id; doc.Nodes.Add(vm) }
+    for (const id of ['archmm.comp', 'archmm.libloc']) { const vm = new ArchNodeVM(); vm.Id = id; doc.Nodes.Add(vm) }
     const { view, fire } = fakeView()
     doc.fakeView = view
     new ArchDiagramBinding(doc, model, undefined, undefined, undefined, fakeDialogs().dialogs as never).attach()
 
-    fire({ Node: { Id: 'comp' }, OldParentId: undefined, NewParentId: 'libloc' })
-    const comp = model.entities().find((e) => e.id === 'comp')!
-    expect(comp.refs('in').map((e) => e.id)).toEqual(['libloc'])
+    fire({ Node: { Id: 'archmm.comp' }, OldParentId: undefined, NewParentId: 'archmm.libloc' })
+    const comp = model.entities().find((e) => e.id === 'archmm.comp')!
+    expect(comp.refs('in').map((e) => e.id)).toEqual(['archmm.libloc'])
 })
 
 test('a reparent of a node with no backing entity is ignored (visual-only grouping)', () => {
     const { fire, snapBacks } = setup()
-    fire({ Node: { Id: 'ghost' }, OldParentId: undefined, NewParentId: 'loc' })
+    fire({ Node: { Id: 'ghost' }, OldParentId: undefined, NewParentId: 'archmm.loc' })
     expect(snapBacks).not.toContain('ghost')   // no rejection, no model write — just left alone
 })
 
 test('nesting a model node into a generic (non-entity) container is accepted visually, no ref, no snap-back', () => {
     const { fire, refsIn, snapBacks } = setup()
     // 'container:1' is a generic container Figure (no backing entity).
-    fire({ Node: { Id: 'comp' }, OldParentId: undefined, NewParentId: 'container:1' })
-    expect(refsIn('comp')).toEqual([])            // no model ref written (generic = visual-only)
-    expect(snapBacks).not.toContain('comp')       // accepted, not rejected
+    fire({ Node: { Id: 'archmm.comp' }, OldParentId: undefined, NewParentId: 'container:1' })
+    expect(refsIn('archmm.comp')).toEqual([])            // no model ref written (generic = visual-only)
+    expect(snapBacks).not.toContain('archmm.comp')       // accepted, not rejected
 })

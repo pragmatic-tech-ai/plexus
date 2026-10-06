@@ -12,6 +12,7 @@ import { iconEntityKey } from './arch-icon.js'
 import { desiredEdges, edgeKey, desiredConnectorEntityEdges, connectorEntityIdOf, connectorVisualKey } from './edge-projection.js'
 import { isContainerConcept, containingContainerOf, containmentMemberOf, containmentMemberFor, membershipFieldFor } from './containment.js'
 import { resolveConnectorActions, type ConnectorAction } from './arch-connector-resolver.js'
+import { NodeNames } from './node-names.js'
 import { canDrawConnectorEntity, mintConnectorEntity, connectorTypeOf, CONNECTOR_DEFAULT_TYPE, CONNECTOR_DRAW_MEMBER, CONNECTOR_TYPE_FIELD } from './connector-entity.js'
 import { readConnectorVisuals, writeConnectorVisual, captureConnectorVisual, applyConnectorVisual } from './arch-diagram-connector-visuals-store.js'
 import { ConnectorLabelText } from './connector-label-text.js'
@@ -353,7 +354,7 @@ export class ArchDiagramBinding
     // vanish.
     private rejectDraw(srcConcept: string, tgtConcept: string): void
     {
-        if (this.status !== undefined) this.status.Text = `Can't connect a ${srcConcept} to a ${tgtConcept} here`
+        if (this.status !== undefined) this.status.Text = `Can't connect a ${NodeNames.Simple(srcConcept)} to a ${NodeNames.Simple(tgtConcept)} here`
     }
 
     // The concept an already-placed node maps to. An own instance answers from the
@@ -921,5 +922,5 @@ export class ArchDiagramBinding
 function displayLabel(entity: Entity): string
 {
     const v = entity.field('label') ?? entity.field('name')
-    return v !== undefined ? String(v) : entity.id
+    return v !== undefined ? String(v) : NodeNames.Simple(entity.id)
 }

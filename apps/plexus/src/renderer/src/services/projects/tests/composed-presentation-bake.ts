@@ -9,8 +9,8 @@ export class ComposedPresentationBake
 {
     private static readonly MetaModelOptions: BakeOptions = { dictName: 'MetaModelPresentation', iconPrefix: 'mm:' }
     private static readonly LibraryOptions: BakeOptions = { dictName: 'LibraryPresentation', iconPrefix: '' }
-    private static readonly IconAnnotation = 'icon'
-    private static readonly MuralResourceAnnotation = 'MuralResource'
+    private static readonly IconAnnotation = 'todl.icon'
+    private static readonly MuralResourceAnnotation = 'todl.MuralResource'
     private static readonly AnnotationMetaKind = 'annotation'
     private static readonly ExtendsEdgeKind = 'Extends'
 

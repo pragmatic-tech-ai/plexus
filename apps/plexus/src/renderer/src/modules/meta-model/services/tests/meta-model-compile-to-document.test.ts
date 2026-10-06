@@ -18,7 +18,7 @@ test('compileToDocument returns a document with the compiled nodes and no proble
     const storage = await project('namespace d { concept location { label : string; } }')
     const { doc, problems } = await factory.compileToDocument(storage, [], new ServiceProvider())
     expect(problems).toEqual([])
-    expect(doc.nodes.some((n) => n.id === 'location')).toBe(true)
+    expect(doc.nodes.some((n) => n.id === 'd.location')).toBe(true)
 })
 
 test('compileToDocument reports compile errors as problems', async () => {

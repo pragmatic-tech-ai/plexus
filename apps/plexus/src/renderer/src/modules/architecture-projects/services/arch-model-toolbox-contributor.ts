@@ -18,16 +18,18 @@ import { ArchScenarioDropFactoryKey } from './arch-scenario-drop-factory.js'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
 import { WikiService } from '../../../services/wiki/wiki-service.js'
 import type { ArchModel } from './arch-model.js'
+import { NodeNames } from './node-names.js'
 
 const PAGE_ID = 'arch:model'
 const SCENARIO_PAGE_ID = 'arch:scenarios'
 const SCENARIO_CONCEPT = 'scenario'
+const TOOLBOX_ANNOTATION_SUFFIX = '@todl.toolbox'
 
 // An entity's display label: its `label`, else `name`, else its id.
 function entityLabel(e: Entity): string
 {
     const v = e.field('label') ?? e.field('name')
-    return v !== undefined ? String(v) : e.id
+    return v !== undefined ? String(v) : NodeNames.Simple(e.id)
 }
 
 // A concept is toolbox-visible unless it explicitly opts out with
@@ -38,7 +40,7 @@ function entityLabel(e: Entity): string
 // `<id>@icon`. Booleans resolve to real booleans here, so opt-out is `!== false`.
 export function conceptToolboxVisible(repo: Repository, concept: string): boolean
 {
-    return repo.resolve(`${concept}@toolbox`)?.attrs.get('visible') !== false
+    return repo.resolve(`${concept}${TOOLBOX_ANNOTATION_SUFFIX}`)?.attrs.get('visible') !== false
 }
 
 // The toolbox items for a diagram's "Model:" page: one per in-scope entity that
@@ -77,7 +79,7 @@ export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, 
     const items: ArchToolboxItem[] = []
     for (const e of model.entities())
     {
-        if (e.concept !== SCENARIO_CONCEPT || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
+        if (!NodeNames.Matches(e.concept, SCENARIO_CONCEPT) || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
         const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, key)
         items.push(new ArchToolboxItem('scenario:' + e.id, entityLabel(e), descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(registry, key), e.concept))

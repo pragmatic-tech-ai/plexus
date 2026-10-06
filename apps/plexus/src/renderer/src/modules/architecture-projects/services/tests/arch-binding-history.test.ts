@@ -35,7 +35,7 @@ function buildModel(storage: FakeStorage): ArchModel
 test('a rename through the binding is one undo entry that reverts the model', async () => {
     const model = buildModel(new FakeStorage('fake://Arch'))
     const doc = new DiagramDocument()
-    const web = new ArchNodeVM(); web.Id = 'web'; doc.Nodes.Add(web)
+    const web = new ArchNodeVM(); web.Id = 'archmm.web'; doc.Nodes.Add(web)
     const binding = new ArchDiagramBinding(doc, model)
     binding.attach()
     await flush()                    // let the node-add safety-net transaction settle
@@ -43,13 +43,13 @@ test('a rename through the binding is one undo entry that reverts the model', as
 
     // Commit an in-place title edit → the binding brackets Begin('Rename')/Commit.
     web.BeginEdit(); web.EditingLabel = 'Web App'; web.CommitEdit()
-    expect(model.entities().find((e) => e.id === 'web')?.field('label')).toBe('Web App')
+    expect(model.entities().find((e) => e.id === 'archmm.web')?.field('label')).toBe('Web App')
     expect(doc.History.CanUndo).toBe(true)
 
     doc.Undo()
     // Model draft restored + reconcile rescanned: the label reverts to the id fallback.
-    expect(model.entities().find((e) => e.id === 'web')?.field('label')).toBeUndefined()
-    const restored = doc.Nodes.ToArray().find((n) => n instanceof ArchNodeVM && n.Id === 'web') as ArchNodeVM | undefined
+    expect(model.entities().find((e) => e.id === 'archmm.web')?.field('label')).toBeUndefined()
+    const restored = doc.Nodes.ToArray().find((n) => n instanceof ArchNodeVM && n.Id === 'archmm.web') as ArchNodeVM | undefined
     expect(restored?.Label).toBe('web')
 })
 
@@ -63,7 +63,7 @@ test('dispose unregisters the model layer', () => {
     // With the layer gone and nothing changing diagram-side, a bracketed model
     // change is a no-op transaction — the model is not recorded, so no undo entry.
     doc.History.Begin('after-dispose')
-    model.setField('web', 'label', 'ShouldNotUndo')
+    model.setField('archmm.web', 'label', 'ShouldNotUndo')
     doc.History.Commit()
     expect(doc.History.CanUndo).toBe(false)
 })

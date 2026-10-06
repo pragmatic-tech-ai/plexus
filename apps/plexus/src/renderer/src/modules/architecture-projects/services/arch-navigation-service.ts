@@ -7,6 +7,7 @@ import { LibrariesPanelService } from '../../library/services/libraries-panel-se
 import { collectScenarioFlow, type FlowEntity } from './scenario-flow.js'
 import type { ArchModel } from './arch-model.js'
 import { ElementProjection, type Element } from './element-projection.js'
+import { NodeNames } from './node-names.js'
 
 // The two navigator surfaces the routing needs — narrowed so tests can supply
 // doubles without the full services.
@@ -80,9 +81,9 @@ export class ArchNavigationService extends ServiceBase
         if (el === undefined) return { technologies: [], categories: [], scenarios }
 
         const concept = el.concept
-        const component = concept === COMPONENT ? this.toTarget(NavTargetKind.Component, el) : undefined
+        const component = NodeNames.Matches(concept, COMPONENT) ? this.toTarget(NavTargetKind.Component, el) : undefined
 
-        const techEls: readonly Element[] = concept === TECHNOLOGY ? [el] : (el.refs[IMPLEMENTED_BY] ?? [])
+        const techEls: readonly Element[] = NodeNames.Matches(concept, TECHNOLOGY) ? [el] : (el.refs[IMPLEMENTED_BY] ?? [])
         const technologies = techEls.map((t) => this.toTarget(NavTargetKind.Technology, t))
 
         const categories = this.categoryElements(concept, el, techEls)
@@ -99,10 +100,10 @@ export class ArchNavigationService extends ServiceBase
         const out: NavTarget[] = []
         for (const entity of model.entities())
         {
-            if (entity.concept !== SCENARIO_CONCEPT) continue
+            if (!NodeNames.Matches(entity.concept, SCENARIO_CONCEPT)) continue
             const { participants } = collectScenarioFlow(entity as unknown as FlowEntity)
             if (!participants.includes(entityId)) continue
-            const label = String(entity.field('label') ?? entity.id)
+            const label = String(entity.field('label') ?? NodeNames.Simple(entity.id))
             out.push({ kind: NavTargetKind.Scenario, id: entity.id, concept: entity.concept, label })
         }
         return out
@@ -114,8 +115,8 @@ export class ArchNavigationService extends ServiceBase
     // component declares no category of its own.
     private categoryElements(concept: string, el: Element, techEls: readonly Element[]): readonly Element[]
     {
-        if (concept === CATEGORY_CONCEPT) return [el]
-        if (concept === TECHNOLOGY) return el.refs[APPLICABLE_TO] ?? []
+        if (NodeNames.Matches(concept, CATEGORY_CONCEPT)) return [el]
+        if (NodeNames.Matches(concept, TECHNOLOGY)) return el.refs[APPLICABLE_TO] ?? []
         const direct = el.refs[CATEGORY] ?? []
         if (direct.length > 0) return direct
         return techEls[0]?.refs[APPLICABLE_TO] ?? []
@@ -123,7 +124,7 @@ export class ArchNavigationService extends ServiceBase
 
     private toTarget(kind: NavTargetKind, el: Element): NavTarget
     {
-        const label = String(el.fields['label'] ?? el.fields['name'] ?? el.id)
+        const label = String(el.fields['label'] ?? el.fields['name'] ?? NodeNames.Simple(el.id))
         return { kind, id: el.id, concept: el.concept, label }
     }
 

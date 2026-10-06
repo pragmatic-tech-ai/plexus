@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
 import type { Diagram } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
@@ -19,7 +19,7 @@ const file = { uri: 'model.todl', text: `namespace archmm {
 
 function buildModel(): ArchModel
 {
-    const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
@@ -79,17 +79,17 @@ function addVM(doc: DiagramDocument, id: string): ArchNodeVM
 test('an `in` ref nests the child Figure into its container and draws no connector', () => {
     const model = buildModel()
     const doc = new TestDoc()
-    addVM(doc, 'loc')
-    addVM(doc, 'comp')
+    addVM(doc, 'archmm.loc')
+    addVM(doc, 'archmm.comp')
     const { view, reparents, figFor } = fakeView()
     doc.fakeView = view
 
     new ArchDiagramBinding(doc, model).attach()
 
     // comp's Figure got re-parented into loc; loc stays at root (no spurious call).
-    expect(reparents).toContainEqual({ id: 'comp', parentId: 'loc' })
-    expect(reparents.some((r) => r.id === 'loc')).toBe(false)
-    expect((figFor('comp') as unknown as { ContainerParent?: Figure }).ContainerParent?.Id).toBe('loc')
+    expect(reparents).toContainEqual({ id: 'archmm.comp', parentId: 'archmm.loc' })
+    expect(reparents.some((r) => r.id === 'archmm.loc')).toBe(false)
+    expect((figFor('archmm.comp') as unknown as { ContainerParent?: Figure }).ContainerParent?.Id).toBe('archmm.loc')
 
     // The `in` ref nests — it does NOT project as a connector.
     expect(doc.Connectors.ToArray().length).toBe(0)

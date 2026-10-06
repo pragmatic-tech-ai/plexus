@@ -11,13 +11,13 @@ const MM = `namespace m {
 function repo() { return load([{ uri: 'm.todl', text: MM }]).model }
 
 test('conceptTypeOf: a taxonomy term resolves to the concept its taxonomy represents', () => {
-    expect(conceptTypeOf(repo(), 'Stack.azure')).toBe('technology')
+    expect(conceptTypeOf(repo(), 'm.Stack.azure')).toBe('m.technology')
 })
 
 test('conceptTypeOf: a bare concept resolves to itself', () => {
-    expect(conceptTypeOf(repo(), 'component')).toBe('component')
+    expect(conceptTypeOf(repo(), 'm.component')).toBe('m.component')
 })
 
 test('acceptSet: a concept plus its supertypes', () => {
-    expect(acceptSet(repo(), 'application')).toEqual(new Set(['application', 'component']))
+    expect(acceptSet(repo(), 'm.application')).toEqual(new Set(['m.application', 'm.component']))
 })

@@ -37,8 +37,8 @@ function buildModel(): ArchModel
 
 function setup(model: ArchModel, srcConcept: string, tgtConcept: string)
 {
-    const src = model.createInViewpoint(srcConcept, 'V')
-    const tgt = model.createInViewpoint(tgtConcept, 'V')
+    const src = model.createInViewpoint(srcConcept, 'archmm.V')
+    const tgt = model.createInViewpoint(tgtConcept, 'archmm.V')
     const doc = new DiagramDocument()
     const a = new ArchNodeVM(); a.Id = src.id
     const b = new ArchNodeVM(); b.Id = tgt.id
@@ -55,7 +55,7 @@ const connectors = (model: ArchModel) => model.entities().filter((e) => isConnec
 
 test('drawing between a legal connector pair with no relationship mints a connector entity (default calls)', () => {
     const model = buildModel()
-    const { binding, src, tgt, a, b, chooser } = setup(model, 'actor', 'component')
+    const { binding, src, tgt, a, b, chooser } = setup(model, 'archmm.actor', 'archmm.component')
     const addRef = vi.spyOn(model, 'addRef')
 
     binding.handleConnectorCreated(a, b)
@@ -73,7 +73,7 @@ test('drawing between a legal connector pair with no relationship mints a connec
 
 test('a concept relationship still auto-writes its ref (no connector entity)', () => {
     const model = buildModel()
-    const { binding, src, tgt, a, b, chooser } = setup(model, 'component', 'technology')
+    const { binding, src, tgt, a, b, chooser } = setup(model, 'archmm.component', 'archmm.technology')
     const addRef = vi.spyOn(model, 'addRef')
 
     binding.handleConnectorCreated(a, b)
@@ -86,7 +86,7 @@ test('a concept relationship still auto-writes its ref (no connector entity)', (
 test('an illegal pair (no relationship, not a connector pair) sets a status message', () => {
     const model = buildModel()
     // technology has no relationships and is not a legal connector from/to target.
-    const { binding, a, b, status, chooser } = setup(model, 'technology', 'technology')
+    const { binding, a, b, status, chooser } = setup(model, 'archmm.technology', 'archmm.technology')
 
     binding.handleConnectorCreated(a, b)
 
@@ -97,7 +97,7 @@ test('an illegal pair (no relationship, not a connector pair) sets a status mess
 
 test('a pair with BOTH a relationship and a legal connector shows a chooser; picking connect mints the entity', () => {
     const model = buildModel()
-    const { binding, src, tgt, a, b, chooser, getShown } = setup(model, 'component', 'component')
+    const { binding, src, tgt, a, b, chooser, getShown } = setup(model, 'archmm.component', 'archmm.component')
 
     binding.handleConnectorCreated(a, b)
 

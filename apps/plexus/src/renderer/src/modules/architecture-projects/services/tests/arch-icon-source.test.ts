@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from '@pragmatic-tech-ai/todl'
 import { iconEntityKey } from '../arch-icon.js'
 import { jsonNode } from '../../../../test-support/todl-fixture.js'
 
@@ -18,9 +18,9 @@ const MM = `namespace t {
 
 function repoWith(icons: string[], model: string): { repo: Repository; entity: (id: string) => Entity }
 {
-    const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'mm.todl', text: MM }]).model)
     for (const target of icons)
-        mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))
+        mmDoc.nodes.push(jsonNode({ id: `${target}@todl.icon`, tier: 'Ontology', type: 'todl.icon', attrs: { path: `resources/${target}.svg` } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [{ uri: 'a.todl', text: model }], { namespace: 't' })
     const insts = new Map(draft.ownInstances().map((e) => [e.id, e]))
@@ -30,21 +30,21 @@ function repoWith(icons: string[], model: string): { repo: Repository; entity: (
 const BODY = `namespace t { model M : t conforms V { component c1 { implementedBy = Stack.azure; categorisedAs = Cats.ai; } } }`
 
 test('own icon wins even when iconSource members are declared', () => {
-    const { repo, entity } = repoWith(['component', 'Stack.azure', 'Cats.ai'], BODY)
-    expect(iconEntityKey(repo, entity('c1'))).toBe('component')
+    const { repo, entity } = repoWith(['t.component', 't.Stack.azure', 't.Cats.ai'], BODY)
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.component')
 })
 
 test('lowest-order iconSource member with an icon wins (implementedBy before categorisedAs)', () => {
-    const { repo, entity } = repoWith(['Stack.azure', 'Cats.ai'], BODY)
-    expect(iconEntityKey(repo, entity('c1'))).toBe('Stack.azure')
+    const { repo, entity } = repoWith(['t.Stack.azure', 't.Cats.ai'], BODY)
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.Stack.azure')
 })
 
 test('a higher-order source is used when the lower-order target has no icon', () => {
-    const { repo, entity } = repoWith(['Cats.ai'], BODY)
-    expect(iconEntityKey(repo, entity('c1'))).toBe('Cats.ai')
+    const { repo, entity } = repoWith(['t.Cats.ai'], BODY)
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.Cats.ai')
 })
 
 test('iconSource declared but no target (nor own) bears an icon yields undefined', () => {
     const { repo, entity } = repoWith([], BODY)
-    expect(iconEntityKey(repo, entity('c1'))).toBeUndefined()
+    expect(iconEntityKey(repo, entity('t.c1'))).toBeUndefined()
 })

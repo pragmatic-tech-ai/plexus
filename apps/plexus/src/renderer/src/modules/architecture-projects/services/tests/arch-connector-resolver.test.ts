@@ -14,30 +14,30 @@ const MM = `namespace archmm {
 }`
 
 function repo() { return load([{ uri: 'mm.todl', text: MM }]).model }
-const scope = new Set(['V'])
+const scope = new Set(['archmm.V'])
 
 test('one matching relationship member → one action', () => {
-    const actions = resolveConnectorActions(repo(), 'component', 'technology', scope)
+    const actions = resolveConnectorActions(repo(), 'archmm.component', 'archmm.technology', scope)
     expect(actions.map((a) => a.member)).toEqual(['realisedBy'])
 })
 
 test('subtype target is accepted via the supertype member (subtype-aware)', () => {
     // realisedBy targets technology; database is a subtype → still matches.
-    const actions = resolveConnectorActions(repo(), 'component', 'database', scope)
+    const actions = resolveConnectorActions(repo(), 'archmm.component', 'archmm.database', scope)
     expect(actions.map((a) => a.member)).toEqual(['realisedBy'])
 })
 
 test('several matching members → many actions (chooser case)', () => {
-    const actions = resolveConnectorActions(repo(), 'component', 'component', scope)
+    const actions = resolveConnectorActions(repo(), 'archmm.component', 'archmm.component', scope)
     expect(actions.map((a) => a.member).sort()).toEqual(['calls', 'uses'])
 })
 
 test('no member accepting the target → empty (reject)', () => {
-    const actions = resolveConnectorActions(repo(), 'technology', 'component', scope)
+    const actions = resolveConnectorActions(repo(), 'archmm.technology', 'archmm.component', scope)
     expect(actions).toEqual([])
 })
 
 test('source concept out of scope → empty', () => {
-    const actions = resolveConnectorActions(repo(), 'component', 'technology', new Set(['OTHER']))
+    const actions = resolveConnectorActions(repo(), 'archmm.component', 'archmm.technology', new Set(['OTHER']))
     expect(actions).toEqual([])
 })

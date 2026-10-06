@@ -2,6 +2,7 @@ import { MetaKind, type Repository } from '@pragmatic-tech-ai/todl'
 import { conceptTypeOf, acceptSet } from './arch-concept-type.js'
 import { materializeOf, materializeRoots } from './arch-materialize.js'
 import { isContainerConcept } from './containment.js'
+import { NodeNames } from './node-names.js'
 
 // What a term-drop can create: PLACE the dropped term's own entity (a container
 // concept, e.g. a library location), a direct instance of a materialize root, an
@@ -45,7 +46,7 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
     //    Takes priority. Location terms are class-terms yet concrete placeable
     //    entities, so isContainerConcept (NOT the class flag) is the gate.
     if (isContainerConcept(repo, ct) && framed(ct))
-        return [{ kind: DropActionKind.Place, concept: ct, term: termId, label: ct }]
+        return [{ kind: DropActionKind.Place, concept: ct, term: termId, label: NodeNames.Simple(ct) }]
 
     // 0b. REJECT: the dropped term IS a container concept (a placeable location /
     //     block / subscription / …) but this diagram's viewpoint does NOT frame it.
@@ -55,7 +56,7 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
     //     That surprise is the bug; interrupt with an explanation instead. The
     //     factory turns this into a modal (it owns the dialog service + labels).
     if (isContainerConcept(repo, ct))
-        return [{ kind: DropActionKind.Rejected, concept: ct, term: termId, label: ct }]
+        return [{ kind: DropActionKind.Rejected, concept: ct, term: termId, label: NodeNames.Simple(ct) }]
 
     // 0c. PLACE-LEAF: the dropped term is a class-term ARCHETYPE of a concept the
     //     meta-model marks as a drop concept (a materialize root) but that is NOT a
@@ -70,14 +71,14 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
     //     `application-kind` / `lifecycle-stage` / … archetypes too. Container
     //     archetypes are handled above (0/0b), so this is the non-container case.
     if (isClassTerm && roots.includes(ct) && framed(ct))
-        return [{ kind: DropActionKind.Place, concept: ct, term: termId, label: ct }]
+        return [{ kind: DropActionKind.Place, concept: ct, term: termId, label: NodeNames.Simple(ct) }]
 
     // 1. Direct: the term's own class (or a supertype) is a root → instantiate it.
     //    Class-terms are excluded — a bare instance would lose which term it is,
     //    so they route through a reference instead.
     const directRoot = [...accept].find((r) => roots.includes(r) && framed(r))
     if (directRoot !== undefined && !isClassTerm)
-        return [{ kind: DropActionKind.Instance, concept: directRoot, label: directRoot }]
+        return [{ kind: DropActionKind.Instance, concept: directRoot, label: NodeNames.Simple(directRoot) }]
 
     // 2. Redirect override on the term, else on its facet concept.
     const spec = materializeOf(repo, termId) ?? materializeOf(repo, ct)
@@ -85,7 +86,7 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
     {
         const member = spec.via ?? singleAcceptingMember(repo, spec.concept, accept)
         if (member !== undefined)
-            return [{ kind: DropActionKind.Reference, concept: spec.concept, member, term: termId, label: `${spec.concept}  (${member})` }]
+            return [{ kind: DropActionKind.Reference, concept: spec.concept, member, term: termId, label: `${NodeNames.Simple(spec.concept)}  (${member})` }]
     }
 
     // 3. Facet drop: scan ROOTS ONLY (not every concept) for a member accepting ct.
@@ -95,7 +96,7 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
         if (!framed(r)) continue
         for (const rel of repo.effectiveSchema(r).relationships)
             if (rel.targets.some((t) => accept.has(t)))
-                actions.push({ kind: DropActionKind.Reference, concept: r, member: rel.name, term: termId, label: `${r}  (${rel.name})` })
+                actions.push({ kind: DropActionKind.Reference, concept: r, member: rel.name, term: termId, label: `${NodeNames.Simple(r)}  (${rel.name})` })
     }
     return actions
 }
@@ -122,7 +123,7 @@ function legacyResolveDropActions(repo: Repository, termId: string, scope: Reado
     const isClassTerm = node.isClass
 
     const actions: DropAction[] = []
-    if (!isClassTerm && framed(ct)) actions.push({ kind: DropActionKind.Instance, concept: ct, label: ct })
+    if (!isClassTerm && framed(ct)) actions.push({ kind: DropActionKind.Instance, concept: ct, label: NodeNames.Simple(ct) })
 
     for (const n of repo.allNodes())
     {
@@ -132,7 +133,7 @@ function legacyResolveDropActions(repo: Repository, termId: string, scope: Reado
         for (const rel of repo.effectiveSchema(x).relationships)
         {
             if (rel.targets.some((t) => accept.has(t)))
-                actions.push({ kind: DropActionKind.Reference, concept: x, member: rel.name, term: termId, label: `${x}  (${rel.name})` })
+                actions.push({ kind: DropActionKind.Reference, concept: x, member: rel.name, term: termId, label: `${NodeNames.Simple(x)}  (${rel.name})` })
         }
     }
     return actions
