@@ -8,6 +8,7 @@ import { TodlPresentationRegistry } from './todl-presentation-registry.js'
 import { TodlVisualSelector } from './todl-visual-selector.js'
 import { LibraryPresentationSource } from '../../library/services/library-presentation-source.js'
 import { MetaModelPresentationSource } from '../../meta-model/services/meta-model-presentation-source.js'
+import { SolutionGraphPresentationSource } from './solution-graph-presentation-source.js'
 
 // Idempotently register the Plexus toolbox resolver + drop factory into the
 // service provider. Safe to call on every reload — existing registrations are
@@ -21,6 +22,9 @@ export function registerArchToolboxAdapters(services: ServiceProvider): void
         registry = new TodlPresentationRegistry(services)
         services.registerInstance(TodlPresentationRegistry.Key, registry)
     }
+    // The solution graph's own source members bake icons live (no published package) —
+    // registered AHEAD of the local-cache sources, which stay as the published fallback.
+    registry.registerSource(new SolutionGraphPresentationSource(services))
     registry.registerSource(new LibraryPresentationSource(services, () => services.get(LibraryRegistry.Key)?.discover() ?? Promise.resolve([])))
     registry.registerSource(new MetaModelPresentationSource(services))
 

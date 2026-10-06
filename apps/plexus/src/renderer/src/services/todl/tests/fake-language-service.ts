@@ -1,6 +1,6 @@
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { Observable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { SolutionLanguageService, SolutionManagerService, type RenameError } from '@pragmatic-tech-ai/todl'
+import { Observable, Signal, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { SolutionLanguageService, SolutionManagerService, type RenameError, type Repository, type TodlDocument, type WikiOrigin } from '@pragmatic-tech-ai/todl'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import type {
   CodeAction, CompletionItem, Diagnostic, DocumentSymbol, FoldingRange, Hover,
@@ -30,6 +30,16 @@ export class FakeLanguageService extends Observable
   private readonly diagnostics = new Map<string, Diagnostic[]>()
   // Per-storage unresolved-base problems ResolveBasesFor returns.
   public readonly BaseProblems = new Map<IStorage, string[]>()
+  // Per-storage resolved base documents ResolveBasesFor returns (empty when unset).
+  public readonly BasesByStorage = new Map<IStorage, TodlDocument[]>()
+  // Per-storage member id ConsumerIdOf returns (the id GraphChanged names a member by).
+  public readonly ConsumerIds = new Map<IStorage, string>()
+  // The shared solution graph ModelView serves, and the per-node origin map that says
+  // which member storage each node was authored in. Undefined → no active solution.
+  public ModelViewResult: { model: Repository; originOf: ReadonlyMap<string, WikiOrigin> } | undefined = undefined
+  // The shared-graph change signal source members subscribe to; a test fires it to drive
+  // cache invalidation.
+  public readonly GraphChanged = new Signal<{ memberIds: readonly string[] }>()
   private staleMembers: ReadonlySet<string> = new Set()
 
   public SetDiagnostics(uri: string, diags: Diagnostic[]): void
@@ -124,9 +134,9 @@ export class FakeLanguageService extends Observable
     return Promise.resolve([])
   }
 
-  public ResolveBasesFor(storage: IStorage): Promise<{ bases: never[]; problems: string[]; originOf: ReadonlyMap<string, never> }>
+  public ResolveBasesFor(storage: IStorage): Promise<{ bases: TodlDocument[]; problems: string[]; originOf: ReadonlyMap<string, WikiOrigin> }>
   {
-    return Promise.resolve({ bases: [], problems: this.BaseProblems.get(storage) ?? [], originOf: new Map() })
+    return Promise.resolve({ bases: this.BasesByStorage.get(storage) ?? [], problems: this.BaseProblems.get(storage) ?? [], originOf: new Map() })
   }
 
   public ReferencedPublishedRefs(_storage: IStorage): Promise<Set<string>>
@@ -134,9 +144,24 @@ export class FakeLanguageService extends Observable
     return Promise.resolve(new Set())
   }
 
-  public ProducedIdOf(_storage: IStorage): Promise<string | undefined>
+  public ProducedIdOf(storage: IStorage): Promise<string | undefined>
   {
-    return Promise.resolve(undefined)
+    return Promise.resolve(this.ConsumerIds.get(storage))
+  }
+
+  public ConsumerIdOf(storage: IStorage): Promise<string | undefined>
+  {
+    return Promise.resolve(this.ConsumerIds.get(storage))
+  }
+
+  public ModelView(_storage: IStorage): Promise<{ model: Repository; originOf: ReadonlyMap<string, WikiOrigin> } | undefined>
+  {
+    return Promise.resolve(this.ModelViewResult)
+  }
+
+  public Resources(_nodeId: string): Promise<never[]>
+  {
+    return Promise.resolve([])
   }
 
   public WhenIdle(): Promise<void>
