@@ -19,13 +19,14 @@ function emptyModel(): ArchModel
 
 test('createInViewpoint homes the entity in the viewpoint file, stamps conforms, and round-trips', () => {
     const m = emptyModel()
-    const e = m.createInViewpoint('component', 'ComponentView')
-    expect(e.concept).toBe('component')
+    const e = m.createInViewpoint('archmm.component', 'archmm.ComponentView')
+    expect(e.concept).toBe('archmm.component')
     expect(m.homeOf(e.id)).toBe('componentview.todl')
     const files = new Map(m['draft'].toTodlByFile())   // access via bracket for the test
     const text = files.get('componentview.todl')!
-    expect(text).toContain('conforms ComponentView')
-    expect(text).toContain(e.id)
+    expect(text).toContain('conforms archmm.ComponentView')
+    expect(e.id).toBe('archmm.component1')
+    expect(text).toContain('component1')   // emitted as the local name; the loader re-qualifies it
     // Round-trips clean against the meta-model base.
     const diags = checkAgainst([mmDoc()], [{ uri: 'componentview.todl', text }]).diagnostics
     expect(diags.filter((d) => d.severity === Severity.Error)).toEqual([])
@@ -33,9 +34,9 @@ test('createInViewpoint homes the entity in the viewpoint file, stamps conforms,
 
 test('uniqueId disambiguates a taken id; a second createInViewpoint reuses the same file', () => {
     const m = emptyModel()
-    const a = m.createInViewpoint('component', 'ComponentView')
-    const b = m.createInViewpoint('component', 'ComponentView')
-    expect(a.id).toBe('component1')
-    expect(b.id).toBe('component2')
-    expect(m.homeForViewpoint('ComponentView')).toBe('componentview.todl')   // reuses a's file
+    const a = m.createInViewpoint('archmm.component', 'archmm.ComponentView')
+    const b = m.createInViewpoint('archmm.component', 'archmm.ComponentView')
+    expect(a.id).toBe('archmm.component1')
+    expect(b.id).toBe('archmm.component2')
+    expect(m.homeForViewpoint('archmm.ComponentView')).toBe('componentview.todl')   // reuses a's file
 })

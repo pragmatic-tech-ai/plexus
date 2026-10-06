@@ -2,6 +2,7 @@ import { ModelDraft } from '@pragmatic-tech-ai/todl'
 import type { Repository, Entity, SourceFile } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { type WikiOrigin, WikiLocator } from '../../../services/projects/wiki-origin.js'
+import { NodeNames } from './node-names.js'
 
 // One viewpoint's projection over the model: the concepts it frames and the
 // entities visible through it (an entity is a member when its concept is framed
@@ -175,7 +176,7 @@ export class ArchModel
                 if (h !== undefined) return h
             }
         }
-        return `${vp.toLowerCase()}.todl`
+        return `${NodeNames.Simple(vp).toLowerCase()}.todl`
     }
 
     // Create a new own instance of `concept`, routed to `vp`'s file and stamped
@@ -196,11 +197,13 @@ export class ArchModel
         this.fire()
     }
 
-    // A model-unique id: `concept1`, `concept2`, … Numbered from 1 so it never
-    // collides with the concept node itself (which shares the lowercased name).
+    // A model-unique id: `<projectNs>.concept1`, `<projectNs>.concept2`, … Based on
+    // the concept's BARE local name (never the meta-model's namespace) and qualified
+    // by THIS project's namespace, exactly as the loader will re-derive it on
+    // reload — so the id is stable across save/reload. Numbered from 1.
     public uniqueId(concept: string): string
     {
-        const base = concept.toLowerCase()
+        const base = `${this.namespace}.${NodeNames.Simple(concept).toLowerCase()}`
         let i = 1
         while (this.repository().resolve(`${base}${i}`) !== undefined) i++
         return `${base}${i}`

@@ -79,3 +79,10 @@ test('dropping a container-concept term where its concept is NOT framed is REJEC
     expect(actions).toHaveLength(1)
     expect(actions[0]).toMatchObject({ kind: DropActionKind.Rejected, concept: 'archmm.location', term: 'archmm.Regions.azure' })
 })
+
+test('chooser row labels show bare concept names, not qualified ids', () => {
+    const actions = resolveDropActions(repo(), 'archmm.Stack.azure', scope)
+    expect(actions.map((a) => a.label)).toEqual(['component  (realisedBy)'])
+    const kinds = resolveDropActions(repo(), 'archmm.Solo.hermit', scope)
+    expect(kinds.every((a) => !a.label.includes('archmm.'))).toBe(true)
+})
