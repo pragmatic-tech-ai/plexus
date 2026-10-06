@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, DialogService, Figure, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
@@ -17,7 +17,7 @@ const MM = `namespace archmm {
 }`
 function buildModel(storage: FakeStorage): ArchModel
 {
-    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
+    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
@@ -44,10 +44,10 @@ test('a single-candidate drop creates the routed entity + an ArchNodeVM at the d
     const doc = new DiagramDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model))
 
-    const result = factory.CreateDropped(ctx(doc, 'Stack.azure')) as ArchNodeVM
+    const result = factory.CreateDropped(ctx(doc, 'archmm.Stack.azure')) as ArchNodeVM
     expect(result).toBeInstanceOf(ArchNodeVM)
     // Entity created: a component that references azure via realisedBy.
-    const comp = model.entities().find((e) => e.concept === 'component')!
+    const comp = model.entities().find((e) => e.concept === 'archmm.component')!
     expect(comp).toBeDefined()
     expect(result.Id).toBe(comp.id)
     // Position rides the document store by id (the container Figure owns geometry),
@@ -94,7 +94,7 @@ const PROP_MM = `namespace archmm {
 
 function buildPropModel(storage: FakeStorage): ArchModel
 {
-    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: PROP_MM }]).model)))], [], { namespace: 'archmm' })
+    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: PROP_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
@@ -104,13 +104,13 @@ test('dropping a technology wires the primary member AND back-fills the category
     const doc = new DiagramDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model))
 
-    const result = factory.CreateDropped(ctx(doc, 'Stack.azure')) as ArchNodeVM
+    const result = factory.CreateDropped(ctx(doc, 'archmm.Stack.azure')) as ArchNodeVM
     expect(result).toBeInstanceOf(ArchNodeVM)
-    const comp = model.entities().find((e) => e.concept === 'component')!
+    const comp = model.entities().find((e) => e.concept === 'archmm.component')!
     // Primary member wired to the dropped technology term.
-    expect(model.repository().refs(comp.id, 'implementedBy')).toContain('Stack.azure')
+    expect(model.repository().refs(comp.id, 'implementedBy')).toContain('archmm.Stack.azure')
     // Category back-filled from the technology term's own applicableTo ref.
-    expect(model.repository().refs(comp.id, 'categorisedAs')).toContain('Cats.ai')
+    expect(model.repository().refs(comp.id, 'categorisedAs')).toContain('archmm.Cats.ai')
 })
 
 // ── Drop INTO a container: validate containment, modal on reject (Task 5) ──────
@@ -133,7 +133,7 @@ const CONTAIN_MM = `namespace archmm {
 }`
 function buildContainModel(storage: FakeStorage): ArchModel
 {
-    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: CONTAIN_MM }]).model)))], [], { namespace: 'archmm' })
+    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: CONTAIN_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 // A provider that also carries a spy DialogService, so the reject modal is observable.
@@ -153,13 +153,13 @@ test('a legal drop into a model-backed container writes the containment ref, no 
     const storage = new FakeStorage('fake://Acme')
     const model = buildContainModel(storage)
     const doc = new DiagramDocument()
-    const loc = model.createInViewpoint('location', 'V')
+    const loc = model.createInViewpoint('archmm.location', 'archmm.V')
     const { provider, shows } = wireWithDialogs(doc, model)
     const factory = new ArchInstanceDropFactory(provider)
 
-    const result = factory.CreateDropped(ctxInto(doc, 'Stack.azure', loc.id)) as ArchNodeVM
+    const result = factory.CreateDropped(ctxInto(doc, 'archmm.Stack.azure', loc.id)) as ArchNodeVM
     expect(result).toBeInstanceOf(ArchNodeVM)
-    const comp = model.entities().find((e) => e.concept === 'component')!
+    const comp = model.entities().find((e) => e.concept === 'archmm.component')!
     // The containment ref was written → projection will nest it under the container.
     expect(model.repository().refs(comp.id, 'in')).toContain(loc.id)
     expect(shows.length).toBe(0)
@@ -177,7 +177,7 @@ const PLACE_MM = `namespace archmm {
 }`
 function buildPlaceModel(storage: FakeStorage): ArchModel
 {
-    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: PLACE_MM }]).model)))], [], { namespace: 'archmm' })
+    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: PLACE_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
@@ -188,16 +188,16 @@ test('dropping a location term places the location entity itself (container), no
     const before = model.entities().length
     const factory = new ArchInstanceDropFactory(wire(doc, model))
 
-    const result = factory.CreateDropped(ctx(doc, 'Regions.azure')) as ArchNodeVM
+    const result = factory.CreateDropped(ctx(doc, 'archmm.Regions.azure')) as ArchNodeVM
     expect(result).toBeInstanceOf(ArchNodeVM)
-    expect(result.Id).toBe('Regions.azure')          // the location entity itself, not a fresh component
+    expect(result.Id).toBe('archmm.Regions.azure')          // the location entity itself, not a fresh component
     expect(model.entities().length).toBe(before)     // no new instance materialized
     expect([...doc.Nodes].includes(result)).toBe(true)
-    const visual = doc.GetNodeVisual('Regions.azure')
+    const visual = doc.GetNodeVisual('archmm.Regions.azure')
     expect(visual?.left).toBe(5)
 
     // Dropping it again does not place a duplicate.
-    expect(factory.CreateDropped(ctx(doc, 'Regions.azure'))).toBeNull()
+    expect(factory.CreateDropped(ctx(doc, 'archmm.Regions.azure'))).toBeNull()
 })
 
 // A container-concept term dropped on a diagram whose viewpoint does NOT frame it
@@ -213,7 +213,7 @@ const REJECT_MM = `namespace archmm {
 }`
 function buildRejectModel(storage: FakeStorage): ArchModel
 {
-    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: REJECT_MM }]).model)))], [], { namespace: 'archmm' })
+    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: REJECT_MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
 
@@ -226,18 +226,18 @@ test('dropping a location where its viewpoint is not framed is REJECTED with a m
     const shows: Array<{ Title?: string }> = []
     provider.registerInstance(ArchDiagramBindingService.Key, {
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
-        scopeForDocument: () => new Set(['Scenarios']),   // frames component, NOT location
+        scopeForDocument: () => new Set(['archmm.Scenarios']),   // frames component, NOT location
     } as unknown as ArchDiagramBindingService)
     provider.registerInstance(DropCandidateChooserService.Key, new DropCandidateChooserService(provider))
     provider.registerInstance(DialogService.Key, { Show: (o: { Title?: string }) => { shows.push(o); return Promise.resolve(undefined) }, Close: () => {} } as unknown as DialogService)
     const factory = new ArchInstanceDropFactory(provider)
 
-    const result = factory.CreateDropped(ctx(doc, 'Regions.azure'))
+    const result = factory.CreateDropped(ctx(doc, 'archmm.Regions.azure'))
     expect(result).toBeNull()                          // nothing placed
     expect(shows.length).toBe(1)                       // the explanatory modal fired
     expect(shows[0]!.Title).toContain('Azure')         // "Can't place "Azure" here"
     expect(model.entities().length).toBe(before)       // NO component minted
-    expect(model.entities().some((e) => e.concept === 'component')).toBe(false)
+    expect(model.entities().some((e) => e.concept === 'archmm.component')).toBe(false)
     expect([...doc.Nodes].length).toBe(0)
 })
 
@@ -245,16 +245,16 @@ test('an illegal drop into a container shows the modal, creates no entity', () =
     const storage = new FakeStorage('fake://Acme')
     const model = buildContainModel(storage)
     const doc = new DiagramDocument()
-    const zone = model.createInViewpoint('zone', 'V')
+    const zone = model.createInViewpoint('archmm.zone', 'archmm.V')
     const before = model.entities().length
     const { provider, shows } = wireWithDialogs(doc, model)
     const factory = new ArchInstanceDropFactory(provider)
 
-    const result = factory.CreateDropped(ctxInto(doc, 'Stack.azure', zone.id))
+    const result = factory.CreateDropped(ctxInto(doc, 'archmm.Stack.azure', zone.id))
     expect(result).toBeNull()
     expect(shows.length).toBe(1)
     expect(shows[0]!.Title).toBe('Cannot nest here')
     // No component was created (the drop aborted before createInViewpoint).
     expect(model.entities().length).toBe(before)
-    expect(model.entities().some((e) => e.concept === 'component')).toBe(false)
+    expect(model.entities().some((e) => e.concept === 'archmm.component')).toBe(false)
 })

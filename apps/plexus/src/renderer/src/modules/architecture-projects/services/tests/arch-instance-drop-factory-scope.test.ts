@@ -43,16 +43,16 @@ function ctx(doc: DiagramDocument, key: string): ToolboxDropContext
 test('scope=ComponentView → the drop creates a component (node is out of scope)', () => {
     const model = buildModel(new FakeStorage('fake://Acme'))
     const doc = new DiagramDocument()
-    const factory = new ArchInstanceDropFactory(wire(doc, model, new Set(['ComponentView'])))
-    const result = factory.CreateDropped(ctx(doc, 'Stack.azure')) as ArchNodeVM
+    const factory = new ArchInstanceDropFactory(wire(doc, model, new Set(['archmm.ComponentView'])))
+    const result = factory.CreateDropped(ctx(doc, 'archmm.Stack.azure')) as ArchNodeVM
     expect(result).toBeInstanceOf(ArchNodeVM)
-    expect(model.entities().map((e) => e.concept)).toEqual(['component'])
+    expect(model.entities().map((e) => e.concept)).toEqual(['archmm.component'])
 })
 
 test('scope=DeploymentView → the same drop creates a node', () => {
     const model = buildModel(new FakeStorage('fake://Acme'))
     const doc = new DiagramDocument()
-    const factory = new ArchInstanceDropFactory(wire(doc, model, new Set(['DeploymentView'])))
-    factory.CreateDropped(ctx(doc, 'Stack.azure'))
-    expect(model.entities().map((e) => e.concept)).toEqual(['node'])
+    const factory = new ArchInstanceDropFactory(wire(doc, model, new Set(['archmm.DeploymentView'])))
+    factory.CreateDropped(ctx(doc, 'archmm.Stack.azure'))
+    expect(model.entities().map((e) => e.concept)).toEqual(['archmm.node'])
 })

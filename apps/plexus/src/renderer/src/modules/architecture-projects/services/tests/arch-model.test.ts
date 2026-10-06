@@ -27,22 +27,22 @@ function buildModel(): ArchModel
 test('namespace + entities expose the composed own instances', () => {
     const m = buildModel()
     expect(m.namespace).toBe('archmm')
-    expect(m.entities().map((e) => e.id).sort()).toEqual(['host', 'web'])
+    expect(m.entities().map((e) => e.id).sort()).toEqual(['archmm.host', 'archmm.web'])
 })
 
 test('viewpoints() lists framed concepts and subtype-aware members', () => {
     const m = buildModel()
     const vps = new Map(m.viewpoints().map((v) => [v.id, v]))
-    expect([...vps.keys()].sort()).toEqual(['ComponentView', 'DeploymentView'])
-    expect(vps.get('ComponentView')!.framedConcepts).toEqual(['Component'])
-    expect(vps.get('ComponentView')!.members.map((e) => e.id)).toEqual(['web'])
+    expect([...vps.keys()].sort()).toEqual(['archmm.ComponentView', 'archmm.DeploymentView'])
+    expect(vps.get('archmm.ComponentView')!.framedConcepts).toEqual(['archmm.Component'])
+    expect(vps.get('archmm.ComponentView')!.members.map((e) => e.id)).toEqual(['archmm.web'])
     // DeploymentView frames Node + Component, so both host and web are members.
-    expect(vps.get('DeploymentView')!.members.map((e) => e.id).sort()).toEqual(['host', 'web'])
+    expect(vps.get('archmm.DeploymentView')!.members.map((e) => e.id).sort()).toEqual(['archmm.host', 'archmm.web'])
 })
 
 test('repository() returns the working repo composing base concepts + own instances', () => {
     const m = buildModel()
     const repo = m.repository()
-    expect(repo.resolve('Component')?.metaKind).toBe('concept')   // from the meta-model base
-    expect(repo.resolve('web')?.type).toBe('Component')           // own instance over the base
+    expect(repo.resolve('archmm.Component')?.metaKind).toBe('concept')   // from the meta-model base
+    expect(repo.resolve('archmm.web')?.type).toBe('archmm.Component')           // own instance over the base
 })

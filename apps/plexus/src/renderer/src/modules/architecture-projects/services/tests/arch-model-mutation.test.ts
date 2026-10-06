@@ -28,8 +28,8 @@ test('create adds an own entity into its home file and fires onChanged', () => {
     const m = buildModel()
     let fired = 0
     m.onChanged(() => { fired++ })
-    m.create('Component', 'api', 'model-a.todl')
-    expect(m.entities().map((e) => e.id).sort()).toEqual(['api', 'host', 'web'])
+    m.create('archmm.Component', 'archmm.api', 'model-a.todl')
+    expect(m.entities().map((e) => e.id).sort()).toEqual(['archmm.api', 'archmm.host', 'archmm.web'])
     expect(fired).toBe(1)
 })
 
@@ -37,16 +37,16 @@ test('onChanged unsubscribe stops further notifications', () => {
     const m = buildModel()
     let fired = 0
     const off = m.onChanged(() => { fired++ })
-    m.setField('web', 'label', 'Web')
+    m.setField('archmm.web', 'label', 'Web')
     off()
-    m.setField('web', 'label', 'Web2')
+    m.setField('archmm.web', 'label', 'Web2')
     expect(fired).toBe(1)
 })
 
 test('save writes each home file and the result recompiles clean', async () => {
     const storage = new FakeStorage('fake://Arch')
     const m = buildModel(storage)
-    m.create('Component', 'api', 'model-a.todl')
+    m.create('archmm.Component', 'archmm.api', 'model-a.todl')
     await m.save()
     const a = await storage.ReadText('model-a.todl')
     const b = await storage.ReadText('model-b.todl')

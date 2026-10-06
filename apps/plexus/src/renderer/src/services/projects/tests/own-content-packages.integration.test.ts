@@ -56,7 +56,7 @@ describe('own-content packages: publish own-only → resolve transitively → va
     const metaOut = compilePackage([], [{ uri: 'ea.todl', text: META }], { id: 'ea', version: '1.0.0' })
     expect(metaOut.ok).toBe(true)
     const metaDoc = metaOut.package!.document
-    expect(metaDoc.nodes.some((n) => n.id === 'identifier')).toBe(false) // own-only: no prelude
+    expect(metaDoc.nodes.some((n) => n.id === 'todl.identifier')).toBe(false) // own-only: no prelude
     await meta.WriteText('ea/1.0.0/model.json', JSON.stringify(metaDoc))
 
     // Publish the library own-only against the (own-only) meta-model, recording it
@@ -65,7 +65,7 @@ describe('own-content packages: publish own-only → resolve transitively → va
     const libOut = compilePackage([metaDoc], [{ uri: 'lib.todl', text: LIB }], { id: 'lib', version: '0.1.0' }, deps)
     expect(libOut.ok).toBe(true)
     const libDoc = libOut.package!.document
-    expect(libDoc.nodes.some((n) => n.id === 'Location')).toBe(false)   // own-only: no base nodes
+    expect(libDoc.nodes.some((n) => n.id === 'ea.Location')).toBe(false)   // own-only: no base nodes
     expect(libDoc.dependencies).toEqual(deps)
     await libs.WriteText('lib/0.1.0/model.json', JSON.stringify(libDoc))
 
@@ -82,8 +82,8 @@ describe('own-content packages: publish own-only → resolve transitively → va
     expect(problems).toEqual([])
     // Both own-only docs reassembled.
     const ids = bases.flatMap((b) => b.nodes.map((n) => n.id))
-    expect(ids).toContain('Microsoft.azure')
-    expect(ids).toContain('Location')
+    expect(ids).toContain('lib.Microsoft.azure')
+    expect(ids).toContain('ea.Location')
 
     // Validate the architecture source against the reassembled closure — the
     // dangling cross-references resolve, so no undefined references.

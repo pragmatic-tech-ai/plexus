@@ -16,11 +16,11 @@ function model(originOf: Map<string, WikiOrigin>): ArchModel
 describe('ArchModel.wikiOriginOf', () => {
     test('returns the tagged origin for a base concept', () => {
         const origin = WikiLocator.PackageOrigin('mm', '1.0.0')
-        expect(model(new Map([['service', origin]])).wikiOriginOf('service')).toBe(origin)
+        expect(model(new Map([['mm.service', origin]])).wikiOriginOf('mm.service')).toBe(origin)
     })
 
     test('a resolvable but untagged concept defaults to this project (open source)', () => {
-        const o = model(new Map()).wikiOriginOf('service')
+        const o = model(new Map()).wikiOriginOf('mm.service')
         expect(o?.kind).toBe(WikiOriginKind.OpenProject)
     })
 

@@ -1,4 +1,7 @@
 import { MetaKind, type Repository } from '@pragmatic-tech-ai/todl'
+import { NodeNames } from './node-names.js'
+
+const MaterializeAnnotation = 'materialize'
 
 export interface MaterializeSpec { concept?: string; via?: string; propagate?: boolean }
 
@@ -10,9 +13,10 @@ function bool(v: unknown): boolean | undefined { return typeof v === 'boolean' ?
 // returns {} (present, every field undefined).
 export function materializeOf(repo: Repository, id: string): MaterializeSpec | undefined
 {
-    const node = repo.resolve(`${id}@materialize`)
+    const node = NodeNames.Application(repo, id, MaterializeAnnotation)
     if (node === undefined) return undefined
-    return { concept: str(node.attrs.get('concept')), via: str(node.attrs.get('via')), propagate: bool(node.attrs.get('propagate')) }
+    const concept = str(node.attrs.get('concept'))
+    return { concept: concept === undefined ? undefined : NodeNames.QualifyConcept(repo, concept, id), via: str(node.attrs.get('via')), propagate: bool(node.attrs.get('propagate')) }
 }
 
 // A drop-created root: a concept carrying a materialize marker that does NOT

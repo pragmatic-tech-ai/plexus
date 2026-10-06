@@ -52,10 +52,10 @@ describe('context-scoped model / scenario pages', () => {
             onSourceChanged: (cb) => model.onChanged(cb),
         })
         page.attach()
-        expect(page.Items.ToArray().map((i) => i.Id)).toEqual(['instance:web'])
+        expect(page.Items.ToArray().map((i) => i.Id)).toEqual(['instance:archmm.web'])
 
         model.reloadFromDisk([fileWeb, fileApi])   // the .todl on disk gained an entity
-        expect(page.Items.ToArray().map((i) => i.Id).sort()).toEqual(['instance:api', 'instance:web'])
+        expect(page.Items.ToArray().map((i) => i.Id).sort()).toEqual(['instance:archmm.api', 'instance:archmm.web'])
     })
 
     it('does not recompute items while hidden by context', () => {

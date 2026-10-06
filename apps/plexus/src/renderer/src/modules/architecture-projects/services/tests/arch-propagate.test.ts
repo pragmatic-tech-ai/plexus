@@ -15,13 +15,13 @@ const MM = `namespace m {
 function repo() { return load([{ uri: 'm.todl', text: MM }]).model }
 
 test('back-fills categorisedAs from the technology term’s own applicableTo ref', () => {
-    expect(propagationFills(repo(), 'component', 'Stack.azure', 'implementedBy'))
-        .toEqual([{ member: 'categorisedAs', term: 'Cats.ai' }])
+    expect(propagationFills(repo(), 'm.component', 'm.Stack.azure', 'implementedBy'))
+        .toEqual([{ member: 'categorisedAs', term: 'm.Cats.ai' }])
 })
 
 test('the primary member is never back-filled', () => {
     // Drop the category itself as primary; it carries no refs, so nothing propagates.
-    expect(propagationFills(repo(), 'component', 'Cats.ai', 'categorisedAs')).toEqual([])
+    expect(propagationFills(repo(), 'm.component', 'm.Cats.ai', 'categorisedAs')).toEqual([])
 })
 
 test('a ref matching more than one empty member is skipped (no guess)', () => {
@@ -37,5 +37,5 @@ test('a ref matching more than one empty member is skipped (no guess)', () => {
       taxonomy Stack : represents technology { term azure { applicableTo = Cats.ai; } }
     }`
     const r = load([{ uri: 'm.todl', text: AMBIG }]).model
-    expect(propagationFills(r, 'component', 'Stack.azure', 'implementedBy')).toEqual([])
+    expect(propagationFills(r, 'm.component', 'm.Stack.azure', 'implementedBy')).toEqual([])
 })

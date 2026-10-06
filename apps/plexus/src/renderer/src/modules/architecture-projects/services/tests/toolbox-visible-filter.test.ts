@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { modelPageItems, scenarioPageItems, conceptToolboxVisible } from '../arch-model-toolbox-contributor.js'
@@ -10,7 +10,6 @@ const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegist
 // service: hidden (visible = false); widget: visible = true; gadget: no annotation.
 // A scenario concept is hidden so the Scenarios page collapses.
 const MM = `namespace archmm {
-  annotation toolbox { visible : boolean; }
   concept service { annotate toolbox { visible = false; } }
   concept widget  { annotate toolbox { visible = true; } }
   concept gadget  {}
@@ -24,30 +23,30 @@ const MM = `namespace archmm {
 function buildModel(): ArchModel
 {
     const draft = ModelDraft.fromSources(
-        [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
+        [new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
 test('conceptToolboxVisible: opt-out false, explicit true, and absent (default visible)', () => {
     const repo = buildModel().repository()
-    expect(conceptToolboxVisible(repo, 'service')).toBe(false)
-    expect(conceptToolboxVisible(repo, 'widget')).toBe(true)
-    expect(conceptToolboxVisible(repo, 'gadget')).toBe(true)   // no annotation → visible
+    expect(conceptToolboxVisible(repo, 'archmm.service')).toBe(false)
+    expect(conceptToolboxVisible(repo, 'archmm.widget')).toBe(true)
+    expect(conceptToolboxVisible(repo, 'archmm.gadget')).toBe(true)   // no annotation → visible
 })
 
 test('modelPageItems drops entities whose concept opts out of the toolbox', () => {
     const model = buildModel()
-    model.createInViewpoint('service', 'V')          // hidden
-    const w = model.createInViewpoint('widget', 'V') // visible = true
-    const g = model.createInViewpoint('gadget', 'V') // no annotation → visible
+    model.createInViewpoint('archmm.service', 'archmm.V')          // hidden
+    const w = model.createInViewpoint('archmm.widget', 'archmm.V') // visible = true
+    const g = model.createInViewpoint('archmm.gadget', 'archmm.V') // no annotation → visible
 
-    const ids = modelPageItems(model, new Set(['V']), new Set(), reg).map((i) => i.Id).sort()
+    const ids = modelPageItems(model, new Set(['archmm.V']), new Set(), reg).map((i) => i.Id).sort()
     expect(ids).toEqual(['instance:' + g.id, 'instance:' + w.id].sort())
 })
 
 test('scenarioPageItems is empty when the scenario concept opts out', () => {
     const model = buildModel()
-    model.createInViewpoint('scenario', 'S')
-    expect(scenarioPageItems(model, new Set(['S']), reg)).toEqual([])
+    model.createInViewpoint('archmm.scenario', 'archmm.S')
+    expect(scenarioPageItems(model, new Set(['archmm.S']), reg)).toEqual([])
 })

@@ -1,4 +1,5 @@
 import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
+import { NodeNames } from './node-names.js'
 import type { Entity } from '@pragmatic-tech-ai/todl'
 import { ArchNodeVM } from './arch-node-vm.js'
 import type { ArchModel } from './arch-model.js'
@@ -44,5 +45,5 @@ export function nodesLeavingScope(doc: DiagramDocument, model: ArchModel, chosen
 function displayLabel(entity: Entity): string
 {
     const v = entity.field('label') ?? entity.field('name')
-    return v !== undefined ? String(v) : entity.id
+    return v !== undefined ? String(v) : NodeNames.Simple(entity.id)
 }

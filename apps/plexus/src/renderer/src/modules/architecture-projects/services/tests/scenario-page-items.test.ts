@@ -25,17 +25,17 @@ function buildModel(): ArchModel
 
 test('lists one scenario: item per in-scope scenario entity', () => {
     const model = buildModel()
-    const sc = model.createInViewpoint('scenario', 'S')
-    model.createInViewpoint('service', 'V')   // not a scenario
+    const sc = model.createInViewpoint('archmm.scenario', 'archmm.S')
+    model.createInViewpoint('archmm.service', 'archmm.V')   // not a scenario
 
-    const items = scenarioPageItems(model, new Set(['S']), reg)
+    const items = scenarioPageItems(model, new Set(['archmm.S']), reg)
     expect(items.map((i) => i.Id)).toEqual(['scenario:' + sc.id])
     expect(items[0].FactoryKey).toBe(ArchScenarioDropFactoryKey)
 })
 
 test('excludes scenarios not framed by the diagram scope', () => {
     const model = buildModel()
-    model.createInViewpoint('scenario', 'S')
+    model.createInViewpoint('archmm.scenario', 'archmm.S')
 
     expect(scenarioPageItems(model, new Set<string>(), reg)).toEqual([])
 })

@@ -18,11 +18,11 @@ function model(): ArchModel
 
 test('scopeSet defaults to all viewpoints when unset', () => {
     const b = new ArchDiagramBinding(new DiagramDocument(), model())
-    expect([...b.scopeSet()].sort()).toEqual(['ComponentView', 'DeploymentView'])
+    expect([...b.scopeSet()].sort()).toEqual(['archmm.ComponentView', 'archmm.DeploymentView'])
 })
 
 test('setScope narrows the scope', () => {
     const b = new ArchDiagramBinding(new DiagramDocument(), model())
-    b.setScope(['ComponentView'])
-    expect([...b.scopeSet()]).toEqual(['ComponentView'])
+    b.setScope(['archmm.ComponentView'])
+    expect([...b.scopeSet()]).toEqual(['archmm.ComponentView'])
 })

@@ -28,26 +28,26 @@ function repoWith(icons: string[], model: string): { repo: Repository; entity: (
 
 test('a referenced term with an icon annotation wins (component -> realisedBy -> azure)', () => {
     const { repo, entity } = repoWith(
-        ['Stack.azure'],
+        ['t.Stack.azure'],
         `namespace t { model M : t conforms V { component c1 { realisedBy = Stack.azure; } } }`,
     )
-    expect(iconEntityKey(repo, entity('c1'))).toBe('Stack.azure')
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.Stack.azure')
 })
 
 test("the entity's own concept is the fallback when no reference carries an icon", () => {
     const { repo, entity } = repoWith(
-        ['component'],
+        ['t.component'],
         `namespace t { model M : t conforms V { component c1 {} } }`,
     )
-    expect(iconEntityKey(repo, entity('c1'))).toBe('component')
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.component')
 })
 
 test('a referenced term is preferred over the own concept', () => {
     const { repo, entity } = repoWith(
-        ['Stack.azure', 'component'],
+        ['t.Stack.azure', 't.component'],
         `namespace t { model M : t conforms V { component c1 { realisedBy = Stack.azure; } } }`,
     )
-    expect(iconEntityKey(repo, entity('c1'))).toBe('Stack.azure')
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.Stack.azure')
 })
 
 test('an entity with no icon-bearing reference or concept yields undefined', () => {
@@ -55,7 +55,7 @@ test('an entity with no icon-bearing reference or concept yields undefined', () 
         [],
         `namespace t { model M : t conforms V { lonely x {} } }`,
     )
-    expect(iconEntityKey(repo, entity('x'))).toBeUndefined()
+    expect(iconEntityKey(repo, entity('t.x'))).toBeUndefined()
 })
 
 // Direction precedence: when several referenced terms carry icons, the winner is
@@ -88,21 +88,21 @@ function dirRepoWith(icons: string[]): { repo: Repository; entity: (id: string) 
 }
 
 test('the propagation source (technology) outranks the back-filled category, beating schema order', () => {
-    const { repo, entity } = dirRepoWith(['Stack.azure', 'Cats.ai'])
-    expect(iconEntityKey(repo, entity('c1'))).toBe('Stack.azure')
+    const { repo, entity } = dirRepoWith(['t.Stack.azure', 't.Cats.ai'])
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.Stack.azure')
 })
 
 test('with no propagation link, the first icon-bearing member in schema order wins', () => {
     // Only the category carries an icon → it is the sole candidate.
-    const { repo, entity } = dirRepoWith(['Cats.ai'])
-    expect(iconEntityKey(repo, entity('c1'))).toBe('Cats.ai')
+    const { repo, entity } = dirRepoWith(['t.Cats.ai'])
+    expect(iconEntityKey(repo, entity('t.c1'))).toBe('t.Cats.ai')
 })
 
 test('a placed taxonomy archetype draws its OWN icon (own-id wins over concept)', () => {
-    // The dropped-as-node case: the entity IS the icon-bearing term (Stack.azure@icon),
+    // The dropped-as-node case: the entity IS the icon-bearing term (t.Stack.azure@todl.icon),
     // reachable only by its own id — not via type/concept (technology, no icon) or refs.
-    const { repo } = repoWith(['Stack.azure'], `namespace t { model M : t conforms V {} }`)
-    const term = repo.entity('Stack.azure')
+    const { repo } = repoWith(['t.Stack.azure'], `namespace t { model M : t conforms V {} }`)
+    const term = repo.entity('t.Stack.azure')
     expect(term).toBeDefined()
-    expect(iconEntityKey(repo, term!)).toBe('Stack.azure')
+    expect(iconEntityKey(repo, term!)).toBe('t.Stack.azure')
 })

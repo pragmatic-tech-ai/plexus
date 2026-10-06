@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
 import type { Diagram } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
@@ -37,7 +37,7 @@ const file = { uri: 'model.todl', text: `namespace archmm {
 
 function buildModel(): ArchModel
 {
-    const mmDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
+    const mmDoc = toJSON(checkAgainst([], [{ uri: 'archmm.todl', text: MM }]).model)
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
@@ -96,44 +96,44 @@ function addVM(doc: DiagramDocument, id: string): void
 test('a component listed only in a block`s `components` field nests into that block', () => {
     const model = buildModel()
     const doc = new TestDoc()
-    addVM(doc, 'chat_surface')
-    addVM(doc, 'listed')
+    addVM(doc, 'archmm.chat_surface')
+    addVM(doc, 'archmm.listed')
     const { view, reparents } = fakeView()
     doc.fakeView = view
 
     new ArchDiagramBinding(doc, model).attach()
 
     // `listed` carries no in_block — it nests purely from chat_surface.components.
-    expect(reparents).toContainEqual({ id: 'listed', parentId: 'chat_surface' })
-    expect(reparents.some((r) => r.id === 'chat_surface')).toBe(false)
+    expect(reparents).toContainEqual({ id: 'archmm.listed', parentId: 'archmm.chat_surface' })
+    expect(reparents.some((r) => r.id === 'archmm.chat_surface')).toBe(false)
 })
 
 test('un-nesting a list-only member strips it from the block`s `components` (drag-out sticks)', () => {
     const model = buildModel()
     const doc = new TestDoc()
-    addVM(doc, 'chat_surface')
-    addVM(doc, 'listed')
+    addVM(doc, 'archmm.chat_surface')
+    addVM(doc, 'archmm.listed')
     const { view, fireReparent } = fakeView()
     doc.fakeView = view
     new ArchDiagramBinding(doc, model).attach()
 
-    fireReparent({ Node: { Id: 'listed' }, OldParentId: 'chat_surface', NewParentId: undefined })
+    fireReparent({ Node: { Id: 'archmm.listed' }, OldParentId: 'archmm.chat_surface', NewParentId: undefined })
 
-    const block = model.entities().find((e) => e.id === 'chat_surface')!
-    expect(block.refs('components').map((e) => e.id)).not.toContain('listed')
+    const block = model.entities().find((e) => e.id === 'archmm.chat_surface')!
+    expect(block.refs('components').map((e) => e.id)).not.toContain('archmm.listed')
 })
 
 test('un-nesting an in_block member strips the child`s in_block up-ref', () => {
     const model = buildModel()
     const doc = new TestDoc()
-    addVM(doc, 'command_bus')
-    addVM(doc, 'upref')
+    addVM(doc, 'archmm.command_bus')
+    addVM(doc, 'archmm.upref')
     const { view, fireReparent } = fakeView()
     doc.fakeView = view
     new ArchDiagramBinding(doc, model).attach()
 
-    fireReparent({ Node: { Id: 'upref' }, OldParentId: 'command_bus', NewParentId: undefined })
+    fireReparent({ Node: { Id: 'archmm.upref' }, OldParentId: 'archmm.command_bus', NewParentId: undefined })
 
-    const child = model.entities().find((e) => e.id === 'upref')!
-    expect(child.refs('in_block').map((e) => e.id)).not.toContain('command_bus')
+    const child = model.entities().find((e) => e.id === 'archmm.upref')!
+    expect(child.refs('in_block').map((e) => e.id)).not.toContain('archmm.command_bus')
 })

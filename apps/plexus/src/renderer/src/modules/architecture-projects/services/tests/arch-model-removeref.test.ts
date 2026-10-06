@@ -24,12 +24,12 @@ function buildModel(): ArchModel
 
 test('removeRef drops the ref and fires onChanged', () => {
     const m = buildModel()
-    const comp = () => m.entities().find((e) => e.id === 'comp')!
-    expect(comp().refs('in').map((e) => e.id)).toEqual(['loc'])
+    const comp = () => m.entities().find((e) => e.id === 'archmm.comp')!
+    expect(comp().refs('in').map((e) => e.id)).toEqual(['archmm.loc'])
 
     let fired = 0
     m.onChanged(() => { fired++ })
-    m.removeRef('comp', 'in', 'loc')
+    m.removeRef('archmm.comp', 'in', 'archmm.loc')
 
     expect(comp().refs('in')).toEqual([])
     expect(fired).toBe(1)

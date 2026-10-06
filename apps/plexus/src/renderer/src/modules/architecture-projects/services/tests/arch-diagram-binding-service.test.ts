@@ -37,7 +37,7 @@ function diagramFor(projStorage: FakeStorage): DiagramDocument
     const store = new FileDiagramStorage('view.diagram', projStorage, null)
     const doc = new DiagramDocument(store)
     const f = new ArchNodeVM()
-    f.Id = 'web'
+    f.Id = 'archmm.web'
     doc.AddNode(f)
     return doc
 }
@@ -72,9 +72,9 @@ test('opening an architecture diagram attaches a binding (figure label syncs)', 
     open.Add(doc)
     await tick()
 
-    const web = doc.Nodes.ToArray().find((n): n is ArchNodeVM => n instanceof ArchNodeVM && n.Id === 'web')!
+    const web = doc.Nodes.ToArray().find((n): n is ArchNodeVM => n instanceof ArchNodeVM && n.Id === 'archmm.web')!
     expect(web.Label).toBe('web')                // proves attach() ran
-    model.setField('web', 'label', 'Bound')
+    model.setField('archmm.web', 'label', 'Bound')
     expect(web.Label).toBe('Bound')              // proves onChanged wired
 })
 
@@ -87,10 +87,10 @@ test('closing the document disposes its binding', async () => {
     const doc = diagramFor(projStorage)
     open.Add(doc)
     await tick()
-    const web = doc.Nodes.ToArray().find((n): n is ArchNodeVM => n instanceof ArchNodeVM && n.Id === 'web')!
+    const web = doc.Nodes.ToArray().find((n): n is ArchNodeVM => n instanceof ArchNodeVM && n.Id === 'archmm.web')!
 
     open.Remove(doc)                                 // close → dispose
-    model.setField('web', 'label', 'AfterClose')
+    model.setField('archmm.web', 'label', 'AfterClose')
     expect(web.Label).toBe('web')                // detached: no update
 })
 
@@ -103,8 +103,8 @@ test('a non-architecture project diagram is not attached', async () => {
     const doc = diagramFor(projStorage)
     open.Add(doc)
     await tick()
-    const web = doc.Nodes.ToArray().find((n): n is ArchNodeVM => n instanceof ArchNodeVM && n.Id === 'web')!
-    model.setField('web', 'label', 'X')
+    const web = doc.Nodes.ToArray().find((n): n is ArchNodeVM => n instanceof ArchNodeVM && n.Id === 'archmm.web')!
+    model.setField('archmm.web', 'label', 'X')
     // Never bound: the figure keeps its created default label, and the model
     // change does not propagate (an attached binding would have made it 'web').
     expect(web.Label).toBe('')

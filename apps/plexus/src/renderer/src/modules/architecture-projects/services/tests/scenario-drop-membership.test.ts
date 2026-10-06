@@ -1,5 +1,5 @@
 import { test, expect, vi } from 'vitest'
-import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { Point, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../diagram/services/arch-toolbox-item.js'
@@ -37,16 +37,16 @@ const MM = `namespace archmm {
 function buildModel(): ArchModel
 {
     const draft = ModelDraft.fromSources(
-        [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
+        [new Repository(graphFromJSON(toJSON(checkAgainst([], [{ uri: 'mm.todl', text: MM }]).model)))],
         [], { namespace: 'archmm' })
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
 function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext
 {
-    const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'scenario')
+    const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'archmm.scenario')
     const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
-    const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'scenario'))
+    const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'archmm.scenario'))
     return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Diagram: undefined as never, Mutator: doc }
 }
 
@@ -58,15 +58,15 @@ function providerFor(model: ArchModel): IServiceProvider
 
 test('dropping a scenario materializes a participant block`s full membership, nested inside it', () => {
     const model = buildModel()
-    const chat = model.createInViewpoint('block', 'C')
-    const c1 = model.createInViewpoint('component', 'C')
-    const c2 = model.createInViewpoint('component', 'C')
+    const chat = model.createInViewpoint('archmm.block', 'archmm.C')
+    const c1 = model.createInViewpoint('archmm.component', 'archmm.C')
+    const c2 = model.createInViewpoint('archmm.component', 'archmm.C')
     model.addRef(chat.id, 'components', c1.id)
     model.addRef(chat.id, 'components', c2.id)
-    const standalone = model.createInViewpoint('component', 'C')
-    const st = model.createInViewpoint('step', 'S'); model.addRef(st.id, 'src', chat.id); model.addRef(st.id, 'dst', standalone.id)
-    const sq = model.createInViewpoint('sequence', 'S'); model.addRef(sq.id, 'steps', st.id)
-    const sc = model.createInViewpoint('scenario', 'S'); model.addRef(sc.id, 'sequences', sq.id)
+    const standalone = model.createInViewpoint('archmm.component', 'archmm.C')
+    const st = model.createInViewpoint('archmm.step', 'archmm.S'); model.addRef(st.id, 'src', chat.id); model.addRef(st.id, 'dst', standalone.id)
+    const sq = model.createInViewpoint('archmm.sequence', 'archmm.S'); model.addRef(sq.id, 'steps', st.id)
+    const sc = model.createInViewpoint('archmm.scenario', 'archmm.S'); model.addRef(sc.id, 'sequences', sq.id)
 
     const doc = new DiagramDocument()
     new ArchScenarioDropFactory(providerFor(model)).CreateDropped(makeContext(doc, sc.id))
@@ -84,13 +84,13 @@ test('dropping a scenario materializes a participant block`s full membership, ne
 
 test('a member already on the canvas is reused, not duplicated or repositioned', () => {
     const model = buildModel()
-    const chat = model.createInViewpoint('block', 'C')
-    const c1 = model.createInViewpoint('component', 'C')
+    const chat = model.createInViewpoint('archmm.block', 'archmm.C')
+    const c1 = model.createInViewpoint('archmm.component', 'archmm.C')
     model.addRef(chat.id, 'components', c1.id)
-    const standalone = model.createInViewpoint('component', 'C')
-    const st = model.createInViewpoint('step', 'S'); model.addRef(st.id, 'src', chat.id); model.addRef(st.id, 'dst', standalone.id)
-    const sq = model.createInViewpoint('sequence', 'S'); model.addRef(sq.id, 'steps', st.id)
-    const sc = model.createInViewpoint('scenario', 'S'); model.addRef(sc.id, 'sequences', sq.id)
+    const standalone = model.createInViewpoint('archmm.component', 'archmm.C')
+    const st = model.createInViewpoint('archmm.step', 'archmm.S'); model.addRef(st.id, 'src', chat.id); model.addRef(st.id, 'dst', standalone.id)
+    const sq = model.createInViewpoint('archmm.sequence', 'archmm.S'); model.addRef(sq.id, 'steps', st.id)
+    const sc = model.createInViewpoint('archmm.scenario', 'archmm.S'); model.addRef(sc.id, 'sequences', sq.id)
 
     const doc = new DiagramDocument()
     const pre = new ArchNodeVM(); pre.Id = c1.id

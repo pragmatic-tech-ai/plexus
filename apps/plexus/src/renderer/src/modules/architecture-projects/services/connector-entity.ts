@@ -1,6 +1,7 @@
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import type { ArchModel } from './arch-model.js'
 import { acceptSet } from './arch-concept-type.js'
+import { NodeNames } from './node-names.js'
 
 // The tech-architecture meta-model models a typed edge between two nodes as a
 // first-class `connector` ENTITY: `connector <id> { type = "calls"; from = A;
@@ -21,7 +22,7 @@ export const CONNECTOR_DRAW_MEMBER = '__connector_draw__'
 // True when an entity is (or subtypes) the `connector` concept.
 export function isConnectorEntity(repo: Repository, entity: Entity): boolean
 {
-    return acceptSet(repo, entity.concept).has(CONNECTOR_CONCEPT)
+    return [...acceptSet(repo, entity.concept)].some((c) => NodeNames.Matches(c, CONNECTOR_CONCEPT))
 }
 
 // A connector entity's type term (e.g. 'calls'), or the default when unset.
@@ -36,8 +37,9 @@ export function connectorTypeOf(entity: Entity): string
 // mint a connector entity. False when the meta-model has no `connector` concept.
 export function canDrawConnectorEntity(repo: Repository, srcConcept: string, tgtConcept: string): boolean
 {
-    if (repo.resolve(CONNECTOR_CONCEPT) === undefined) return false
-    const rels = repo.effectiveSchema(CONNECTOR_CONCEPT).relationships
+    const connector = NodeNames.Resolve(repo, CONNECTOR_CONCEPT)
+    if (connector === undefined) return false
+    const rels = repo.effectiveSchema(connector).relationships
     const fromRel = rels.find((r) => r.name === CONNECTOR_FROM_MEMBER)
     const toRel = rels.find((r) => r.name === CONNECTOR_TO_MEMBER)
     if (fromRel === undefined || toRel === undefined) return false
@@ -53,8 +55,9 @@ export function canDrawConnectorEntity(repo: Repository, srcConcept: string, tgt
 // Returns the new entity id. Does NOT save — the caller saves once.
 export function mintConnectorEntity(model: ArchModel, fromId: string, toId: string, type: string): string
 {
+    const concept = NodeNames.Resolve(model.repository(), CONNECTOR_CONCEPT) ?? CONNECTOR_CONCEPT
     const id = model.uniqueId(CONNECTOR_CONCEPT)
-    model.create(CONNECTOR_CONCEPT, id, model.homeOf(fromId))
+    model.create(concept, id, model.homeOf(fromId))
     model.addRef(id, CONNECTOR_FROM_MEMBER, fromId)
     model.addRef(id, CONNECTOR_TO_MEMBER, toId)
     model.setField(id, CONNECTOR_TYPE_FIELD, type)

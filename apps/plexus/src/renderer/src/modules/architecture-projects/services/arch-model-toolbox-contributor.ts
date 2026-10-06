@@ -18,6 +18,7 @@ import { ArchScenarioDropFactoryKey } from './arch-scenario-drop-factory.js'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
 import { WikiService } from '../../../services/wiki/wiki-service.js'
 import type { ArchModel } from './arch-model.js'
+import { NodeNames } from './node-names.js'
 
 const PAGE_ID = 'arch:model'
 const SCENARIO_PAGE_ID = 'arch:scenarios'
@@ -28,7 +29,7 @@ const TOOLBOX_ANNOTATION_SUFFIX = '@todl.toolbox'
 function entityLabel(e: Entity): string
 {
     const v = e.field('label') ?? e.field('name')
-    return v !== undefined ? String(v) : e.id
+    return v !== undefined ? String(v) : NodeNames.Simple(e.id)
 }
 
 // A concept is toolbox-visible unless it explicitly opts out with
@@ -78,7 +79,7 @@ export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, 
     const items: ArchToolboxItem[] = []
     for (const e of model.entities())
     {
-        if (e.concept !== SCENARIO_CONCEPT || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
+        if (!NodeNames.Matches(e.concept, SCENARIO_CONCEPT) || !inScope(e.concept) || !conceptToolboxVisible(repo, e.concept)) continue
         const key = iconEntityKey(repo, e) ?? e.concept
         const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, key)
         items.push(new ArchToolboxItem('scenario:' + e.id, entityLabel(e), descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(registry, key), e.concept))

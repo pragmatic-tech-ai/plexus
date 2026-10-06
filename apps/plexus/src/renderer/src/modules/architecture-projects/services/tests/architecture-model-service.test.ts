@@ -78,8 +78,8 @@ test('modelFor composes bases + all .todl files into one ArchModel', async () =>
     const service = new ArchitectureModelService(providerWithBase(baseDoc()))
     const model = await service.modelFor(fakeOpenProject(await seededStorage()))
     expect(model.namespace).toBe('archmm')
-    expect(model.entities().map((e) => e.id).sort()).toEqual(['host', 'web'])
-    expect(model.viewpoints().map((v) => v.id).sort()).toEqual(['ComponentView', 'DeploymentView'])
+    expect(model.entities().map((e) => e.id).sort()).toEqual(['archmm.host', 'archmm.web'])
+    expect(model.viewpoints().map((v) => v.id).sort()).toEqual(['archmm.ComponentView', 'archmm.DeploymentView'])
 })
 
 test('modelFor composes OWN-ONLY published bases (dangling cross-refs) without throwing', async () => {
@@ -90,7 +90,7 @@ test('modelFor composes OWN-ONLY published bases (dangling cross-refs) without t
     const service = new ArchitectureModelService(providerWithBases(ownOnlyBases()))
     const model = await service.modelFor(fakeOpenProject(await ownOnlySeededStorage()))
     expect(model.namespace).toBe('arch')
-    expect(model.entities().map((e) => e.id)).toContain('web')
+    expect(model.entities().map((e) => e.id)).toContain('arch.web')
 })
 
 test('modelFor is idempotent — a second call returns the cached instance', async () => {

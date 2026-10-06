@@ -1,5 +1,8 @@
 import { MetaKind, type Entity, type Repository } from '@pragmatic-tech-ai/todl'
 
+const ContainmentAnnotationSuffix = '@todl.containment'
+const HasChildrenAnnotationSuffix = '@todl.has_children'
+
 // Diagram containment metadata, derived from the meta-model. A containment
 // relationship's refs project as visual NESTING (a child node inside a container
 // node) instead of a connector; the ref lives on the CONTAINED entity and points
@@ -15,7 +18,7 @@ export const CONTAINMENT_MEMBER_DEFAULT = 'in'
 // the `@containment` annotation OR (the default) its name is `in`.
 export function isContainmentRelationship(repo: Repository, concept: string, member: string): boolean
 {
-    if (repo.resolve(`${concept}.${member}@containment`) !== undefined) return true
+    if (repo.resolve(`${concept}.${member}${ContainmentAnnotationSuffix}`) !== undefined) return true
     return member === CONTAINMENT_MEMBER_DEFAULT
 }
 
@@ -46,7 +49,7 @@ function containmentTargets(repo: Repository): Set<string>
 // OR (the default) it is the target of some containment relationship.
 export function isContainerConcept(repo: Repository, concept: string): boolean
 {
-    if (repo.resolve(`${concept}@has_children`) !== undefined) return true
+    if (repo.resolve(`${concept}${HasChildrenAnnotationSuffix}`) !== undefined) return true
     return containmentTargets(repo).has(concept)
 }
 

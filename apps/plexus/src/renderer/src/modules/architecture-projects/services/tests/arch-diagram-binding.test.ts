@@ -41,10 +41,10 @@ function addVM(doc: DiagramDocument, id: string): ArchNodeVM
 test('attach binds ArchNodeVMs whose Id is an entity: derives Label; unknown VMs untouched', () => {
     const model = buildModel()
     const doc = new DiagramDocument()
-    const web = addVM(doc, 'web')
+    const web = addVM(doc, 'archmm.web')
     const ghost = addVM(doc, 'ghost')
     ghost.Label = 'freeform'
-    const host = addVM(doc, 'host')
+    const host = addVM(doc, 'archmm.host')
 
     new ArchDiagramBinding(doc, model).attach()
 
@@ -66,7 +66,7 @@ test('a node whose entity references an icon-bearing term is keyed by that term 
       viewpoint CV : frames component
     }`
     const mmDoc = toJSON(load([{ uri: 'refmm.todl', text: REF_MM }]).model)
-    mmDoc.nodes.push(jsonNode({ id: 'Stack.azure@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/azure.svg' } }))
+    mmDoc.nodes.push(jsonNode({ id: 'refmm.Stack.azure@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/azure.svg' } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const file = { uri: 'refmodel.todl', text: 'namespace refmm { model Arch : refmm conforms CV { component c1 { realisedBy = Stack.azure; } } }' }
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'refmm' })
@@ -77,32 +77,32 @@ test('a node whose entity references an icon-bearing term is keyed by that term 
     const registry = { iconKeyFor: (k: string) => k, onChanged: () => () => {} } as unknown as TodlPresentationRegistry
 
     const doc = new DiagramDocument()
-    const c1 = addVM(doc, 'c1')
+    const c1 = addVM(doc, 'refmm.c1')
     // registry is the 9th ctor param; the leading optionals stay undefined here.
     new ArchDiagramBinding(doc, model, undefined, undefined, undefined, undefined, undefined, undefined, registry).attach()
 
     // The node is keyed by the icon-bearing referenced term (Stack.azure), not its
     // own concept — surfaced now through the node's Icon VM instead of a Descriptor.
-    expect(c1.Icon?.IconKey).toBe('Stack.azure')
+    expect(c1.Icon?.IconKey).toBe('refmm.Stack.azure')
 })
 
 test('model label change re-syncs the bound VM; delete removes its VM', () => {
     const model = buildModel()
     const doc = new DiagramDocument()
-    const web = addVM(doc, 'web')
-    const host = addVM(doc, 'host')
+    const web = addVM(doc, 'archmm.web')
+    const host = addVM(doc, 'archmm.host')
     const binding = new ArchDiagramBinding(doc, model)
     binding.attach()
     void web
     void host
 
-    model.setField('web', 'label', 'Web App')
+    model.setField('archmm.web', 'label', 'Web App')
     expect(web.Label).toBe('Web App')
 
-    model.remove('host')
+    model.remove('archmm.host')
     const ids = doc.Nodes.ToArray().map((n) => n instanceof ArchNodeVM ? n.Id : undefined)
-    expect(ids).toContain('web')
-    expect(ids).not.toContain('host')
+    expect(ids).toContain('archmm.web')
+    expect(ids).not.toContain('archmm.host')
 })
 
 test('an in-place title edit commit persists to the entity label + saves; rescan re-derives it', async () => {
@@ -117,7 +117,7 @@ test('an in-place title edit commit persists to the entity label + saves; rescan
     void model
 
     const doc = new DiagramDocument()
-    const web = addVM(doc, 'web')
+    const web = addVM(doc, 'archmm.web')
     new ArchDiagramBinding(doc, model2).attach()
     expect(web.Label).toBe('web')   // id fallback before edit
 
@@ -129,7 +129,7 @@ test('an in-place title edit commit persists to the entity label + saves; rescan
     // setField fired onChanged → rescan re-derived the label from the entity.
     expect(web.Label).toBe('Web App')
     // ...and the entity now carries it.
-    expect(model2.entities().find((e) => e.id === 'web')?.field('label')).toBe('Web App')
+    expect(model2.entities().find((e) => e.id === 'archmm.web')?.field('label')).toBe('Web App')
 
     // save() round-trips it to the entity's home .todl file.
     await model2.save()
@@ -139,14 +139,14 @@ test('an in-place title edit commit persists to the entity label + saves; rescan
 test('dispose stops further syncing', () => {
     const model = buildModel()
     const doc = new DiagramDocument()
-    const web = addVM(doc, 'web')
+    const web = addVM(doc, 'archmm.web')
     const binding = new ArchDiagramBinding(doc, model)
     binding.attach()
-    model.setField('web', 'label', 'First')
+    model.setField('archmm.web', 'label', 'First')
     expect(web.Label).toBe('First')
 
     binding.dispose()
-    model.setField('web', 'label', 'Second')
+    model.setField('archmm.web', 'label', 'Second')
     expect(web.Label).toBe('First')   // no longer updating
 })
 

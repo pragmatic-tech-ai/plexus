@@ -17,7 +17,7 @@ function setup()
   // Seed a source `<term>@todl.icon` node so iconEntityKey treats Cats.ai as
   // icon-bearing (mirrors arch-icon.test's base shape).
   const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)
-  mmDoc.nodes.push(jsonNode({ id: 'Cats.ai@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/ai.svg' } }))
+  mmDoc.nodes.push(jsonNode({ id: 't.Cats.ai@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/ai.svg' } }))
   const base = new Repository(graphFromJSON(mmDoc))
   const draft = ModelDraft.fromSources([base], [{ uri: 'a.todl', text: MODEL }], { namespace: 't' })
   const entity = (id: string): Entity => draft.ownInstances().find((e) => e.id === id)!
@@ -25,17 +25,17 @@ function setup()
 }
 
 // A fake registry that maps only the category term's mm: key to a resource key.
-const registry = { iconKeyFor: (k: string) => (k === 'mm:Cats.ai' ? 'mm_icon_ai' : undefined) } as unknown as TodlPresentationRegistry
+const registry = { iconKeyFor: (k: string) => (k === 'mm:t.Cats.ai' ? 'mm_icon_ai' : undefined) } as unknown as TodlPresentationRegistry
 
 test('resolves iconKey via the registry (mm: fallback) and passes the label through', () => {
   const { repo, entity } = setup()
-  const p = resolveElementPresentation(repo, registry, entity('c1'), 'C One')
+  const p = resolveElementPresentation(repo, registry, entity('t.c1'), 'C One')
   expect(p.label).toBe('C One')
   expect(p.iconKey).toBe('mm_icon_ai')
 })
 
 test('iconKey is null when nothing is icon-bearing', () => {
   const { repo, entity } = setup()
-  const p = resolveElementPresentation(repo, registry, entity('c2'), 'C Two')
+  const p = resolveElementPresentation(repo, registry, entity('t.c2'), 'C Two')
   expect(p.iconKey).toBeNull()
 })

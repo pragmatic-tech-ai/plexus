@@ -4,6 +4,7 @@ import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dial
 import { humanize } from './arch-default-label.js'
 import { conceptTypeOf, acceptSet } from './arch-concept-type.js'
 import { materializeRoots } from './arch-materialize.js'
+import { NodeNames } from './node-names.js'
 
 // A dropped container-concept term (a location / block / subscription / …) that
 // this diagram's viewpoint does not frame can't be placed here, and the drop
@@ -39,22 +40,23 @@ function termLabel(repo: Repository, termId: string): string
 export function dropRejectionMessage(repo: Repository, termId: string, scope: ReadonlySet<string>): { title: string; message: string }
 {
     const ct = conceptTypeOf(repo, termId)
+    const ctName = NodeNames.Simple(ct)
     const label = termLabel(repo, termId)
-    const here = [...scope]
-    const framing = repo.viewpointsFraming(ct)
+    const here = [...scope].map((v) => NodeNames.Simple(v))
+    const framing = repo.viewpointsFraming(ct).map((v) => NodeNames.Simple(v))
     const fallback = fallbackTarget(repo, ct)
 
     const hereList = here.length > 0 ? here.join(', ') : '(none)'
     const whatWouldHappen = fallback !== undefined
-        ? ` Dropping it here would instead create a ${fallback.concept} (its "${fallback.member}" pointing at "${label}") — which isn't what you dropped, so the drop was cancelled.`
+        ? ` Dropping it here would instead create a ${NodeNames.Simple(fallback.concept)} (its "${fallback.member}" pointing at "${label}") — which isn't what you dropped, so the drop was cancelled.`
         : ' The drop was cancelled.'
     const howToFix = framing.length > 0
-        ? `To place a ${ct} on a diagram, change this diagram's viewpoint to one that includes ${ct} — ${framing.join(', ')} — using the viewpoints selector, then drop it again.`
-        : `No viewpoint in this model frames ${ct}, so it cannot be placed on any diagram.`
+        ? `To place a ${ctName} on a diagram, change this diagram's viewpoint to one that includes ${ctName} — ${framing.join(', ')} — using the viewpoints selector, then drop it again.`
+        : `No viewpoint in this model frames ${ctName}, so it cannot be placed on any diagram.`
 
     return {
         title: `Can't place "${label}" here`,
-        message: `"${label}" is a ${ct}, but this diagram's viewpoint (${hereList}) doesn't include ${ct}.${whatWouldHappen}\n\n${howToFix}`,
+        message: `"${label}" is a ${ctName}, but this diagram's viewpoint (${hereList}) doesn't include ${ctName}.${whatWouldHappen}\n\n${howToFix}`,
     }
 }
 

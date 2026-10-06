@@ -53,19 +53,19 @@ async function scenario(seedScope?: string[])
 }
 
 test('attach reads the manifest scope', async () => {
-    const { svc, doc } = await scenario(['ComponentView'])
-    expect([...svc.scopeForDocument(doc)!]).toEqual(['ComponentView'])
+    const { svc, doc } = await scenario(['archmm.ComponentView'])
+    expect([...svc.scopeForDocument(doc)!]).toEqual(['archmm.ComponentView'])
 })
 
 test('no manifest entry defaults to all viewpoints', async () => {
     const { svc, doc } = await scenario()
-    expect([...svc.scopeForDocument(doc)!].sort()).toEqual(['ComponentView', 'DeploymentView'])
+    expect([...svc.scopeForDocument(doc)!].sort()).toEqual(['archmm.ComponentView', 'archmm.DeploymentView'])
 })
 
 test('setDocumentScope updates the binding and persists into the diagram metadata', async () => {
     const { svc, doc } = await scenario()
-    await svc.setDocumentScope(doc, ['DeploymentView'])
-    expect([...svc.scopeForDocument(doc)!]).toEqual(['DeploymentView'])
+    await svc.setDocumentScope(doc, ['archmm.DeploymentView'])
+    expect([...svc.scopeForDocument(doc)!]).toEqual(['archmm.DeploymentView'])
     // The selection now travels with the diagram (its metadata), not the manifest.
-    expect(readViewpoints(doc)).toEqual(['DeploymentView'])
+    expect(readViewpoints(doc)).toEqual(['archmm.DeploymentView'])
 })

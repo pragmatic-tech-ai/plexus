@@ -17,7 +17,7 @@ function build(): ArchModel
 
 test('capture then restore round-trips own entities', () => {
     const model = build()
-    const e = model.createInViewpoint('service', 'V')
+    const e = model.createInViewpoint('m.service', 'm.V')
     model.setField(e.id, 'label', 'First')
     const snapshot = model.toTodlByFile()
 

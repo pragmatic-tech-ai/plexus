@@ -43,16 +43,16 @@ async function emit(model: ArchModel, storage: FakeStorage): Promise<string>
 
 test('mintConnectorEntity creates a connector {from,to,type} that round-trips', async () => {
     const { model, storage } = buildModel()
-    model.create('component', 'comp_a')
-    model.create('component', 'comp_b')
+    model.create('archmm.component', 'archmm.comp_a')
+    model.create('archmm.component', 'archmm.comp_b')
 
-    const id = mintConnectorEntity(model, 'comp_a', 'comp_b', 'calls')
+    const id = mintConnectorEntity(model, 'archmm.comp_a', 'archmm.comp_b', 'calls')
 
     const e = model.entities().find((x) => x.id === id)!
     expect(e, 'connector entity exists').toBeTruthy()
     expect(isConnectorEntity(model.repository(), e), 'is a connector').toBe(true)
-    expect(e.ref('from')?.id).toBe('comp_a')
-    expect(e.ref('to')?.id).toBe('comp_b')
+    expect(e.ref('from')?.id).toBe('archmm.comp_a')
+    expect(e.ref('to')?.id).toBe('archmm.comp_b')
     expect(connectorTypeOf(e)).toBe('calls')
 
     // Round-trips as `connector <id> { type = "calls"; from = comp_a; to = comp_b; }`.
@@ -63,19 +63,19 @@ test('mintConnectorEntity creates a connector {from,to,type} that round-trips', 
 test('canDrawConnectorEntity accepts legal from/to pairs and rejects others', () => {
     const { model } = buildModel()
     const repo = model.repository()
-    expect(canDrawConnectorEntity(repo, 'component', 'component')).toBe(true)   // both legal endpoints
-    expect(canDrawConnectorEntity(repo, 'actor', 'component')).toBe(true)
-    expect(canDrawConnectorEntity(repo, 'component', 'location')).toBe(true)
-    expect(canDrawConnectorEntity(repo, 'component', 'technology')).toBe(false) // technology isn't a from/to target
+    expect(canDrawConnectorEntity(repo, 'archmm.component', 'archmm.component')).toBe(true)   // both legal endpoints
+    expect(canDrawConnectorEntity(repo, 'archmm.actor', 'archmm.component')).toBe(true)
+    expect(canDrawConnectorEntity(repo, 'archmm.component', 'archmm.location')).toBe(true)
+    expect(canDrawConnectorEntity(repo, 'archmm.component', 'archmm.technology')).toBe(false) // technology isn't a from/to target
 })
 
 test('connectorTypeOf falls back to the default when type is unset', () => {
     const { model } = buildModel()
-    model.create('component', 'comp_a')
-    model.create('component', 'comp_b')
-    const id = model.create('connector', 'conn_x').id
-    model.addRef(id, 'from', 'comp_a')
-    model.addRef(id, 'to', 'comp_b')
+    model.create('archmm.component', 'archmm.comp_a')
+    model.create('archmm.component', 'archmm.comp_b')
+    const id = model.create('archmm.connector', 'archmm.conn_x').id
+    model.addRef(id, 'from', 'archmm.comp_a')
+    model.addRef(id, 'to', 'archmm.comp_b')
     const e = model.entities().find((x) => x.id === id)!
     expect(connectorTypeOf(e)).toBe('calls')   // default
 })

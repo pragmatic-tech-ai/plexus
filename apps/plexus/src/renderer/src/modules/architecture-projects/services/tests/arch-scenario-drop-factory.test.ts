@@ -74,7 +74,7 @@ function containedProvider()
   const c1 = comp('c1'), c2 = comp('c2')
   const stepE = (s: FlowEntity, d: FlowEntity): FlowEntity => ({ id: 'step', refs: (m) => (m === 'src' ? [s] : m === 'dst' ? [d] : []) })
   const scenario: FlowEntity = { id: 'sc', refs: (m) => (m === 'sequences' ? [{ id: 'seq', refs: (mm) => (mm === 'steps' ? [stepE(c1, c2)] : []) }] : []) }
-  const repo = { resolve: (p: string) => (p === 'location@has_children' ? {} : undefined), allNodes: () => [] }
+  const repo = { resolve: (p: string) => (p === 'location@todl.has_children' ? {} : undefined), allNodes: () => [] }
   const model = { entities: () => [scenario, c1, c2, azure], repository: () => repo, create: vi.fn(), addRef: vi.fn(), save: vi.fn() }
   const bindingSvc = { modelForDocument: () => model, addScenario: vi.fn(() => Promise.resolve()) }
   const provider = { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider

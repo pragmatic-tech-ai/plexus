@@ -32,8 +32,8 @@ function buildModel(): ArchModel
 
 test('desiredConnectorEntityEdges yields one keyed edge per placed connector entity', () => {
     const model = buildModel()
-    const a = model.createInViewpoint('component', 'V')
-    const b = model.createInViewpoint('component', 'V')
+    const a = model.createInViewpoint('archmm.component', 'archmm.V')
+    const b = model.createInViewpoint('archmm.component', 'archmm.V')
     const cid = mintConnectorEntity(model, a.id, b.id, 'event')
 
     const repo = model.repository()
@@ -52,8 +52,8 @@ test('desiredConnectorEntityEdges yields one keyed edge per placed connector ent
 
 test('a connector entity between two placed nodes projects as one labeled connector', () => {
     const model = buildModel()
-    const a = model.createInViewpoint('component', 'V')
-    const b = model.createInViewpoint('component', 'V')
+    const a = model.createInViewpoint('archmm.component', 'archmm.V')
+    const b = model.createInViewpoint('archmm.component', 'archmm.V')
     mintConnectorEntity(model, a.id, b.id, 'calls')
 
     const doc = new DiagramDocument()

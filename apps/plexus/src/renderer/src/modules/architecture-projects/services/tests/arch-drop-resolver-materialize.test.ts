@@ -17,23 +17,23 @@ const MM = `namespace m {
   taxonomy Cats : represents category { term ai {} }
 }`
 function repo() { return load([{ uri: 'm.todl', text: MM }]).model }
-const scope = new Set(['V'])
+const scope = new Set(['m.V'])
 
 test('dropping a technology yields exactly one action — the root component member', () => {
-    const actions = resolveDropActions(repo(), 'Stack.azure', scope)
+    const actions = resolveDropActions(repo(), 'm.Stack.azure', scope)
     expect(actions).toHaveLength(1)
-    expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'component', member: 'implementedBy', term: 'Stack.azure' })
+    expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'm.component', member: 'implementedBy', term: 'm.Stack.azure' })
 })
 
 test('the non-root concept `other` that also accepts technology is NOT scanned (no ambiguity, no chooser)', () => {
-    const actions = resolveDropActions(repo(), 'Stack.azure', scope)
-    expect(actions.map((a) => a.concept)).not.toContain('other')
+    const actions = resolveDropActions(repo(), 'm.Stack.azure', scope)
+    expect(actions.map((a) => a.concept)).not.toContain('m.other')
 })
 
 test('dropping a category yields the root component category member', () => {
-    const actions = resolveDropActions(repo(), 'Cats.ai', scope)
+    const actions = resolveDropActions(repo(), 'm.Cats.ai', scope)
     expect(actions).toHaveLength(1)
-    expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'component', member: 'categorisedAs' })
+    expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'm.component', member: 'categorisedAs' })
 })
 
 test('a term accepted by no root yields no actions (reject)', () => {
@@ -45,7 +45,7 @@ test('a term accepted by no root yields no actions (reject)', () => {
       taxonomy T : represents c { term t {} }
     }`
     const r = load([{ uri: 'm.todl', text: NOROOT }]).model
-    expect(resolveDropActions(r, 'T.t', new Set(['V']))).toEqual([])
+    expect(resolveDropActions(r, 'm.T.t', new Set(['m.V']))).toEqual([])
 })
 
 // A materialize-root concept that is a non-container LEAF (an `actor`): dropping
@@ -64,21 +64,21 @@ const LEAF = `namespace m {
 function leafRepo() { return load([{ uri: 'm.todl', text: LEAF }]).model }
 
 test('dropping an actor archetype places the archetype as a leaf node', () => {
-    const actions = resolveDropActions(leafRepo(), 'Actors.internal', new Set(['V']))
+    const actions = resolveDropActions(leafRepo(), 'm.Actors.internal', new Set(['m.V']))
     expect(actions).toHaveLength(1)
-    expect(actions[0]).toMatchObject({ kind: DropActionKind.Place, concept: 'actor', term: 'Actors.internal' })
+    expect(actions[0]).toMatchObject({ kind: DropActionKind.Place, concept: 'm.actor', term: 'm.Actors.internal' })
 })
 
 test('place-leaf is gated on the concept being a root — a non-root taxonomy archetype still references, never places', () => {
     // `technology` is NOT a materialize root here, so its archetype resolves to the
     // component reference member, not a Place (guards against over-placing).
-    const actions = resolveDropActions(leafRepo(), 'Stack.azure', new Set(['V']))
+    const actions = resolveDropActions(leafRepo(), 'm.Stack.azure', new Set(['m.V']))
     expect(actions).toHaveLength(1)
-    expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'component', member: 'implementedBy' })
+    expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'm.component', member: 'implementedBy' })
 })
 
 test('an actor archetype dropped on a diagram that does not frame actor does not place', () => {
     // scope excludes actor's framing viewpoint → no place action (falls through).
-    const actions = resolveDropActions(leafRepo(), 'Actors.internal', new Set(['other']))
+    const actions = resolveDropActions(leafRepo(), 'm.Actors.internal', new Set(['m.other']))
     expect(actions.some((a) => a.kind === DropActionKind.Place)).toBe(false)
 })
