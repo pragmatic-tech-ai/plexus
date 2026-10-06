@@ -32,3 +32,6 @@ test-results/
 graphify-out/
 .graphifyignore
 .gitattributes
+
+# JetBrains IDE project files
+.idea/
