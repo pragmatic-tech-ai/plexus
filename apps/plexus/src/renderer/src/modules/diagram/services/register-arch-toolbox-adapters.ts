@@ -41,18 +41,18 @@ export function registerArchToolboxAdapters(services: ServiceProvider): void
     {
         services.registerInstance(ArchScenarioDropFactoryKey, new ArchScenarioDropFactory(services))
     }
-    // Register the tile/figure template selector as an app resource keyed
-    // `TodlVisualSelector` so `@TodlVisualSelector` resolves in the diagram / library
-    // markup (the P3 ContentControl.ContentTemplateSelector binding). Resources live
-    // on Application.current (undefined in headless tests — nothing to wire there);
-    // idempotent via Has so repeated reloads keep the one instance. The selector's two
-    // context templates are compiled in diagram.resources.mu (merged app-global at
-    // bootstrap, before this reload-time call) and resolved by key here.
+    // Register the tile-chip template selector as an app resource keyed
+    // `TodlVisualSelector` so `@TodlVisualSelector` resolves in the TILE-context markup
+    // (toolbox + library preview tiles). Canvas nodes DON'T use the selector: their icon
+    // ContentControl resolves the icon template by implicit DataType dispatch against the
+    // compiled `[DataType = EntityIconVM]` figure template — a runtime-registered resource
+    // is not reachable from a diagram node's resource scope, but a compiled template (the
+    // same path that resolves the node's own DataTemplate) is. The selector only serves the
+    // Tile context now, so both of its arms draw the chip tile template.
     const resources = Application.current?.Resources
     if (resources !== undefined && !resources.Has('TodlVisualSelector'))
     {
         const tile = resources.Resolve('TodlIconTileTemplate') as DataTemplate
-        const figure = resources.Resolve('TodlIconFigureTemplate') as DataTemplate
-        resources.Set('TodlVisualSelector', new TodlVisualSelector(tile, figure))
+        resources.Set('TodlVisualSelector', new TodlVisualSelector(tile, tile))
     }
 }

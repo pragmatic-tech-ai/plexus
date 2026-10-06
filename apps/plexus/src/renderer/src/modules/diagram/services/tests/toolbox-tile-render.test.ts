@@ -34,8 +34,7 @@ function withApp(): Application
     // the binding resolves exactly as it does in the running app, resolving its two
     // context templates from the merged DiagramResources (as the register site does).
     const tile = app.Resources.Resolve('TodlIconTileTemplate') as DataTemplate
-    const figure = app.Resources.Resolve('TodlIconFigureTemplate') as DataTemplate
-    app.Resources.Set('TodlVisualSelector', new TodlVisualSelector(tile, figure))
+    app.Resources.Set('TodlVisualSelector', new TodlVisualSelector(tile, tile))
     return app
 }
 
@@ -93,14 +92,22 @@ test('arch term tile → ContentControl + @TodlVisualSelector (Tile context) + c
 // them against an EntityIconVM must succeed and yield the Image (raster) + Icon
 // (vector) overlay the selector picks between. Stub the icon resolver so the vector
 // converter yields a shape without reaching a real asset dictionary.
-test('the compiled @TodlIconTile/@TodlIconFigure templates apply an Image + Icon for an EntityIconVM', () => {
+// The tile-chip template (keyed, used by the toolbox/library tiles via @TodlVisualSelector)
+// AND the canvas figure template (IMPLICIT [DataType = EntityIconVM], resolved by type
+// dispatch on a diagram node — NO selector) must each apply an Image + Icon for an
+// EntityIconVM. The implicit-resolution arm is the regression guard for the arch canvas:
+// a diagram node's icon ContentControl has no selector, so it relies on resolveForType
+// finding this compiled template (a runtime-registered selector is unreachable there).
+test('tile (keyed) and canvas (implicit EntityIconVM) icon templates both apply an Image + Icon', () => {
     setIconResourceResolver(() => ({ ViewBoxWidth: 24, ViewBoxHeight: 24, Shapes: [] }))
     const app = withApp()
     const vm = new EntityIconVM(fakeRegistry({ svc: 'icon-svc' }), 'svc')
 
-    for (const key of ['TodlIconTileTemplate', 'TodlIconFigureTemplate'])
+    const tileTmpl = app.Resources.Resolve('TodlIconTileTemplate') as DataTemplate   // tiles (keyed)
+    const figureTmpl = app.Resources.Resolve(EntityIconVM) as DataTemplate           // canvas (implicit type dispatch)
+    expect(figureTmpl).toBeInstanceOf(DataTemplate)                                   // the implicit figure template resolves by type
+    for (const tmpl of [tileTmpl, figureTmpl])
     {
-        const tmpl = app.Resources.Resolve(key) as DataTemplate
         expect(tmpl).toBeInstanceOf(DataTemplate)
         let root: Visual | undefined
         expect(() => { root = tmpl.Apply(vm); root.DataContext = vm }).not.toThrow()

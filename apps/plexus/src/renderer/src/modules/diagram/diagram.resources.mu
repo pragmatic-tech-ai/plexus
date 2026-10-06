@@ -464,9 +464,12 @@ resources DiagramResources {
         }
     }
 
-    // Figure context (canvas nodes): NO background — the icon floats transparently on
-    // the diagram; the canvas node draws no chip behind it.
-    DataTemplate x:key="TodlIconFigureTemplate" [DataType = EntityIconVM] {
+    // Canvas nodes: NO background — the icon floats transparently on the diagram.
+    // IMPLICIT (no x:key) so a diagram node's icon ContentControl resolves it by DataType
+    // dispatch — the same path that resolves the node's own DataTemplate — instead of the
+    // runtime-registered @TodlVisualSelector, which a canvas node's resource scope cannot
+    // reach (only the Tile-context toolbox/library tiles use the selector).
+    DataTemplate [DataType = EntityIconVM] {
         Border [ CornerRadius = 6 ] {
             Grid {
                 Image [ Source = $IconKey << imageKeyConverter, Stretch = Uniform,
@@ -569,8 +572,10 @@ resources DiagramResources {
               ContextMenuService.ContextMenu = @DiagramContextMenu ] {
             ContentControl x:name="PART_Icon"
                 [ Content                    = $Icon,
-                  ContentTemplateSelector    = @TodlVisualSelector,
-                  VisualContextScope.Context = VisualContext.Figure,
+                  // No ContentTemplateSelector: a canvas node resolves its EntityIconVM
+                  // icon by implicit DataType dispatch against the compiled figure
+                  // template above (the runtime-registered @TodlVisualSelector is not
+                  // reachable from a diagram node's resource scope — see its comment).
                   // Sized from the inheritable Diagram.DefaultIconWidth/Height
                   // attached DPs (mural). Their SettingValue tier reads the
                   // diagram.DefaultIconWidth/Height app settings (contributed by
