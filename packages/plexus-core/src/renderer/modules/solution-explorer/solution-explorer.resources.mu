@@ -66,8 +66,9 @@ resources SolutionExplorerResources {
 
     // Compact command-bar button. The default PanelButton template (@DefaultIconButton)
     // is a FIXED 40dp box — far too tall for the Solution Explorer command strip. This
-    // sizes to content (16dp icon + 4dp padding ≈ 24dp) and hovers to @Bg3 (not @Bg2,
-    // which is invisible on the @Bg2 side pane — same contrast rule as the tree rows).
+    // sizes to content (16dp icon + 4dp padding ≈ 24dp) and hovers to @RowHoverFill —
+    // the shared brand-green-tinted hover (a neutral @Bg2/@Bg3 step was too low-contrast
+    // on the @Bg2 side pane to read as feedback; same token the tree rows now use).
     Template x:key="CompactPanelButton" [ TargetType = PanelButton ] {
         Border x:name="PART_FocusRing"
             [ Fill = #00000000, Padding = (@FocusRingOffset), CornerRadius = $$CornerRadius ] {
@@ -77,7 +78,7 @@ resources SolutionExplorerResources {
                 ContentPresenter x:name="PART_Content" [ HorizontalAlignment = Center, VerticalAlignment = Center ]
             }
         }
-        when ( IsMouseOver )       { PART_Root.Fill = @Bg3; }
+        when ( IsMouseOver )       { PART_Root.Fill = @RowHoverFill; }
         when ( IsPressed )         { PART_Root.Fill = @Bg3; }
         when ( IsFocused )         { PART_FocusRing.Stroke = Pen [ Brush = @BorderFocus, Thickness = 2 ]; }
         when ( IsEnabled = false ) { PART_Root.Opacity = @OpacityDisabled; }
