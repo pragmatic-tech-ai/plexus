@@ -288,3 +288,43 @@ test('emits an Error event when the child errors (e.g. claude not found)', () =>
     f.emitError(new Error('spawn claude ENOENT'))
     expect(events.some((e) => e.Kind === AgentEventKind.Error)).toBe(true)
 })
+
+function startedSession(binary = 'claude')
+{
+    const f = fakeChild()
+    const events: AgentEvent[] = []
+    const session = new ClaudeCliProvider(binary, () => f.child).start('s1', '/proj', [], (e) => events.push(e))
+    return { f, events, session }
+}
+
+test('exit code 127 surfaces a "claude not found" error with the shell stderr', () => {
+    const { f, events, session } = startedSession()
+    f.emitStderr('/bin/sh: claude: command not found\n')
+    f.emitClose(127)
+    const err = events.find((e) => e.Kind === AgentEventKind.Error) as { Message: string }
+    expect(err.Message).toContain('Could not run "claude"')
+    expect(err.Message).toContain('command not found')
+    expect(session.alive).toBe(false)
+})
+
+test('an unexpected non-zero exit surfaces an error; a clean or intentional exit does not', () => {
+    const crashed = startedSession()
+    crashed.f.emitClose(1)
+    expect(crashed.events.some((e) => e.Kind === AgentEventKind.Error)).toBe(true)
+
+    const clean = startedSession()
+    clean.f.emitClose(0)
+    expect(clean.events).toHaveLength(0)
+
+    const aborted = startedSession()
+    aborted.session.abort()
+    aborted.f.emitClose(null)
+    expect(aborted.events).toHaveLength(0)
+})
+
+test('an exit after the CLI already reported an error does not add a second error', () => {
+    const { f, events } = startedSession()
+    f.emitStdout(JSON.stringify({ type: 'result', subtype: 'error_during_execution', is_error: true, result: null }) + '\n')
+    f.emitClose(1)
+    expect(events.filter((e) => e.Kind === AgentEventKind.Error)).toHaveLength(1)
+})

@@ -191,3 +191,25 @@ test('an explicit resume token is forwarded to the provider on start', () => {
     new AgentSession(serviceWith(provider), 'sess-9', () => {}).start('/proj', [], 'cli-abc')
     expect(started[0].resumeToken).toBe('cli-abc')
 })
+
+test('send respawns (keeping the resume token) when the provider session has died', () => {
+    const started: Array<{ resumeToken: string | undefined; sent: string[]; alive: boolean }> = []
+    const provider: IAiProvider = {
+        Id: 'rec', Resumable: true,
+        listAgentsAndSkills: () => Promise.resolve({ agents: [], skills: [] }),
+        listSkills: () => Promise.resolve([]),
+        start: (_s, _c, _a, onEvent, resumeToken) => {
+            const rec = { resumeToken, sent: [] as string[], alive: true }
+            started.push(rec)
+            onEvent({ Kind: AgentEventKind.SessionStarted, SessionId: 'cli-1' })
+            return { get alive() { return rec.alive }, send: (t) => rec.sent.push(t), abort: () => {}, dispose: () => Promise.resolve() }
+        },
+    }
+    const session = new AgentSession(serviceWith(provider), 'sess-1', () => {})
+    session.send('/proj', [], 'one')
+    started[0].alive = false
+    session.send('/proj', [], 'two')
+    expect(started).toHaveLength(2)
+    expect(started[1].resumeToken).toBe('cli-1')
+    expect(started[1].sent).toEqual(['two'])
+})

@@ -18,6 +18,8 @@ export interface AiProviderSession
     // then exit. Resolves once the child has exited (bounded by a force-kill
     // fallback), so callers can await it before quitting.
     dispose(): Promise<void>;
+    // False once the backend process has died on its own; absent means "assume alive".
+    readonly alive?: boolean;
 }
 
 export interface IAiProvider

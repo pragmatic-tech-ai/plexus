@@ -9,6 +9,7 @@ import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { tmpdir, homedir } from 'node:os'
 import { StreamJsonParser } from './stream-json-parser.js'
+import { withCliPath } from './claude-cli-path.js'
 import { scanClaudeCatalog, type CatalogIo } from './claude-catalog.js'
 import { SkillScanner } from './skill-scanner.js'
 import { SkillScopeResolver, type ScopePaths } from './skill-scope-resolver.js'
@@ -42,7 +43,7 @@ const CLI_ARGS = [
 // text goes over stdin (never interpolated into the command line), so there is
 // no shell-injection surface.
 const defaultSpawn: SpawnFn = (command, args, options) =>
-    nodeSpawn(command, args, { cwd: options.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: true }) as unknown as ChildLike
+    nodeSpawn(command, args, { cwd: options.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: true, env: withCliPath(process.env, homedir(), process.platform) }) as unknown as ChildLike
 
 export class ClaudeCliProvider implements IAiProvider
 {
@@ -103,8 +104,12 @@ export class ClaudeCliProvider implements IAiProvider
         // Error event so the cause is visible instead of a bare, unhelpful code.
         let stderrTail = ''
         const STDERR_TAIL_MAX = 4000
+        let alive = true
+        let expectedExit = false   // abort/dispose end the process on purpose — not an error
+        let turnErrored = false    // an Error already reached the UI for the current turn
         const forward = (event: AgentEvent): void =>
         {
+            if (event.Kind === AgentEventKind.Error) turnErrored = true
             if (event.Kind === AgentEventKind.Error && stderrTail.trim() !== '')
                 onEvent({ ...event, Message: `${event.Message}\n\n${stderrTail.trim()}` })
             else
@@ -131,13 +136,25 @@ export class ClaudeCliProvider implements IAiProvider
             forward({ Kind: AgentEventKind.Error, Message: err.message })
         })
 
+        // The process dying mid-turn emits no result line, which would leave the UI
+        // "working" forever; surface it (127 = shell couldn't find `claude`).
+        child.on('close', (code) => {
+            alive = false
+            if (expectedExit || code === 0 || turnErrored) return
+            forward({ Kind: AgentEventKind.Error, Message: code === 127
+                ? `Could not run "${this.binaryPath}" — is Claude Code installed and on PATH?`
+                : `${this.binaryPath} exited unexpectedly (code ${code ?? 'signal'}).` })
+        })
+
         return {
+            get alive() { return alive },
             send: (text) => {
+                turnErrored = false
                 const message = { type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } }
                 child.stdin.write(JSON.stringify(message) + '\n')
             },
-            abort:   () => this.terminate(child),
-            dispose: () => this.shutdown(child),
+            abort:   () => { expectedExit = true; this.terminate(child) },
+            dispose: () => { expectedExit = true; return this.shutdown(child) },
         }
     }
 

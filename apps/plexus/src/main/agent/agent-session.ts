@@ -67,7 +67,7 @@ export class AgentSession
 
     public send(workingDirectory: string, addDirs: readonly string[], text: string, model: string = ''): void
     {
-        if (this.current === null || !this.sameTarget(workingDirectory, addDirs, model)) this.start(workingDirectory, addDirs, undefined, model)
+        if (this.current === null || this.current.alive === false || !this.sameTarget(workingDirectory, addDirs, model)) this.start(workingDirectory, addDirs, undefined, model)
         this.current!.send(text)
     }
 
