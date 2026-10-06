@@ -3,8 +3,8 @@ import { load, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from
 import { iconEntityKey } from '../arch-icon.js'
 import { jsonNode } from '../../../../test-support/todl-fixture.js'
 
-// Build a repo whose base carries `<id>@icon` annotation nodes — the SOURCE shape a
-// meta-model/library declares (`annotate icon { path = … }`): an id `<target>@icon`,
+// Build a repo whose base carries `<id>@todl.icon` annotation nodes — the SOURCE shape a
+// meta-model/library declares (`annotate icon { path = … }`): an id `<target>@todl.icon`,
 // typeOf 'icon', attrs.path. (No `key`: that is stamped only at publish, and the arch
 // project loads bases from source.) Own instances reference the terms.
 const MM = `namespace t {
@@ -19,7 +19,7 @@ function repoWith(icons: string[], model: string): { repo: Repository; entity: (
 {
     const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)
     for (const target of icons)
-        mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))
+        mmDoc.nodes.push(jsonNode({ id: `${target}@todl.icon`, tier: 'Ontology', type: 'todl.icon', attrs: { path: `resources/${target}.svg` } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [{ uri: 'a.todl', text: model }], { namespace: 't' })
     const insts = new Map(draft.ownInstances().map((e) => [e.id, e]))
@@ -79,7 +79,7 @@ function dirRepoWith(icons: string[]): { repo: Repository; entity: (id: string) 
 {
     const mmDoc = toJSON(load([{ uri: 'dir.todl', text: DIR_MM }]).model)
     for (const target of icons)
-        mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))
+        mmDoc.nodes.push(jsonNode({ id: `${target}@todl.icon`, tier: 'Ontology', type: 'todl.icon', attrs: { path: `resources/${target}.svg` } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const model = `namespace t { model M : t conforms V { component c1 { categorisedAs = Cats.ai; implementedBy = Stack.azure; } } }`
     const draft = ModelDraft.fromSources([baseRepo], [{ uri: 'a.todl', text: model }], { namespace: 't' })

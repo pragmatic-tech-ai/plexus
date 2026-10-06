@@ -3,9 +3,12 @@ import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 // "Has an icon": the `<id>@icon` annotation node the meta-model/library SOURCE
 // declares (`annotate icon { path = … }`) — keyed on the annotation's presence, not
 // its publish-time `key` attr, because arch projects load their bases from source.
+const IconAnnotationSuffix = '@todl.icon'
+const IconSourceAnnotationSuffix = '@todl.iconSource'
+
 function hasIcon(repo: Repository, id: string): boolean
 {
-    const path = repo.resolve(`${id}@icon`)?.attrs.get('path')
+    const path = repo.resolve(`${id}${IconAnnotationSuffix}`)?.attrs.get('path')
     return typeof path === 'string' && path.length > 0
 }
 
@@ -35,7 +38,7 @@ export function iconEntityKey(repo: Repository, entity: Entity): string | undefi
     let index = 0
     for (const rel of entity.schema().relationships)
     {
-        const raw = repo.resolve(`${entity.concept}.${rel.name}@iconSource`)?.attrs.get('order')
+        const raw = repo.resolve(`${entity.concept}.${rel.name}${IconSourceAnnotationSuffix}`)?.attrs.get('order')
         const order = raw === undefined || raw === null ? NaN : Number(raw)
         if (Number.isFinite(order)) sources.push({ member: rel.name, order, index })
         index++

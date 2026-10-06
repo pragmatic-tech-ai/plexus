@@ -22,6 +22,7 @@ import type { ArchModel } from './arch-model.js'
 const PAGE_ID = 'arch:model'
 const SCENARIO_PAGE_ID = 'arch:scenarios'
 const SCENARIO_CONCEPT = 'scenario'
+const TOOLBOX_ANNOTATION_SUFFIX = '@todl.toolbox'
 
 // An entity's display label: its `label`, else `name`, else its id.
 function entityLabel(e: Entity): string
@@ -38,7 +39,7 @@ function entityLabel(e: Entity): string
 // `<id>@icon`. Booleans resolve to real booleans here, so opt-out is `!== false`.
 export function conceptToolboxVisible(repo: Repository, concept: string): boolean
 {
-    return repo.resolve(`${concept}@toolbox`)?.attrs.get('visible') !== false
+    return repo.resolve(`${concept}${TOOLBOX_ANNOTATION_SUFFIX}`)?.attrs.get('visible') !== false
 }
 
 // The toolbox items for a diagram's "Model:" page: one per in-scope entity that

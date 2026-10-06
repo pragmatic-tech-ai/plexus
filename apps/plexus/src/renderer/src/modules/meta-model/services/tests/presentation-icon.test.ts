@@ -8,9 +8,9 @@ import { loadCompiledPresentation } from '../compiled-presentation.js'
 const DOC: TodlDocument = {
     nodes: [
         { id: 'actor', tier: 'Ontology', metaKind: 'concept', attrs: { label: 'Actor' } },
-        { id: 'actor@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/actor.svg' } },
+        { id: 'actor@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/actor.svg' } },
     ],
-    edges: [{ kind: 'Annotated', via: null, from: 'actor', to: 'actor@icon' }],
+    edges: [{ kind: 'Annotated', via: null, from: 'actor', to: 'actor@todl.icon' }],
 } as unknown as TodlDocument
 
 // The colored icon is embedded into the assets artifact at compile (parseSvgIcon over

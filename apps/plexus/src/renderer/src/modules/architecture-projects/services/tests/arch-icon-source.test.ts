@@ -20,7 +20,7 @@ function repoWith(icons: string[], model: string): { repo: Repository; entity: (
 {
     const mmDoc = toJSON(load([{ uri: 'mm.todl', text: MM }]).model)
     for (const target of icons)
-        mmDoc.nodes.push(jsonNode({ id: `${target}@icon`, tier: 'Ontology', type: 'icon', attrs: { path: `resources/${target}.svg` } }))
+        mmDoc.nodes.push(jsonNode({ id: `${target}@todl.icon`, tier: 'Ontology', type: 'todl.icon', attrs: { path: `resources/${target}.svg` } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const draft = ModelDraft.fromSources([baseRepo], [{ uri: 'a.todl', text: model }], { namespace: 't' })
     const insts = new Map(draft.ownInstances().map((e) => [e.id, e]))

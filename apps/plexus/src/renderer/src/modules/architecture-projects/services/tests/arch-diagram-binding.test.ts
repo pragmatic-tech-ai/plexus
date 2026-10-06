@@ -57,7 +57,7 @@ test('attach binds ArchNodeVMs whose Id is an entity: derives Label; unknown VMs
 
 test('a node whose entity references an icon-bearing term is keyed by that term id (resolver maps it via the index)', () => {
     // Base meta-model with a component->realisedBy->technology relationship and a
-    // `<term>@icon` annotation node (the SOURCE shape: path only, no stamped key —
+    // `<term>@todl.icon` annotation node (the SOURCE shape: path only, no stamped key —
     // the arch project loads bases from source).
     const REF_MM = `namespace refmm {
       concept technology {}
@@ -66,7 +66,7 @@ test('a node whose entity references an icon-bearing term is keyed by that term 
       viewpoint CV : frames component
     }`
     const mmDoc = toJSON(load([{ uri: 'refmm.todl', text: REF_MM }]).model)
-    mmDoc.nodes.push(jsonNode({ id: 'Stack.azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } }))
+    mmDoc.nodes.push(jsonNode({ id: 'Stack.azure@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/azure.svg' } }))
     const baseRepo = new Repository(graphFromJSON(mmDoc))
     const file = { uri: 'refmodel.todl', text: 'namespace refmm { model Arch : refmm conforms CV { component c1 { realisedBy = Stack.azure; } } }' }
     const draft = ModelDraft.fromSources([baseRepo], [file], { namespace: 'refmm' })

@@ -4,6 +4,8 @@ import { ModelDraft, parse, type Repository, type SourceFile } from '@pragmatic-
 import { ActiveSolutionMembers } from '../solution/active-solution-members.js'
 import { collectTodlSources } from '../todl/todl-sources.js'
 
+const WikiAnnotationSuffix = '@todl.wiki'
+
 // The wiki page `path` a concept declares via `annotate wiki { path }`, read
 // straight off a LOADED model — a pure, cheap `repo.resolve('X@wiki')` exactly like
 // materializeOf. This is the intended way to consult the annotation; the legacy
@@ -12,7 +14,7 @@ import { collectTodlSources } from '../todl/todl-sources.js'
 export function wikiPathOf(repo: Repository, concept: string): string | undefined
 {
     if (concept.length === 0) return undefined
-    const v = repo.resolve(`${concept}@wiki`)?.attrs.get('path')
+    const v = repo.resolve(`${concept}${WikiAnnotationSuffix}`)?.attrs.get('path')
     return typeof v === 'string' && v.length > 0 ? v : undefined
 }
 
@@ -39,7 +41,7 @@ export class WikiLocator
             {
                 const sources = await collectTodlSources(op.Storage)
                 const repo = ModelDraft.fromSources([], sources, { namespace: namespaceOf(sources, op.Project.Name) }).model
-                const v = repo.resolve(`${concept}@wiki`)?.attrs.get('path')
+                const v = repo.resolve(`${concept}${WikiAnnotationSuffix}`)?.attrs.get('path')
                 relPath = typeof v === 'string' && v.length > 0 ? v : undefined
             }
             catch

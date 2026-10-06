@@ -41,9 +41,9 @@ test('derives the icon path from a class node icon annotation', () => {
             jsonNode({ id: 'Location', tier: 'Ontology', metaKind: 'concept', attrs: {} }),
             jsonNode({ id: 'Microsoft', tier: 'Ontology', metaKind: 'taxonomy', attrs: {} }),
             jsonNode({ id: 'Microsoft.Azure', tier: 'Instance', type: 'Location', metaKind: 'term', isClass: true, localId: 'Azure', attrs: { label: 'Azure' } }),
-            jsonNode({ id: 'Microsoft.Azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } }),
+            jsonNode({ id: 'Microsoft.Azure@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/azure.svg' } }),
         ],
-        edges: [{ kind: 'Annotated', via: null, from: 'Microsoft.Azure', to: 'Microsoft.Azure@icon' }],
+        edges: [{ kind: 'Annotated', via: null, from: 'Microsoft.Azure', to: 'Microsoft.Azure@todl.icon' }],
     }
     expect(deriveClasses(model)[0]).toEqual({
         id: 'Microsoft.Azure', localId: 'Azure', label: 'Azure', concept: 'Location', icon: 'resources/azure.svg',

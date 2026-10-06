@@ -37,8 +37,8 @@ async function bakeLibrary(backend: FakeStorage, withIcon = true): Promise<void>
     const doc = withIcon
         ? { nodes: [
             { id: 'microsoft.azure', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'azure', attrs: { label: 'Azure' } },
-            { id: 'microsoft.azure@icon', tier: 'Ontology', type: 'icon', attrs: { path: 'resources/azure.svg' } },
-          ], edges: [{ kind: 'Annotated', via: null, from: 'microsoft.azure', to: 'microsoft.azure@icon' }] } as any
+            { id: 'microsoft.azure@todl.icon', tier: 'Ontology', type: 'todl.icon', attrs: { path: 'resources/azure.svg' } },
+          ], edges: [{ kind: 'Annotated', via: null, from: 'microsoft.azure', to: 'microsoft.azure@todl.icon' }] } as any
         : { nodes: [
             { id: 'microsoft.azure', tier: 'Instance', type: 'location', metaKind: 'term', isClass: true, localId: 'azure', attrs: { label: 'Azure' } },
           ], edges: [] } as any
