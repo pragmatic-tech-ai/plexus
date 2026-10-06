@@ -48,27 +48,38 @@ export class DocOwnership
 
     // Open a project file as a document tab (through the given editor) and record
     // its owning member. Re-activates an already-open tab instead of duplicating —
-    // the single dedupe point every open path funnels through.
-    public async OpenDocument(member: SolutionMember, path: string, factory: IDocumentFactory): Promise<IDocument>
+    // the single dedupe point every open path funnels through. `preview` opens it
+    // as an ephemeral tab reused by tree browsing (single-click / keyboard); the
+    // default pins a permanent tab (and promotes the preview if it was one).
+    public async OpenDocument(member: SolutionMember, path: string, factory: IDocumentFactory, preview = false): Promise<IDocument>
     {
         const existing = this.FindOpenDoc(member, path)
-        if (existing !== undefined) { this.host.Open(existing); return existing }
+        if (existing !== undefined) { this.showInHost(existing, preview); return existing }
         const storage = DocOwnership.StorageOf(member)
         const doc = await factory.openFile(storage, path)
         this.owners.set(doc, member)
         this.paths.set(doc, path)
-        this.host.Open(doc)
+        this.showInHost(doc, preview)
         return doc
+    }
+
+    // Present a document through the host as either a reused ephemeral preview
+    // tab or a permanent one. OpenPreview re-activates an already-permanent tab
+    // without demoting it; Open promotes a preview it is handed.
+    private showInHost(doc: IDocument, preview: boolean): void
+    {
+        if (preview) this.host.OpenPreview(doc)
+        else this.host.Open(doc)
     }
 
     // Open (or re-activate) a file resolving its editor by extension. Undefined
     // when no registered editor claims the extension (the caller decides the
-    // fallback — e.g. open externally).
-    public async OpenFile(member: SolutionMember, path: string): Promise<IDocument | undefined>
+    // fallback — e.g. open externally). `preview` forwards to OpenDocument.
+    public async OpenFile(member: SolutionMember, path: string, preview = false): Promise<IDocument | undefined>
     {
         const factory = this.FactoryFor(DocOwnership.ExtName(path))
         if (factory === undefined) return undefined
-        return this.OpenDocument(member, path, factory)
+        return this.OpenDocument(member, path, factory, preview)
     }
 
     // The already-open document for (member, project-relative path), if any.

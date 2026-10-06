@@ -535,12 +535,12 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // Open (or re-activate) a file in the member's project — the open-on-activate
     // entry point. A folder is a no-op; a file with no editor falls back to the OS on
     // local storage.
-    public async OpenMemberFile(member: SolutionMember, path: string, kind: ProjectNodeKind): Promise<void>
+    public async OpenMemberFile(member: SolutionMember, path: string, kind: ProjectNodeKind, preview = false): Promise<void>
     {
         if (kind === ProjectNodeKind.Folder) return
         const storage = member.Storage
         if (storage === undefined) return
-        const doc = await this.docs.OpenFile(member, path)
+        const doc = await this.docs.OpenFile(member, path, preview)
         if (doc === undefined && isLocalFileAccess(storage)) await storage.OpenExternal(path)
     }
 

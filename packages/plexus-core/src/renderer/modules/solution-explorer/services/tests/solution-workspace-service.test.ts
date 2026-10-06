@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, DocumentTypeRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { Solution, ProjectFactoryRegistryKey, SolutionLanguageService, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { Solution, ProjectFactoryRegistryKey, ProjectNodeKind, SolutionLanguageService, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { LiveValidationKey } from '../../../../projects/index.js'
 import { DocumentCloseGuard } from '../../../../documents/document-close-guard.js'
 import { SavePromptResult } from '../../../../dialogs/save-prompt-model.js'
@@ -52,8 +52,11 @@ class FakeHost
     public readonly open: IDocument[] = []
     constructor(private readonly log: string[]) {}
 
+    public readonly previewed: IDocument[] = []
     public get OpenDocuments(): { ToArray(): IDocument[] } { return { ToArray: () => this.open } }
     public Open(doc: IDocument): void { if (!this.open.includes(doc)) this.open.push(doc) }
+    public OpenPreview(doc: IDocument): void { if (!this.open.includes(doc)) this.open.push(doc); this.previewed.push(doc) }
+    public Promote(_doc: IDocument): void {}
     public Close(doc: IDocument): void { const i = this.open.indexOf(doc); if (i >= 0) this.open.splice(i, 1); this.log.push('close') }
     public Save(doc: IDocument): void { (doc as unknown as FakeDoc).IsDirty = false }
 }
@@ -135,6 +138,27 @@ async function harness(opts: HarnessOpts = {})
 
 describe('SolutionWorkspaceService', () =>
 {
+    it('OpenMemberFile(preview) routes through the host preview slot; permanent routes through Open', async () =>
+    {
+        const { service, member, host } = await harness()
+        await service.OpenMemberFile(member, 'a.todl', ProjectNodeKind.Todl, true)
+        expect(host.previewed).toHaveLength(1)   // single-click / keyboard → ephemeral preview tab
+        expect(host.open).toHaveLength(1)
+
+        // Re-opening the same file permanently (double-click) does NOT preview it again.
+        await service.OpenMemberFile(member, 'a.todl', ProjectNodeKind.Todl, false)
+        expect(host.previewed).toHaveLength(1)
+        expect(host.open).toHaveLength(1)
+    })
+
+    it('a folder open is a no-op regardless of the preview flag', async () =>
+    {
+        const { service, member, host } = await harness()
+        await service.OpenMemberFile(member, 'sub', ProjectNodeKind.Folder, true)
+        expect(host.previewed).toHaveLength(0)
+        expect(host.open).toHaveLength(0)
+    })
+
     it('Delete confirms, then closes the open tab BEFORE the engine deletes (CanRemove ordering)', async () =>
     {
         const { service, member, storage, log } = await harness({ dialogResult: true })

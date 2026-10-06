@@ -226,7 +226,10 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     }
 
     // ── HierarchyHost ────────────────────────────────────────────────────────
-    public Activate(item: HierarchyItem): void { void this.onActivate(item) }
+    // Double-click (mural fires host.Activate only on a leaf double-click — a
+    // branch double-click toggles expansion in the TreeView instead) opens the
+    // file as a PERMANENT tab, promoting it if it was the preview.
+    public Activate(item: HierarchyItem): void { void this.onActivate(item, false) }
     public CommitRename(item: HierarchyItem, newName: string): void { void this.files?.RenameNode(item, newName) }
     // Delete dispatches by node family: a reference leaf removes references, a connection leaf
     // removes connections (both selection-aware, reversible edits — no confirm); the synthetic
@@ -283,16 +286,18 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     {
         const selection = this.selection()
         if (selection.length !== 1) return
-        void this.onActivate(selection[0]!)
+        // A single click or keyboard move is navigation, not a commitment: open
+        // the row's file in the reused ephemeral PREVIEW tab (VS Code parity).
+        void this.onActivate(selection[0]!, true)
     }
 
-    private async onActivate(item: HierarchyItem): Promise<void>
+    private async onActivate(item: HierarchyItem, preview: boolean): Promise<void>
     {
         const content = item.ExtObject as ProjectContentNode | undefined
         if (content === undefined || content.Path === undefined) return   // a member / synthetic row — nothing to open
         const member = FileTreeContributor.MemberOf(item)
         if (member === undefined) return
-        await this.workspace.OpenMemberFile(member, content.Path, content.Kind as ProjectNodeKind)
+        await this.workspace.OpenMemberFile(member, content.Path, content.Kind as ProjectNodeKind, preview)
     }
 
     private teardownCurrent(): void

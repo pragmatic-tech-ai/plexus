@@ -28,11 +28,11 @@ class FakeManager extends Observable
 // (the IContentMutations implementer that also supplies the References / Connections views).
 class FakeWorkspace
 {
-    public readonly opened: Array<[SolutionMember, string, ProjectNodeKind]> = []
+    public readonly opened: Array<[SolutionMember, string, ProjectNodeKind, boolean]> = []
     public readonly renamed: Array<[SolutionMember, string, string]> = []
     public readonly deleted: Array<[SolutionMember, string]> = []
     public readonly closed: SolutionMember[] = []
-    public async OpenMemberFile(m: SolutionMember, path: string, kind: ProjectNodeKind): Promise<void> { this.opened.push([m, path, kind]) }
+    public async OpenMemberFile(m: SolutionMember, path: string, kind: ProjectNodeKind, preview = false): Promise<void> { this.opened.push([m, path, kind, preview]) }
     public async RenameMemberFile(m: SolutionMember, p: string, n: string): Promise<void> { this.renamed.push([m, p, n]) }
     public async DeleteMemberFiles(m: SolutionMember, ps: readonly string[]): Promise<void> { for (const p of ps) this.deleted.push([m, p]) }
     public async NewFileForMember(): Promise<void> {}
@@ -179,7 +179,7 @@ describe('SolutionExplorerService', () =>
         expect(svc.NewProjectCommand).toBe(commands.NewProjectCommand)
     })
 
-    it('activating a file row opens it through the workspace service', async () =>
+    it('activating a file row (double-click) opens it as a PERMANENT tab', async () =>
     {
         const { svc, manager, explorer } = make()
         svc.Start()
@@ -190,10 +190,11 @@ describe('SolutionExplorerService', () =>
         svc.Activate(fileVm)
         await Promise.resolve()
         await Promise.resolve()
-        expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl'])
+        // Double-click pins a permanent tab → preview flag false.
+        expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl', false])
     })
 
-    it('single-click (selecting one file row) opens it through the workspace service', async () =>
+    it('single-click (selecting one file row) opens it as an EPHEMERAL PREVIEW tab', async () =>
     {
         const { svc, manager, explorer } = make()
         svc.Start()
@@ -201,10 +202,11 @@ describe('SolutionExplorerService', () =>
         const memberRow = projectRow(svc, 0)
         const member = manager.ActiveSolution!.Members.Get(0)
         const fileVm = { ExtObject: { Path: 'a.todl', Kind: 'todl' }, Parent: memberRow, Id: 0 } as unknown as HierarchyItem
-        svc.Hierarchy!.Selection.Add(fileVm)   // the TreeView selects on single click
+        svc.Hierarchy!.Selection.Add(fileVm)   // the TreeView selects on single click / keyboard move
         await Promise.resolve()
         await Promise.resolve()
-        expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl'])
+        // Navigation opens in the reused preview tab → preview flag true.
+        expect(explorer.opened.at(-1)).toEqual([member, 'a.todl', 'todl', true])
     })
 
     it('selecting a member row (not a file) does not open anything', async () =>
@@ -232,8 +234,8 @@ describe('SolutionExplorerService', () =>
         svc.Hierarchy!.Selection.Add(f2)
         await Promise.resolve()
         await Promise.resolve()
-        // Only the first (single-item) selection opened; the second made it a multi-selection.
-        expect(explorer.opened).toEqual([[member, 'a.todl', 'todl']])
+        // Only the first (single-item) selection opened — as a preview; the second made it a multi-selection.
+        expect(explorer.opened).toEqual([[member, 'a.todl', 'todl', true]])
     })
 
     it('activating a member row (not a file) does not call OpenMemberFile', () =>
