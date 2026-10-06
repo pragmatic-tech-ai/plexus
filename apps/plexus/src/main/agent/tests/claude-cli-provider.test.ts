@@ -328,3 +328,10 @@ test('an exit after the CLI already reported an error does not add a second erro
     f.emitClose(1)
     expect(events.filter((e) => e.Kind === AgentEventKind.Error)).toHaveLength(1)
 })
+
+test('a spawn ENOENT error is reported as claude not being installed', () => {
+    const { f, events } = startedSession()
+    f.emitError(Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' }))
+    const err = events.find((e) => e.Kind === AgentEventKind.Error) as { Message: string }
+    expect(err.Message).toContain('Could not run "claude"')
+})

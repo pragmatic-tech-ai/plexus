@@ -38,12 +38,15 @@ const CLI_ARGS = [
     '--permission-mode', 'acceptEdits', // auto-approve edits; cwd bounds blast radius
 ]
 
-// shell:true is required on Windows, where `claude` is a `.cmd` shim that Node
-// (≥20) refuses to spawn directly. Args are a fixed flag list and the user's
-// text goes over stdin (never interpolated into the command line), so there is
-// no shell-injection surface.
+// shell:true is required on Windows only, where `claude` is a `.cmd` shim that Node
+// (≥20) refuses to spawn directly. Elsewhere spawn directly: a shell would re-parse
+// args like the system prompt (spaces, parentheses, quotes) and break the command.
+// The user's text goes over stdin, never the command line.
 const defaultSpawn: SpawnFn = (command, args, options) =>
-    nodeSpawn(command, args, { cwd: options.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: true, env: withCliPath(process.env, homedir(), process.platform) }) as unknown as ChildLike
+    nodeSpawn(command, args, {
+        cwd: options.cwd, stdio: ['pipe', 'pipe', 'pipe'], shell: process.platform === 'win32',
+        env: withCliPath(process.env, homedir(), process.platform),
+    }) as unknown as ChildLike
 
 export class ClaudeCliProvider implements IAiProvider
 {
@@ -133,7 +136,9 @@ export class ClaudeCliProvider implements IAiProvider
         })
 
         child.on('error', (err) => {
-            forward({ Kind: AgentEventKind.Error, Message: err.message })
+            forward({ Kind: AgentEventKind.Error, Message: (err as NodeJS.ErrnoException).code === 'ENOENT'
+                ? `Could not run "${this.binaryPath}" — is Claude Code installed and on PATH?`
+                : err.message })
         })
 
         // The process dying mid-turn emits no result line, which would leave the UI
