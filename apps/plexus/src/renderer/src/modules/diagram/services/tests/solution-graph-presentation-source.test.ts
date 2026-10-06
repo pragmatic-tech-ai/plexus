@@ -1,12 +1,15 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach } from 'vitest'
 import { FakeStorage, ServiceProvider, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     ProjectSystemComposer, SolutionLanguageService, SolutionManagerService, WikiLocator, fromJSON,
-    type JsonEdge, type JsonNode, type Repository, type TodlDocument, type WikiOrigin,
+    type Entity, type JsonEdge, type JsonNode, type Repository, type TodlDocument, type WikiOrigin,
 } from '@pragmatic-tech-ai/todl'
 
 import { FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
 import { SolutionGraphPresentationSource } from '../solution-graph-presentation-source.js'
+import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
+import { setIconResourceResolver } from '../icon-key-converter.js'
+import { resolveElementPresentation } from '../../../architecture-projects/services/element-presentation.js'
 
 // Builds a microsoft-like source member's slice of the shared solution graph: each term is
 // an Instance-tier class carrying an `icon` annotation application (`annotate icon { path }`)
@@ -22,6 +25,7 @@ class GraphFixture
     public static readonly AwsId = 'lib.MS.aws'
     public static readonly AzureIconPath = 'resources/azure.svg'
     public static readonly AwsIconPath = 'resources/aws.svg'
+    public static readonly AzureLabel = 'Azure'
     private static readonly IconAnnotation = 'todl.icon'
     private static readonly AnnotatedKind = 'Annotated'
     private static readonly InstanceTier = 'Instance'
@@ -97,6 +101,10 @@ class Harness
     }
 }
 
+// discover() bridges the IconKeyConverter to the registry's owned aggregate via the module
+// global — reset it between tests so one test's resolver cannot leak into the next.
+afterEach(() => setIconResourceResolver(undefined))
+
 describe('SolutionGraphPresentationSource', () =>
 {
     it('contributes icon keys baked from a source member', async () =>
@@ -112,6 +120,20 @@ describe('SolutionGraphPresentationSource', () =>
         // arch-icon lookup passes to registry.iconKeyFor — not the brief's bare 'lib.azure'.
         expect(iconKeys.get(GraphFixture.AzureId)).toBeTruthy()
         expect([...assets.Entries()].length).toBeGreaterThan(0)
+
+        // Close the consumer loop: drive the REAL registry + the arch icon-resolution path end
+        // to end, so a future drift in arch-icon.iconEntityKey (an instance id / a prefixed key)
+        // that no longer matched the bake key would fail HERE, not render blank in the app.
+        const registry = new TodlPresentationRegistry(harness.provider)
+        registry.registerSource(source)
+        await registry.discover()
+        expect(registry.iconKeyFor(GraphFixture.AzureId)).toBeTruthy()
+
+        const repo = harness.language.ModelViewResult.model
+        const entity = repo.entity(GraphFixture.AzureId) as Entity
+        const presentation = resolveElementPresentation(repo, registry, entity, GraphFixture.AzureLabel)
+        expect(presentation.iconKey).not.toBeNull()
+
         source.dispose()
     })
 

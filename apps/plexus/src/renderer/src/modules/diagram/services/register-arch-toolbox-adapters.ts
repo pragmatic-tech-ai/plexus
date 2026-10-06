@@ -22,11 +22,12 @@ export function registerArchToolboxAdapters(services: ServiceProvider): void
         registry = new TodlPresentationRegistry(services)
         services.registerInstance(TodlPresentationRegistry.Key, registry)
     }
-    // The solution graph's own source members bake icons live (no published package) —
-    // registered AHEAD of the local-cache sources, which stay as the published fallback.
-    registry.registerSource(new SolutionGraphPresentationSource(services))
     registry.registerSource(new LibraryPresentationSource(services, () => services.get(LibraryRegistry.Key)?.discover() ?? Promise.resolve([])))
     registry.registerSource(new MetaModelPresentationSource(services))
+    // Registered LAST so its live-baked icons take precedence over any stale published copy
+    // (the registry merges iconKeys last-wins): when a member is both open and published, the
+    // member the user is editing — the solution graph's source member — must win.
+    registry.registerSource(new SolutionGraphPresentationSource(services))
 
     if (!services.has(ArchInstanceDropFactoryKey))
     {
