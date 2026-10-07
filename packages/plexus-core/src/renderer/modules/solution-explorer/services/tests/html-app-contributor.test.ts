@@ -62,13 +62,13 @@ describe('HtmlAppContributor', () =>
     it('Open HTML app does not open when the build fails', async () =>
     {
         const calls: any = {}
-        const build = { Build: () => Promise.resolve({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 0, message: 'boom' }] }, Artifacts: {} }) }
+        const build = { Build: () => Promise.resolve({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] }, Artifacts: {} }) }
         const fs = { OpenExternal: (p: string) => { calls.opened = p; return Promise.resolve() } }
         const work = HtmlAppTestHelper.Work()
         const member = HtmlAppTestHelper.Member()
         const c = new HtmlAppContributor(build as any, work as any, fs as any)
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(member))!.Execute()
-        await expect(work.task).rejects.toThrow()
+        await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(calls.opened).toBeUndefined()
     })
 })
