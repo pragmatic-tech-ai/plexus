@@ -98,6 +98,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     private static readonly BakeIdReplacement = '_'
     private static readonly BakeIdFilePrefix = 'f'
     private static readonly BakeIdWhole = 'whole'
+    private static readonly BakeIdJoin = '-'
     // Resource-asset extensions whose on-disk change invalidates a baked icon.
     private static readonly AssetExtensions: ReadonlySet<string> = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'])
     private static readonly BackslashPattern = /\\/g
@@ -403,15 +404,10 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
 
         const ownIds = this.OwnIds(view, storage)
-        if (ownIds.size === 0)
-        {
-            return undefined
-        }
+        const units = ownIds.size === 0 ? [] : this.PlanUnits(view, memberId, ownIds)
 
-        const units = this.PlanUnits(view, memberId, ownIds)
-
-        // Drop this member's entries for units that no longer exist (deleted files, or a
-        // switch between per-file and whole-member baking).
+        // Drop this member's entries for units that no longer exist (deleted files, a
+        // switch between per-file and whole-member baking, or a member left with no units).
         const liveKeys = new Set(units.map(unit => unit.key))
         for (const [key, entry] of this.cache)
         {
@@ -420,6 +416,14 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
                 this.cache.delete(key)
             }
         }
+        if (units.length === 0)
+        {
+            return undefined
+        }
+
+        // The member's own annotation declarations, appended to every per-file closure as
+        // inert context so an application in one file resolves its declaration in another.
+        const declarations = this.OwnAnnotationDeclarations(view, ownIds)
 
         const assets = new ResourceDictionary()
         const iconKeys = new Map<string, string>()
@@ -434,7 +438,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             {
                 const generation = this.generation
                 bases ??= (await language.ResolveBasesFor(storage)).bases
-                const baked = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases)
+                const baked = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases, declarations)
                 // A unit that declares no icons (undefined) reads no assets; a failed bake (null)
                 // still needs its keys so an asset event can evict the marker.
                 const identity = baked === undefined ? { keys: new Set<string>(), hashes: new Map<string, string>() } : await this.AssetIdentityOf(language, unit.ids)
@@ -532,7 +536,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     private static BakeId(memberId: string, suffix: string): string
     {
         const safe = memberId.replace(SolutionGraphPresentationSource.BakeIdUnsafe, SolutionGraphPresentationSource.BakeIdReplacement)
-        return `${safe}-${suffix}`
+        return `${safe}${SolutionGraphPresentationSource.BakeIdJoin}${suffix}`
     }
 
     // Bake one file's icon subset: carve its own document, close it over the member's bases,
@@ -546,10 +550,11 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         bakeId: string,
         fileIds: Set<string>,
         bases: readonly TodlDocument[],
+        declarations: TodlDocument = { nodes: [], edges: [] },
     ): Promise<PresentationContribution | undefined | null>
     {
         const document = toJSONOwn(view.model, fileIds)
-        const closure = this.Closure(document, bases)
+        const closure = this.Closure(document, bases, declarations)
 
         // A file with no own MuralResource-bearing node declares no icons — skip the bake
         // (an empty resources block would have nothing to compile).
@@ -595,13 +600,47 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         return ids
     }
 
+    // The member's own annotation-DECLARATION nodes (and their edges) as a document. They are
+    // closure context only, never baked as icons or attributed to a file's contribution.
+    private OwnAnnotationDeclarations(view: SolutionModelView, ownIds: ReadonlySet<string>): TodlDocument
+    {
+        const ids = new Set<string>()
+        for (const node of view.model.allNodes())
+        {
+            if (ownIds.has(node.id) && node.metaKind === MetaKind.Annotation)
+            {
+                ids.add(node.id)
+            }
+        }
+        return ids.size === 0 ? { nodes: [], edges: [] } : toJSONOwn(view.model, ids)
+    }
+
     // The baker's closure: the member's own document merged with its resolved bases, plus
     // the prelude icon-annotation ancestry so the literal `icon` annotation resolves up to
     // `MuralResource` regardless of which bases carry it.
-    private Closure(document: TodlDocument, bases: readonly TodlDocument[]): TodlDocument
+    private Closure(document: TodlDocument, bases: readonly TodlDocument[], declarations: TodlDocument): TodlDocument
     {
         const nodes = [...document.nodes]
         const edges = [...document.edges]
+        // Own annotation declarations not already in this file's document (those authored in
+        // a sibling file) ride along as context, with their own outgoing edges.
+        const present = new Set(nodes.map(node => node.id))
+        const extra = new Set<string>()
+        for (const node of declarations.nodes)
+        {
+            if (!present.has(node.id))
+            {
+                nodes.push(node)
+                extra.add(node.id)
+            }
+        }
+        for (const edge of declarations.edges)
+        {
+            if (extra.has(edge.from))
+            {
+                edges.push(edge)
+            }
+        }
         for (const base of bases)
         {
             nodes.push(...base.nodes)

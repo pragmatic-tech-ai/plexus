@@ -51,6 +51,10 @@ export class TodlPresentationRegistry extends ServiceBase
 
     private readonly listeners = new Set<(key: string) => void>()
 
+    // Solution-graph sources whose AssetChanged is already wired, so a repeated register
+    // never double-subscribes.
+    private readonly wiredSources = new WeakSet<SolutionGraphPresentationSource>()
+
     // The most recent asset-triggered discover() failure, if any.
     public LastDiscoverError: unknown
 
@@ -75,6 +79,11 @@ export class TodlPresentationRegistry extends ServiceBase
     public RegisterSolutionGraphSource(source: SolutionGraphPresentationSource): void
     {
         this.registerSource(source)
+        if (this.wiredSources.has(source))
+        {
+            return
+        }
+        this.wiredSources.add(source)
         source.AssetChanged.subscribe(() =>
         {
             this.discover().catch(error => { this.LastDiscoverError = error })

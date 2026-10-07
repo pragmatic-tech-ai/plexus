@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import { FakeStorage, ServiceProvider, type ILocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    ProjectSystemComposer, SolutionLanguageService, SolutionManagerService, WikiLocator, fromJSON,
+    MetaKind, ProjectSystemComposer, SolutionLanguageService, SolutionManagerService, WikiLocator, fromJSON,
     type Entity, type JsonEdge, type JsonNode, type Repository, type TodlDocument, type WikiOrigin,
 } from '@pragmatic-tech-ai/todl'
 
@@ -29,6 +29,7 @@ class GraphFixture
     public static readonly AwsIconPath = 'resources/aws.svg'
     public static readonly AzureLabel = 'Azure'
     private static readonly IconAnnotation = 'todl.icon'
+    private static readonly MuralResourceAnnotation = 'todl.MuralResource'
     private static readonly AnnotatedKind = 'Annotated'
     private static readonly InstanceTier = 'Instance'
     private static readonly PathAttr = 'path'
@@ -93,6 +94,41 @@ class GraphFixture
         return { model, originOf, provenanceOf }
     }
 
+    public static readonly CustomAnnotationId = 'lib.MyIcon'
+    public static readonly CustomTermId = 'lib.MS.custom'
+    public static readonly CustomDeclFile = 'file:///custom-decl.todl'
+    public static readonly CustomTermFile = 'file:///custom-term.todl'
+    private static readonly OntologyTier = 'Ontology'
+    private static readonly ExtendsKind = 'Extends'
+
+    // A member whose custom annotation `MyIcon : icon` is DECLARED in one file and APPLIED
+    // (type = the declaration id, no Annotated/Extends edge across files) in another.
+    public static CustomAnnotationView(storage: IStorage): { model: Repository; originOf: ReadonlyMap<string, WikiOrigin>; provenanceOf: ReadonlyMap<string, string> }
+    {
+        const appId = `${GraphFixture.CustomTermId}@${GraphFixture.CustomAnnotationId}`
+        const decl = { id: GraphFixture.CustomAnnotationId, tier: GraphFixture.OntologyTier, type: null, metaKind: MetaKind.Annotation, namespace: GraphFixture.Namespace, localId: GraphFixture.CustomAnnotationId, isClass: false, class: null, storageId: null, fields: [], attrs: {} } as unknown as JsonNode
+        const term = { id: GraphFixture.CustomTermId, tier: GraphFixture.InstanceTier, type: GraphFixture.ConceptType, metaKind: null, namespace: GraphFixture.Namespace, localId: GraphFixture.CustomTermId, isClass: true, class: null, storageId: null, fields: [], attrs: {} } as unknown as JsonNode
+        const app = { id: appId, tier: GraphFixture.InstanceTier, type: GraphFixture.CustomAnnotationId, metaKind: null, namespace: null, localId: null, isClass: false, class: null, storageId: null, fields: [], attrs: { [GraphFixture.PathAttr]: GraphFixture.AzureIconPath } } as unknown as JsonNode
+        // The prelude's icon ancestry lives in the shared graph but is NOT the member's own.
+        const prelude = [GraphFixture.IconAnnotation, GraphFixture.MuralResourceAnnotation].map(id =>
+            ({ id, tier: GraphFixture.OntologyTier, type: null, metaKind: MetaKind.Annotation, namespace: null, localId: null, isClass: false, class: null, storageId: null, fields: [], attrs: {} } as unknown as JsonNode))
+        const nodes = [decl, term, app]
+        const edges = [
+            { kind: GraphFixture.ExtendsKind, via: null, from: GraphFixture.IconAnnotation, to: GraphFixture.MuralResourceAnnotation },
+            { kind: GraphFixture.ExtendsKind, via: null, from: GraphFixture.CustomAnnotationId, to: GraphFixture.IconAnnotation },
+            { kind: GraphFixture.AnnotatedKind, via: null, from: GraphFixture.CustomTermId, to: appId },
+        ] as unknown as JsonEdge[]
+        const model = fromJSON({ nodes: [...prelude, ...nodes], edges } as TodlDocument)
+        const origin = WikiLocator.OpenProjectOrigin(storage)
+        const originOf = new Map<string, WikiOrigin>(nodes.map(node => [node.id, origin]))
+        const provenanceOf = new Map<string, string>([
+            [decl.id, GraphFixture.CustomDeclFile],
+            [term.id, GraphFixture.CustomTermFile],
+            [appId, GraphFixture.CustomTermFile],
+        ])
+        return { model, originOf, provenanceOf }
+    }
+
     public static async WriteIcons(storage: IStorage, paths: ReadonlyArray<string>): Promise<void>
     {
         for (const path of paths)
@@ -124,6 +160,8 @@ class SourceProbe
         return bake.call(source, view, storage, SourceProbe.WholeBakeId, ids, [])
     }
 
+    // Intentionally reaches the source's private AssetIdentityOf/Stamp: the whole-member bake
+    // has no public entry point, and this is the only way to prove both paths stamp alike.
     // The whole-member bake with the SAME content-hash stamping the per-file path applies.
     public static async WholeMemberStamped(source: SolutionGraphPresentationSource, language: FakeLanguageService, view: { model: Repository }, storage: IStorage): Promise<{ assets: { Entries(): Iterable<[string, unknown]>; Resolve(key: string): unknown }; iconKeys: Map<string, string> }>
     {
@@ -376,6 +414,30 @@ describe('SolutionGraphPresentationSource', () =>
             expect(whole.assets.Resolve(key)).toBeDefined()
         }
         expect(SourceProbe.AssetFingerprint(granular.assets).map(([key]) => key)).toEqual(SourceProbe.AssetFingerprint(whole.assets).map(([key]) => key))
+        source.dispose()
+    })
+
+    it('resolves a custom annotation declared in one file and applied in another, equal to a whole-member bake', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath])
+        const view = GraphFixture.CustomAnnotationView(harness.storage)
+        harness.language.ModelViewResult = view
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const registry = new TodlPresentationRegistry(harness.provider)
+        registry.RegisterSolutionGraphSource(source)
+        await registry.discover()
+
+        const key = registry.iconKeyFor(GraphFixture.CustomTermId)
+        expect(key).toBeTruthy()
+        expect(registry.resolveAsset(key as string)).toBeDefined()
+
+        const merged = await source.load()
+        const whole = await SourceProbe.WholeMemberBake(source, view, harness.storage)
+        expect(merged.iconKeys).toEqual(whole.iconKeys)
+        // The declaration is closure context only: it is never attributed an icon of its own.
+        expect(merged.iconKeys.has(GraphFixture.CustomAnnotationId)).toBe(false)
         source.dispose()
     })
 
