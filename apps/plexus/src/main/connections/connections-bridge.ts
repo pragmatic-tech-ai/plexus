@@ -107,8 +107,15 @@ export class ConnectionsBridge
     /** Inspect a connection's token via the engine: identity, scopes, packages. The token itself is never returned. */
     public async Inspect(id: string): Promise<ConnectionInspection>
     {
-        const r = await this.service.InspectConnection(id)
-        return { ok: r.Ok, message: r.Message, identity: r.Identity, scopes: [...r.Scopes], scopesSupported: r.ScopesSupported, packages: [...r.Packages], packagesSupported: r.PackagesSupported }
+        try
+        {
+            const r = await this.service.InspectConnection(id)
+            return { ok: r.Ok, message: r.Message, identity: r.Identity, scopes: [...r.Scopes], scopesSupported: r.ScopesSupported, packages: [...r.Packages], packagesSupported: r.PackagesSupported }
+        }
+        catch (e)
+        {
+            return { ok: false, message: (e as Error).message, identity: '', scopes: [], scopesSupported: false, packages: [], packagesSupported: false }
+        }
     }
 
     // Resolve a published package from a connection's registry as a SourcedPackage

@@ -86,4 +86,18 @@ describe('ConnectionsBridge', () =>
         })
         expect(JSON.stringify(result)).not.toContain(secret)
     })
+
+    it('Inspect degrades a thrown engine error to an ok:false DTO instead of rejecting', async () =>
+    {
+        const service = {
+            InspectConnection: async () =>
+            {
+                throw new Error('unknown connection')
+            },
+        } as unknown as PackageManagerService
+        await expect(new ConnectionsBridge(service).Inspect('nope')).resolves.toEqual({
+            ok: false, message: 'unknown connection', identity: '',
+            scopes: [], scopesSupported: false, packages: [], packagesSupported: false,
+        })
+    })
 })
