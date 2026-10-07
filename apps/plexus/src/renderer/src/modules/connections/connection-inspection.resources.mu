@@ -35,6 +35,11 @@ resources ConnectionInspectionResources {
                 }
                 TextBlock [ Style = @BodySm, Text = $PackagesNote, Foreground = @Fg2, Visibility = $PackagesNote << ToVisibility ]
             }
+
+            // Dismiss: always shown (not gated by Ok), so a failed test can still be closed.
+            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,8,0,0) ] {
+                Button [ Variant = Filled, Command = $OkCommand ] { TextBlock [ Text = "OK" ] }
+            }
         }
     }
 }

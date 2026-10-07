@@ -1,4 +1,4 @@
-import { Observable } from '@pragmatic-tech-ai/mural/runtime'
+import { Observable, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import type { ConnectionInspection } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 
 // Read-only view-model for the connection-inspection dialog: a token's identity, scopes and
@@ -13,11 +13,16 @@ export class ConnectionInspectionViewModel extends Observable
     private static readonly PackagesNotSupportedNote = 'Package listing is not supported for this registry.'
 
     private readonly inspection: ConnectionInspection
+    private readonly close: () => void
 
-    public constructor(inspection: ConnectionInspection)
+    public readonly OkCommand: ICommand
+
+    public constructor(inspection: ConnectionInspection, close: () => void)
     {
         super()
         this.inspection = inspection
+        this.close = close
+        this.OkCommand = new RelayCommand(() => this.close())
     }
 
     public get Ok(): boolean

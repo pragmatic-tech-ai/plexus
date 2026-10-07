@@ -51,7 +51,7 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
         const existing = (await this.Provider.getRequired(ConnectionsClientKey).List()).find((c) => c.Id === id)
         if (existing === undefined) return   // removed between menu-open and click
         const inspection = await this.connections.InspectConnection(id)
-        const vm = new ConnectionInspectionViewModel(inspection)
+        const vm = new ConnectionInspectionViewModel(inspection, () => this.dialogs.Close(undefined))
         const title = `${ConnectionEditorLauncher.InspectTitle}: ${existing.DisplayName}`
         await this.dialogs.Show({ Title: title, Content: vm, Width: ConnectionEditorLauncher.InspectWidth })
     }
