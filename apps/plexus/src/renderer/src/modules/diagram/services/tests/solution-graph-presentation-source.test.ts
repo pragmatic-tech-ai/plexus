@@ -152,6 +152,14 @@ class SourceProbe
         return [...(source as unknown as { cache: Map<string, unknown> }).cache.keys()]
     }
 
+    // True when the member was planned as a single whole-member bake (its cache key ends with
+    // the whole sentinel) rather than per file — so a cross-file test can prove it exercised
+    // the per-file path, not a trivially-correct whole-member bake.
+    public static IsWholePlanned(source: SolutionGraphPresentationSource): boolean
+    {
+        return SourceProbe.CacheKeys(source).some(key => key.endsWith(SourceProbe.WholeKeyMarker))
+    }
+
     // The pre-file-granular semantics: ALL of the member's nodes baked as ONE document.
     public static async WholeMemberBake(source: SolutionGraphPresentationSource, view: { model: Repository }, storage: IStorage): Promise<{ assets: { Entries(): Iterable<[string, unknown]> }; iconKeys: Map<string, string> }>
     {
@@ -185,6 +193,7 @@ class SourceProbe
     }
 
     private static readonly WholeBakeId = 'reference-whole'
+    private static readonly WholeKeyMarker = '::<whole>'
 }
 
 // A FakeStorage that also offers local-file access, so asset keys are absolute OS paths
@@ -434,7 +443,13 @@ describe('SolutionGraphPresentationSource', () =>
         expect(registry.resolveAsset(key as string)).toBeDefined()
 
         const merged = await source.load()
-        const whole = await SourceProbe.WholeMemberBake(source, view, harness.storage)
+        // I1 guard: this member is INDEPENDENT (no own edge crosses files), so it takes the
+        // PER-FILE path — the fix (the member's own annotation declarations appended to each
+        // file's closure) is what resolves the icon. Prove the per-file path was taken, not a
+        // trivially-correct whole-member bake: a per-file unit for the term's file, no whole unit.
+        expect(SourceProbe.IsWholePlanned(source)).toBe(false)
+        expect(SourceProbe.CacheKeys(source).some(key => key.includes(GraphFixture.CustomTermFile))).toBe(true)
+        const whole = await SourceProbe.WholeMemberStamped(source, harness.language, view, harness.storage)
         expect(merged.iconKeys).toEqual(whole.iconKeys)
         // The declaration is closure context only: it is never attributed an icon of its own.
         expect(merged.iconKeys.has(GraphFixture.CustomAnnotationId)).toBe(false)
