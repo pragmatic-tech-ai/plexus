@@ -69,7 +69,9 @@ const CORE = '@pragmatic-tech-ai/plexus-core'
 
 // todl + todl-runtime ship ESM-only; main/preload are CJS, so left external the main
 // process would require() ESM and fail. Bundle them (esbuild handles the interop). esbuild
-// itself is deliberately NOT excluded: it carries a native binary and stays external.
+// carries a native binary, so it must stay external — but it is only a TRANSITIVE dep (via todl),
+// which externalizeDepsPlugin does not cover, so it is listed explicitly as a rollup external.
+const ESBUILD = 'esbuild'
 const TODL = '@pragmatic-tech-ai/todl'
 const TODL_RUNTIME = '@pragmatic-tech-ai/todl-runtime'
 
@@ -92,6 +94,7 @@ const TODL_DIST: string = (() => {
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME] })],
+    build: { rollupOptions: { external: [ESBUILD] } },
   },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME] })],
