@@ -1,9 +1,9 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { FakeStorage, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService, SolutionManagerService,
+    MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService, SolutionManagerService,
     WikiOriginKind, toJSONOwn,
-    type BakeOptions, type Repository, type TodlDocument,
+    type BakeOptions, type JsonNode, type Repository, type TodlDocument,
 } from '@pragmatic-tech-ai/todl'
 
 import type { PresentationContribution, PresentationSource } from './todl-presentation-registry.js'
@@ -44,7 +44,9 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // declarations/edges are harmless to the annotation projection.
     private static readonly IconAnnotationId = 'todl.icon'
     private static readonly MuralResourceAnnotationId = 'todl.MuralResource'
-    private static readonly AnnotationMetaKind = 'annotation'
+    // Ontology-tier serialization token for the synthetic annotation declarations
+    // (JsonNode.tier is the Tier enum emitted by name).
+    private static readonly OntologyTier = 'Ontology'
     private static readonly ExtendsEdgeKind = 'Extends'
 
     public readonly id = SolutionGraphPresentationSource.SourceId
@@ -224,11 +226,31 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             edges.push(...base.edges)
         }
         nodes.push(
-            { id: SolutionGraphPresentationSource.IconAnnotationId, type: null, metaKind: SolutionGraphPresentationSource.AnnotationMetaKind, attrs: {} },
-            { id: SolutionGraphPresentationSource.MuralResourceAnnotationId, type: null, metaKind: SolutionGraphPresentationSource.AnnotationMetaKind, attrs: {} },
+            SolutionGraphPresentationSource.AnnotationDecl(SolutionGraphPresentationSource.IconAnnotationId),
+            SolutionGraphPresentationSource.AnnotationDecl(SolutionGraphPresentationSource.MuralResourceAnnotationId),
         )
-        edges.push({ kind: SolutionGraphPresentationSource.ExtendsEdgeKind, from: SolutionGraphPresentationSource.IconAnnotationId, to: SolutionGraphPresentationSource.MuralResourceAnnotationId })
-        return { nodes, edges } as unknown as TodlDocument
+        edges.push({ kind: SolutionGraphPresentationSource.ExtendsEdgeKind, via: null, from: SolutionGraphPresentationSource.IconAnnotationId, to: SolutionGraphPresentationSource.MuralResourceAnnotationId })
+        return { nodes, edges }
+    }
+
+    // A synthetic annotation-DECLARATION node for the closure's is-a chain: only its
+    // id + Annotation metaKind matter to the projector (it keys annIds by metaKind);
+    // the remaining JsonNode fields are filled with inert defaults.
+    private static AnnotationDecl(id: string): JsonNode
+    {
+        return {
+            id,
+            tier: SolutionGraphPresentationSource.OntologyTier,
+            type: null,
+            metaKind: MetaKind.Annotation,
+            namespace: null,
+            localId: null,
+            isClass: false,
+            class: null,
+            storageId: null,
+            fields: [],
+            attrs: {},
+        }
     }
 
     // The open solution's member storages, in member order (a member without a resolved
