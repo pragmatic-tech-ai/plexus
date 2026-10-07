@@ -52,18 +52,28 @@ jobs:
           } > .npmrc
         env:
           PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      # Deterministic install from the committed lock. The lock now carries real
-      # registry URLs (npmjs for OSS + npm.pkg.github.com for the @pragmatic-tech-ai
-      # scope) — the old Verdaccio-localhost lock is long gone — so `npm ci` resolves
-      # against the CI registries above. This also avoids the runner npm's fresh-
-      # resolve arborist crash ("Cannot read properties of null (reading 'edgesOut')")
-      # that a lockless `npm install` triggers.
-      - name: Install (npm ci)
+      # Install from the committed lock, but with `npm install`, NOT `npm ci`.
+      # The lock is authored on Windows and npm records only the host platform's
+      # native optional deps (rollup + esbuild binaries — npm/cli#4828), so a
+      # strict `npm ci` leaves the Linux/macOS runners without
+      # @rollup/rollup-linux-x64-gnu (and the matching esbuild binary) and the
+      # build crashes. `npm install` keeps the committed lock as its baseline —
+      # which avoids the from-scratch arborist crash a `rm lock` resolve triggers
+      # ("Cannot read properties of null (reading 'edgesOut')") — while adding
+      # each runner's own native binaries at the locked rollup/esbuild versions.
+      - name: Install
         shell: bash
-        run: npm ci
+        run: npm install
       - run: npm run build
+      # electron-builder's config (apps/plexus/electron-builder.yml) and the
+      # app manifest it reads (main = ./out/main/index.js) are both relative to
+      # apps/plexus. Run it there, not at the monorepo root — at the root it
+      # picks up the workspace package (plexus-workspace, no main) and fails the
+      # asar entry-file check. npm run build (root script) still builds core +
+      # app into apps/plexus/out before this step.
       - name: Package + publish
         shell: bash
+        working-directory: apps/plexus
         run: npx electron-builder ${{ matrix.args }} --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
