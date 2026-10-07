@@ -43,6 +43,7 @@ const ALIASES = [
     // `development` export condition would dead-end.
     { find: /^@pragmatic-tech-ai\/todl\/build-system-core$/, replacement: `${TODL}/dist/solution-services/build-system-core/index.js` },
     { find: /^@pragmatic-tech-ai\/todl\/todl-build-system$/, replacement: `${TODL}/dist/solution-services/todl-build-system/index.js` },
+    { find: /^@pragmatic-tech-ai\/todl\/project-system$/, replacement: `${TODL}/dist/solution-services/project-services/composition/index.js` },
     { find: /^@pragmatic-tech-ai\/todl\/package-manager$/, replacement: `${TODL}/dist/solution-services/package-manager/index.js` },
 ]
 
