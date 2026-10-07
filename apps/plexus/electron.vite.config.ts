@@ -13,7 +13,7 @@ import { MuralRendererConfig } from '@pragmatic-tech-ai/plexus-core/vite/mural-r
 // readdirp's fs walk — as DEAD code: the renderer does all real fs/registry work over IPC
 // and never executes them. Vite's default `__vite-browser-external` stub lacks their named
 // exports (gunzipSync, Readable, …) so the production Rollup build errors. The ONE builtin
-// the renderer truly executes is node:path (DiskBuildStorageProvider + HtmlAppContributor
+// the renderer truly executes is node:path (HtmlAppContributor
 // `join` display/disk paths that are then handed to main over IPC) — it gets a real POSIX
 // browser impl; every other builtin resolves to a harmless no-op so the dead code links.
 // Renderer-only (added to `renderer.plugins`): main/preload keep real Node via externalize.
