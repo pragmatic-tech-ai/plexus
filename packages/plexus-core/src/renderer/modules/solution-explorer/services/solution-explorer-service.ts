@@ -7,7 +7,7 @@ import {
     type HierarchyItem, type HierarchyHost,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    SolutionManagerService, ProjectType, BuildService,
+    SolutionManagerService, ProjectType,
     type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
 } from '@pragmatic-tech-ai/todl'
@@ -193,9 +193,6 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
         // path like the other action contributors.
         const buildClient = this.provider.getRequired(BuildClientKey)
-        // Residual BuildService exists ONLY for HtmlAppContributor until Task 9 rewires it to the
-        // client (resolve a registered one, else construct directly — the idiom publishProject uses).
-        const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
         // Hand the Build/Publish contributor the flavor submenu instance (registered in
         // buildMenuServices) so it can warm the applicable-rows cache at context-menu open — the Build ▸
         // submenu then shows its real rows on first open instead of a stuck "Loading…" row.
@@ -213,7 +210,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.handles.push(registry.RegisterInstance(referenceActions, referenceActions.Actions))
         this.handles.push(registry.RegisterInstance(connectionActions, connectionActions.Actions))
         this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
-        const htmlApp = new HtmlAppContributor(build, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.provider.get(PreviewServerKey))
+        const htmlApp = new HtmlAppContributor(buildClient, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.provider.get(PreviewServerKey))
         this.handles.push(registry.RegisterInstance(htmlApp, htmlApp.Actions))
         this.setHasNoSolution(false)
         // The global bag persister is registered by the app (P6a DurableStoreRegistration). It
