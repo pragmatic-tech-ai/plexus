@@ -67,6 +67,12 @@ class RendererNodeBoundary
 // esbuild handles when bundling. electron/chokidar/etc. stay external as usual.
 const CORE = '@pragmatic-tech-ai/plexus-core'
 
+// todl + todl-runtime ship ESM-only; main/preload are CJS, so left external the main
+// process would require() ESM and fail. Bundle them (esbuild handles the interop). esbuild
+// itself is deliberately NOT excluded: it carries a native binary and stays external.
+const TODL = '@pragmatic-tech-ai/todl'
+const TODL_RUNTIME = '@pragmatic-tech-ai/todl-runtime'
+
 // @pragmatic-tech-ai/todl's dist entry — probe app-local then hoisted
 // workspace-root node_modules (npm workspaces hoist todl to the repo root).
 const TODL_DIST: string = (() => {
@@ -85,10 +91,10 @@ const TODL_DIST: string = (() => {
 // `file:../..` linked dependency.
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
+    plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME] })],
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
+    plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME] })],
   },
   renderer: {
     // Keep Node builtins out of the browser bundle (dead fs/registry code from the

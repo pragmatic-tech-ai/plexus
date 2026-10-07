@@ -114,6 +114,11 @@ import ClipboardService from "./services/clipboard/clipboard-service.js"
 // static Key) so HtmlAppContributor's Serve HTML app command resolves it.
 import IpcPreviewServer from "./services/preview-server/ipc-preview-server.js"
 
+// Build client � the concrete IBuildClient (plexus-core capability) over the window.api.build
+// preload bridge; todl builds execute in Electron main. Registered under BuildClientKey (its
+// static Key).
+import IpcBuildClient from "./services/build/ipc-build-client.js"
+
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
 import RecentProjectsService from "@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js"
@@ -309,6 +314,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Preview server over the preload bridge (PreviewServerKey): HtmlAppContributor's
         // Serve HTML app command resolves it to serve the built html-bundle locally.
         IpcPreviewServer
+        // Build client over the preload bridge (BuildClientKey): runs todl builds in main.
+        IpcBuildClient
         // TitleService is registered by the PragmaticWindowChrome module (below);
         // Plexus supplies its title source here (bound to the shared TitleSourceKey)
         // so it is registered during app compose — before the header ControlTemplate
