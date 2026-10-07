@@ -21,13 +21,26 @@ interface SolutionModelView
     provenanceOf: ReadonlyMap<string, string>
 }
 
-// One cached per-file bake, remembering which member and file it belongs to so eviction
-// can match either by file or by member.
+// One cached bake unit: a single file of an independent member, or the whole member when
+// its icon graph crosses files. Remembers which member and files it covers so eviction can
+// match by file or by member. An undefined contribution is a negative-cache marker (the
+// unit baked to nothing).
 interface FileEntry
 {
     memberId: string
-    fileUri: string
-    contribution: PresentationContribution
+    fileUris: ReadonlySet<string>
+    whole: boolean
+    contribution: PresentationContribution | undefined
+}
+
+// One unit of baking: the cache key, the bake id, the files it covers and the node ids it carves.
+interface BakeUnit
+{
+    key: string
+    bakeId: string
+    fileUris: ReadonlySet<string>
+    whole: boolean
+    ids: Set<string>
 }
 
 // A PresentationSource that bakes each OPEN source member's icons straight from the
@@ -62,12 +75,21 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     private static readonly ExtendsEdgeKind = 'Extends'
     // Joins a member id and a file URI into one cache / bake id.
     private static readonly KeySeparator = '::'
+    // Sentinel "file" naming a whole-member bake; no real file URI can equal it.
+    private static readonly WholeSentinel = '<whole>'
+    private static readonly AnnotatedEdgeKind = 'Annotated'
+    private static readonly BakeIdUnsafe = /[^A-Za-z0-9_-]/g
+    private static readonly BakeIdReplacement = '_'
+    private static readonly BakeIdFilePrefix = 'f'
+    private static readonly BakeIdWhole = 'whole'
 
     public readonly id = SolutionGraphPresentationSource.SourceId
 
     private readonly baker: ProviderPresentationBaker
-    // `${memberId}::${fileUri}` → that file's last baked contribution; evicted on GraphChanged.
+    // `${memberId}::${fileUri}` (or `::<whole>`) → that unit's last bake; evicted on GraphChanged.
     private readonly cache = new Map<string, FileEntry>()
+    // Bumped on every eviction so a bake that raced a GraphChanged never stores a stale entry.
+    private generation = 0
     // The single GraphChanged subscription, attached lazily on the first load() that finds
     // a live language service and torn down in dispose().
     private subscription: IDisposable | undefined
@@ -132,8 +154,10 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         this.cache.clear()
     }
 
-    // Attach the GraphChanged eviction handler once: a replace/rebuild of a member's slice
-    // names that member, so its cached contribution is dropped and re-baked on next load().
+    // Attach the GraphChanged eviction handler once. Eviction is file-granular: when the
+    // change names files, only entries covering one of those files go (a whole-member entry
+    // also goes when its member is named); when it names no files, every entry of each named
+    // member goes. The next load() re-bakes whatever was dropped.
     private EnsureSubscription(language: SolutionLanguageService): void
     {
         if (this.subscription !== undefined)
@@ -144,10 +168,22 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         {
             const fileIds = new Set(change.fileIds)
             const memberIds = new Set(change.memberIds)
+            this.generation++
             for (const [key, entry] of this.cache)
             {
-                // Named files evict file-granularly; with none named, evict the whole member.
-                const evict = fileIds.size > 0 ? fileIds.has(entry.fileUri) : memberIds.has(entry.memberId)
+                const memberNamed = memberIds.has(entry.memberId)
+                let evict = fileIds.size === 0 ? memberNamed : (entry.whole && memberNamed)
+                if (!evict && fileIds.size > 0)
+                {
+                    for (const fileUri of entry.fileUris)
+                    {
+                        if (fileIds.has(fileUri))
+                        {
+                            evict = true
+                            break
+                        }
+                    }
+                }
                 if (evict)
                 {
                     this.cache.delete(key)
@@ -156,7 +192,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         })
     }
 
-    // The bake-or-cache step for one member storage: merges the member's per-file
+    // The bake-or-cache step for one member storage: merges the member's per-unit
     // contributions, or returns undefined when the member has no icon-bearing own nodes
     // (nothing to contribute).
     private async ContributionFor(
@@ -177,14 +213,71 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             return undefined
         }
 
-        // Group the member's file-homed own nodes by authoring file (a node with no
-        // provenance entry is not file-homed and belongs to no file subset).
+        const units = this.PlanUnits(view, memberId, ownIds)
+
+        // Drop this member's entries for units that no longer exist (deleted files, or a
+        // switch between per-file and whole-member baking).
+        const liveKeys = new Set(units.map(unit => unit.key))
+        for (const [key, entry] of this.cache)
+        {
+            if (entry.memberId === memberId && !liveKeys.has(key))
+            {
+                this.cache.delete(key)
+            }
+        }
+
+        const assets = new ResourceDictionary()
+        const iconKeys = new Map<string, string>()
+        let bases: readonly TodlDocument[] | undefined
+        let hasContribution = false
+        // Units are in sorted-file order. A duplicate icon key across files resolves
+        // last-wins here (the whole-member bake deduped it).
+        for (const unit of units)
+        {
+            let entry = this.cache.get(unit.key)
+            if (entry === undefined)
+            {
+                const generation = this.generation
+                bases ??= (await language.ResolveBasesFor(storage)).bases
+                const contribution = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases)
+                entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution }
+                // A GraphChanged during the bake supersedes it: use the result once, don't store it.
+                if (generation === this.generation)
+                {
+                    this.cache.set(unit.key, entry)
+                }
+            }
+            if (entry.contribution === undefined)
+            {
+                continue
+            }
+            hasContribution = true
+            for (const [assetKey, value] of entry.contribution.assets.Entries())
+            {
+                assets.Set(assetKey, value)
+            }
+            for (const [iconKey, value] of entry.contribution.iconKeys)
+            {
+                iconKeys.set(iconKey, value)
+            }
+        }
+        return hasContribution ? { assets, iconKeys } : undefined
+    }
+
+    // Splits a member's own nodes into bake units. When every own Annotated/Extends edge
+    // stays inside one file and every own node is file-homed, each file bakes independently
+    // (sorted by URI); otherwise the icon graph crosses files (or has unhomed nodes), so
+    // the member bakes WHOLE as one unit — exactly the pre-file-granular behavior.
+    private PlanUnits(view: SolutionModelView, memberId: string, ownIds: ReadonlySet<string>): BakeUnit[]
+    {
         const idsByFile = new Map<string, Set<string>>()
+        let independent = true
         for (const id of ownIds)
         {
             const fileUri = view.provenanceOf.get(id)
             if (fileUri === undefined)
             {
+                independent = false
                 continue
             }
             let ids = idsByFile.get(fileUri)
@@ -196,43 +289,50 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             ids.add(id)
         }
 
-        const assets = new ResourceDictionary()
-        const iconKeys = new Map<string, string>()
-        let bases: readonly TodlDocument[] | undefined
-        let any = false
-        for (const [fileUri, ids] of idsByFile)
+        if (independent)
         {
-            const key = SolutionGraphPresentationSource.CacheKey(memberId, fileUri)
-            let contribution = this.cache.get(key)?.contribution
-            if (contribution === undefined)
+            for (const edge of toJSONOwn(view.model, ownIds).edges)
             {
-                bases ??= (await language.ResolveBasesFor(storage)).bases
-                contribution = await this.BakeFile(view, storage, key, ids, bases)
-                if (contribution !== undefined)
+                const crossing = (edge.kind === SolutionGraphPresentationSource.AnnotatedEdgeKind || edge.kind === SolutionGraphPresentationSource.ExtendsEdgeKind)
+                    && ownIds.has(edge.to) && view.provenanceOf.get(edge.from) !== view.provenanceOf.get(edge.to)
+                if (crossing)
                 {
-                    this.cache.set(key, { memberId, fileUri, contribution })
+                    independent = false
+                    break
                 }
             }
-            if (contribution === undefined)
-            {
-                continue
-            }
-            any = true
-            for (const [assetKey, value] of contribution.assets.Entries())
-            {
-                assets.Set(assetKey, value)
-            }
-            for (const [iconKey, value] of contribution.iconKeys)
-            {
-                iconKeys.set(iconKey, value)
-            }
         }
-        return any ? { assets, iconKeys } : undefined
+
+        if (!independent)
+        {
+            return [{
+                key: SolutionGraphPresentationSource.CacheKey(memberId, SolutionGraphPresentationSource.WholeSentinel),
+                bakeId: SolutionGraphPresentationSource.BakeId(memberId, SolutionGraphPresentationSource.BakeIdWhole),
+                fileUris: new Set(idsByFile.keys()),
+                whole: true,
+                ids: new Set(ownIds),
+            }]
+        }
+
+        return [...idsByFile.keys()].sort().map((fileUri, index) => ({
+            key: SolutionGraphPresentationSource.CacheKey(memberId, fileUri),
+            bakeId: SolutionGraphPresentationSource.BakeId(memberId, `${SolutionGraphPresentationSource.BakeIdFilePrefix}${index}`),
+            fileUris: new Set([fileUri]),
+            whole: false,
+            ids: idsByFile.get(fileUri) as Set<string>,
+        }))
     }
 
     private static CacheKey(memberId: string, fileUri: string): string
     {
         return `${memberId}${SolutionGraphPresentationSource.KeySeparator}${fileUri}`
+    }
+
+    // A path-safe bake id, distinct from the cache key; used for BOTH the bake and the read-back.
+    private static BakeId(memberId: string, suffix: string): string
+    {
+        const safe = memberId.replace(SolutionGraphPresentationSource.BakeIdUnsafe, SolutionGraphPresentationSource.BakeIdReplacement)
+        return `${safe}-${suffix}`
     }
 
     // Bake one file's icon subset: carve its own document, close it over the member's bases,

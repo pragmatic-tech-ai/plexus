@@ -49,6 +49,11 @@ class GraphFixture
         }
     }
 
+    public static IconApplicationOf(id: string): string
+    {
+        return `${id}@${GraphFixture.IconAnnotation}`
+    }
+
     // The authoring file a term (and its icon-application node) is homed to: each term is
     // its own file, so a multi-term member is a multi-file member.
     public static FileOf(id: string): string
@@ -92,6 +97,40 @@ class GraphFixture
             await storage.WriteText(path, GraphFixture.IconSvg)
         }
     }
+}
+
+// Reaches into a source's private state so tests can count bakes, inspect the cache and
+// compute the whole-member reference bake the per-file result must equal.
+class SourceProbe
+{
+    public static SpyBake(source: SolutionGraphPresentationSource)
+    {
+        return vi.spyOn((source as unknown as { baker: { Bake: (...args: unknown[]) => unknown } }).baker, 'Bake')
+    }
+
+    public static CacheKeys(source: SolutionGraphPresentationSource): string[]
+    {
+        return [...(source as unknown as { cache: Map<string, unknown> }).cache.keys()]
+    }
+
+    // The pre-file-granular semantics: ALL of the member's nodes baked as ONE document.
+    public static async WholeMemberBake(source: SolutionGraphPresentationSource, view: { model: Repository }, storage: IStorage): Promise<{ assets: { Entries(): Iterable<[string, unknown]> }; iconKeys: Map<string, string> }>
+    {
+        const ids = new Set<string>([...view.model.allNodes()].map(node => node.id))
+        const bake = (source as unknown as { BakeFile: (...args: unknown[]) => Promise<{ assets: { Entries(): Iterable<[string, unknown]> }; iconKeys: Map<string, string> }> }).BakeFile
+        return bake.call(source, view, storage, SourceProbe.WholeBakeId, ids, [])
+    }
+
+    // Assets are eval'd template closures, so compare them by sorted key plus source text
+    // (functions) or JSON (data) rather than by identity.
+    public static AssetFingerprint(assets: { Entries(): Iterable<[string, unknown]> }): Array<[string, string]>
+    {
+        return [...assets.Entries()]
+            .map(([key, value]): [string, string] => [key, typeof value === 'function' ? value.toString() : JSON.stringify(value)])
+            .sort((a, b) => a[0].localeCompare(b[0]))
+    }
+
+    private static readonly WholeBakeId = 'reference-whole'
 }
 
 // A composed provider (so PresentationBakerKey resolves to TODL's default baker) backed by
@@ -187,7 +226,41 @@ describe('SolutionGraphPresentationSource', () =>
         source.dispose()
     })
 
-    it('re-bakes only the changed file of a multi-file member, matching a cold load', async () =>
+    it('re-bakes only the changed file of a multi-file member, equal to a whole-member bake', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath, GraphFixture.AwsIconPath])
+        const view = GraphFixture.View(harness.storage, [
+            { id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath },
+            { id: GraphFixture.AwsId, iconPath: GraphFixture.AwsIconPath },
+        ])
+        harness.language.ModelViewResult = view
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const bake = SourceProbe.SpyBake(source)
+        const cold = await source.load()
+        expect(cold.iconKeys.size).toBe(2)
+        expect(bake).toHaveBeenCalledTimes(2)
+
+        // Only fileA changed: exactly one more bake, fileB's cached entry survives directly.
+        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [GraphFixture.FileOf(GraphFixture.AzureId)] })
+        const keys = SourceProbe.CacheKeys(source)
+        expect(keys).toHaveLength(1)
+        expect(keys[0]).toContain(GraphFixture.FileOf(GraphFixture.AwsId))
+        const granular = await source.load()
+        expect(bake).toHaveBeenCalledTimes(3)
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(2)
+
+        // Parity: the granular merge equals baking the whole member as one document.
+        const whole = await SourceProbe.WholeMemberBake(source, view, harness.storage)
+        expect(granular.iconKeys).toEqual(whole.iconKeys)
+        expect(SourceProbe.AssetFingerprint(whole.assets).length).toBeGreaterThan(0)
+        expect(SourceProbe.AssetFingerprint(granular.assets)).toEqual(SourceProbe.AssetFingerprint(whole.assets))
+
+        source.dispose()
+    })
+
+    it('evicts every file of a multi-file member on a member-level change (empty fileIds)', async () =>
     {
         const harness = new Harness()
         await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath, GraphFixture.AwsIconPath])
@@ -197,25 +270,65 @@ describe('SolutionGraphPresentationSource', () =>
         ])
 
         const source = new SolutionGraphPresentationSource(harness.provider)
-        const bake = vi.spyOn((source as unknown as { baker: { Bake: (...args: unknown[]) => unknown } }).baker, 'Bake')
-        const cold = await source.load()
-        expect(cold.iconKeys.size).toBe(2)
+        const bake = SourceProbe.SpyBake(source)
+        await source.load()
         expect(bake).toHaveBeenCalledTimes(2)
 
-        // Only fileA changed: exactly one more bake, fileB's cached entry survives.
-        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [GraphFixture.FileOf(GraphFixture.AzureId)] })
-        const granular = await source.load()
-        expect(bake).toHaveBeenCalledTimes(3)
-        expect(granular.iconKeys.get(GraphFixture.AzureId)).toBeTruthy()
-        expect(granular.iconKeys.get(GraphFixture.AwsId)).toBeTruthy()
-
-        // Parity: a brand-new source's cold load of the same state yields the same keys.
-        const fresh = new SolutionGraphPresentationSource(harness.provider)
-        const full = await fresh.load()
-        expect([...granular.iconKeys.keys()].sort()).toEqual([...full.iconKeys.keys()].sort())
-        expect([...granular.assets.Entries()].map(([key]) => key).sort()).toEqual([...full.assets.Entries()].map(([key]) => key).sort())
-
+        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [] })
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(0)
+        await source.load()
+        expect(bake).toHaveBeenCalledTimes(4)
         source.dispose()
-        fresh.dispose()
+    })
+
+    it('bakes a member whole when an icon application lives in a different file than its term', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath, GraphFixture.AwsIconPath])
+        const view = GraphFixture.View(harness.storage, [
+            { id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath },
+            { id: GraphFixture.AwsId, iconPath: GraphFixture.AwsIconPath },
+        ])
+        // Azure's icon application is authored in Aws's file: the Annotated edge crosses files.
+        const provenanceOf = new Map(view.provenanceOf)
+        provenanceOf.set(GraphFixture.IconApplicationOf(GraphFixture.AzureId), GraphFixture.FileOf(GraphFixture.AwsId))
+        const crossing = { ...view, provenanceOf }
+        harness.language.ModelViewResult = crossing
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const bake = SourceProbe.SpyBake(source)
+        const merged = await source.load()
+        expect(merged.iconKeys.get(GraphFixture.AzureId)).toBeTruthy()
+        expect(merged.iconKeys.get(GraphFixture.AwsId)).toBeTruthy()
+        expect(bake).toHaveBeenCalledTimes(1)
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(1)
+
+        const whole = await SourceProbe.WholeMemberBake(source, crossing, harness.storage)
+        expect(merged.iconKeys).toEqual(whole.iconKeys)
+        expect(SourceProbe.AssetFingerprint(merged.assets)).toEqual(SourceProbe.AssetFingerprint(whole.assets))
+
+        // Any of the member's files changing re-bakes the whole member.
+        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [GraphFixture.FileOf(GraphFixture.AzureId)] })
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(0)
+        source.dispose()
+    })
+
+    it('prunes cache entries for files that disappear', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath, GraphFixture.AwsIconPath])
+        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [
+            { id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath },
+            { id: GraphFixture.AwsId, iconPath: GraphFixture.AwsIconPath },
+        ])
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        await source.load()
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(2)
+
+        // The Aws file is deleted: its entry is pruned on the next load.
+        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [{ id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath }])
+        await source.load()
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(1)
+        source.dispose()
     })
 })
