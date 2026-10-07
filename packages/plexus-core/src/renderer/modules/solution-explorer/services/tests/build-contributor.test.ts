@@ -83,7 +83,10 @@ class FakeBuildClient implements IBuildClient
     }
 }
 
-const noBuild = new FakeBuildClient()
+function noBuild(): FakeBuildClient
+{
+    return new FakeBuildClient()
+}
 
 function someMember(): SolutionMember
 {
@@ -107,7 +110,7 @@ describe('BuildContributor', () =>
 {
     it('contributes Build ▸ and Publish on the project row, Context-tagged to NodeKey.Project', () =>
     {
-        const c = new BuildContributor(noBuild, undefined, fakeMutations())
+        const c = new BuildContributor(noBuild(), undefined, fakeMutations())
         const titles = c.Actions.map((a) => a.Title)
         expect(titles).toContain('Build')
         expect(titles).toContain('Publish')
@@ -118,10 +121,10 @@ describe('BuildContributor', () =>
     {
         const member = someMember()
         const versioned = fakeMutations({ IsVersionedMember: () => true })
-        const plain = new BuildContributor(noBuild, undefined, fakeMutations({ IsVersionedMember: () => false }))
+        const plain = new BuildContributor(noBuild(), undefined, fakeMutations({ IsVersionedMember: () => false }))
         const row = memberRow(member)
         expect(plain.Resolve(BuildContributor.PublishId, ctxFor(row))!.CanExecute()).toBe(false)
-        const c = new BuildContributor(noBuild, undefined, versioned)
+        const c = new BuildContributor(noBuild(), undefined, versioned)
         const publish = c.Resolve(BuildContributor.PublishId, ctxFor(row))!
         expect(publish.CanExecute()).toBe(true)
         publish.Execute()
@@ -130,14 +133,14 @@ describe('BuildContributor', () =>
 
     it('the Build ▸ menu header is always openable; its flavor children do the work', () =>
     {
-        const c = new BuildContributor(noBuild, undefined, fakeMutations())
+        const c = new BuildContributor(noBuild(), undefined, fakeMutations())
         const header = c.Resolve(BuildContributor.BuildMenuId, ctxFor(memberRow(someMember())))!
         expect(header.CanExecute()).toBe(true)
     })
 
     it('resolves nothing for a row with no owning member', () =>
     {
-        const c = new BuildContributor(noBuild, undefined, fakeMutations())
+        const c = new BuildContributor(noBuild(), undefined, fakeMutations())
         const orphan = new FakeItem(NodeKey.Project, { notAMember: true }) as unknown as HierarchyItem
         expect(c.Resolve(BuildContributor.PublishId, ctxFor(orphan))).toBeUndefined()
     })

@@ -15,19 +15,20 @@ import type { IContentMutations } from './content-mutations.js'
 import type { IBuildClient } from '../../build/index.js'
 import type { BuildApplicable } from '../../../../shared/build-api.js'
 
-// Contributes the Build ▸ / Publish commands to a project (member) row. Build runs
-// BuildService.Build for a chosen build-system flavor as a background-work task (its
-// IBuildProgress maps onto the task through BuildProgressReporter); Publish delegates to
+// Contributes the Build ▸ / Publish commands to a project (member) row. Build dispatches the
+// chosen build-system flavor through IBuildClient (the build runs in the host's main process
+// over IPC) as a background-work task (the client's progress maps onto the task through
+// BuildProgressReporter); Publish delegates to
 // SolutionWorkspaceService's publish path (IContentMutations.PublishMember),
 // which itself runs BuildService.Publish through background-work. An action-only
 // contributor (Contribute yields no nodes — the rows are ProjectsProvider's);
-// the applicable systems/flavors are queried per open by BuildFlavorSubmenuContributor, so
-// the submenu is rebuilt each time with no availability signal. Solution-wide Build All /
+// the applicable systems/flavors come from BuildFlavorSubmenuContributor (cached per member from
+// IBuildClient.Applicable), so there is no availability signal. Solution-wide Build All /
 // Publish All is deferred (SolutionBuildManager is node-only — never imported here).
 //
 // DR8 (type-Key gating) — PARTIAL: Build ▸ / Publish are tagged with the generic
 // HierarchyContext.For(NodeKey.Project), so they appear on every project row; the Build ▸
-// flavor submenu resolves the applicable (system, flavor) pairs per open and shows
+// flavor submenu lists the applicable (system, flavor) pairs the client reports and shows
 // "(nothing to build)" when none apply, and Publish stays gated by IsVersionedMember.
 // Suppressing the top-level Build/Publish entirely for a type with no applicable system needs
 // either a mural per-item action-availability signal or per-project-type node Keys (all rows
@@ -137,10 +138,11 @@ export class BuildContributor implements IHierarchyContributor
         const work = this.work
         const storage = member.Storage
         if (work === undefined || storage === undefined) return
-        const projectRoot = BuildContributor.ProjectRoot(storage)
         const title = `${BuildContributor.BuildTitlePrefix}${member.Title}`
         void work.run(title, async (ctx) =>
         {
+            // Resolved inside the job so a non-local storage fails the task row, not the command.
+            const projectRoot = BuildContributor.ProjectRoot(storage)
             const runId = BuildContributor.NewRunId()
             const sub = this.buildClient.OnProgress(runId, new BuildProgressReporter(ctx))
             try
@@ -171,12 +173,9 @@ export class BuildContributor implements IHierarchyContributor
     }
 }
 
-// The lazy submenu under Build ▸: at each open it asks the composed build-system registry
-// which systems apply to the member's manifest and yields one command per (system, flavor).
-// Only the parsed MANIFEST is cached per member (async read, a Loading… row until the next
-// open fills it) — the applicable systems/flavors are re-queried from the registry on EVERY
-// open, so a build system registered mid-session appears the next time the submenu opens (it
-// would never appear if the computed rows were cached for the service's life). The child ids
+// The lazy submenu under Build ▸: it reads the member's manifest text, asks IBuildClient which
+// (system, flavor) pairs apply (Applicable) and yields one command per pair. The rows are
+// cached per member (async read, a Loading… row until warmed). The child ids
 // are resolved back to a build by BuildContributor.Resolve (via the routing-dispatcher fallback).
 export class BuildFlavorSubmenuContributor implements ICommandContributor
 {
@@ -187,10 +186,11 @@ export class BuildFlavorSubmenuContributor implements ICommandContributor
     private static readonly NothingToBuildLabel = '(nothing to build)'
     private static readonly LoadingLabel = 'Loading…'
 
-    // Cache the parsed manifest only; `null` records a read/parse failure (a member that never
-    // builds) so a failed read is not retried every open. Rows are recomputed from the live
-    // registry each open. `loading` guards an in-flight read so concurrent Warm/Contribute calls
-    // for the same member start the read once.
+    // Applicable rows cached per member for the service's life; `null` records a read/query
+    // failure (a member that never builds) so it is not retried every open. Rows are NOT
+    // re-queried on a mid-session manifest edit — build systems are fixed at composition, so no
+    // invalidation is needed. `loading` guards an in-flight read so concurrent Warm/Contribute
+    // calls for the same member start it once.
     private readonly applicable = new Map<SolutionMember, readonly BuildApplicable[] | null>()
     private readonly loading = new Set<SolutionMember>()
 
@@ -198,7 +198,7 @@ export class BuildFlavorSubmenuContributor implements ICommandContributor
     {
     }
 
-    // Begin reading + parsing a member's manifest into the per-member cache unless it is already
+    // Begin reading a member's manifest and querying the client's Applicable rows into the per-member cache unless it is already
     // loaded or in flight — idempotent, fire-and-forget. Called at context-menu open (the Build ▸
     // header resolves then, see BuildContributor.Resolve) so the flavor children are ready by the
     // time the hover-dwell opens the submenu: the first Contribute hits a warm cache and renders

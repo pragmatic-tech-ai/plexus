@@ -144,7 +144,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         services.registerInstance(ReferenceSubmenuContributor.Key, new ReferenceSubmenuContributor(this.workspace.References))
         services.registerInstance(ConnectionActiveSubmenuContributor.Key, new ConnectionActiveSubmenuContributor(this.workspace.Connections))
         services.registerTransient(AddNewSubmenuContributor.Key, () => new AddNewSubmenuContributor(this.requireFiles()))
-        // The Build ▸ flavor submenu reads the composed per-project build systems (absent in
+        // The Build ▸ flavor submenu asks the IBuildClient which flavors apply (client absent in
         // headless/unit contexts — the submenu then yields nothing rather than throwing).
         services.registerInstance(BuildFlavorSubmenuContributor.Key, new BuildFlavorSubmenuContributor(this.provider.get(BuildClientKey)))
         return services
@@ -189,16 +189,15 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const projectActions = new ProjectActionsContributor(this.workspace)
         const referenceActions = new ReferenceActionsContributor(this.workspace.References)
         const connectionActions = new ConnectionActionsContributor(this.workspace.Connections, launcher)
-        // The Build/Publish contributor needs runtime collaborators (BuildService + the
+        // The Build/Publish contributor needs runtime collaborators (the IBuildClient + the
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
-        // path like the other action contributors. BuildService is a thin provider wrapper;
-        // resolve a registered/substituted one and fall back to a direct construction (nothing
-        // registers BuildService.Key today — Task 7's DI pass) — the same idiom publishProject uses.
+        // path like the other action contributors.
         const buildClient = this.provider.getRequired(BuildClientKey)
-        // HtmlAppContributor still takes a BuildService until Task 9 rewires it to the client.
+        // Residual BuildService exists ONLY for HtmlAppContributor until Task 9 rewires it to the
+        // client (resolve a registered one, else construct directly — the idiom publishProject uses).
         const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
         // Hand the Build/Publish contributor the flavor submenu instance (registered in
-        // buildMenuServices) so it can warm the manifest cache at context-menu open — the Build ▸
+        // buildMenuServices) so it can warm the applicable-rows cache at context-menu open — the Build ▸
         // submenu then shows its real rows on first open instead of a stuck "Loading…" row.
         const buildSubmenu = this.menuServices?.get(BuildFlavorSubmenuContributor.Key)
         const buildContributor = new BuildContributor(buildClient, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
