@@ -15,6 +15,17 @@ export interface ConnectionTestResult
     readonly message?: string
 }
 
+export interface ConnectionInspection
+{
+    readonly ok: boolean
+    readonly message: string
+    readonly identity: string
+    readonly scopes: string[]
+    readonly scopesSupported: boolean
+    readonly packages: string[]
+    readonly packagesSupported: boolean
+}
+
 export interface IConnectionsClient
 {
     List(): Promise<readonly ConnectionView[]>
@@ -25,6 +36,7 @@ export interface IConnectionsClient
     UseEnvToken(id: string, varName: string): Promise<void>
     SetDefault(id: string): Promise<void>
     Test(id: string): Promise<ConnectionTestResult>
+    Inspect(id: string): Promise<ConnectionInspection>
     EnvVars(): Promise<readonly string[]>
 }
 

@@ -14,8 +14,8 @@ import {
     type IBagPersister,
 } from '@pragmatic-tech-ai/todl'
 import type { ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { IConnectionsClient, ConnectionTestResult } from '../connections-client.js'
-import { ConnectionScope } from '../connection-view.js'
+import type { IConnectionsClient, ConnectionInspection, ConnectionTestResult } from '../connections-client.js'
+import { ConnectionHealth, ConnectionScope } from '../connection-view.js'
 import { ConnectionEditingService, type IConnectionHost } from '../connection-editing-service.js'
 
 class FakeBagPersister implements IBagPersister
@@ -42,6 +42,8 @@ function globalConnection(id: string, isDefault: boolean): ConnectionView
 
 class FakeClient implements IConnectionsClient
 {
+    public InspectResult: ConnectionInspection = FakeClient.Healthy
+    private static readonly Healthy: ConnectionInspection = { ok: true, message: '', identity: '', scopes: [], scopesSupported: true, packages: [], packagesSupported: true }
     constructor(private readonly views: ConnectionView[]) {}
     List(): Promise<readonly ConnectionView[]> { return Promise.resolve(this.views) }
     Add(): Promise<ConnectionView> { return Promise.resolve(this.views[0]!) }
@@ -51,6 +53,7 @@ class FakeClient implements IConnectionsClient
     UseEnvToken(): Promise<void> { return Promise.resolve() }
     SetDefault(): Promise<void> { return Promise.resolve() }
     Test(): Promise<ConnectionTestResult> { return Promise.resolve({ ok: true }) }
+    Inspect(): Promise<ConnectionInspection> { return Promise.resolve(this.InspectResult) }
     EnvVars(): Promise<readonly string[]> { return Promise.resolve([]) }
 }
 
@@ -82,8 +85,9 @@ function setup(globals: ConnectionView[] = [globalConnection('gh', true)])
         RefreshBasesFor: () => Promise.resolve(),
         Vantage: (member) => Promise.resolve(vantageFor(member)),
     }
-    const service = new ConnectionEditingService(new FakeClient(globals), host, selection)
-    return { service, solution, projectLocal, get status() { return status } }
+    const client = new FakeClient(globals)
+    const service = new ConnectionEditingService(client, host, selection)
+    return { service, client, solution, projectLocal, get status() { return status } }
 }
 
 describe('ConnectionEditingService over the bag catalog', () =>
@@ -140,5 +144,34 @@ describe('ConnectionEditingService over the bag catalog', () =>
         await service.SetSolutionDefault('sol-b')   // moves the default
         expect(new ConnectionBag(solution.Bag(ConnectionBagKind, 'sol-a')).IsDefault).toBe(false)
         expect(new ConnectionBag(solution.Bag(ConnectionBagKind, 'sol-b')).IsDefault).toBe(true)
+    })
+
+    it('InspectConnection returns the full inspection, marks the connection Unreachable on failure, and fires the change signal', async () =>
+    {
+        const { service, client } = setup([globalConnection('gh', false)])
+        const failed: ConnectionInspection = { ok: false, message: 'nope', identity: '', scopes: [], scopesSupported: true, packages: [], packagesSupported: true }
+        client.InspectResult = failed
+        let fired = 0
+        service.OnConnectionsViewChanged(() => { fired++ })
+
+        const result = await service.InspectConnection('gh')
+
+        expect(result).toEqual(failed)
+        expect(fired).toBe(1)
+        const leaf = (await service.ConnectionsView()).find((v) => v.Id === 'gh')!
+        expect(leaf.Health).toBe(ConnectionHealth.Unreachable)
+        expect(leaf.Message).toBe('nope')
+    })
+
+    it('InspectConnection returns identity/scopes/packages intact and decorates a healthy connection Ready', async () =>
+    {
+        const { service, client } = setup([globalConnection('gh', false)])
+        const good: ConnectionInspection = { ok: true, message: '', identity: 'alice', scopes: ['read:packages'], scopesSupported: true, packages: ['pkg-a', 'pkg-b'], packagesSupported: true }
+        client.InspectResult = good
+
+        const result = await service.InspectConnection('gh')
+
+        expect(result).toEqual(good)
+        expect((await service.ConnectionsView()).find((v) => v.Id === 'gh')!.Health).toBe(ConnectionHealth.Ready)
     })
 })

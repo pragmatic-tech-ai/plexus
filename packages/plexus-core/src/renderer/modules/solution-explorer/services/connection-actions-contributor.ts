@@ -11,12 +11,13 @@ import { ConnectionNodeKey } from './connection-node-key.js'
 import { LazySubmenuPlaceholder } from './lazy-submenu-placeholder.js'
 import type { IConnectionView } from './connection-view.js'
 
-// Opens the connection editor dialog (New / Edit). The app supplies the implementation (it
+// Opens the connection editor dialog (New / Edit) and the Test inspection dialog. The app supplies the implementation (it
 // owns the window/dialog host); the contributor stays UI-free and unit-testable.
 export interface IConnectionEditorLauncher
 {
     OpenNew(): void
     OpenEdit(connectionId: string): void
+    OpenTest(connectionId: string): void
 }
 
 // DI token the app registers its editor-launcher under; SolutionExplorerService resolves it
@@ -127,7 +128,7 @@ export class ConnectionActionsContributor implements IHierarchyContributor
             case ConnectionActionsContributor.EditId:
                 return new RelayCommand(() => this.launcher.OpenEdit((anchor.ExtObject as LeafData).id))
             case ConnectionActionsContributor.TestId:
-                return new RelayCommand(() => void this.view.TestConnection((anchor.ExtObject as LeafData).id))
+                return new RelayCommand(() => this.launcher.OpenTest((anchor.ExtObject as LeafData).id))
             case ConnectionActionsContributor.MakeDefaultId:
             {
                 const leaf = anchor.ExtObject as LeafData

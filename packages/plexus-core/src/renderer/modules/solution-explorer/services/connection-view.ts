@@ -9,7 +9,7 @@ import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { ConnectionTestResult } from './connections-client.js'
+import type { ConnectionInspection, ConnectionTestResult } from './connections-client.js'
 
 // The decorated health of a connection, from its view fields + the last on-demand Test.
 export enum ConnectionHealth
@@ -57,6 +57,7 @@ export interface IConnectionView
     SetSolutionDefault(id: string): Promise<void>          // the active solution's default (solution.json)
     RemoveConnection(id: string): Promise<void>
     TestConnection(id: string): Promise<ConnectionTestResult>
+    InspectConnection(id: string): Promise<ConnectionInspection>   // full token inspection; also feeds the health decoration
     IsConsumer(member: SolutionMember): boolean                                 // sync gate for the active-connection row
     ActiveConnectionFor(member: SolutionMember): Promise<ConnectionLeafView | undefined>   // effective
     SetActiveConnectionFor(member: SolutionMember, connectionId: string | undefined): Promise<void>

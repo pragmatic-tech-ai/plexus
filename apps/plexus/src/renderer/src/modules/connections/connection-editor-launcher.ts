@@ -5,6 +5,7 @@ import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pr
 import { ConnectionsClientKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 import type { IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
 import type { ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import { ConnectionInspectionViewModel } from './connection-inspection-dialog-model.js'
 import { ConnectionEditorDialogModel, type ConnectionEditorResult } from './connection-editor-dialog-model.js'
 
 // Opens the connection editor dialog and applies the result through the connection view — the
@@ -18,6 +19,8 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
     private static readonly NewTitle = 'New Connection'
     private static readonly EditTitle = 'Edit Connection'
     private static readonly DialogWidth = 460
+    private static readonly InspectTitle = 'Connection'
+    private static readonly InspectWidth = 460
 
     constructor(provider: IServiceProvider)
     {
@@ -26,6 +29,7 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
 
     public OpenNew(): void { void this.open(undefined) }
     public OpenEdit(connectionId: string): void { void this.open(connectionId) }
+    public OpenTest(connectionId: string): void { void this.showInspection(connectionId) }
 
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get connections(): IConnectionView { return this.Provider.getRequired(SolutionWorkspaceService.Key).Connections }
@@ -39,6 +43,17 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
         const result = await this.dialogs.Show<ConnectionEditorResult>({ Title: title, Content: vm, Width: ConnectionEditorLauncher.DialogWidth })
         if (result === undefined) return
         await this.apply(result)
+    }
+
+    // Probes the connection and shows the read-only inspection dialog.
+    private async showInspection(id: string): Promise<void>
+    {
+        const existing = (await this.Provider.getRequired(ConnectionsClientKey).List()).find((c) => c.Id === id)
+        if (existing === undefined) return   // removed between menu-open and click
+        const inspection = await this.connections.InspectConnection(id)
+        const vm = new ConnectionInspectionViewModel(inspection, () => this.dialogs.Close(undefined))
+        const title = `${ConnectionEditorLauncher.InspectTitle}: ${existing.DisplayName}`
+        await this.dialogs.Show({ Title: title, Content: vm, Width: ConnectionEditorLauncher.InspectWidth })
     }
 
     // Add or update through the connection view (fires its change signal → tree refresh). The

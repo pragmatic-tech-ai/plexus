@@ -166,6 +166,7 @@ import SolutionDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/mo
 import SolutionExplorerResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-explorer.resources.mu.js"
 // The connection editor dialog's DataTemplate (ConnectionEditorDialogModel).
 import ConnectionsResources from "./modules/connections/connections.resources.mu.js"
+import ConnectionInspectionResources from "./modules/connections/connection-inspection.resources.mu.js"
 
 // Meta-models capability panel: the published-meta-models virtualized tree
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
@@ -615,6 +616,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // HierarchicalDataTemplate[HierarchyItem].
         merge SolutionExplorerResources
         merge ConnectionsResources
+        merge ConnectionInspectionResources
 
         // Meta-models capability panel (DataTemplate[MetaModelsService] + rows).
         merge MetaModelResources

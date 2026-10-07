@@ -19,6 +19,17 @@ export interface ConnectionTestResult
     message?: string
 }
 
+export interface ConnectionInspection
+{
+    ok: boolean
+    message: string
+    identity: string
+    scopes: string[]
+    scopesSupported: boolean
+    packages: string[]
+    packagesSupported: boolean
+}
+
 export class ConnectionsBridge
 {
     private static readonly FallbackId = 'connection'
@@ -90,6 +101,20 @@ export class ConnectionsBridge
         catch (e)
         {
             return { ok: false, message: (e as Error).message }
+        }
+    }
+
+    /** Inspect a connection's token via the engine: identity, scopes, packages. The token itself is never returned. */
+    public async Inspect(id: string): Promise<ConnectionInspection>
+    {
+        try
+        {
+            const r = await this.service.InspectConnection(id)
+            return { ok: r.Ok, message: r.Message, identity: r.Identity, scopes: [...r.Scopes], scopesSupported: r.ScopesSupported, packages: [...r.Packages], packagesSupported: r.PackagesSupported }
+        }
+        catch (e)
+        {
+            return { ok: false, message: (e as Error).message, identity: '', scopes: [], scopesSupported: false, packages: [], packagesSupported: false }
         }
     }
 

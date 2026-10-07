@@ -1,5 +1,5 @@
 import { ServiceBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ConnectionsClientKey, type IConnectionsClient, type ConnectionTestResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
+import { ConnectionsClientKey, type IConnectionsClient, type ConnectionTestResult, type ConnectionInspection } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 import type { ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import type { IConnectionsApi } from '../../../../shared/connections-api.js'
 
@@ -36,6 +36,7 @@ export class ConnectionsClient extends ServiceBase implements IConnectionsClient
     public UseEnvToken(id: string, varName: string): Promise<void> { return this.api.UseEnvToken(id, varName) }
     public SetDefault(id: string): Promise<void> { return this.api.SetDefault(id) }
     public Test(id: string): Promise<ConnectionTestResult> { return this.api.Test(id) }
+    public Inspect(id: string): Promise<ConnectionInspection> { return this.api.Inspect(id) }
     public EnvVars(): Promise<readonly string[]> { return this.api.EnvVars() }
 }
 

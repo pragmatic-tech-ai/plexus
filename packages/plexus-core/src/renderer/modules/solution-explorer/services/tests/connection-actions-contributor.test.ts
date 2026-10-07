@@ -40,10 +40,11 @@ function fakeView(over: Partial<IConnectionView> = {}): IConnectionView & { remo
     return Object.assign(base, { removed, defaulted, solutionDefaulted, tested, active }, over) as never
 }
 
-function fakeLauncher(): IConnectionEditorLauncher & { opened: (string | undefined)[] }
+function fakeLauncher(): IConnectionEditorLauncher & { opened: (string | undefined)[]; inspected: string[] }
 {
     const opened: (string | undefined)[] = []
-    return { opened, OpenNew: () => { opened.push(undefined) }, OpenEdit: (id: string) => { opened.push(id) } }
+    const inspected: string[] = []
+    return { opened, inspected, OpenNew: () => { opened.push(undefined) }, OpenEdit: (id: string) => { opened.push(id) }, OpenTest: (id: string) => { inspected.push(id) } }
 }
 
 // A fake hierarchy row: Key + ExtObject (+ Parent so MemberOf can climb to the member).
@@ -107,12 +108,14 @@ describe('ConnectionActionsContributor', () =>
         expect(c.Resolve(ConnectionActionsContributor.MakeDefaultId, ctx(leafRow('a', true)))!.CanExecute()).toBe(false)
     })
 
-    it('Test invokes TestConnection for the leaf id', () =>
+    it('Test opens the inspection dialog for the leaf id instead of a bare TestConnection', () =>
     {
         const v = fakeView()
-        const c = new ConnectionActionsContributor(v, fakeLauncher())
+        const launcher = fakeLauncher()
+        const c = new ConnectionActionsContributor(v, launcher)
         c.Resolve(ConnectionActionsContributor.TestId, ctx(leafRow('b', false)))!.Execute()
-        expect(v.tested).toEqual(['b'])
+        expect(launcher.inspected).toEqual(['b'])
+        expect(v.tested).toEqual([])
     })
 
     it('Edit… opens the editor for the leaf id', () =>

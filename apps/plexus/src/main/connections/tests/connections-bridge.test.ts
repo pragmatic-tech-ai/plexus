@@ -6,6 +6,7 @@ import {
     PackageEngine, FileConnectionStore, EncryptedSecretStore, ConnectionTokenStore, ProcessEnvironmentVariables,
     type Encryptor,
 } from '@pragmatic-tech-ai/plexus-core/main/connections'
+import type { PackageManagerService } from '@pragmatic-tech-ai/todl/package-manager'
 import { ConnectionsBridge } from '../connections-bridge.js'
 
 class FakeEncryptor implements Encryptor
@@ -57,5 +58,46 @@ describe('ConnectionsBridge', () =>
         await b.SetDefault(second)
         const views = await b.List()
         expect(views.filter((v) => v.IsDefault).map((v) => v.Id)).toEqual([second])
+    })
+
+    it('Inspect maps every RegistryInspection field to the lowercase DTO and never leaks a token', async () =>
+    {
+        const secret = 'ghp_SECRET_TOKEN_VALUE'
+        const inspection = {
+            Ok: true, Message: 'HTTP 200', Identity: 'octocat',
+            Scopes: ['read:packages'], ScopesSupported: true,
+            Packages: ['p1', 'p2'], PackagesSupported: true,
+            Token: secret,
+        }
+        const calls: string[] = []
+        const service = {
+            InspectConnection: async (id: string) =>
+            {
+                calls.push(id)
+                return inspection
+            },
+        } as unknown as PackageManagerService
+        const result = await new ConnectionsBridge(service).Inspect('conn-1')
+        expect(calls).toEqual(['conn-1'])
+        expect(result).toEqual({
+            ok: true, message: 'HTTP 200', identity: 'octocat',
+            scopes: ['read:packages'], scopesSupported: true,
+            packages: ['p1', 'p2'], packagesSupported: true,
+        })
+        expect(JSON.stringify(result)).not.toContain(secret)
+    })
+
+    it('Inspect degrades a thrown engine error to an ok:false DTO instead of rejecting', async () =>
+    {
+        const service = {
+            InspectConnection: async () =>
+            {
+                throw new Error('unknown connection')
+            },
+        } as unknown as PackageManagerService
+        await expect(new ConnectionsBridge(service).Inspect('nope')).resolves.toEqual({
+            ok: false, message: 'unknown connection', identity: '',
+            scopes: [], scopesSupported: false, packages: [], packagesSupported: false,
+        })
     })
 })
