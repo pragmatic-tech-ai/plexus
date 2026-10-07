@@ -7,11 +7,12 @@ import {
     type HierarchyItem, type HierarchyHost,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    SolutionManagerService, ProjectType, BuildService, BuildSystemRegistryKey,
+    SolutionManagerService, ProjectType, BuildService,
     type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
 } from '@pragmatic-tech-ai/todl'
 import { BackgroundWorkService } from '../../background-work/index.js'
+import { BuildClientKey } from '../../build/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 import { SolutionWorkspaceService } from './solution-workspace-service.js'
 import { ProjectCommandsService } from './project-commands-service.js'
@@ -145,7 +146,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         services.registerTransient(AddNewSubmenuContributor.Key, () => new AddNewSubmenuContributor(this.requireFiles()))
         // The Build ▸ flavor submenu reads the composed per-project build systems (absent in
         // headless/unit contexts — the submenu then yields nothing rather than throwing).
-        services.registerInstance(BuildFlavorSubmenuContributor.Key, new BuildFlavorSubmenuContributor(this.provider.get(BuildSystemRegistryKey)))
+        services.registerInstance(BuildFlavorSubmenuContributor.Key, new BuildFlavorSubmenuContributor(this.provider.get(BuildClientKey)))
         return services
     }
 
@@ -193,12 +194,14 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // path like the other action contributors. BuildService is a thin provider wrapper;
         // resolve a registered/substituted one and fall back to a direct construction (nothing
         // registers BuildService.Key today — Task 7's DI pass) — the same idiom publishProject uses.
+        const buildClient = this.provider.getRequired(BuildClientKey)
+        // HtmlAppContributor still takes a BuildService until Task 9 rewires it to the client.
         const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
         // Hand the Build/Publish contributor the flavor submenu instance (registered in
         // buildMenuServices) so it can warm the manifest cache at context-menu open — the Build ▸
         // submenu then shows its real rows on first open instead of a stuck "Loading…" row.
         const buildSubmenu = this.menuServices?.get(BuildFlavorSubmenuContributor.Key)
-        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
+        const buildContributor = new BuildContributor(buildClient, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         // The Solution root node (single visible top-level row) is registered first so it exists
