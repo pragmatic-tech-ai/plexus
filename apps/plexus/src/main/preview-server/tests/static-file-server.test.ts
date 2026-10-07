@@ -108,7 +108,7 @@ test('denies raw path traversal outside the root', async () =>
     try
     {
         const { port } = await server.Start();
-        for (const path of ['/../secret.txt', '/../../etc/passwd', '/../site-secret/secret.txt', '/..\secret.txt'])
+        for (const path of ['/../secret.txt', '/../../etc/passwd', '/../site-secret/secret.txt', '/..\\secret.txt'])
         {
             const res = await RawClient.Get(port, path);
             expect([403, 404]).toContain(res.status);
