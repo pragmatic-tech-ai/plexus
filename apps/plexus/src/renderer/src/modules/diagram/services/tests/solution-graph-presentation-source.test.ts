@@ -5,6 +5,8 @@ import {
     type Entity, type JsonEdge, type JsonNode, type Repository, type TodlDocument, type WikiOrigin,
 } from '@pragmatic-tech-ai/todl'
 
+import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
+import { FileWatchService } from '../../../../services/file-watch/file-watch-service.js'
 import { FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
 import { SolutionGraphPresentationSource } from '../solution-graph-presentation-source.js'
 import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
@@ -133,6 +135,30 @@ class SourceProbe
     private static readonly WholeBakeId = 'reference-whole'
 }
 
+// Stands in for the desktop-only FileWatchService (whose real constructor needs the
+// Electron preload): same Subscribe contract, plus Emit so a test can fire a change.
+class FakeFileWatch
+{
+    public static readonly AzureAbsolutePath = 'C:\\proj\\resources\\azure.svg'
+    private readonly subscribers = new Set<(e: FileChangeEvent) => void>()
+
+    public Subscribe(cb: (e: FileChangeEvent) => void): () => void
+    {
+        this.subscribers.add(cb)
+        return () => { this.subscribers.delete(cb) }
+    }
+
+    public Emit(e: FileChangeEvent): void
+    {
+        for (const cb of [...this.subscribers]) cb(e)
+    }
+
+    public get SubscriberCount(): number
+    {
+        return this.subscribers.size
+    }
+}
+
 // A composed provider (so PresentationBakerKey resolves to TODL's default baker) backed by
 // the fake language service + a one-member fake solution manager.
 class Harness
@@ -153,6 +179,26 @@ class Harness
             { ActiveSolution: { Members: [{ Storage: this.storage }] } } as unknown as SolutionManagerService,
         )
         this.language.ConsumerIds.set(this.storage, GraphFixture.MemberId)
+    }
+
+    // The language service reports the azure term's icon asset (storage + relative path).
+    public DeclareAzureAsset(): void
+    {
+        this.language.ResourceResults.set(GraphFixture.AzureId, [{ annotation: 'todl.icon', storage: this.storage, path: GraphFixture.AzureIconPath }])
+    }
+
+    // Registers a fake file watcher and a real registry whose solution-graph source IS `source`
+    // (the only source, so Refresh re-runs it).
+    public WireAssetWatch(source: SolutionGraphPresentationSource): { watch: FakeFileWatch; registry: TodlPresentationRegistry }
+    {
+        const watch = new FakeFileWatch()
+        this.provider.registerInstance(FileWatchService.Key, watch as unknown as FileWatchService)
+        const registry = new TodlPresentationRegistry(this.provider)
+        this.provider.registerInstance(TodlPresentationRegistry.Key, registry)
+        // Mark started so Refresh() does not register the default (storage-backed) sources.
+        ;(registry as unknown as { started: boolean }).started = true
+        registry.registerSource(source)
+        return { watch, registry }
     }
 }
 
@@ -310,6 +356,68 @@ describe('SolutionGraphPresentationSource', () =>
         // Any of the member's files changing re-bakes the whole member.
         harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [GraphFixture.FileOf(GraphFixture.AzureId)] })
         expect(SourceProbe.CacheKeys(source)).toHaveLength(0)
+        source.dispose()
+    })
+
+    it('evicts and re-bakes a unit when its resource asset changes on disk, with no GraphChanged', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath])
+        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [{ id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath }])
+        harness.DeclareAzureAsset()
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const { watch, registry } = harness.WireAssetWatch(source)
+        const bake = SourceProbe.SpyBake(source)
+        await registry.discover()
+        expect(bake).toHaveBeenCalledTimes(1)
+        expect(watch.SubscriberCount).toBe(1)
+
+        // An unrelated file does nothing.
+        watch.Emit({ path: 'C:\\proj\\notes.txt', kind: FileChangeKind.Changed })
+        watch.Emit({ path: 'C:\\proj\\resources\\other.svg', kind: FileChangeKind.Changed })
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(1)
+
+        watch.Emit({ path: FakeFileWatch.AzureAbsolutePath, kind: FileChangeKind.Changed })
+        expect(SourceProbe.CacheKeys(source)).toHaveLength(0)
+        await vi.waitFor(() => expect(bake).toHaveBeenCalledTimes(2))
+        await vi.waitFor(() => expect(SourceProbe.CacheKeys(source)).toHaveLength(1))
+
+        source.dispose()
+        expect(watch.SubscriberCount).toBe(0)
+    })
+
+    it('falls back to the default glyph when a resource asset is removed, without throwing', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath])
+        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [{ id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath }])
+        harness.DeclareAzureAsset()
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const { watch, registry } = harness.WireAssetWatch(source)
+        await registry.discover()
+        expect(registry.iconKeyFor(GraphFixture.AzureId)).toBeTruthy()
+
+        await harness.storage.Delete(GraphFixture.AzureIconPath)
+        expect(() => watch.Emit({ path: FakeFileWatch.AzureAbsolutePath, kind: FileChangeKind.Removed })).not.toThrow()
+        await vi.waitFor(() => expect(registry.iconKeyFor(GraphFixture.AzureId)).toBeFalsy())
+
+        // The failed bake is not negative-cached: restoring the asset (Added) re-bakes the icon.
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath])
+        watch.Emit({ path: FakeFileWatch.AzureAbsolutePath, kind: FileChangeKind.Added })
+        await vi.waitFor(() => expect(registry.iconKeyFor(GraphFixture.AzureId)).toBeTruthy())
+
+        source.dispose()
+    })
+
+    it('does not touch asset watching when no FileWatchService is registered (headless)', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath])
+        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [{ id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath }])
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        await expect(source.load()).resolves.toBeDefined()
         source.dispose()
     })
 

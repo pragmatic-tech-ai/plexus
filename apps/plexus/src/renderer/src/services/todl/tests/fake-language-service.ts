@@ -40,6 +40,8 @@ export class FakeLanguageService extends Observable
   // The shared-graph change signal source members subscribe to; a test fires it to drive
   // cache invalidation.
   public readonly GraphChanged = new Signal<{ memberIds: readonly string[]; fileIds: readonly string[] }>()
+  // node id -> the resolved resource assets Resources returns for it (empty when unset).
+  public readonly ResourceResults = new Map<string, Array<{ annotation: string; storage: IStorage; path: string }>>()
   private staleMembers: ReadonlySet<string> = new Set()
 
   public SetDiagnostics(uri: string, diags: Diagnostic[]): void
@@ -159,9 +161,9 @@ export class FakeLanguageService extends Observable
     return Promise.resolve(this.ModelViewResult)
   }
 
-  public Resources(_nodeId: string): Promise<never[]>
+  public Resources(nodeId: string): Promise<Array<{ annotation: string; storage: IStorage; path: string }>>
   {
-    return Promise.resolve([])
+    return Promise.resolve(this.ResourceResults.get(nodeId) ?? [])
   }
 
   public WhenIdle(): Promise<void>

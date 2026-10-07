@@ -1,12 +1,15 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { FakeStorage, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { FakeStorage, isLocalFileAccess, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService, SolutionManagerService,
     WikiOriginKind, toJSONOwn,
     type BakeOptions, type JsonNode, type Repository, type TodlDocument,
 } from '@pragmatic-tech-ai/todl'
 
-import type { PresentationContribution, PresentationSource } from './todl-presentation-registry.js'
+import type { FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
+
+import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
+import { TodlPresentationRegistry, type PresentationContribution, type PresentationSource } from './todl-presentation-registry.js'
 import { loadCompiledPresentation } from '../../meta-model/services/compiled-presentation.js'
 import { readIconIndex } from '../../meta-model/services/icon-index.js'
 
@@ -24,13 +27,17 @@ interface SolutionModelView
 // One cached bake unit: a single file of an independent member, or the whole member when
 // its icon graph crosses files. Remembers which member and files it covers so eviction can
 // match by file or by member. An undefined contribution is a negative-cache marker (the
-// unit baked to nothing).
+// unit baked to nothing). `assetKeys` are the normalized resource-asset paths the unit's
+// icons read, so a changed asset file can evict it; `failed` marks a bake that did not
+// complete, kept only so an asset event can find it and never served as a cache hit.
 interface FileEntry
 {
     memberId: string
     fileUris: ReadonlySet<string>
     whole: boolean
     contribution: PresentationContribution | undefined
+    assetKeys: ReadonlySet<string>
+    failed: boolean
 }
 
 // One unit of baking: the cache key, the bake id, the files it covers and the node ids it carves.
@@ -82,6 +89,11 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     private static readonly BakeIdReplacement = '_'
     private static readonly BakeIdFilePrefix = 'f'
     private static readonly BakeIdWhole = 'whole'
+    // Resource-asset extensions whose on-disk change invalidates a baked icon.
+    private static readonly AssetExtensions: ReadonlySet<string> = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'])
+    private static readonly BackslashPattern = /\\/g
+    private static readonly PathSeparator = '/'
+    private static readonly ExtensionDot = '.'
 
     public readonly id = SolutionGraphPresentationSource.SourceId
 
@@ -93,6 +105,9 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // The single GraphChanged subscription, attached lazily on the first load() that finds
     // a live language service and torn down in dispose().
     private subscription: IDisposable | undefined
+    // Unsubscribe from the FileWatchService asset-change feed; undefined until attached
+    // (the service only exists in the desktop host).
+    private assetUnsubscribe: (() => void) | undefined
 
     constructor(private readonly provider: IServiceProvider)
     {
@@ -112,6 +127,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
 
         this.EnsureSubscription(language)
+        this.EnsureAssetWatch()
 
         const storages = this.MemberStorages(solution)
         if (storages.length === 0)
@@ -151,7 +167,97 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     {
         this.subscription?.dispose()
         this.subscription = undefined
+        this.assetUnsubscribe?.()
+        this.assetUnsubscribe = undefined
         this.cache.clear()
+    }
+
+    // Attach the resource-asset watcher once. FileWatchService only exists in the desktop
+    // host, so a headless provider simply skips asset watching.
+    private EnsureAssetWatch(): void
+    {
+        if (this.assetUnsubscribe !== undefined)
+        {
+            return
+        }
+        const watcher = this.provider.get(FileWatchService.Key)
+        if (watcher === undefined)
+        {
+            return
+        }
+        this.assetUnsubscribe = watcher.Subscribe(event => this.OnFileChanged(event))
+    }
+
+    // A changed / added / removed asset file evicts every unit whose icons read it, then
+    // asks the registry to re-bake so the icons update with no .todl edit. A removed asset
+    // re-bakes to nothing (the bake fails and is swallowed), so the default glyph returns.
+    private OnFileChanged(event: FileChangeEvent): void
+    {
+        const path = SolutionGraphPresentationSource.Normalize(event.path)
+        if (!SolutionGraphPresentationSource.IsAssetPath(path))
+        {
+            return
+        }
+        if (this.EvictAsset(path))
+        {
+            this.provider.get(TodlPresentationRegistry.Key)?.Refresh().catch(() => undefined)
+        }
+    }
+
+    // Evicts every cached unit whose asset-key set matches the (normalized) path: equal, or
+    // the path ends with the key (a storage-relative key against an absolute path).
+    // Returns whether anything was evicted.
+    public EvictAsset(normalizedPath: string): boolean
+    {
+        let evicted = false
+        for (const [key, entry] of this.cache)
+        {
+            for (const assetKey of entry.assetKeys)
+            {
+                if (normalizedPath === assetKey || normalizedPath.endsWith(`${SolutionGraphPresentationSource.PathSeparator}${assetKey}`))
+                {
+                    this.cache.delete(key)
+                    evicted = true
+                    break
+                }
+            }
+        }
+        if (evicted)
+        {
+            this.generation++
+        }
+        return evicted
+    }
+
+    private static Normalize(path: string): string
+    {
+        return path.replace(SolutionGraphPresentationSource.BackslashPattern, SolutionGraphPresentationSource.PathSeparator)
+    }
+
+    private static IsAssetPath(path: string): boolean
+    {
+        const dot = path.lastIndexOf(SolutionGraphPresentationSource.ExtensionDot)
+        return dot >= 0 && SolutionGraphPresentationSource.AssetExtensions.has(path.slice(dot).toLowerCase())
+    }
+
+    // The normalized identities of the resource assets a unit's icons read: the absolute OS
+    // path when the storage is local-file-access, else the storage-relative path.
+    private async AssetKeysOf(language: SolutionLanguageService, ids: ReadonlySet<string>): Promise<Set<string>>
+    {
+        const keys = new Set<string>()
+        for (const id of ids)
+        {
+            for (const resource of await language.Resources(id))
+            {
+                if (!SolutionGraphPresentationSource.IsAssetPath(resource.path))
+                {
+                    continue
+                }
+                const location = isLocalFileAccess(resource.storage) ? resource.storage.ResolveOsPath(resource.path) : resource.path
+                keys.add(SolutionGraphPresentationSource.Normalize(location))
+            }
+        }
+        return keys
     }
 
     // Attach the GraphChanged eviction handler once. Eviction is file-granular: when the
@@ -235,12 +341,15 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         for (const unit of units)
         {
             let entry = this.cache.get(unit.key)
-            if (entry === undefined)
+            // A failed bake is never a cache hit: retry it.
+            if (entry === undefined || entry.failed)
             {
                 const generation = this.generation
                 bases ??= (await language.ResolveBasesFor(storage)).bases
-                const contribution = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases)
-                entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution }
+                const assetKeys = await this.AssetKeysOf(language, unit.ids)
+                const baked = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases)
+                // null = the bake failed (not the same as a legitimately empty unit).
+                entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution: baked ?? undefined, assetKeys, failed: baked === null }
                 // A GraphChanged during the bake supersedes it: use the result once, don't store it.
                 if (generation === this.generation)
                 {
@@ -337,16 +446,16 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
 
     // Bake one file's icon subset: carve its own document, close it over the member's bases,
     // bake in memory (icon bytes read from the member's storage) and read the sidecars back.
-    // undefined when the file declares no icons or the bake cannot complete (a missing icon
-    // file — swallowed so one file can't sink the whole discover). `bakeId` is both the
-    // bake id and the read-back id.
+    // undefined when the file declares no icons (cacheable); null when the bake cannot
+    // complete (a missing icon file, swallowed so one file cannot sink the whole discover;
+    // never cached). `bakeId` is both the bake id and the read-back id.
     private async BakeFile(
         view: SolutionModelView,
         storage: IStorage,
         bakeId: string,
         fileIds: Set<string>,
         bases: readonly TodlDocument[],
-    ): Promise<PresentationContribution | undefined>
+    ): Promise<PresentationContribution | undefined | null>
     {
         const document = toJSONOwn(view.model, fileIds)
         const closure = this.Closure(document, bases)
@@ -362,7 +471,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         const result = await this.baker.Bake(storage, dest, bakeId, document, closure, SolutionGraphPresentationSource.BakeOptionsValue)
         if (!result.ok)
         {
-            return undefined
+            return null
         }
 
         const assets = new ResourceDictionary()
