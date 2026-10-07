@@ -17,6 +17,17 @@ interface SolutionModelView
 {
     model: Repository
     originOf: ReadonlyMap<string, { readonly kind: WikiOriginKind; readonly storage?: IStorage }>
+    // node id → URI of the file that authored it (a term and its icon application share one).
+    provenanceOf: ReadonlyMap<string, string>
+}
+
+// One cached per-file bake, remembering which member and file it belongs to so eviction
+// can match either by file or by member.
+interface FileEntry
+{
+    memberId: string
+    fileUri: string
+    contribution: PresentationContribution
 }
 
 // A PresentationSource that bakes each OPEN source member's icons straight from the
@@ -24,9 +35,10 @@ interface SolutionModelView
 // carves the member's OWN document out of the shared Repository (the nodes whose origin
 // points at that member's storage), resolves its bases for the closure, bakes the icons
 // in memory (icon bytes read from the member's own storage), and reads the sidecars back
-// into a PresentationContribution. The per-member contribution is cached by member id and
-// evicted when GraphChanged names that member, so a live edit re-bakes exactly the member
-// that changed. This is what makes the hub-and-spoke solution render its icons from its
+// into a PresentationContribution. The member's icons are carved and baked PER AUTHORING FILE;
+// each file's contribution is cached by `member::file` and evicted when GraphChanged names
+// that file (or, when it names no files, the whole member), so a live edit re-bakes only the
+// file that changed. This is what makes the hub-and-spoke solution render its icons from its
 // source members before anything is published.
 export class SolutionGraphPresentationSource implements PresentationSource, IDisposable
 {
@@ -48,12 +60,14 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // (JsonNode.tier is the Tier enum emitted by name).
     private static readonly OntologyTier = 'Ontology'
     private static readonly ExtendsEdgeKind = 'Extends'
+    // Joins a member id and a file URI into one cache / bake id.
+    private static readonly KeySeparator = '::'
 
     public readonly id = SolutionGraphPresentationSource.SourceId
 
     private readonly baker: ProviderPresentationBaker
-    // member id → its last baked contribution; evicted on GraphChanged for that member.
-    private readonly cache = new Map<string, PresentationContribution>()
+    // `${memberId}::${fileUri}` → that file's last baked contribution; evicted on GraphChanged.
+    private readonly cache = new Map<string, FileEntry>()
     // The single GraphChanged subscription, attached lazily on the first load() that finds
     // a live language service and torn down in dispose().
     private subscription: IDisposable | undefined
@@ -128,17 +142,23 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
         this.subscription = language.GraphChanged.subscribe((change) =>
         {
-            for (const memberId of change.memberIds)
+            const fileIds = new Set(change.fileIds)
+            const memberIds = new Set(change.memberIds)
+            for (const [key, entry] of this.cache)
             {
-                this.cache.delete(memberId)
+                // Named files evict file-granularly; with none named, evict the whole member.
+                const evict = fileIds.size > 0 ? fileIds.has(entry.fileUri) : memberIds.has(entry.memberId)
+                if (evict)
+                {
+                    this.cache.delete(key)
+                }
             }
         })
     }
 
-    // The bake-or-cache step for one member storage: returns its baked contribution, or
-    // undefined when the member has no icon-bearing own nodes (nothing to contribute) or
-    // the bake cannot complete (a missing icon file — swallowed so one member can't sink
-    // the whole discover).
+    // The bake-or-cache step for one member storage: merges the member's per-file
+    // contributions, or returns undefined when the member has no icon-bearing own nodes
+    // (nothing to contribute).
     private async ContributionFor(
         language: SolutionLanguageService,
         view: SolutionModelView,
@@ -150,11 +170,6 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         {
             return undefined
         }
-        const cached = this.cache.get(memberId)
-        if (cached !== undefined)
-        {
-            return cached
-        }
 
         const ownIds = this.OwnIds(view, storage)
         if (ownIds.size === 0)
@@ -162,11 +177,81 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             return undefined
         }
 
-        const document = toJSONOwn(view.model, ownIds)
-        const { bases } = await language.ResolveBasesFor(storage)
+        // Group the member's file-homed own nodes by authoring file (a node with no
+        // provenance entry is not file-homed and belongs to no file subset).
+        const idsByFile = new Map<string, Set<string>>()
+        for (const id of ownIds)
+        {
+            const fileUri = view.provenanceOf.get(id)
+            if (fileUri === undefined)
+            {
+                continue
+            }
+            let ids = idsByFile.get(fileUri)
+            if (ids === undefined)
+            {
+                ids = new Set<string>()
+                idsByFile.set(fileUri, ids)
+            }
+            ids.add(id)
+        }
+
+        const assets = new ResourceDictionary()
+        const iconKeys = new Map<string, string>()
+        let bases: readonly TodlDocument[] | undefined
+        let any = false
+        for (const [fileUri, ids] of idsByFile)
+        {
+            const key = SolutionGraphPresentationSource.CacheKey(memberId, fileUri)
+            let contribution = this.cache.get(key)?.contribution
+            if (contribution === undefined)
+            {
+                bases ??= (await language.ResolveBasesFor(storage)).bases
+                contribution = await this.BakeFile(view, storage, key, ids, bases)
+                if (contribution !== undefined)
+                {
+                    this.cache.set(key, { memberId, fileUri, contribution })
+                }
+            }
+            if (contribution === undefined)
+            {
+                continue
+            }
+            any = true
+            for (const [assetKey, value] of contribution.assets.Entries())
+            {
+                assets.Set(assetKey, value)
+            }
+            for (const [iconKey, value] of contribution.iconKeys)
+            {
+                iconKeys.set(iconKey, value)
+            }
+        }
+        return any ? { assets, iconKeys } : undefined
+    }
+
+    private static CacheKey(memberId: string, fileUri: string): string
+    {
+        return `${memberId}${SolutionGraphPresentationSource.KeySeparator}${fileUri}`
+    }
+
+    // Bake one file's icon subset: carve its own document, close it over the member's bases,
+    // bake in memory (icon bytes read from the member's storage) and read the sidecars back.
+    // undefined when the file declares no icons or the bake cannot complete (a missing icon
+    // file — swallowed so one file can't sink the whole discover). `bakeId` is both the
+    // bake id and the read-back id.
+    private async BakeFile(
+        view: SolutionModelView,
+        storage: IStorage,
+        bakeId: string,
+        fileIds: Set<string>,
+        bases: readonly TodlDocument[],
+    ): Promise<PresentationContribution | undefined>
+    {
+        const document = toJSONOwn(view.model, fileIds)
         const closure = this.Closure(document, bases)
 
-        // A member with no own MuralResource-bearing node declares no icons — skip the bake
+        // A file with no own MuralResource-bearing node declares no icons — skip the bake
         // (an empty resources block would have nothing to compile).
         if (PresentationResourceEmitter.DistinctIcons(document, closure).length === 0)
         {
@@ -174,14 +259,14 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
 
         const dest = new FakeStorage()
-        const result = await this.baker.Bake(storage, dest, memberId, document, closure, SolutionGraphPresentationSource.BakeOptionsValue)
+        const result = await this.baker.Bake(storage, dest, bakeId, document, closure, SolutionGraphPresentationSource.BakeOptionsValue)
         if (!result.ok)
         {
             return undefined
         }
 
         const assets = new ResourceDictionary()
-        const presentation = await loadCompiledPresentation(dest, memberId)
+        const presentation = await loadCompiledPresentation(dest, bakeId)
         if (presentation !== undefined)
         {
             for (const [key, value] of presentation.Entries())
@@ -189,11 +274,8 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
                 assets.Set(key, value)
             }
         }
-        const iconKeys = await readIconIndex(dest, memberId)
-
-        const contribution: PresentationContribution = { assets, iconKeys }
-        this.cache.set(memberId, contribution)
-        return contribution
+        const iconKeys = await readIconIndex(dest, bakeId)
+        return { assets, iconKeys }
     }
 
     // The ids of the nodes a member OWNS in the shared graph: those whose origin is this

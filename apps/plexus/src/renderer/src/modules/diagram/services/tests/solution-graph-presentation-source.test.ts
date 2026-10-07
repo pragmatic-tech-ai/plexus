@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { FakeStorage, ServiceProvider, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     ProjectSystemComposer, SolutionLanguageService, SolutionManagerService, WikiLocator, fromJSON,
@@ -32,6 +32,8 @@ class GraphFixture
     private static readonly PathAttr = 'path'
     private static readonly Namespace = 'lib'
     private static readonly ConceptType = 'lib.Technology'
+    private static readonly FileUriPrefix = 'file:///'
+    private static readonly FileUriSuffix = '.todl'
     private static readonly IconSvg = '<svg viewBox="0 0 24 24"><path fill="currentColor" d="M3 3h18v18H3z"/></svg>'
 
     // A term node, its icon-application node, and the Annotated edge joining them.
@@ -47,9 +49,16 @@ class GraphFixture
         }
     }
 
+    // The authoring file a term (and its icon-application node) is homed to: each term is
+    // its own file, so a multi-term member is a multi-file member.
+    public static FileOf(id: string): string
+    {
+        return `${GraphFixture.FileUriPrefix}${id}${GraphFixture.FileUriSuffix}`
+    }
+
     // The shared-graph view ModelView returns: one Repository over every term's slice plus
     // the origin map pointing every own node at this member's storage.
-    public static View(storage: IStorage, terms: ReadonlyArray<{ id: string; iconPath: string }>): { model: Repository; originOf: ReadonlyMap<string, WikiOrigin> }
+    public static View(storage: IStorage, terms: ReadonlyArray<{ id: string; iconPath: string }>): { model: Repository; originOf: ReadonlyMap<string, WikiOrigin>; provenanceOf: ReadonlyMap<string, string> }
     {
         const nodes: JsonNode[] = []
         const edges: JsonEdge[] = []
@@ -62,11 +71,18 @@ class GraphFixture
         const model = fromJSON({ nodes, edges } as TodlDocument)
         const origin = WikiLocator.OpenProjectOrigin(storage)
         const originOf = new Map<string, WikiOrigin>()
+        const provenanceOf = new Map<string, string>()
+        for (const term of terms)
+        {
+            const file = GraphFixture.FileOf(term.id)
+            provenanceOf.set(term.id, file)
+            provenanceOf.set(`${term.id}@${GraphFixture.IconAnnotation}`, file)
+        }
         for (const node of nodes)
         {
             originOf.set(node.id, origin)
         }
-        return { model, originOf }
+        return { model, originOf, provenanceOf }
     }
 
     public static async WriteIcons(storage: IStorage, paths: ReadonlyArray<string>): Promise<void>
@@ -147,19 +163,59 @@ describe('SolutionGraphPresentationSource', () =>
         const first = await source.load()
         expect(first.iconKeys.size).toBe(1)
 
-        // Grow the member to two icon-bearing terms; without invalidation the cache still wins.
-        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [
+        // Grow the SAME file to two icon-bearing terms (the new term is homed to Azure's file);
+        // without invalidation the file's cached contribution still wins.
+        const grown = GraphFixture.View(harness.storage, [
             { id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath },
             { id: GraphFixture.AwsId, iconPath: GraphFixture.AwsIconPath },
         ])
+        const azureFile = GraphFixture.FileOf(GraphFixture.AzureId)
+        const provenanceOf = new Map<string, string>()
+        for (const id of grown.provenanceOf.keys())
+        {
+            provenanceOf.set(id, azureFile)
+        }
+        harness.language.ModelViewResult = { ...grown, provenanceOf }
         const cached = await source.load()
         expect(cached.iconKeys.size).toBe(1)
 
         // GraphChanged naming the member evicts its cached contribution → next load re-bakes.
-        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId] })
+        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [] })
         const rebaked = await source.load()
         expect(rebaked.iconKeys.size).toBe(2)
         expect(rebaked.iconKeys.get(GraphFixture.AwsId)).toBeTruthy()
         source.dispose()
+    })
+
+    it('re-bakes only the changed file of a multi-file member, matching a cold load', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath, GraphFixture.AwsIconPath])
+        harness.language.ModelViewResult = GraphFixture.View(harness.storage, [
+            { id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath },
+            { id: GraphFixture.AwsId, iconPath: GraphFixture.AwsIconPath },
+        ])
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const bake = vi.spyOn((source as unknown as { baker: { Bake: (...args: unknown[]) => unknown } }).baker, 'Bake')
+        const cold = await source.load()
+        expect(cold.iconKeys.size).toBe(2)
+        expect(bake).toHaveBeenCalledTimes(2)
+
+        // Only fileA changed: exactly one more bake, fileB's cached entry survives.
+        harness.language.GraphChanged.emit({ memberIds: [GraphFixture.MemberId], fileIds: [GraphFixture.FileOf(GraphFixture.AzureId)] })
+        const granular = await source.load()
+        expect(bake).toHaveBeenCalledTimes(3)
+        expect(granular.iconKeys.get(GraphFixture.AzureId)).toBeTruthy()
+        expect(granular.iconKeys.get(GraphFixture.AwsId)).toBeTruthy()
+
+        // Parity: a brand-new source's cold load of the same state yields the same keys.
+        const fresh = new SolutionGraphPresentationSource(harness.provider)
+        const full = await fresh.load()
+        expect([...granular.iconKeys.keys()].sort()).toEqual([...full.iconKeys.keys()].sort())
+        expect([...granular.assets.Entries()].map(([key]) => key).sort()).toEqual([...full.assets.Entries()].map(([key]) => key).sort())
+
+        source.dispose()
+        fresh.dispose()
     })
 })

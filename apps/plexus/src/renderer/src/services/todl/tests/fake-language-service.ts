@@ -36,10 +36,10 @@ export class FakeLanguageService extends Observable
   public readonly ConsumerIds = new Map<IStorage, string>()
   // The shared solution graph ModelView serves, and the per-node origin map that says
   // which member storage each node was authored in. Undefined → no active solution.
-  public ModelViewResult: { model: Repository; originOf: ReadonlyMap<string, WikiOrigin> } | undefined = undefined
+  public ModelViewResult: { model: Repository; originOf: ReadonlyMap<string, WikiOrigin>; provenanceOf: ReadonlyMap<string, string> } | undefined = undefined
   // The shared-graph change signal source members subscribe to; a test fires it to drive
   // cache invalidation.
-  public readonly GraphChanged = new Signal<{ memberIds: readonly string[] }>()
+  public readonly GraphChanged = new Signal<{ memberIds: readonly string[]; fileIds: readonly string[] }>()
   private staleMembers: ReadonlySet<string> = new Set()
 
   public SetDiagnostics(uri: string, diags: Diagnostic[]): void
@@ -154,7 +154,7 @@ export class FakeLanguageService extends Observable
     return Promise.resolve(this.ConsumerIds.get(storage))
   }
 
-  public ModelView(_storage: IStorage): Promise<{ model: Repository; originOf: ReadonlyMap<string, WikiOrigin> } | undefined>
+  public ModelView(_storage: IStorage): Promise<{ model: Repository; originOf: ReadonlyMap<string, WikiOrigin>; provenanceOf: ReadonlyMap<string, string> } | undefined>
   {
     return Promise.resolve(this.ModelViewResult)
   }

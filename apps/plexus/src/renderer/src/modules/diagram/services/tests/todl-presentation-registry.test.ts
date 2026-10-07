@@ -190,13 +190,13 @@ test('Refresh wires the GraphChanged bridge exactly once, so a graph rebuild re-
 
     await registry.Refresh()                 // EnsureStarted subscribes to GraphChanged
     let base = registry.discoverCount
-    language.GraphChanged.emit({ memberIds: ['m'] })
+    language.GraphChanged.emit({ memberIds: ['m'], fileIds: [] })
     expect(registry.discoverCount).toBe(base + 1)
 
     // A second Refresh must NOT add a second subscription (EnsureStarted is once-only):
     // one emit still triggers exactly one discover.
     await registry.Refresh()
     base = registry.discoverCount
-    language.GraphChanged.emit({ memberIds: ['m'] })
+    language.GraphChanged.emit({ memberIds: ['m'], fileIds: [] })
     expect(registry.discoverCount).toBe(base + 1)
 })
