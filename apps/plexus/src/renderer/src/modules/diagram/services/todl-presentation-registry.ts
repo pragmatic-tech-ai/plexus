@@ -66,6 +66,21 @@ export class TodlPresentationRegistry extends ServiceBase
         this.sources.set(src.id, src)
     }
 
+    // Register the solution-graph source and re-discover whenever it signals that a resource
+    // asset changed on disk (no .todl edit, so GraphChanged never fires). A failed
+    // re-discover is kept in LastDiscoverError rather than lost.
+    public RegisterSolutionGraphSource(source: SolutionGraphPresentationSource): void
+    {
+        this.registerSource(source)
+        source.AssetChanged.subscribe(() =>
+        {
+            this.discover().catch(error => { this.LastDiscoverError = error })
+        })
+    }
+
+    // The most recent asset-triggered discover() failure, if any.
+    public LastDiscoverError: unknown
+
     // Bootstrap the registry's own sources and freshness wiring, exactly once:
     // register the three default presentation sources (SolutionGraph LAST so its
     // live-baked icons win the last-wins merge over any stale published copy), and
@@ -79,7 +94,7 @@ export class TodlPresentationRegistry extends ServiceBase
         this.started = true
         this.registerSource(new LibraryPresentationSource(this.Provider, () => this.Provider.get(LibraryRegistry.Key)?.discover() ?? Promise.resolve([])))
         this.registerSource(new MetaModelPresentationSource(this.Provider))
-        this.registerSource(new SolutionGraphPresentationSource(this.Provider))
+        this.RegisterSolutionGraphSource(new SolutionGraphPresentationSource(this.Provider))
         // Fire-and-forget, app-lifetime: this registry is an app-scoped singleton.
         this.Provider.get(SolutionLanguageService.Key)?.GraphChanged.subscribe(() => { void this.discover() })
     }

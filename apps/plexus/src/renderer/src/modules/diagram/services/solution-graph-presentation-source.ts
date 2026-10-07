@@ -1,5 +1,5 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { FakeStorage, isLocalFileAccess, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { FakeStorage, Signal, isLocalFileAccess, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService, SolutionManagerService,
     WikiOriginKind, toJSONOwn,
@@ -9,7 +9,7 @@ import {
 import type { FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 
 import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
-import { TodlPresentationRegistry, type PresentationContribution, type PresentationSource } from './todl-presentation-registry.js'
+import type { PresentationContribution, PresentationSource } from './todl-presentation-registry.js'
 import { loadCompiledPresentation } from '../../meta-model/services/compiled-presentation.js'
 import { readIconIndex } from '../../meta-model/services/icon-index.js'
 
@@ -29,7 +29,8 @@ interface SolutionModelView
 // match by file or by member. An undefined contribution is a negative-cache marker (the
 // unit baked to nothing). `assetKeys` are the normalized resource-asset paths the unit's
 // icons read, so a changed asset file can evict it; `failed` marks a bake that did not
-// complete, kept only so an asset event can find it and never served as a cache hit.
+// complete (kept as a marker so it is not retried on every load; an asset event or a
+// GraphChanged evicts it).
 interface FileEntry
 {
     memberId: string
@@ -38,6 +39,14 @@ interface FileEntry
     contribution: PresentationContribution | undefined
     assetKeys: ReadonlySet<string>
     failed: boolean
+}
+
+// What a unit's icons read: the normalized absolute paths of its local assets and a
+// content hash per entity (entity id -> hex FNV-1a of its icon bytes).
+interface AssetIdentity
+{
+    keys: Set<string>
+    hashes: Map<string, string>
 }
 
 // One unit of baking: the cache key, the bake id, the files it covers and the node ids it carves.
@@ -94,8 +103,16 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     private static readonly BackslashPattern = /\\/g
     private static readonly PathSeparator = '/'
     private static readonly ExtensionDot = '.'
+    // FNV-1a 32-bit parameters for the icon-content hash that suffixes resource keys.
+    private static readonly FnvOffset = 0x811c9dc5
+    private static readonly FnvPrime = 0x01000193
+    private static readonly HashSeparatorByte = 0
+    private static readonly ResourceKeyJoin = '_'
 
     public readonly id = SolutionGraphPresentationSource.SourceId
+    // Raised after a resource-asset file change evicted at least one cached unit; the
+    // registry subscribes and re-discovers so the icons re-bake with no .todl edit.
+    public readonly AssetChanged = new Signal<void>()
 
     private readonly baker: ProviderPresentationBaker
     // `${memberId}::${fileUri}` (or `::<whole>`) → that unit's last bake; evicted on GraphChanged.
@@ -189,7 +206,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     }
 
     // A changed / added / removed asset file evicts every unit whose icons read it, then
-    // asks the registry to re-bake so the icons update with no .todl edit. A removed asset
+    // raises AssetChanged so the registry re-bakes with no .todl edit. A removed asset
     // re-bakes to nothing (the bake fails and is swallowed), so the default glyph returns.
     private OnFileChanged(event: FileChangeEvent): void
     {
@@ -200,26 +217,22 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
         if (this.EvictAsset(path))
         {
-            this.provider.get(TodlPresentationRegistry.Key)?.Refresh().catch(() => undefined)
+            this.AssetChanged.emit()
         }
     }
 
-    // Evicts every cached unit whose asset-key set matches the (normalized) path: equal, or
-    // the path ends with the key (a storage-relative key against an absolute path).
-    // Returns whether anything was evicted.
-    public EvictAsset(normalizedPath: string): boolean
+    // Evicts every cached unit whose asset-key set holds the (normalized) path. Keys are
+    // absolute OS paths of local-file-access storages, so the match is exact. Returns
+    // whether anything was evicted.
+    private EvictAsset(normalizedPath: string): boolean
     {
         let evicted = false
         for (const [key, entry] of this.cache)
         {
-            for (const assetKey of entry.assetKeys)
+            if (entry.assetKeys.has(normalizedPath))
             {
-                if (normalizedPath === assetKey || normalizedPath.endsWith(`${SolutionGraphPresentationSource.PathSeparator}${assetKey}`))
-                {
-                    this.cache.delete(key)
-                    evicted = true
-                    break
-                }
+                this.cache.delete(key)
+                evicted = true
             }
         }
         if (evicted)
@@ -229,9 +242,10 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         return evicted
     }
 
+    // Case-insensitive (Windows) forward-slash form used for every asset-path comparison.
     private static Normalize(path: string): string
     {
-        return path.replace(SolutionGraphPresentationSource.BackslashPattern, SolutionGraphPresentationSource.PathSeparator)
+        return path.replace(SolutionGraphPresentationSource.BackslashPattern, SolutionGraphPresentationSource.PathSeparator).toLowerCase()
     }
 
     private static IsAssetPath(path: string): boolean
@@ -240,24 +254,99 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         return dot >= 0 && SolutionGraphPresentationSource.AssetExtensions.has(path.slice(dot).toLowerCase())
     }
 
-    // The normalized identities of the resource assets a unit's icons read: the absolute OS
-    // path when the storage is local-file-access, else the storage-relative path.
-    private async AssetKeysOf(language: SolutionLanguageService, ids: ReadonlySet<string>): Promise<Set<string>>
+    // The asset identity of a unit: the normalized absolute OS paths its icons read (only
+    // local-file-access storages can produce disk events, so others contribute no key) and,
+    // per entity, a content hash of its icon bytes. A Resources() failure for one node skips
+    // that node rather than sinking the load.
+    private async AssetIdentityOf(language: SolutionLanguageService, ids: ReadonlySet<string>): Promise<AssetIdentity>
     {
         const keys = new Set<string>()
-        for (const id of ids)
+        const hashes = new Map<string, string>()
+        await Promise.all([...ids].map(async id =>
         {
-            for (const resource of await language.Resources(id))
+            let resources: Awaited<ReturnType<SolutionLanguageService['Resources']>>
+            try
             {
-                if (!SolutionGraphPresentationSource.IsAssetPath(resource.path))
+                resources = await language.Resources(id)
+            }
+            catch
+            {
+                return
+            }
+            const assets = resources
+                .filter(resource => SolutionGraphPresentationSource.IsAssetPath(resource.path))
+                .map(resource => ({
+                    resource,
+                    location: SolutionGraphPresentationSource.Normalize(isLocalFileAccess(resource.storage) ? resource.storage.ResolveOsPath(resource.path) : resource.path),
+                }))
+                .sort((a, b) => a.location < b.location ? -1 : a.location > b.location ? 1 : 0)
+            if (assets.length === 0)
+            {
+                return
+            }
+            let hash = SolutionGraphPresentationSource.FnvOffset
+            for (const asset of assets)
+            {
+                if (isLocalFileAccess(asset.resource.storage))
                 {
-                    continue
+                    keys.add(asset.location)
                 }
-                const location = isLocalFileAccess(resource.storage) ? resource.storage.ResolveOsPath(resource.path) : resource.path
-                keys.add(SolutionGraphPresentationSource.Normalize(location))
+                try
+                {
+                    hash = SolutionGraphPresentationSource.Fnv(hash, await asset.resource.storage.ReadBytes(asset.resource.path))
+                }
+                catch
+                {
+                    // A missing asset contributes no bytes; its bake fails on its own.
+                }
+                hash = SolutionGraphPresentationSource.Fnv(hash, new Uint8Array([SolutionGraphPresentationSource.HashSeparatorByte]))
+            }
+            hashes.set(id, (hash >>> 0).toString(16))
+        }))
+        return { keys, hashes }
+    }
+
+    // Folds bytes into an FNV-1a 32-bit state.
+    private static Fnv(state: number, bytes: Uint8Array): number
+    {
+        let hash = state
+        for (const byte of bytes)
+        {
+            hash = Math.imul(hash ^ byte, SolutionGraphPresentationSource.FnvPrime)
+        }
+        return hash
+    }
+
+    // Suffixes each entity's resource key with the content hash of its icon bytes, rewriting
+    // the icon-index values AND the asset-dictionary keys in lockstep. The entity key stays
+    // stable; a byte change yields a new resource key, so the registry's index diff notices
+    // it. The hash depends only on content, so a per-file carve and a whole-member bake agree.
+    private Stamp(contribution: PresentationContribution, hashes: ReadonlyMap<string, string>): PresentationContribution
+    {
+        const targets = new Map<string, Set<string>>()
+        const iconKeys = new Map<string, string>()
+        for (const [entityKey, resourceKey] of contribution.iconKeys)
+        {
+            const hash = hashes.get(entityKey)
+            const stamped = hash === undefined ? resourceKey : `${resourceKey}${SolutionGraphPresentationSource.ResourceKeyJoin}${hash}`
+            iconKeys.set(entityKey, stamped)
+            let set = targets.get(resourceKey)
+            if (set === undefined)
+            {
+                set = new Set<string>()
+                targets.set(resourceKey, set)
+            }
+            set.add(stamped)
+        }
+        const assets = new ResourceDictionary()
+        for (const [key, value] of contribution.assets.Entries())
+        {
+            for (const stamped of (typeof key === 'string' ? targets.get(key) : undefined) ?? [key])
+            {
+                assets.Set(stamped, value)
             }
         }
-        return keys
+        return { assets, iconKeys }
     }
 
     // Attach the GraphChanged eviction handler once. Eviction is file-granular: when the
@@ -341,15 +430,15 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         for (const unit of units)
         {
             let entry = this.cache.get(unit.key)
-            // A failed bake is never a cache hit: retry it.
-            if (entry === undefined || entry.failed)
+            if (entry === undefined)
             {
                 const generation = this.generation
                 bases ??= (await language.ResolveBasesFor(storage)).bases
-                const assetKeys = await this.AssetKeysOf(language, unit.ids)
+                const identity = await this.AssetIdentityOf(language, unit.ids)
                 const baked = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases)
                 // null = the bake failed (not the same as a legitimately empty unit).
-                entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution: baked ?? undefined, assetKeys, failed: baked === null }
+                const contribution = baked === null || baked === undefined ? undefined : this.Stamp(baked, identity.hashes)
+                entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution, assetKeys: identity.keys, failed: baked === null }
                 // A GraphChanged during the bake supersedes it: use the result once, don't store it.
                 if (generation === this.generation)
                 {
