@@ -1,15 +1,32 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { mkdtempSync, rmSync, writeFileSync, existsSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { MainDiskBuildStorageProvider } from '../main-disk-build-storage-provider.js'
 
-const roots: string[] = []
-function freshUserData(): string { const d = mkdtempSync(join(tmpdir(), 'plexus-main-build-')); roots.push(d); return d }
-afterEach(() => { for (const r of roots.splice(0)) rmSync(r, { recursive: true, force: true }) })
+class TempDirs
+{
+    private readonly dirs: string[] = []
+
+    public Create(prefix: string): string
+    {
+        const d = mkdtempSync(join(tmpdir(), prefix))
+        this.dirs.push(d)
+        return d
+    }
+
+    public Dispose(): void
+    {
+        for (const d of this.dirs.splice(0)) rmSync(d, { recursive: true, force: true })
+    }
+}
 
 describe('MainDiskBuildStorageProvider', () =>
 {
+    const temp = new TempDirs()
+    const freshUserData = (): string => temp.Create('plexus-main-build-')
+    afterEach(() => temp.Dispose())
+
     it('OpenOutput cleans an existing output dir before writing and roots it at override/<name>', async () =>
     {
         const userData = freshUserData()
@@ -40,7 +57,7 @@ describe('MainDiskBuildStorageProvider', () =>
         const pa = (a as unknown as { Root: string }).Root
         const pb = (b as unknown as { Root: string }).Root
         expect(pa).not.toBe(pb)
-        expect(pa.startsWith(join(userData, 'build-sandboxes'))).toBe(true)
+        expect(dirname(pa)).toBe(join(userData, 'build-sandboxes'))
         expect(existsSync(pa)).toBe(true)
         await provider.DeleteSandbox(a)
         expect(existsSync(pa)).toBe(false)
