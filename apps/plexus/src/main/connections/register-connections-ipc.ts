@@ -20,6 +20,7 @@ export class ConnectionsIpc
         ipcMain.handle(ConnectionChannel.UseEnvToken, (_e, id: string, varName: string) => bridge.UseEnvToken(id, varName))
         ipcMain.handle(ConnectionChannel.SetDefault, (_e, id: string) => bridge.SetDefault(id))
         ipcMain.handle(ConnectionChannel.Test, (_e, id: string) => bridge.Test(id))
+        ipcMain.handle(ConnectionChannel.Inspect, (_e, id: string) => bridge.Inspect(id))
         ipcMain.handle(ConnectionChannel.EnvVars, () => bridge.EnvVars())
         ipcMain.handle(ConnectionChannel.Resolve, (_e, id: string, version: string, connectionId?: string) => bridge.Resolve(id, version, connectionId))
     }
