@@ -10,10 +10,12 @@
 // window.api.fs via createFileSystemBridge (plexus-core/preload/file-system).
 import FileSystemService from "./file-system-service.js"
 import StorageService from "./storage-service.js"
+import DiskBuildStorageProvider from "./disk-build-storage-provider.js"
 
 module Storage {
     .services: {
         FileSystemService
         StorageService
+        DiskBuildStorageProvider
     }
 }
