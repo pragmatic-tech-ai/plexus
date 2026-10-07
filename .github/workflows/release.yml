@@ -1,6 +1,6 @@
 # Release pipeline: on a v* tag, build the Windows MSI (windows-latest) and the
-# Linux AppImage + deb (ubuntu-latest), then publish one GitHub Release that the
-# AppImage auto-updater reads.
+# Linux AppImage + deb (ubuntu-latest), and the unsigned macOS dmg (macos-latest),
+# then publish one GitHub Release that the AppImage auto-updater reads.
 #
 # PREREQUISITES (one-time, owner-driven — see docs/superpowers/specs/2026-09-01-
 # plexus-installer-design.md):
@@ -31,6 +31,8 @@ jobs:
             args: --win
           - os: ubuntu-latest
             args: --linux
+          - os: macos-latest
+            args: --mac
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

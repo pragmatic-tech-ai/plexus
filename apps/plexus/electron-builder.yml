@@ -9,6 +9,10 @@ files:
 asar: true
 win:
   target: [msi]
+mac:
+  target: [dmg]
+  category: public.app-category.developer-tools
+  # Unsigned: users need the one-time "Open Anyway" Gatekeeper bypass until signed + notarized.
 linux:
   target: [AppImage, deb]
   category: Development
