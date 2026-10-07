@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { Solution } from '@pragmatic-tech-ai/todl'
@@ -56,7 +57,7 @@ describe('HtmlAppContributor', () =>
         expect(calls.build.system).toBe('html-bundle')
         expect(calls.build.flavor).toBe('html-bundle')
         expect(calls.build.options.OutputRootOverride).toBe('/proj/build')
-        expect(calls.opened).toBe('/proj/build/html-bundle/index.html')
+        expect(calls.opened).toBe(join('/proj/build/html-bundle', 'index.html'))
     })
 
     it('Open HTML app does not open when the build fails', async () =>

@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { RelayCommand, ServiceKey, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import {
     NodeContribution, NodeKey,
@@ -26,7 +27,7 @@ export class HtmlAppContributor implements IHierarchyContributor
     private static readonly SystemId = 'html-bundle'
     private static readonly FlavorId = 'html-bundle'
     private static readonly BuildDir = 'build'
-    private static readonly IndexSuffix = '/index.html'
+    private static readonly IndexFile = 'index.html'
     private static readonly OpenLabel = 'Open HTML app'
     private static readonly OpenTitlePrefix = 'Opening HTML app '
     private static readonly ServeLabel = 'Serve HTML app'
@@ -101,7 +102,12 @@ export class HtmlAppContributor implements IHierarchyContributor
             {
                 throw new Error(`${HtmlAppContributor.BuildFailedPrefix}${BuildService.FormatErrors(output.Result.Diagnostics)}`)
             }
-            await this.fs.OpenExternal(`${output.Result.OutputPath}${HtmlAppContributor.IndexSuffix}`)
+            const outputPath = output.Result.OutputPath
+            if (outputPath === undefined)
+            {
+                throw new Error(HtmlAppContributor.NoOutputPathError)
+            }
+            await this.fs.OpenExternal(join(outputPath, HtmlAppContributor.IndexFile))
             return output
         })
     }
