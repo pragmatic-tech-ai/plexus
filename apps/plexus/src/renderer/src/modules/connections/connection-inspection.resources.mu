@@ -22,15 +22,19 @@ resources ConnectionInspectionResources {
                 TextBlock [ Text = $Identity, Foreground = @Fg1 ]
             }
 
-            TextBlock [ Style = @BodySm, Text = "Scopes", Foreground = @Fg2, Margin = (0,0,0,2) ]
-            ItemsControl [ ItemsSource = $Scopes, ItemsPanel = @VerticalStackPanel, TextBlock.Foreground = @Fg1 ]
-            TextBlock [ Style = @BodySm, Text = $ScopesNote, Foreground = @Fg2, Visibility = $ScopesNote << ToVisibility, Margin = (0,0,0,10) ]
-
-            TextBlock [ Style = @BodySm, Text = "Packages", Foreground = @Fg2, Margin = (0,6,0,2) ]
-            ScrollViewer [ MaxHeight = 320, HorizontalScrollEnabled = false ] {
-                ItemsControl [ ItemsSource = $Packages, ItemsPanel = @VerticalStackPanel, TextBlock.Foreground = @Fg1 ]
+            StackPanel [ Orientation = Vertical, Visibility = $Ok << ToVisibility ] {
+                TextBlock [ Style = @BodySm, Text = "Scopes", Foreground = @Fg2, Margin = (0,0,0,2) ]
+                ItemsControl [ ItemsSource = $Scopes, ItemsPanel = @VerticalStackPanel, TextBlock.Foreground = @Fg1 ]
+                TextBlock [ Style = @BodySm, Text = $ScopesNote, Foreground = @Fg2, Visibility = $ScopesNote << ToVisibility, Margin = (0,0,0,10) ]
             }
-            TextBlock [ Style = @BodySm, Text = $PackagesNote, Foreground = @Fg2, Visibility = $PackagesNote << ToVisibility ]
+
+            StackPanel [ Orientation = Vertical, Visibility = $Ok << ToVisibility ] {
+                TextBlock [ Style = @BodySm, Text = "Packages", Foreground = @Fg2, Margin = (0,6,0,2) ]
+                ScrollViewer [ MaxHeight = 320, HorizontalScrollEnabled = false ] {
+                    ItemsControl [ ItemsSource = $Packages, ItemsPanel = @VerticalStackPanel, TextBlock.Foreground = @Fg1 ]
+                }
+                TextBlock [ Style = @BodySm, Text = $PackagesNote, Foreground = @Fg2, Visibility = $PackagesNote << ToVisibility ]
+            }
         }
     }
 }
