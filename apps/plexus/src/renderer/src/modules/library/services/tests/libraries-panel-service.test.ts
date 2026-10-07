@@ -18,6 +18,9 @@ function providerWith(seed: (b: FakeStorage) => void): ServiceProvider
     registry.Register(PACKAGES_BACKEND_ID, () => backend)
     provider.registerInstance(StorageService.Key, registry)
     provider.registerInstance(LibraryRegistry.Key, new LibraryRegistry(provider))
+    // The presentation registry is an app service now (no longer get-or-created by
+    // registerArchToolboxAdapters); the panel resolves it with getRequired.
+    provider.registerInstance(TodlPresentationRegistry.Key, new TodlPresentationRegistry(provider))
     seed(backend)
     return provider
 }
@@ -125,7 +128,7 @@ test('IsEmpty is true when nothing is published', async () => {
     expect(svc.Roots.Count).toBe(0)
 })
 
-test('Reload() calls TodlPresentationRegistry.discover() when storage is wired', async () => {
+test('Reload() refreshes the presentation registry when storage is wired', async () => {
     const provider = new ServiceProvider()
     const storageRegistry = new StorageService(provider)
     const backend = new FakeStorage('fake://libraries')
@@ -133,19 +136,14 @@ test('Reload() calls TodlPresentationRegistry.discover() when storage is wired',
     provider.registerInstance(StorageService.Key, storageRegistry)
     provider.registerInstance(LibraryRegistry.Key, new LibraryRegistry(provider))
 
-    let discoverCalled = false
-    const fakeRegistry = {
-        registerSource: () => {},   // absorb idempotent registerSource calls from registerArchToolboxAdapters
-        discover: async () => { discoverCalled = true },
-    }
-    // Pre-register the fake BEFORE LibrariesPanelService is constructed so
-    // registerArchToolboxAdapters (get-or-create) leaves it in place.
+    let refreshCalled = false
+    const fakeRegistry = { Refresh: async () => { refreshCalled = true } }
     provider.registerInstance(TodlPresentationRegistry.Key, fakeRegistry as unknown as TodlPresentationRegistry)
 
     const svc = new LibrariesPanelService(provider)
     await svc.Reload()
 
-    expect(discoverCalled).toBe(true)
+    expect(refreshCalled).toBe(true)
 })
 
 test('onLibrariesChanged notifies subscribers after Reload completes, and unsubscribes', async () => {

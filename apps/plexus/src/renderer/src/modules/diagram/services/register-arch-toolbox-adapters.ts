@@ -1,34 +1,17 @@
 import { Application, type ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import type { DataTemplate } from '@pragmatic-tech-ai/mural/basic'
-import { LibraryRegistry } from '../../library/services/library-registry.js'
 import { ArchInstanceDropFactory, ArchInstanceDropFactoryKey } from '../../architecture-projects/services/arch-instance-drop-factory.js'
 import { ArchModelInstanceDropFactory, ArchModelInstanceDropFactoryKey } from '../../architecture-projects/services/arch-model-instance-drop-factory.js'
 import { ArchScenarioDropFactory, ArchScenarioDropFactoryKey } from '../../architecture-projects/services/arch-scenario-drop-factory.js'
-import { TodlPresentationRegistry } from './todl-presentation-registry.js'
 import { TodlVisualSelector } from './todl-visual-selector.js'
-import { LibraryPresentationSource } from '../../library/services/library-presentation-source.js'
-import { MetaModelPresentationSource } from '../../meta-model/services/meta-model-presentation-source.js'
-import { SolutionGraphPresentationSource } from './solution-graph-presentation-source.js'
 
-// Idempotently register the Plexus toolbox resolver + drop factory into the
-// service provider. Safe to call on every reload — existing registrations are
-// left as-is; registerSource is idempotent by id so re-registering the same
-// sources is harmless.
+// Idempotently register the Plexus toolbox DROP FACTORIES + the tile-chip template
+// selector into the service provider. Safe to call on every reload — existing
+// registrations are left as-is. The presentation SOURCES + their refresh lifecycle
+// are owned by TodlPresentationRegistry (registered as an app service; see its
+// EnsureStarted/Refresh), NOT here — this function is a pure toolbox-adapter concern.
 export function registerArchToolboxAdapters(services: ServiceProvider): void
 {
-    let registry = services.get(TodlPresentationRegistry.Key)
-    if (registry === undefined)
-    {
-        registry = new TodlPresentationRegistry(services)
-        services.registerInstance(TodlPresentationRegistry.Key, registry)
-    }
-    registry.registerSource(new LibraryPresentationSource(services, () => services.get(LibraryRegistry.Key)?.discover() ?? Promise.resolve([])))
-    registry.registerSource(new MetaModelPresentationSource(services))
-    // Registered LAST so its live-baked icons take precedence over any stale published copy
-    // (the registry merges iconKeys last-wins): when a member is both open and published, the
-    // member the user is editing — the solution graph's source member — must win.
-    registry.registerSource(new SolutionGraphPresentationSource(services))
-
     if (!services.has(ArchInstanceDropFactoryKey))
     {
         services.registerInstance(ArchInstanceDropFactoryKey, new ArchInstanceDropFactory(services))

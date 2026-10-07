@@ -172,8 +172,8 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         }
         this.setIsLoading(true)
         // Each class leaf carries an EntityIconVM resolved against the presentation
-        // registry (the preview's $Icon). Ensure the adapters (which get-or-create
-        // the registry) are registered up front so a leaf built below can resolve it.
+        // registry (the preview's $Icon). Register the toolbox drop adapters up front;
+        // the registry itself is an app service (it owns its own sources + Refresh).
         const services = (Application.current?.Services ?? this.Provider) as ServiceProvider
         registerArchToolboxAdapters(services)
         const presentation = services.getRequired(TodlPresentationRegistry.Key)
@@ -213,11 +213,10 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
 
         // Refresh the shared visual aggregate so the panel's preview (and any open
         // canvas) reflects installs/uninstalls even when the toolbox/canvas hasn't
-        // been the trigger. (Adapters were registered up front, above, so the leaf
-        // icon VMs could resolve the registry.)
+        // been the trigger — through the one shared Refresh() API.
         if (services.get(StorageService.Key) !== undefined)
         {
-            await presentation.discover()
+            await presentation.Refresh()
         }
 
         // A newer Reload may have superseded this one across the awaits; only the

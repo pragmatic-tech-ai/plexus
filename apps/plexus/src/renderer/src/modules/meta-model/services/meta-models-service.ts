@@ -87,7 +87,7 @@ export class MetaModelsService extends ServiceBase implements IActivatable
         const wasEmpty = this._isEmpty
         this._isEmpty = built.length === 0
         this.RaisePropertyChanged('IsEmpty', wasEmpty, this._isEmpty)
-        await this.Provider.get(TodlPresentationRegistry.Key)?.discover()
+        await this.Provider.get(TodlPresentationRegistry.Key)?.Refresh()
 
         // A newer reload may have superseded this one across the discover await;
         // only the latest announces so subscribers reconcile once.

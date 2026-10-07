@@ -179,10 +179,12 @@ export class ToolboxService extends PlexusPanelService implements IActivatable
 
         // Gather everything async FIRST, then mutate synchronously under a seq guard
         // — so two overlapping syncPageSet calls (e.g. ctor + a trigger) can't
-        // interleave their reconciles on the shared repo.Pages.
+        // interleave their reconciles on the shared repo.Pages. Refresh() is the one
+        // shared bake API (same path the diagram canvas uses); it self-bootstraps the
+        // registry's sources + graph bridge on first call.
         if (services.get(StorageService.Key) !== undefined)
         {
-            await services.get(TodlPresentationRegistry.Key)?.discover()
+            await services.get(TodlPresentationRegistry.Key)?.Refresh()
         }
         const taxonomies = await this.collectTaxonomies()
         const archModels = await this.openArchModels()

@@ -205,6 +205,7 @@ import DockTabsResources from "./services/dock-tabs/dock-tabs.resources.mu.js"
 // project's .todl files against its declared bases via checkAgainst. Root-scoped
 // like ProjectFactoryRegistry so every module's editor can attach documents.
 import TodlLanguageClient from "./services/todl/todl-language-client.js"
+import TodlPresentationRegistry from "./modules/diagram/services/todl-presentation-registry.js"
 import ArchitectureModelService from "./modules/architecture-projects/services/architecture-model-service.js"
 import ArchDiagramBindingService from "./modules/architecture-projects/services/arch-diagram-binding-service.js"
 import ArchNavigationService from "./modules/architecture-projects/services/arch-navigation-service.js"
@@ -397,6 +398,11 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // owns the LSP connection, the project source/base feed, diagnostics
         // routing, and the Monaco provider adapters.
         TodlLanguageClient
+        // Aggregates every presentation source's baked icon assets + entityKey index
+        // into one merged app dictionary. Owns its own sources + refresh lifecycle
+        // (EnsureStarted/Refresh); every icon consumer (diagram canvas, toolbox) bakes
+        // through its one Refresh() API, kept fresh on solution-graph rebuilds.
+        TodlPresentationRegistry
         // One live architecture model per open architecture project (keyed by
         // RootPath): composes the project's bases + .todl files via
         // ModelDraft.fromSources. Built lazily on first modelFor; its

@@ -1,5 +1,10 @@
 import { Application, ResourceDictionary, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import { setIconResourceResolver } from './icon-key-converter.js'
+import { LibraryPresentationSource } from '../../library/services/library-presentation-source.js'
+import { LibraryRegistry } from '../../library/services/library-registry.js'
+import { MetaModelPresentationSource } from '../../meta-model/services/meta-model-presentation-source.js'
+import { SolutionGraphPresentationSource } from './solution-graph-presentation-source.js'
 
 // What a source contributes on each discover(): its baked icon ASSETS (geometries
 // / ImageBrushes keyed by resource key) and an entityKey → resource-key index
@@ -46,6 +51,9 @@ export class TodlPresentationRegistry extends ServiceBase
 
     private readonly listeners = new Set<(key: string) => void>()
 
+    // EnsureStarted side effects run exactly once (default sources + graph bridge).
+    private started = false
+
     constructor(provider: IServiceProvider)
     {
         super(provider)
@@ -56,6 +64,33 @@ export class TodlPresentationRegistry extends ServiceBase
     public registerSource(src: PresentationSource): void
     {
         this.sources.set(src.id, src)
+    }
+
+    // Bootstrap the registry's own sources and freshness wiring, exactly once:
+    // register the three default presentation sources (SolutionGraph LAST so its
+    // live-baked icons win the last-wins merge over any stale published copy), and
+    // subscribe to solution-graph rebuilds so the index re-bakes on warmup / live
+    // edit. Idempotent — later calls no-op; registerSource is itself id-idempotent,
+    // so a source also registered elsewhere is harmless. Source constructors are
+    // cheap (no I/O); a source reads storage only in load(), driven by discover().
+    public EnsureStarted(): void
+    {
+        if (this.started) return
+        this.started = true
+        this.registerSource(new LibraryPresentationSource(this.Provider, () => this.Provider.get(LibraryRegistry.Key)?.discover() ?? Promise.resolve([])))
+        this.registerSource(new MetaModelPresentationSource(this.Provider))
+        this.registerSource(new SolutionGraphPresentationSource(this.Provider))
+        // Fire-and-forget, app-lifetime: this registry is an app-scoped singleton.
+        this.Provider.get(SolutionLanguageService.Key)?.GraphChanged.subscribe(() => { void this.discover() })
+    }
+
+    // The ONE "(re)bake all sources and publish the merged icons" entry point every
+    // consumer calls — a diagram opening, the toolbox reconciling its pages, a
+    // library/meta-model publish. Ensures the registry is started, then discovers.
+    public async Refresh(): Promise<void>
+    {
+        this.EnsureStarted()
+        await this.discover()
     }
 
     // Run all registered sources, merge their assets app-global (one swap → O(1)

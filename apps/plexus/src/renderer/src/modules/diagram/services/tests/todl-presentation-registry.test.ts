@@ -1,9 +1,19 @@
 import { test, expect, afterEach } from 'vitest'
 import { Application, ResourceDictionary, ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 
 import type { PresentationContribution, PresentationSource } from '../todl-presentation-registry.js'
 import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { setIconResourceResolver } from '../icon-key-converter.js'
+import { FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
+
+// Counts discover() calls without loading the real default sources EnsureStarted
+// registers (their load() reads storage); lets us assert the lifecycle wiring alone.
+class CountingRegistry extends TodlPresentationRegistry
+{
+    public discoverCount = 0
+    public override async discover(): Promise<void> { this.discoverCount++ }
+}
 
 afterEach(() => setIconResourceResolver(undefined))   // discover() bridges the converter; reset between tests
 
@@ -163,4 +173,30 @@ test('populating N assets fires O(1) app-resource notifications, not one per key
     {
         Application.current = prior
     }
+})
+
+test('Refresh discovers every call (so each caller gets a fresh bake)', async () => {
+    const registry = new CountingRegistry(new ServiceProvider())
+    await registry.Refresh()
+    await registry.Refresh()
+    expect(registry.discoverCount).toBe(2)
+})
+
+test('Refresh wires the GraphChanged bridge exactly once, so a graph rebuild re-bakes', async () => {
+    const provider = new ServiceProvider()
+    const language = new FakeLanguageService()
+    provider.registerInstance(SolutionLanguageService.Key, language as unknown as SolutionLanguageService)
+    const registry = new CountingRegistry(provider)
+
+    await registry.Refresh()                 // EnsureStarted subscribes to GraphChanged
+    let base = registry.discoverCount
+    language.GraphChanged.emit({ memberIds: ['m'] })
+    expect(registry.discoverCount).toBe(base + 1)
+
+    // A second Refresh must NOT add a second subscription (EnsureStarted is once-only):
+    // one emit still triggers exactly one discover.
+    await registry.Refresh()
+    base = registry.discoverCount
+    language.GraphChanged.emit({ memberIds: ['m'] })
+    expect(registry.discoverCount).toBe(base + 1)
 })

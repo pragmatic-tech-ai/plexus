@@ -4,6 +4,7 @@ import { ToolboxRepository, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/m
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { ToolboxService } from '../diagram-panel-services.js'
+import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { ArchToolboxVisualKey } from '../arch-toolbox-item.js'
 import { ArchInstanceDropFactoryKey } from '../../../architecture-projects/services/arch-instance-drop-factory.js'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
@@ -84,6 +85,9 @@ function provider(seed: (mm: KindSeeder, lib: KindSeeder) => void): ServiceProvi
   const packages = new FakeStorage('fake://packages')
   reg.Register(PACKAGES_BACKEND_ID, () => packages)
   p.registerInstance(StorageService.Key, reg)
+  // The presentation registry is an app service now (syncPageSet refreshes it and the
+  // taxonomy pages resolve it with getRequired); register one for the harness.
+  p.registerInstance(TodlPresentationRegistry.Key, new TodlPresentationRegistry(p))
   seed(metaSeeder(packages), librarySeeder(packages))
   return p
 }

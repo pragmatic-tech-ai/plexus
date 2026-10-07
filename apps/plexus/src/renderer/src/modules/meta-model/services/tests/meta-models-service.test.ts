@@ -110,18 +110,18 @@ test('deleteTarget removes a whole model (all versions)', async () => {
 
 // ── discover on reload ────────────────────────────────────────────────────
 
-// Verify that reload() triggers TodlPresentationRegistry.discover() so a
-// just-published meta-model's visuals become available immediately after reload.
-test('reload() calls TodlPresentationRegistry.discover() when the registry is registered', async () => {
+// Verify that reload() refreshes the presentation registry so a just-published
+// meta-model's visuals become available immediately after reload.
+test('reload() refreshes the presentation registry when it is registered', async () => {
     const provider = new ServiceProvider()
     const registry = new StorageService(provider)
     const mm = new FakeStorage('fake://packages')
     registry.Register(PACKAGES_BACKEND_ID, () => mm)
     provider.registerInstance(StorageService.Key, registry)
 
-    let discoverCalled = false
+    let refreshCalled = false
     const fakeRegistry = {
-        discover: async () => { discoverCalled = true },
+        Refresh: async () => { refreshCalled = true },
     }
     provider.registerInstance(TodlPresentationRegistry.Key, fakeRegistry as unknown as TodlPresentationRegistry)
 
@@ -129,7 +129,7 @@ test('reload() calls TodlPresentationRegistry.discover() when the registry is re
     // The ctor calls reload() asynchronously; run an explicit reload to assert.
     await svc.reload()
 
-    expect(discoverCalled).toBe(true)
+    expect(refreshCalled).toBe(true)
 })
 
 test('reload() does not throw when TodlPresentationRegistry is absent', async () => {

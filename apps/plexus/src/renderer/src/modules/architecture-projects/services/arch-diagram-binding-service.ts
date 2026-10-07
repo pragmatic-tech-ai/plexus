@@ -1,8 +1,6 @@
-import { Application, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DiagramDocument, DialogService, StatusService, type DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
-
-import { registerArchToolboxAdapters } from '../../diagram/services/register-arch-toolbox-adapters.js'
 
 import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
 import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
@@ -45,15 +43,6 @@ export class ArchDiagramBindingService extends ServiceBase
     // ActiveDocument change already ran the visibility pass against an unstamped
     // doc — this signal is what re-shows the now-in-context library / model pages.
     private readonly contextsChangedListeners = new Set<() => void>()
-    // Icon-index freshness. The presentation registry's icon index is otherwise only
-    // (re)built by the toolbox's syncPageSet — so an architecture diagram opened with
-    // the Tool Box panel closed shows the default glyph until that panel is first
-    // opened. This always-live service bootstraps it instead: on the first arch-diagram
-    // attach it ensures the registry + sources exist, bakes once, and subscribes ONCE
-    // to GraphChanged so the index re-bakes whenever the solution graph (re)builds —
-    // warmup after open, or a live edit. Each binding's own registry.onChanged
-    // subscription then refreshes the node icons in place.
-    private presentationWired = false
 
     public constructor(provider: IServiceProvider)
     {
@@ -176,28 +165,14 @@ export class ArchDiagramBindingService extends ServiceBase
         }
     }
 
-    // Bootstrap + refresh the shared presentation registry so an open architecture
-    // diagram shows its real icons independently of the Tool Box panel. Ensures the
-    // registry + its sources are registered (idempotent — safe on every attach), bakes
-    // once now, and wires a single GraphChanged → discover() bridge so a graph warmup
-    // or live edit re-bakes and the bound nodes' onChanged subscriptions refresh. No-op
-    // headless (no Application) or before the registry can be created.
+    // Make this diagram's icons resolve without needing the Tool Box panel: refresh
+    // the shared presentation registry through its one API. Refresh() bootstraps the
+    // registry's sources + its GraphChanged bridge on first call and bakes, so the
+    // icons appear on open and stay fresh as the solution graph rebuilds; each
+    // binding's registry.onChanged subscription then repaints the node icons.
     private ensurePresentationFresh(): void
     {
-        // Ensure the registry + its sources exist even if the Tool Box was never opened
-        // (registration is idempotent). No-op headless, where there is no Application.
-        const app = Application.current
-        if (app !== undefined && app !== null) registerArchToolboxAdapters(app.Services)
-        const registry = this.Provider.get(TodlPresentationRegistry.Key)
-        if (registry === undefined) return
-        if (!this.presentationWired)
-        {
-            this.presentationWired = true
-            // App-lifetime subscription (this service is an eager boot singleton),
-            // fire-and-forget like the OpenDocuments subscription above.
-            this.Provider.get(SolutionLanguageService.Key)?.GraphChanged.subscribe(() => { void registry.discover() })
-        }
-        void registry.discover()
+        void this.Provider.get(TodlPresentationRegistry.Key)?.Refresh()
     }
 
     // Ensure a document is bound before a caller acts on its binding — closes the
