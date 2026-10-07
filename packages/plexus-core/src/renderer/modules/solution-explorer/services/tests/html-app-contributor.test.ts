@@ -2,7 +2,10 @@ import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { Solution } from '@pragmatic-tech-ai/todl'
+import type { IBuildProgress } from '@pragmatic-tech-ai/todl/build-system-core'
 import { HtmlAppContributor } from '../html-app-contributor.js'
+import type { IBuildClient } from '../../../build/index.js'
+import type { BuildRunRequest, BuildRunResult, BuildApplicable } from '../../../../../shared/build-api.js'
 
 // A fake project row carrying its member as ExtObject (what FileTreeContributor.MemberOf matches).
 class FakeItem
@@ -38,28 +41,28 @@ class HtmlAppTestHelper
     }
 }
 
-class FakeBuildClient
+class FakeBuildClient implements IBuildClient
 {
-    public Requests: any[] = []
+    public Requests: BuildRunRequest[] = []
     public Disposed = 0
     public Subscribed: string[] = []
 
-    constructor(private readonly result: any)
+    constructor(private readonly result: BuildRunResult)
     {
     }
 
-    public Build(req: any): Promise<any>
+    public Build(req: BuildRunRequest): Promise<BuildRunResult>
     {
         this.Requests.push(req)
         return Promise.resolve(this.result)
     }
 
-    public Applicable(): Promise<any>
+    public Applicable(_manifestJson: string): Promise<readonly BuildApplicable[]>
     {
         return Promise.resolve([])
     }
 
-    public OnProgress(runId: string, _p: any): { dispose: () => void }
+    public OnProgress(runId: string, _p: IBuildProgress): { dispose: () => void }
     {
         this.Subscribed.push(runId)
         return { dispose: () => { this.Disposed++ } }
@@ -114,7 +117,7 @@ describe('HtmlAppContributor', () =>
     it('Open HTML app throws when the build reports no output path', async () =>
     {
         const calls: any = {}
-        const client = new FakeBuildClient({ Ok: true, OutputPath: undefined, Diagnostics: [] })
+        const client = new FakeBuildClient({ Ok: true, OutputPath: undefined, Diagnostics: [] } as BuildRunResult)
         const work = HtmlAppTestHelper.Work()
         const c = new HtmlAppContributor(client as any, work as any, HtmlAppFakes.Fs(calls))
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()

@@ -38,7 +38,6 @@ export class HtmlAppContributor implements IHierarchyContributor
     private static readonly NoOutputPathError = 'Build produced no output path to serve'
     // The empty path resolves to the storage root (the project directory itself).
     private static readonly RootMarker = ''
-    private static runSeq = 0
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 21
@@ -164,7 +163,7 @@ export class HtmlAppContributor implements IHierarchyContributor
 
     private static NewRunId(): string
     {
-        return `${Date.now().toString(36)}-${(HtmlAppContributor.runSeq++).toString(36)}`
+        return crypto.randomUUID()
     }
 }
 

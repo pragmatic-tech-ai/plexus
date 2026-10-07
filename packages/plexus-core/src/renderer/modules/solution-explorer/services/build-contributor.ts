@@ -50,7 +50,6 @@ export class BuildContributor implements IHierarchyContributor
     private static readonly BuildFailedPrefix = 'Build failed: '
     // The empty path resolves to the storage root (the project directory itself).
     private static readonly RootMarker = ''
-    private static runSeq = 0
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 20
@@ -169,7 +168,7 @@ export class BuildContributor implements IHierarchyContributor
 
     private static NewRunId(): string
     {
-        return `${Date.now().toString(36)}-${(BuildContributor.runSeq++).toString(36)}`
+        return crypto.randomUUID()
     }
 }
 

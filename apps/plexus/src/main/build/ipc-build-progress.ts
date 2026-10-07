@@ -42,6 +42,6 @@ export class IpcBuildProgress implements IBuildProgress
     private Emit(kind: BuildProgressKind, args: unknown[]): void
     {
         const event: BuildProgressEvent = { runId: this.runId, kind, args }
-        this.sender.send(BuildChannel.Progress, event)
+        if (!this.sender.isDestroyed()) this.sender.send(BuildChannel.Progress, event)
     }
 }

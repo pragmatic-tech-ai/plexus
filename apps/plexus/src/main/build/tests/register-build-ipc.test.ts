@@ -8,6 +8,12 @@ class FakeSender
 {
     public sent: unknown[] = []
     public channels: string[] = []
+    public Destroyed = false
+
+    public isDestroyed(): boolean
+    {
+        return this.Destroyed
+    }
 
     public send(channel: string, msg: unknown): void
     {
@@ -18,6 +24,14 @@ class FakeSender
 
 describe('IpcBuildProgress', () =>
 {
+    it('does not send once the WebContents is destroyed', () =>
+    {
+        const sender = new FakeSender()
+        sender.Destroyed = true
+        new IpcBuildProgress('R1', sender as never).ProjectStarted('p', ['a'])
+        expect(sender.sent).toEqual([])
+    })
+
     it('forwards each callback as a runId-tagged progress event', () =>
     {
         const sender = new FakeSender()

@@ -21,35 +21,6 @@ class FakeItem
     }
 }
 
-function fakeMutations(over: Partial<IContentMutations> = {}): IContentMutations & { published: SolutionMember[] }
-{
-    const rec = {
-        published: [] as SolutionMember[],
-        RenameMemberFile: async () => {}, DeleteMemberFiles: async () => {},
-        NewFileForMember: async () => {}, NewFolderForMember: async () => {},
-        ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
-        MoveMemberNodes: async () => {},
-        PublishMember: async (m: SolutionMember) => { rec.published.push(m) },
-        BumpMemberVersion: async () => {}, SetMemberVersion: async () => {},
-        ManageMemberReferences: async () => {}, RefreshMemberBases: () => {},
-        UpdateMemberAgentMetadata: async () => {}, CloseMember: async () => {}, RemoveMember: async () => {},
-        FormatsFor: () => [], IsVersionedMember: () => false,
-        CanRefreshBasesMember: () => false, SupportsScaffoldMember: () => false,
-        ...over,
-    }
-    return rec as IContentMutations & { published: SolutionMember[] }
-}
-
-function memberRow(member: SolutionMember): HierarchyItem
-{
-    return new FakeItem(NodeKey.Project, member) as unknown as HierarchyItem
-}
-
-function ctxFor(anchor: HierarchyItem): HierarchyActionContext
-{
-    return new HierarchyActionContext(anchor, [anchor])
-}
-
 // A fake build client: records Build calls + progress subscriptions; Applicable resolves on demand.
 class FakeBuildClient implements IBuildClient
 {
@@ -83,34 +54,87 @@ class FakeBuildClient implements IBuildClient
     }
 }
 
-function noBuild(): FakeBuildClient
+class BuildTestHelper
 {
-    return new FakeBuildClient()
+    public static FakeMutations(over: Partial<IContentMutations> = {}): IContentMutations & { published: SolutionMember[] }
+    {
+        const rec = {
+            published: [] as SolutionMember[],
+            RenameMemberFile: async () => {}, DeleteMemberFiles: async () => {},
+            NewFileForMember: async () => {}, NewFolderForMember: async () => {},
+            ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
+            MoveMemberNodes: async () => {},
+            PublishMember: async (m: SolutionMember) => { rec.published.push(m) },
+            BumpMemberVersion: async () => {}, SetMemberVersion: async () => {},
+            ManageMemberReferences: async () => {}, RefreshMemberBases: () => {},
+            UpdateMemberAgentMetadata: async () => {}, CloseMember: async () => {}, RemoveMember: async () => {},
+            FormatsFor: () => [], IsVersionedMember: () => false,
+            CanRefreshBasesMember: () => false, SupportsScaffoldMember: () => false,
+            ...over,
+        }
+        return rec as IContentMutations & { published: SolutionMember[] }
+    }
+
+    public static MemberRow(member: SolutionMember): HierarchyItem
+    {
+        return new FakeItem(NodeKey.Project, member) as unknown as HierarchyItem
+    }
+
+    public static CtxFor(anchor: HierarchyItem): HierarchyActionContext
+    {
+        return new HierarchyActionContext(anchor, [anchor])
+    }
+
+    public static NoBuild(): FakeBuildClient
+    {
+        return new FakeBuildClient()
+    }
+
+    public static SomeMember(): SolutionMember
+    {
+        return new Solution('S').AddMember('./p', 'architecture')
+    }
+
+    // A member whose storage returns a manifest JSON for the flavor-submenu read.
+    public static MemberWithManifest(json: string): SolutionMember
+    {
+        const m = new Solution('S').AddMember('./p', 'architecture')
+        m.Storage = { ReadText: async () => json, ResolveOsPath: (p: string) => p === '' ? '/proj' : `/proj/${p}` } as unknown as IStorage
+        return m
+    }
+
+    public static readonly HtmlRow: BuildApplicable = { systemId: 'html-bundle', systemName: 'HTML', flavorId: 'html-bundle', flavorName: 'HTML app' }
+
+    public static readonly ValidManifest = '{"type":"architecture","name":"p","version":1}'
+
+    public static Flush(): Promise<void>
+    {
+        return new Promise((r) => setTimeout(r, 0))
+    }
+
+    // work.run invokes the job inline with a fake ctx and surfaces its promise.
+    public static FakeWork(): { work: never; done: () => Promise<unknown> }
+    {
+        let p: Promise<unknown> = Promise.resolve()
+        const work = { run: (_t: string, job: (ctx: unknown) => Promise<unknown>) => { p = job({ Report: () => {}, Log: () => {} }).catch((e) => e); return p } }
+        return { work: work as unknown as never, done: () => p }
+    }
+
+    public static RunIt(client: FakeBuildClient)
+    {
+        const w = BuildTestHelper.FakeWork()
+        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
+        const c = new BuildContributor(client, w.work, BuildTestHelper.FakeMutations())
+        c.Resolve(BuildContributor.BuildRunId('html-bundle', 'html-bundle'), BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))!.Execute()
+        return w
+    }
 }
-
-function someMember(): SolutionMember
-{
-    return new Solution('S').AddMember('./p', 'architecture')
-}
-
-// A member whose storage returns a manifest JSON for the flavor-submenu read.
-function memberWithManifest(json: string): SolutionMember
-{
-    const m = new Solution('S').AddMember('./p', 'architecture')
-    m.Storage = { ReadText: async () => json, ResolveOsPath: (p: string) => p === '' ? '/proj' : `/proj/${p}` } as unknown as IStorage
-    return m
-}
-
-const htmlRow: BuildApplicable = { systemId: 'html-bundle', systemName: 'HTML', flavorId: 'html-bundle', flavorName: 'HTML app' }
-
-const validManifest = '{"type":"architecture","name":"p","version":1}'
-const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 describe('BuildContributor', () =>
 {
     it('contributes Build ▸ and Publish on the project row, Context-tagged to NodeKey.Project', () =>
     {
-        const c = new BuildContributor(noBuild(), undefined, fakeMutations())
+        const c = new BuildContributor(BuildTestHelper.NoBuild(), undefined, BuildTestHelper.FakeMutations())
         const titles = c.Actions.map((a) => a.Title)
         expect(titles).toContain('Build')
         expect(titles).toContain('Publish')
@@ -119,13 +143,13 @@ describe('BuildContributor', () =>
 
     it('Publish is executable only for a versioned member and routes to mutations.PublishMember', () =>
     {
-        const member = someMember()
-        const versioned = fakeMutations({ IsVersionedMember: () => true })
-        const plain = new BuildContributor(noBuild(), undefined, fakeMutations({ IsVersionedMember: () => false }))
-        const row = memberRow(member)
-        expect(plain.Resolve(BuildContributor.PublishId, ctxFor(row))!.CanExecute()).toBe(false)
-        const c = new BuildContributor(noBuild(), undefined, versioned)
-        const publish = c.Resolve(BuildContributor.PublishId, ctxFor(row))!
+        const member = BuildTestHelper.SomeMember()
+        const versioned = BuildTestHelper.FakeMutations({ IsVersionedMember: () => true })
+        const plain = new BuildContributor(BuildTestHelper.NoBuild(), undefined, BuildTestHelper.FakeMutations({ IsVersionedMember: () => false }))
+        const row = BuildTestHelper.MemberRow(member)
+        expect(plain.Resolve(BuildContributor.PublishId, BuildTestHelper.CtxFor(row))!.CanExecute()).toBe(false)
+        const c = new BuildContributor(BuildTestHelper.NoBuild(), undefined, versioned)
+        const publish = c.Resolve(BuildContributor.PublishId, BuildTestHelper.CtxFor(row))!
         expect(publish.CanExecute()).toBe(true)
         publish.Execute()
         expect(versioned.published.at(-1)).toBe(member)
@@ -133,42 +157,25 @@ describe('BuildContributor', () =>
 
     it('the Build ▸ menu header is always openable; its flavor children do the work', () =>
     {
-        const c = new BuildContributor(noBuild(), undefined, fakeMutations())
-        const header = c.Resolve(BuildContributor.BuildMenuId, ctxFor(memberRow(someMember())))!
+        const c = new BuildContributor(BuildTestHelper.NoBuild(), undefined, BuildTestHelper.FakeMutations())
+        const header = c.Resolve(BuildContributor.BuildMenuId, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(BuildTestHelper.SomeMember())))!
         expect(header.CanExecute()).toBe(true)
     })
 
     it('resolves nothing for a row with no owning member', () =>
     {
-        const c = new BuildContributor(noBuild(), undefined, fakeMutations())
+        const c = new BuildContributor(BuildTestHelper.NoBuild(), undefined, BuildTestHelper.FakeMutations())
         const orphan = new FakeItem(NodeKey.Project, { notAMember: true }) as unknown as HierarchyItem
-        expect(c.Resolve(BuildContributor.PublishId, ctxFor(orphan))).toBeUndefined()
+        expect(c.Resolve(BuildContributor.PublishId, BuildTestHelper.CtxFor(orphan))).toBeUndefined()
     })
 })
 
 describe('BuildContributor.runBuild', () =>
 {
-    // work.run invokes the job inline with a fake ctx and surfaces its promise.
-    function fakeWork(): { work: never; done: () => Promise<unknown> }
-    {
-        let p: Promise<unknown> = Promise.resolve()
-        const work = { run: (_t: string, job: (ctx: unknown) => Promise<unknown>) => { p = job({ Report: () => {}, Log: () => {} }).catch((e) => e); return p } }
-        return { work: work as unknown as never, done: () => p }
-    }
-
-    function runIt(client: FakeBuildClient)
-    {
-        const w = fakeWork()
-        const member = memberWithManifest(validManifest)
-        const c = new BuildContributor(client, w.work, fakeMutations())
-        c.Resolve(BuildContributor.BuildRunId('html-bundle', 'html-bundle'), ctxFor(memberRow(member)))!.Execute()
-        return w
-    }
-
     it('calls Build with runId/projectRoot/systemId/flavorId and registers + disposes progress', async () =>
     {
         const client = new FakeBuildClient()
-        await runIt(client).done()
+        await BuildTestHelper.RunIt(client).done()
         expect(client.builds).toHaveLength(1)
         expect(client.builds[0]).toMatchObject({ projectRoot: '/proj', systemId: 'html-bundle', flavorId: 'html-bundle' })
         expect(client.subscribed).toEqual([client.builds[0].runId])
@@ -179,7 +186,7 @@ describe('BuildContributor.runBuild', () =>
     {
         const client = new FakeBuildClient()
         client.result = { Ok: false, Diagnostics: [{ severity: 'error', message: 'boom' }] } as unknown as BuildRunResult
-        const err = await runIt(client).done()
+        const err = await BuildTestHelper.RunIt(client).done()
         expect(err).toBeInstanceOf(Error)
         expect((err as Error).message).toContain('Build failed: ')
         expect((err as Error).message).toContain('boom')
@@ -194,21 +201,21 @@ describe('BuildFlavorSubmenuContributor', () =>
     it('shows Loading… before Applicable resolves', () =>
     {
         const sub = new BuildFlavorSubmenuContributor(new FakeBuildClient())
-        const rows = sub.Contribute(parent, ctxFor(memberRow(memberWithManifest(validManifest))))
+        const rows = sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest))))
         expect(rows.map((r) => r.Title)).toEqual(['Loading…'])
     })
 
     it('Warm caches the applicable rows and emits build.run::<system>::<flavor>', async () =>
     {
         const client = new FakeBuildClient()
-        client.applicableRows = [htmlRow]
+        client.applicableRows = [BuildTestHelper.HtmlRow]
         const sub = new BuildFlavorSubmenuContributor(client)
-        const member = memberWithManifest(validManifest)
+        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
         sub.Warm(member)
-        await flush()
+        await BuildTestHelper.Flush()
         client.Resolve()
-        await flush()
-        const rows = sub.Contribute(parent, ctxFor(memberRow(member)))
+        await BuildTestHelper.Flush()
+        const rows = sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))
         expect(rows.map((r) => r.Id)).toEqual(['build.run::html-bundle::html-bundle'])
         expect(rows.map((r) => r.Title)).toEqual(['HTML app'])
     })
@@ -217,25 +224,25 @@ describe('BuildFlavorSubmenuContributor', () =>
     {
         const client = new FakeBuildClient()
         const sub = new BuildFlavorSubmenuContributor(client)
-        const member = memberWithManifest(validManifest)
+        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
         sub.Warm(member)
-        await flush()
+        await BuildTestHelper.Flush()
         client.Resolve()
-        await flush()
-        expect(sub.Contribute(parent, ctxFor(memberRow(member))).map((r) => r.Title)).toEqual(['(nothing to build)'])
+        await BuildTestHelper.Flush()
+        expect(sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member))).map((r) => r.Title)).toEqual(['(nothing to build)'])
     })
 
     it('resolving the Build ▸ header warms the submenu', async () =>
     {
         const client = new FakeBuildClient()
-        client.applicableRows = [htmlRow]
+        client.applicableRows = [BuildTestHelper.HtmlRow]
         const sub = new BuildFlavorSubmenuContributor(client)
-        const member = memberWithManifest(validManifest)
-        const c = new BuildContributor(client, undefined, fakeMutations(), sub)
-        c.Resolve(BuildContributor.BuildMenuId, ctxFor(memberRow(member)))
-        await flush()
+        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
+        const c = new BuildContributor(client, undefined, BuildTestHelper.FakeMutations(), sub)
+        c.Resolve(BuildContributor.BuildMenuId, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))
+        await BuildTestHelper.Flush()
         client.Resolve()
-        await flush()
-        expect(sub.Contribute(parent, ctxFor(memberRow(member))).map((r) => r.Title)).toEqual(['HTML app'])
+        await BuildTestHelper.Flush()
+        expect(sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member))).map((r) => r.Title)).toEqual(['HTML app'])
     })
 })
