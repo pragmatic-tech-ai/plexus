@@ -1,11 +1,14 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { FakeStorage, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { FakeStorage, Signal, isLocalFileAccess, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
     MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService, SolutionManagerService,
     WikiOriginKind, toJSONOwn,
     type BakeOptions, type JsonNode, type Repository, type TodlDocument,
 } from '@pragmatic-tech-ai/todl'
 
+import type { FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
+
+import { FileWatchService } from '../../../services/file-watch/file-watch-service.js'
 import type { PresentationContribution, PresentationSource } from './todl-presentation-registry.js'
 import { loadCompiledPresentation } from '../../meta-model/services/compiled-presentation.js'
 import { readIconIndex } from '../../meta-model/services/icon-index.js'
@@ -17,6 +20,43 @@ interface SolutionModelView
 {
     model: Repository
     originOf: ReadonlyMap<string, { readonly kind: WikiOriginKind; readonly storage?: IStorage }>
+    // node id → URI of the file that authored it (a term and its icon application share one).
+    provenanceOf: ReadonlyMap<string, string>
+}
+
+// One cached bake unit: a single file of an independent member, or the whole member when
+// its icon graph crosses files. Remembers which member and files it covers so eviction can
+// match by file or by member. An undefined contribution is a negative-cache marker (the
+// unit baked to nothing). `assetKeys` are the normalized resource-asset paths the unit's
+// icons read, so a changed asset file can evict it; `failed` marks a bake that did not
+// complete (kept as a marker so it is not retried on every load; an asset event or a
+// GraphChanged evicts it).
+interface FileEntry
+{
+    memberId: string
+    fileUris: ReadonlySet<string>
+    whole: boolean
+    contribution: PresentationContribution | undefined
+    assetKeys: ReadonlySet<string>
+    failed: boolean
+}
+
+// What a unit's icons read: the normalized absolute paths of its local assets and a
+// content hash per entity (entity id -> hex FNV-1a of its icon bytes).
+interface AssetIdentity
+{
+    keys: Set<string>
+    hashes: Map<string, string>
+}
+
+// One unit of baking: the cache key, the bake id, the files it covers and the node ids it carves.
+interface BakeUnit
+{
+    key: string
+    bakeId: string
+    fileUris: ReadonlySet<string>
+    whole: boolean
+    ids: Set<string>
 }
 
 // A PresentationSource that bakes each OPEN source member's icons straight from the
@@ -24,9 +64,10 @@ interface SolutionModelView
 // carves the member's OWN document out of the shared Repository (the nodes whose origin
 // points at that member's storage), resolves its bases for the closure, bakes the icons
 // in memory (icon bytes read from the member's own storage), and reads the sidecars back
-// into a PresentationContribution. The per-member contribution is cached by member id and
-// evicted when GraphChanged names that member, so a live edit re-bakes exactly the member
-// that changed. This is what makes the hub-and-spoke solution render its icons from its
+// into a PresentationContribution. The member's icons are carved and baked PER AUTHORING FILE;
+// each file's contribution is cached by `member::file` and evicted when GraphChanged names
+// that file (or, when it names no files, the whole member), so a live edit re-bakes only the
+// file that changed. This is what makes the hub-and-spoke solution render its icons from its
 // source members before anything is published.
 export class SolutionGraphPresentationSource implements PresentationSource, IDisposable
 {
@@ -48,15 +89,43 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // (JsonNode.tier is the Tier enum emitted by name).
     private static readonly OntologyTier = 'Ontology'
     private static readonly ExtendsEdgeKind = 'Extends'
+    // Joins a member id and a file URI into one cache / bake id.
+    private static readonly KeySeparator = '::'
+    // Sentinel "file" naming a whole-member bake; no real file URI can equal it.
+    private static readonly WholeSentinel = '<whole>'
+    private static readonly AnnotatedEdgeKind = 'Annotated'
+    private static readonly BakeIdUnsafe = /[^A-Za-z0-9_-]/g
+    private static readonly BakeIdReplacement = '_'
+    private static readonly BakeIdFilePrefix = 'f'
+    private static readonly BakeIdWhole = 'whole'
+    private static readonly BakeIdJoin = '-'
+    // Resource-asset extensions whose on-disk change invalidates a baked icon.
+    private static readonly AssetExtensions: ReadonlySet<string> = new Set(['.svg', '.png', '.jpg', '.jpeg', '.webp', '.gif'])
+    private static readonly BackslashPattern = /\\/g
+    private static readonly PathSeparator = '/'
+    private static readonly ExtensionDot = '.'
+    // FNV-1a 32-bit parameters for the icon-content hash that suffixes resource keys.
+    private static readonly FnvOffset = 0x811c9dc5
+    private static readonly FnvPrime = 0x01000193
+    private static readonly HashSeparatorByte = 0
+    private static readonly ResourceKeyJoin = '_'
 
     public readonly id = SolutionGraphPresentationSource.SourceId
+    // Raised after a resource-asset file change evicted at least one cached unit; the
+    // registry subscribes and re-discovers so the icons re-bake with no .todl edit.
+    public readonly AssetChanged = new Signal<void>()
 
     private readonly baker: ProviderPresentationBaker
-    // member id → its last baked contribution; evicted on GraphChanged for that member.
-    private readonly cache = new Map<string, PresentationContribution>()
+    // `${memberId}::${fileUri}` (or `::<whole>`) → that unit's last bake; evicted on GraphChanged.
+    private readonly cache = new Map<string, FileEntry>()
+    // Bumped on every eviction so a bake that raced a GraphChanged never stores a stale entry.
+    private generation = 0
     // The single GraphChanged subscription, attached lazily on the first load() that finds
     // a live language service and torn down in dispose().
     private subscription: IDisposable | undefined
+    // Unsubscribe from the FileWatchService asset-change feed; undefined until attached
+    // (the service only exists in the desktop host).
+    private assetUnsubscribe: (() => void) | undefined
 
     constructor(private readonly provider: IServiceProvider)
     {
@@ -76,6 +145,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
 
         this.EnsureSubscription(language)
+        this.EnsureAssetWatch()
 
         const storages = this.MemberStorages(solution)
         if (storages.length === 0)
@@ -115,11 +185,175 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     {
         this.subscription?.dispose()
         this.subscription = undefined
+        this.assetUnsubscribe?.()
+        this.assetUnsubscribe = undefined
         this.cache.clear()
     }
 
-    // Attach the GraphChanged eviction handler once: a replace/rebuild of a member's slice
-    // names that member, so its cached contribution is dropped and re-baked on next load().
+    // Attach the resource-asset watcher once. FileWatchService only exists in the desktop
+    // host, so a headless provider simply skips asset watching.
+    private EnsureAssetWatch(): void
+    {
+        if (this.assetUnsubscribe !== undefined)
+        {
+            return
+        }
+        const watcher = this.provider.get(FileWatchService.Key)
+        if (watcher === undefined)
+        {
+            return
+        }
+        this.assetUnsubscribe = watcher.Subscribe(event => this.OnFileChanged(event))
+    }
+
+    // A changed / added / removed asset file evicts every unit whose icons read it, then
+    // raises AssetChanged so the registry re-bakes with no .todl edit. A removed asset
+    // re-bakes to nothing (the bake fails and is swallowed), so the default glyph returns.
+    private OnFileChanged(event: FileChangeEvent): void
+    {
+        const path = SolutionGraphPresentationSource.Normalize(event.path)
+        if (!SolutionGraphPresentationSource.IsAssetPath(path))
+        {
+            return
+        }
+        if (this.EvictAsset(path))
+        {
+            this.AssetChanged.emit()
+        }
+    }
+
+    // Evicts every cached unit whose asset-key set holds the (normalized) path. Keys are
+    // absolute OS paths of local-file-access storages, so the match is exact. Returns
+    // whether anything was evicted.
+    private EvictAsset(normalizedPath: string): boolean
+    {
+        let evicted = false
+        for (const [key, entry] of this.cache)
+        {
+            if (entry.assetKeys.has(normalizedPath))
+            {
+                this.cache.delete(key)
+                evicted = true
+            }
+        }
+        if (evicted)
+        {
+            this.generation++
+        }
+        return evicted
+    }
+
+    // Case-insensitive (Windows) forward-slash form used for every asset-path comparison.
+    private static Normalize(path: string): string
+    {
+        return path.replace(SolutionGraphPresentationSource.BackslashPattern, SolutionGraphPresentationSource.PathSeparator).toLowerCase()
+    }
+
+    private static IsAssetPath(path: string): boolean
+    {
+        const dot = path.lastIndexOf(SolutionGraphPresentationSource.ExtensionDot)
+        return dot >= 0 && SolutionGraphPresentationSource.AssetExtensions.has(path.slice(dot).toLowerCase())
+    }
+
+    // The asset identity of a unit: the normalized absolute OS paths its icons read (only
+    // local-file-access storages can produce disk events, so others contribute no key) and,
+    // per entity, a content hash of its icon bytes. A Resources() failure for one node skips
+    // that node rather than sinking the load.
+    private async AssetIdentityOf(language: SolutionLanguageService, ids: ReadonlySet<string>): Promise<AssetIdentity>
+    {
+        const keys = new Set<string>()
+        const hashes = new Map<string, string>()
+        await Promise.all([...ids].map(async id =>
+        {
+            let resources: Awaited<ReturnType<SolutionLanguageService['Resources']>>
+            try
+            {
+                resources = await language.Resources(id)
+            }
+            catch
+            {
+                return
+            }
+            const assets = resources
+                .filter(resource => SolutionGraphPresentationSource.IsAssetPath(resource.path))
+                .map(resource => ({
+                    resource,
+                    location: SolutionGraphPresentationSource.Normalize(isLocalFileAccess(resource.storage) ? resource.storage.ResolveOsPath(resource.path) : resource.path),
+                }))
+                .sort((a, b) => a.location < b.location ? -1 : a.location > b.location ? 1 : 0)
+            if (assets.length === 0)
+            {
+                return
+            }
+            let hash = SolutionGraphPresentationSource.FnvOffset
+            for (const asset of assets)
+            {
+                if (isLocalFileAccess(asset.resource.storage))
+                {
+                    keys.add(asset.location)
+                }
+                try
+                {
+                    hash = SolutionGraphPresentationSource.Fnv(hash, await asset.resource.storage.ReadBytes(asset.resource.path))
+                }
+                catch
+                {
+                    // A missing asset contributes no bytes; its bake fails on its own.
+                }
+                hash = SolutionGraphPresentationSource.Fnv(hash, new Uint8Array([SolutionGraphPresentationSource.HashSeparatorByte]))
+            }
+            hashes.set(id, (hash >>> 0).toString(16))
+        }))
+        return { keys, hashes }
+    }
+
+    // Folds bytes into an FNV-1a 32-bit state.
+    private static Fnv(state: number, bytes: Uint8Array): number
+    {
+        let hash = state
+        for (const byte of bytes)
+        {
+            hash = Math.imul(hash ^ byte, SolutionGraphPresentationSource.FnvPrime)
+        }
+        return hash
+    }
+
+    // Suffixes each entity's resource key with the content hash of its icon bytes, rewriting
+    // the icon-index values AND the asset-dictionary keys in lockstep. The entity key stays
+    // stable; a byte change yields a new resource key, so the registry's index diff notices
+    // it. The hash depends only on content, so a per-file carve and a whole-member bake agree.
+    private Stamp(contribution: PresentationContribution, hashes: ReadonlyMap<string, string>): PresentationContribution
+    {
+        const targets = new Map<string, Set<string>>()
+        const iconKeys = new Map<string, string>()
+        for (const [entityKey, resourceKey] of contribution.iconKeys)
+        {
+            const hash = hashes.get(entityKey)
+            const stamped = hash === undefined ? resourceKey : `${resourceKey}${SolutionGraphPresentationSource.ResourceKeyJoin}${hash}`
+            iconKeys.set(entityKey, stamped)
+            let set = targets.get(resourceKey)
+            if (set === undefined)
+            {
+                set = new Set<string>()
+                targets.set(resourceKey, set)
+            }
+            set.add(stamped)
+        }
+        const assets = new ResourceDictionary()
+        for (const [key, value] of contribution.assets.Entries())
+        {
+            for (const stamped of (typeof key === 'string' ? targets.get(key) : undefined) ?? [key])
+            {
+                assets.Set(stamped, value)
+            }
+        }
+        return { assets, iconKeys }
+    }
+
+    // Attach the GraphChanged eviction handler once. Eviction is file-granular: when the
+    // change names files, only entries covering one of those files go (a whole-member entry
+    // also goes when its member is named); when it names no files, every entry of each named
+    // member goes. The next load() re-bakes whatever was dropped.
     private EnsureSubscription(language: SolutionLanguageService): void
     {
         if (this.subscription !== undefined)
@@ -128,17 +362,35 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
         this.subscription = language.GraphChanged.subscribe((change) =>
         {
-            for (const memberId of change.memberIds)
+            const fileIds = new Set(change.fileIds)
+            const memberIds = new Set(change.memberIds)
+            this.generation++
+            for (const [key, entry] of this.cache)
             {
-                this.cache.delete(memberId)
+                const memberNamed = memberIds.has(entry.memberId)
+                let evict = fileIds.size === 0 ? memberNamed : (entry.whole && memberNamed)
+                if (!evict && fileIds.size > 0)
+                {
+                    for (const fileUri of entry.fileUris)
+                    {
+                        if (fileIds.has(fileUri))
+                        {
+                            evict = true
+                            break
+                        }
+                    }
+                }
+                if (evict)
+                {
+                    this.cache.delete(key)
+                }
             }
         })
     }
 
-    // The bake-or-cache step for one member storage: returns its baked contribution, or
-    // undefined when the member has no icon-bearing own nodes (nothing to contribute) or
-    // the bake cannot complete (a missing icon file — swallowed so one member can't sink
-    // the whole discover).
+    // The bake-or-cache step for one member storage: merges the member's per-unit
+    // contributions, or returns undefined when the member has no icon-bearing own nodes
+    // (nothing to contribute).
     private async ContributionFor(
         language: SolutionLanguageService,
         view: SolutionModelView,
@@ -150,23 +402,161 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         {
             return undefined
         }
-        const cached = this.cache.get(memberId)
-        if (cached !== undefined)
-        {
-            return cached
-        }
 
         const ownIds = this.OwnIds(view, storage)
-        if (ownIds.size === 0)
+        const units = ownIds.size === 0 ? [] : this.PlanUnits(view, memberId, ownIds)
+
+        // Drop this member's entries for units that no longer exist (deleted files, a
+        // switch between per-file and whole-member baking, or a member left with no units).
+        const liveKeys = new Set(units.map(unit => unit.key))
+        for (const [key, entry] of this.cache)
+        {
+            if (entry.memberId === memberId && !liveKeys.has(key))
+            {
+                this.cache.delete(key)
+            }
+        }
+        if (units.length === 0)
         {
             return undefined
         }
 
-        const document = toJSONOwn(view.model, ownIds)
-        const { bases } = await language.ResolveBasesFor(storage)
-        const closure = this.Closure(document, bases)
+        // The member's own annotation declarations, appended to every per-file closure as
+        // inert context so an application in one file resolves its declaration in another.
+        const declarations = this.OwnAnnotationDeclarations(view, ownIds)
 
-        // A member with no own MuralResource-bearing node declares no icons — skip the bake
+        const assets = new ResourceDictionary()
+        const iconKeys = new Map<string, string>()
+        let bases: readonly TodlDocument[] | undefined
+        let hasContribution = false
+        // Units are in sorted-file order. A duplicate icon key across files resolves
+        // last-wins here (the whole-member bake deduped it).
+        for (const unit of units)
+        {
+            let entry = this.cache.get(unit.key)
+            if (entry === undefined)
+            {
+                const generation = this.generation
+                bases ??= (await language.ResolveBasesFor(storage)).bases
+                const baked = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases, declarations)
+                // A unit that declares no icons (undefined) reads no assets; a failed bake (null)
+                // still needs its keys so an asset event can evict the marker.
+                const identity = baked === undefined ? { keys: new Set<string>(), hashes: new Map<string, string>() } : await this.AssetIdentityOf(language, unit.ids)
+                // null = the bake failed (not the same as a legitimately empty unit).
+                const contribution = baked === null || baked === undefined ? undefined : this.Stamp(baked, identity.hashes)
+                entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution, assetKeys: identity.keys, failed: baked === null }
+                // A GraphChanged during the bake supersedes it: use the result once, don't store it.
+                if (generation === this.generation)
+                {
+                    this.cache.set(unit.key, entry)
+                }
+            }
+            if (entry.contribution === undefined)
+            {
+                continue
+            }
+            hasContribution = true
+            for (const [assetKey, value] of entry.contribution.assets.Entries())
+            {
+                assets.Set(assetKey, value)
+            }
+            for (const [iconKey, value] of entry.contribution.iconKeys)
+            {
+                iconKeys.set(iconKey, value)
+            }
+        }
+        return hasContribution ? { assets, iconKeys } : undefined
+    }
+
+    // Splits a member's own nodes into bake units. When every own Annotated/Extends edge
+    // stays inside one file and every own node is file-homed, each file bakes independently
+    // (sorted by URI); otherwise the icon graph crosses files (or has unhomed nodes), so
+    // the member bakes WHOLE as one unit — exactly the pre-file-granular behavior.
+    private PlanUnits(view: SolutionModelView, memberId: string, ownIds: ReadonlySet<string>): BakeUnit[]
+    {
+        const idsByFile = new Map<string, Set<string>>()
+        let independent = true
+        for (const id of ownIds)
+        {
+            const fileUri = view.provenanceOf.get(id)
+            if (fileUri === undefined)
+            {
+                independent = false
+                continue
+            }
+            let ids = idsByFile.get(fileUri)
+            if (ids === undefined)
+            {
+                ids = new Set<string>()
+                idsByFile.set(fileUri, ids)
+            }
+            ids.add(id)
+        }
+
+        if (independent)
+        {
+            for (const edge of toJSONOwn(view.model, ownIds).edges)
+            {
+                const crossing = (edge.kind === SolutionGraphPresentationSource.AnnotatedEdgeKind || edge.kind === SolutionGraphPresentationSource.ExtendsEdgeKind)
+                    && ownIds.has(edge.to) && view.provenanceOf.get(edge.from) !== view.provenanceOf.get(edge.to)
+                if (crossing)
+                {
+                    independent = false
+                    break
+                }
+            }
+        }
+
+        if (!independent)
+        {
+            return [{
+                key: SolutionGraphPresentationSource.CacheKey(memberId, SolutionGraphPresentationSource.WholeSentinel),
+                bakeId: SolutionGraphPresentationSource.BakeId(memberId, SolutionGraphPresentationSource.BakeIdWhole),
+                fileUris: new Set(idsByFile.keys()),
+                whole: true,
+                ids: new Set(ownIds),
+            }]
+        }
+
+        return [...idsByFile.keys()].sort().map((fileUri, index) => ({
+            key: SolutionGraphPresentationSource.CacheKey(memberId, fileUri),
+            bakeId: SolutionGraphPresentationSource.BakeId(memberId, `${SolutionGraphPresentationSource.BakeIdFilePrefix}${index}`),
+            fileUris: new Set([fileUri]),
+            whole: false,
+            ids: idsByFile.get(fileUri) as Set<string>,
+        }))
+    }
+
+    private static CacheKey(memberId: string, fileUri: string): string
+    {
+        return `${memberId}${SolutionGraphPresentationSource.KeySeparator}${fileUri}`
+    }
+
+    // A path-safe bake id, distinct from the cache key; used for BOTH the bake and the read-back.
+    private static BakeId(memberId: string, suffix: string): string
+    {
+        const safe = memberId.replace(SolutionGraphPresentationSource.BakeIdUnsafe, SolutionGraphPresentationSource.BakeIdReplacement)
+        return `${safe}${SolutionGraphPresentationSource.BakeIdJoin}${suffix}`
+    }
+
+    // Bake one file's icon subset: carve its own document, close it over the member's bases,
+    // bake in memory (icon bytes read from the member's storage) and read the sidecars back.
+    // undefined when the file declares no icons (cacheable); null when the bake cannot
+    // complete (a missing icon file, swallowed so one file cannot sink the whole discover;
+    // never cached). `bakeId` is both the bake id and the read-back id.
+    private async BakeFile(
+        view: SolutionModelView,
+        storage: IStorage,
+        bakeId: string,
+        fileIds: Set<string>,
+        bases: readonly TodlDocument[],
+        declarations: TodlDocument = { nodes: [], edges: [] },
+    ): Promise<PresentationContribution | undefined | null>
+    {
+        const document = toJSONOwn(view.model, fileIds)
+        const closure = this.Closure(document, bases, declarations)
+
+        // A file with no own MuralResource-bearing node declares no icons — skip the bake
         // (an empty resources block would have nothing to compile).
         if (PresentationResourceEmitter.DistinctIcons(document, closure).length === 0)
         {
@@ -174,14 +564,14 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         }
 
         const dest = new FakeStorage()
-        const result = await this.baker.Bake(storage, dest, memberId, document, closure, SolutionGraphPresentationSource.BakeOptionsValue)
+        const result = await this.baker.Bake(storage, dest, bakeId, document, closure, SolutionGraphPresentationSource.BakeOptionsValue)
         if (!result.ok)
         {
-            return undefined
+            return null
         }
 
         const assets = new ResourceDictionary()
-        const presentation = await loadCompiledPresentation(dest, memberId)
+        const presentation = await loadCompiledPresentation(dest, bakeId)
         if (presentation !== undefined)
         {
             for (const [key, value] of presentation.Entries())
@@ -189,11 +579,8 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
                 assets.Set(key, value)
             }
         }
-        const iconKeys = await readIconIndex(dest, memberId)
-
-        const contribution: PresentationContribution = { assets, iconKeys }
-        this.cache.set(memberId, contribution)
-        return contribution
+        const iconKeys = await readIconIndex(dest, bakeId)
+        return { assets, iconKeys }
     }
 
     // The ids of the nodes a member OWNS in the shared graph: those whose origin is this
@@ -213,13 +600,47 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         return ids
     }
 
+    // The member's own annotation-DECLARATION nodes (and their edges) as a document. They are
+    // closure context only, never baked as icons or attributed to a file's contribution.
+    private OwnAnnotationDeclarations(view: SolutionModelView, ownIds: ReadonlySet<string>): TodlDocument
+    {
+        const ids = new Set<string>()
+        for (const node of view.model.allNodes())
+        {
+            if (ownIds.has(node.id) && node.metaKind === MetaKind.Annotation)
+            {
+                ids.add(node.id)
+            }
+        }
+        return ids.size === 0 ? { nodes: [], edges: [] } : toJSONOwn(view.model, ids)
+    }
+
     // The baker's closure: the member's own document merged with its resolved bases, plus
     // the prelude icon-annotation ancestry so the literal `icon` annotation resolves up to
     // `MuralResource` regardless of which bases carry it.
-    private Closure(document: TodlDocument, bases: readonly TodlDocument[]): TodlDocument
+    private Closure(document: TodlDocument, bases: readonly TodlDocument[], declarations: TodlDocument): TodlDocument
     {
         const nodes = [...document.nodes]
         const edges = [...document.edges]
+        // Own annotation declarations not already in this file's document (those authored in
+        // a sibling file) ride along as context, with their own outgoing edges.
+        const present = new Set(nodes.map(node => node.id))
+        const extra = new Set<string>()
+        for (const node of declarations.nodes)
+        {
+            if (!present.has(node.id))
+            {
+                nodes.push(node)
+                extra.add(node.id)
+            }
+        }
+        for (const edge of declarations.edges)
+        {
+            if (extra.has(edge.from))
+            {
+                edges.push(edge)
+            }
+        }
         for (const base of bases)
         {
             nodes.push(...base.nodes)
