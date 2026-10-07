@@ -88,7 +88,24 @@ describe('HtmlAppContributor', () =>
         const c = new HtmlAppContributor(build as any, work as any, fs as any, previewServer as any, (u: string) => opened.push(u))
         c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(member))!.Execute()
         await work.task
+        expect(calls.options).toEqual({ OutputRootOverride: '/proj/build' })
         expect(calls.served).toBe('/proj/build/html-bundle')
         expect(opened).toEqual(['http://127.0.0.1:4599'])
+    })
+
+    it('Serve HTML app does not start the server or open when the build fails', async () =>
+    {
+        const calls: any = {}
+        const build = { Build: () => Promise.resolve({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] }, Artifacts: {} }) }
+        const previewServer = { Start: (root: string) => { calls.served = root; return Promise.resolve({ Url: 'http://127.0.0.1:4599' }) }, Stop: () => Promise.resolve() }
+        const opened: string[] = []
+        const fs = { OpenExternal: () => Promise.resolve() }
+        const work = HtmlAppTestHelper.Work()
+        const member = HtmlAppTestHelper.Member()
+        const c = new HtmlAppContributor(build as any, work as any, fs as any, previewServer as any, (u: string) => opened.push(u))
+        c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(member))!.Execute()
+        await expect(work.task).rejects.toThrow('Build failed: boom')
+        expect(calls.served).toBeUndefined()
+        expect(opened).toEqual([])
     })
 })
