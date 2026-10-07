@@ -434,8 +434,10 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             {
                 const generation = this.generation
                 bases ??= (await language.ResolveBasesFor(storage)).bases
-                const identity = await this.AssetIdentityOf(language, unit.ids)
                 const baked = await this.BakeFile(view, storage, unit.bakeId, unit.ids, bases)
+                // A unit that declares no icons (undefined) reads no assets; a failed bake (null)
+                // still needs its keys so an asset event can evict the marker.
+                const identity = baked === undefined ? { keys: new Set<string>(), hashes: new Map<string, string>() } : await this.AssetIdentityOf(language, unit.ids)
                 // null = the bake failed (not the same as a legitimately empty unit).
                 const contribution = baked === null || baked === undefined ? undefined : this.Stamp(baked, identity.hashes)
                 entry = { memberId, fileUris: unit.fileUris, whole: unit.whole, contribution, assetKeys: identity.keys, failed: baked === null }

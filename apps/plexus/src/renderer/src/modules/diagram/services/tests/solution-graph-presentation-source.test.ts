@@ -124,6 +124,19 @@ class SourceProbe
         return bake.call(source, view, storage, SourceProbe.WholeBakeId, ids, [])
     }
 
+    // The whole-member bake with the SAME content-hash stamping the per-file path applies.
+    public static async WholeMemberStamped(source: SolutionGraphPresentationSource, language: FakeLanguageService, view: { model: Repository }, storage: IStorage): Promise<{ assets: { Entries(): Iterable<[string, unknown]>; Resolve(key: string): unknown }; iconKeys: Map<string, string> }>
+    {
+        const ids = new Set<string>([...view.model.allNodes()].map(node => node.id))
+        const internals = source as unknown as {
+            AssetIdentityOf: (l: unknown, i: Set<string>) => Promise<{ hashes: Map<string, string> }>
+            Stamp: (c: unknown, h: Map<string, string>) => { assets: { Entries(): Iterable<[string, unknown]>; Resolve(key: string): unknown }; iconKeys: Map<string, string> }
+        }
+        const baked = await SourceProbe.WholeMemberBake(source, view, storage)
+        const identity = await internals.AssetIdentityOf(language, ids)
+        return internals.Stamp(baked, identity.hashes)
+    }
+
     // Assets are eval'd template closures, so compare them by sorted key plus source text
     // (functions) or JSON (data) rather than by identity.
     public static AssetFingerprint(assets: { Entries(): Iterable<[string, unknown]> }): Array<[string, string]>
@@ -209,6 +222,11 @@ class Harness
     public DeclareAzureAsset(): void
     {
         this.language.ResourceResults.set(GraphFixture.AzureId, [{ annotation: 'todl.icon', storage: this.storage, path: GraphFixture.AzureIconPath }])
+    }
+
+    public DeclareAwsAsset(): void
+    {
+        this.language.ResourceResults.set(GraphFixture.AwsId, [{ annotation: 'todl.icon', storage: this.storage, path: GraphFixture.AwsIconPath }])
     }
 
     // Registers a fake file watcher and a real registry whose solution-graph source IS `source`
@@ -325,6 +343,39 @@ describe('SolutionGraphPresentationSource', () =>
         expect(SourceProbe.AssetFingerprint(whole.assets).length).toBeGreaterThan(0)
         expect(SourceProbe.AssetFingerprint(granular.assets)).toEqual(SourceProbe.AssetFingerprint(whole.assets))
 
+        source.dispose()
+    })
+
+    it('stamps identical content-hash keys on the per-file path and the whole-member bake', async () =>
+    {
+        const harness = new Harness()
+        await GraphFixture.WriteIcons(harness.storage, [GraphFixture.AzureIconPath])
+        await harness.storage.WriteText(GraphFixture.AwsIconPath, GraphFixture.ChangedIconSvg)
+        const view = GraphFixture.View(harness.storage, [
+            { id: GraphFixture.AzureId, iconPath: GraphFixture.AzureIconPath },
+            { id: GraphFixture.AwsId, iconPath: GraphFixture.AwsIconPath },
+        ])
+        harness.language.ModelViewResult = view
+        harness.DeclareAzureAsset()
+        harness.DeclareAwsAsset()
+
+        const source = new SolutionGraphPresentationSource(harness.provider)
+        const granular = await source.load()
+        expect(granular.iconKeys.size).toBe(2)
+        const whole = await SourceProbe.WholeMemberStamped(source, harness.language, view, harness.storage)
+
+        // Stamping really ran: the keys carry a hash suffix, and the two icons differ.
+        const azureKey = granular.iconKeys.get(GraphFixture.AzureId) as string
+        expect(azureKey).toMatch(/_[0-9a-f]+$/)
+        expect(azureKey).not.toBe(granular.iconKeys.get(GraphFixture.AwsId))
+
+        expect(granular.iconKeys).toEqual(whole.iconKeys)
+        for (const key of granular.iconKeys.values())
+        {
+            expect(granular.assets.Resolve(key)).toBeDefined()
+            expect(whole.assets.Resolve(key)).toBeDefined()
+        }
+        expect(SourceProbe.AssetFingerprint(granular.assets).map(([key]) => key)).toEqual(SourceProbe.AssetFingerprint(whole.assets).map(([key]) => key))
         source.dispose()
     })
 

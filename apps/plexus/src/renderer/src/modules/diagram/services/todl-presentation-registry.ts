@@ -51,6 +51,9 @@ export class TodlPresentationRegistry extends ServiceBase
 
     private readonly listeners = new Set<(key: string) => void>()
 
+    // The most recent asset-triggered discover() failure, if any.
+    public LastDiscoverError: unknown
+
     // EnsureStarted side effects run exactly once (default sources + graph bridge).
     private started = false
 
@@ -77,9 +80,6 @@ export class TodlPresentationRegistry extends ServiceBase
             this.discover().catch(error => { this.LastDiscoverError = error })
         })
     }
-
-    // The most recent asset-triggered discover() failure, if any.
-    public LastDiscoverError: unknown
 
     // Bootstrap the registry's own sources and freshness wiring, exactly once:
     // register the three default presentation sources (SolutionGraph LAST so its
