@@ -11,6 +11,7 @@ import { FileWatchChannel, type FileChangeEvent, type IFileWatchApi } from '@pra
 import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
+import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
@@ -128,7 +129,15 @@ const connections: IConnectionsApi = {
   Resolve: (id, version, connectionId) => ipcRenderer.invoke(ConnectionChannel.Resolve, id, version, connectionId),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections }
+// Preview-server bridge — serves a project's built html-bundle output over a local static
+// file server. Each method a thin invoke to the matching PreviewServerChannel handler
+// (register-preview-server-ipc).
+const previewServer: IPreviewServerApi = {
+  Start: (root: string) => ipcRenderer.invoke(PreviewServerChannel.Start, root),
+  Stop: (root: string) => ipcRenderer.invoke(PreviewServerChannel.Stop, root),
+}
+
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer }
 
 if (process.contextIsolated)
 {

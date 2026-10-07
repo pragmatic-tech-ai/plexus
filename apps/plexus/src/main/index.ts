@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'node:path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import {
@@ -21,6 +21,8 @@ import {
 } from '@pragmatic-tech-ai/plexus-core/main/connections'
 import { ConnectionsBridge } from './connections/connections-bridge.js'
 import { ConnectionsIpc } from './connections/register-connections-ipc.js'
+import { PreviewServerManager } from './preview-server/preview-server-manager.js'
+import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
 // the native caption strip to that scheme's title-bar surface + glyph ink; the
@@ -155,6 +157,14 @@ app.whenReady().then(async () => {
     environment: new ProcessEnvironmentVariables(process.env),
   })
   ConnectionsIpc.Register(new ConnectionsBridge(connectionsEngine.Service))
+
+  // Preview-server capability: serves a project's built html-bundle output over a local
+  // static file server (one reused listener per output root), driven from the renderer's
+  // Serve HTML app command over the preview-server:* channels. StopAll on quit tears down
+  // every listener so no orphaned server survives the app.
+  const previewServers = new PreviewServerManager()
+  registerPreviewServerIpc(ipcMain, previewServers)
+  app.on('will-quit', () => void previewServers.StopAll())
 
   createWindow()
   Updater.init()

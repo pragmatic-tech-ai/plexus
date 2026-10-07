@@ -11,6 +11,7 @@ import { FileTreeContributor } from './file-tree-contributor.js'
 import { BuildProgressReporter } from './build-progress-reporter.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { FileSystemService } from '../../storage/file-system-service.js'
+import type { IPreviewServer } from '../../preview-server/preview-server.js'
 
 // Contributes the Open HTML app command to a project row: builds the html-bundle build system
 // to <project>/build/ on disk (via the build-root override), then opens the resulting
@@ -20,6 +21,7 @@ export class HtmlAppContributor implements IHierarchyContributor
     public static readonly Key = new ServiceKey<HtmlAppContributor>('HtmlAppContributor')
 
     public static readonly OpenCommandId = 'html.open'
+    public static readonly ServeCommandId = 'html.serve'
 
     private static readonly SystemId = 'html-bundle'
     private static readonly FlavorId = 'html-bundle'
@@ -27,7 +29,10 @@ export class HtmlAppContributor implements IHierarchyContributor
     private static readonly IndexSuffix = '/index.html'
     private static readonly OpenLabel = 'Open HTML app'
     private static readonly OpenTitlePrefix = 'Opening HTML app '
+    private static readonly ServeLabel = 'Serve HTML app'
+    private static readonly ServeTitlePrefix = 'Serving HTML app '
     private static readonly BuildFailedPrefix = 'Build failed: '
+    private static readonly NoOutputPathError = 'Build produced no output path to serve'
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 21
@@ -37,9 +42,14 @@ export class HtmlAppContributor implements IHierarchyContributor
     constructor(
         private readonly build: BuildService,
         private readonly work: BackgroundWorkService | undefined,
-        private readonly fs: FileSystemService)
+        private readonly fs: FileSystemService,
+        private readonly previewServer?: IPreviewServer,
+        private readonly openUrl: (url: string) => void = (u) => void window.open(u, '_blank', 'noopener'))
     {
-        this.Actions = [HtmlAppContributor.command(HtmlAppContributor.OpenCommandId, HtmlAppContributor.OpenLabel, 52)]
+        this.Actions = [
+            HtmlAppContributor.command(HtmlAppContributor.OpenCommandId, HtmlAppContributor.OpenLabel, 52),
+            HtmlAppContributor.command(HtmlAppContributor.ServeCommandId, HtmlAppContributor.ServeLabel, 53),
+        ]
     }
 
     // <project>/build on disk, resolved through the storage's local-file access.
@@ -65,10 +75,17 @@ export class HtmlAppContributor implements IHierarchyContributor
 
     public Resolve(commandId: string, context: CommandContext): ICommand | undefined
     {
-        if (commandId !== HtmlAppContributor.OpenCommandId) return undefined
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return undefined
-        return new RelayCommand(() => this.openApp(member), () => this.work !== undefined)
+        if (commandId === HtmlAppContributor.OpenCommandId)
+        {
+            return new RelayCommand(() => this.openApp(member), () => this.work !== undefined)
+        }
+        if (commandId === HtmlAppContributor.ServeCommandId)
+        {
+            return new RelayCommand(() => this.serveApp(member), () => this.work !== undefined && this.previewServer !== undefined)
+        }
+        return undefined
     }
 
     private openApp(member: SolutionMember): void
@@ -85,6 +102,31 @@ export class HtmlAppContributor implements IHierarchyContributor
                 throw new Error(`${HtmlAppContributor.BuildFailedPrefix}${BuildService.FormatErrors(output.Result.Diagnostics)}`)
             }
             await this.fs.OpenExternal(`${output.Result.OutputPath}${HtmlAppContributor.IndexSuffix}`)
+            return output
+        })
+    }
+
+    private serveApp(member: SolutionMember): void
+    {
+        const work = this.work
+        const storage = member.Storage
+        const previewServer = this.previewServer
+        if (work === undefined || storage === undefined || previewServer === undefined) return
+        void work.run(`${HtmlAppContributor.ServeTitlePrefix}${member.Title}`, async (ctx) =>
+        {
+            const root = HtmlAppContributor.OutputRoot(storage)
+            const output = await this.build.Build(storage, HtmlAppContributor.SystemId, HtmlAppContributor.FlavorId, new BuildProgressReporter(ctx), { OutputRootOverride: root })
+            if (!output.Result.Ok)
+            {
+                throw new Error(`${HtmlAppContributor.BuildFailedPrefix}${BuildService.FormatErrors(output.Result.Diagnostics)}`)
+            }
+            const outputPath = output.Result.OutputPath
+            if (outputPath === undefined)
+            {
+                throw new Error(HtmlAppContributor.NoOutputPathError)
+            }
+            const served = await previewServer.Start(outputPath)
+            this.openUrl(served.Url)
             return output
         })
     }

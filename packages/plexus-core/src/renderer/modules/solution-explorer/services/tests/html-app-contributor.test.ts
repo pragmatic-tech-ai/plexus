@@ -71,4 +71,24 @@ describe('HtmlAppContributor', () =>
         await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(calls.opened).toBeUndefined()
     })
+
+    it('Serve HTML app builds, starts the server for the output dir, and opens its URL', async () =>
+    {
+        const calls: any = {}
+        const build = { Build: (_s: any, _sy: string, _f: string, _p: any, options: any) =>
+        {
+            calls.options = options
+            return Promise.resolve({ Result: { Ok: true, OutputPath: '/proj/build/html-bundle', Diagnostics: [] }, Artifacts: {} })
+        } }
+        const previewServer = { Start: (root: string) => { calls.served = root; return Promise.resolve({ Url: 'http://127.0.0.1:4599' }) }, Stop: () => Promise.resolve() }
+        const opened: string[] = []
+        const fs = { OpenExternal: () => Promise.resolve() }
+        const work = HtmlAppTestHelper.Work()
+        const member = HtmlAppTestHelper.Member()
+        const c = new HtmlAppContributor(build as any, work as any, fs as any, previewServer as any, (u: string) => opened.push(u))
+        c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(member))!.Execute()
+        await work.task
+        expect(calls.served).toBe('/proj/build/html-bundle')
+        expect(opened).toEqual(['http://127.0.0.1:4599'])
+    })
 })

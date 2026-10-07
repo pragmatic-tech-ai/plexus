@@ -29,6 +29,8 @@
     "./renderer/modules/background-work/*": "./dist/renderer/modules/background-work/*",
     "./renderer/modules/solution-seams": "./dist/renderer/modules/solution-seams/index.js",
     "./renderer/modules/solution-seams/*": "./dist/renderer/modules/solution-seams/*",
+    "./renderer/modules/preview-server": "./dist/renderer/modules/preview-server/index.js",
+    "./renderer/modules/preview-server/*": "./dist/renderer/modules/preview-server/*",
     "./shared/*.js": "./dist/shared/*.js"
   },
   "scripts": {
