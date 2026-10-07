@@ -25,6 +25,13 @@ export class StaticFileServer
         '.jpg': 'image/jpeg',
         '.woff2': 'font/woff2',
     };
+    private static readonly Scheme = 'http://';
+    private static readonly Empty = '';
+    private static readonly StatusOk = 200;
+    private static readonly StatusBadRequest = 400;
+    private static readonly StatusForbidden = 403;
+    private static readonly StatusNotFound = 404;
+    private static readonly AlreadyStarted = 'StaticFileServer is already started';
     private static readonly OctetStream = 'application/octet-stream';
 
     private server: Server | undefined;
@@ -42,9 +49,17 @@ export class StaticFileServer
 
     public Start(preferredPort?: number): Promise<{ url: string; port: number }>
     {
+        if (this.server !== undefined)
+        {
+            return Promise.reject(new Error(StaticFileServer.AlreadyStarted));
+        }
         this.server = createServer((req, res) => void this.handle(req.url ?? StaticFileServer.UrlRoot, res));
         const first = preferredPort ?? StaticFileServer.DefaultPort;
-        return this.listen(first === 0 ? StaticFileServer.DefaultPort : first, StaticFileServer.MaxAttempts);
+        return this.listen(first === 0 ? StaticFileServer.DefaultPort : first, StaticFileServer.MaxAttempts).catch((e: unknown) =>
+        {
+            this.server = undefined;
+            throw e;
+        });
     }
 
     public Stop(): Promise<void>
@@ -83,7 +98,7 @@ export class StaticFileServer
             server.listen(port, StaticFileServer.Host, () =>
             {
                 server.removeListener(StaticFileServer.ErrorEvent, onError);
-                done({ url: `http://${StaticFileServer.Host}:${port}`, port });
+                done({ url: `${StaticFileServer.Scheme}${StaticFileServer.Host}:${port}`, port });
             });
         });
     }
@@ -94,32 +109,32 @@ export class StaticFileServer
         try
         {
             const path = decodeURIComponent(rawUrl.split(StaticFileServer.QuerySeparator)[0]);
-            const rel = normalize(path).replace(StaticFileServer.LeadingParentSegments, '');
-            const isRoot = rel === StaticFileServer.UrlRoot || rel === sep || rel === '';
+            const rel = normalize(path).replace(StaticFileServer.LeadingParentSegments, StaticFileServer.Empty);
+            const isRoot = rel === StaticFileServer.UrlRoot || rel === sep || rel === StaticFileServer.Empty;
             target = resolve(isRoot ? join(this.resolvedRoot, StaticFileServer.IndexFile) : join(this.resolvedRoot, rel));
         }
         catch
         {
-            res.statusCode = 400;
+            res.statusCode = StaticFileServer.StatusBadRequest;
             res.end();
             return;
         }
         if (target !== this.resolvedRoot && !target.startsWith(this.resolvedRoot + sep))
         {
-            res.statusCode = 403;
+            res.statusCode = StaticFileServer.StatusForbidden;
             res.end();
             return;
         }
         try
         {
             const body = await readFile(target);
-            res.statusCode = 200;
+            res.statusCode = StaticFileServer.StatusOk;
             res.setHeader(StaticFileServer.ContentTypeHeader, StaticFileServer.ContentTypes[extname(target)] ?? StaticFileServer.OctetStream);
             res.end(body);
         }
         catch
         {
-            res.statusCode = 404;
+            res.statusCode = StaticFileServer.StatusNotFound;
             res.end();
         }
     }

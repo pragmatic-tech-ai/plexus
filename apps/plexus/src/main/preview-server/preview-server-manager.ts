@@ -1,39 +1,57 @@
+import { resolve } from 'node:path';
 import { StaticFileServer } from './static-file-server.js';
 
 export class PreviewServerManager
 {
-    private readonly servers = new Map<string, { server: StaticFileServer; info: { url: string; port: number } }>();
+    private readonly servers = new Map<string, { server: StaticFileServer; info: Promise<{ url: string; port: number }> }>();
 
-    public async Start(root: string): Promise<{ url: string; port: number }>
+    public Start(root: string): Promise<{ url: string; port: number }>
     {
-        const existing = this.servers.get(root);
+        const key = resolve(root);
+        const existing = this.servers.get(key);
         if (existing !== undefined)
         {
             return existing.info;
         }
-        const server = new StaticFileServer(root);
-        const info = await server.Start();
-        this.servers.set(root, { server, info });
+        const server = new StaticFileServer(key);
+        const info = server.Start();
+        this.servers.set(key, { server, info });
+        info.catch(() =>
+        {
+            if (this.servers.get(key)?.info === info)
+            {
+                this.servers.delete(key);
+            }
+        });
         return info;
+    }
+
+    public get Count(): number
+    {
+        return this.servers.size;
     }
 
     public async Stop(root: string): Promise<void>
     {
-        const entry = this.servers.get(root);
+        const key = resolve(root);
+        const entry = this.servers.get(key);
         if (entry === undefined)
         {
             return;
         }
+        this.servers.delete(key);
+        await entry.info.catch(() => undefined);
         await entry.server.Stop();
-        this.servers.delete(root);
     }
 
     public async StopAll(): Promise<void>
     {
-        for (const entry of this.servers.values())
+        const entries = [...this.servers.values()];
+        this.servers.clear();
+        for (const entry of entries)
         {
+            await entry.info.catch(() => undefined);
             await entry.server.Stop();
         }
-        this.servers.clear();
     }
 }
