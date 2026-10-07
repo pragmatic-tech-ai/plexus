@@ -9,7 +9,7 @@ import { CommandDefinition, type CommandContext } from '@pragmatic-tech-ai/mural
 import { BuildService, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { FileTreeContributor } from './file-tree-contributor.js'
-import { BuildProgressReporter } from './build-progress-reporter.js'
+import { BuildProgressReporter, type ITaskProgressSink } from './build-progress-reporter.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { FileSystemService } from '../../storage/file-system-service.js'
 import type { IPreviewServer } from '../../preview-server/preview-server.js'
@@ -126,7 +126,7 @@ export class HtmlAppContributor implements IHierarchyContributor
 
     // Builds the html-bundle flavor through the client into <project>/build, mapping progress onto the task.
     // Paths are resolved inside the job so a non-local storage fails the task row, not the command.
-    private async buildHtml(storage: IStorage, ctx: ConstructorParameters<typeof BuildProgressReporter>[0]): Promise<BuildRunResult>
+    private async buildHtml(storage: IStorage, ctx: ITaskProgressSink): Promise<BuildRunResult>
     {
         const projectRoot = HtmlAppContributor.ProjectRoot(storage)
         const outputRoot = HtmlAppContributor.OutputRoot(storage)
