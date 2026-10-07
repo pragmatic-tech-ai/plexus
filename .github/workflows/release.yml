@@ -29,10 +29,16 @@ jobs:
         include:
           - os: windows-latest
             args: --win
+          # rollupNative: the @rollup/rollup-<platform> native binary this runner
+          # needs. The committed lock (authored on Windows) lists only the win32
+          # variants (npm/cli#4828), so Windows needs nothing extra; Linux/macOS
+          # get theirs injected after npm ci. macos-latest is Apple Silicon (arm64).
           - os: ubuntu-latest
             args: --linux
+            rollupNative: linux-x64-gnu
           - os: macos-latest
             args: --mac
+            rollupNative: darwin-arm64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -52,18 +58,26 @@ jobs:
           } > .npmrc
         env:
           PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
-      # Install from the committed lock, but with `npm install`, NOT `npm ci`.
-      # The lock is authored on Windows and npm records only the host platform's
-      # native optional deps (rollup + esbuild binaries — npm/cli#4828), so a
-      # strict `npm ci` leaves the Linux/macOS runners without
-      # @rollup/rollup-linux-x64-gnu (and the matching esbuild binary) and the
-      # build crashes. `npm install` keeps the committed lock as its baseline —
-      # which avoids the from-scratch arborist crash a `rm lock` resolve triggers
-      # ("Cannot read properties of null (reading 'edgesOut')") — while adding
-      # each runner's own native binaries at the locked rollup/esbuild versions.
-      - name: Install
+      # `npm ci` (NOT `npm install`): the committed lock's @pragmatic-tech-ai
+      # entries have no resolved URL, so a plain `npm install` re-resolves the
+      # scope and drifts the dependency tree out from under plexus-core's tsc
+      # (BuildStorageProviderKey / arg-count type errors). `npm ci` installs the
+      # exact, build-correct locked tree.
+      - name: Install (npm ci)
         shell: bash
-        run: npm install
+        run: npm ci
+      # The lock is authored on Windows, so npm recorded only the win32 rollup
+      # native optional deps (npm/cli#4828); `npm ci` therefore leaves Linux/
+      # macOS without their @rollup/rollup-<platform> binary and the Vite build
+      # crashes ("Cannot find module @rollup/rollup-linux-x64-gnu"). Inject just
+      # that leaf binary, at the version npm ci installed for rollup, with
+      # --no-save --no-package-lock so the rest of the npm ci tree is untouched.
+      - name: Add runner-native rollup binary
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ROLLUP_VER="$(node -p "require('./node_modules/rollup/package.json').version")"
+          npm install --no-save --no-package-lock "@rollup/rollup-${{ matrix.rollupNative }}@${ROLLUP_VER}"
       - run: npm run build
       # electron-builder's config (apps/plexus/electron-builder.yml) and the
       # app manifest it reads (main = ./out/main/index.js) are both relative to
