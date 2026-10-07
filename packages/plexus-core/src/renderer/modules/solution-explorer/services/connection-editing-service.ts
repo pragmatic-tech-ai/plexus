@@ -19,7 +19,7 @@ import {
     type ResolvedBag,
 } from '@pragmatic-tech-ai/todl'
 import type { ConnectionSpec, ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { IConnectionsClient, ConnectionTestResult } from './connections-client.js'
+import type { IConnectionsClient, ConnectionInspection, ConnectionTestResult } from './connections-client.js'
 import { ConnectionHealth, ConnectionScope, type IConnectionView, type ConnectionLeafView } from './connection-view.js'
 
 // A project the host resolves for a member — only the factory flag the consumer gate needs.
@@ -137,6 +137,14 @@ export class ConnectionEditingService implements IConnectionView
         this.lastTest.set(id, result)
         this.fire(undefined)
         return result
+    }
+
+    public async InspectConnection(id: string): Promise<ConnectionInspection>
+    {
+        const inspection = await this.client.Inspect(id)
+        this.lastTest.set(id, { ok: inspection.ok, message: inspection.message })
+        this.fire(undefined)
+        return inspection
     }
 
     public IsConsumer(member: SolutionMember): boolean
