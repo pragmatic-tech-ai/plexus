@@ -3,9 +3,9 @@ import { ServiceProvider } from '@pragmatic-tech-ai/todl-runtime'
 import { NodeFsStorage } from '@pragmatic-tech-ai/todl-runtime/node'
 import { BuildService } from '@pragmatic-tech-ai/todl'
 import { NodeProjectSystemComposer, BuildSystemRegistryKey } from '@pragmatic-tech-ai/todl/project-system'
-import { StoragePackageStore, PackageStoreKey, BuildStorageProviderKey } from '@pragmatic-tech-ai/todl/todl-build-system'
-import { parseManifest } from '@pragmatic-tech-ai/todl/package-manager'
-import type { IBuildProgress, BuildOptions } from '@pragmatic-tech-ai/todl/build-system-core'
+import { StoragePackageStore, PackageStoreKey, BuildStorageProviderKey, type TodlBuildContext } from '@pragmatic-tech-ai/todl/todl-build-system'
+import { parseManifest, type ProjectManifest } from '@pragmatic-tech-ai/todl/package-manager'
+import type { IBuildProgress, BuildOptions, BuildSystemRegistry } from '@pragmatic-tech-ai/todl/build-system-core'
 import type { BuildApplicable } from '@pragmatic-tech-ai/plexus-core/shared/build-api.js'
 import { MainDiskBuildStorageProvider } from './main-disk-build-storage-provider.js'
 
@@ -25,7 +25,7 @@ export class MainBuildProvider
 {
     private static readonly PackagesDir = 'packages'
 
-    private readonly registry
+    private readonly registry: BuildSystemRegistry<TodlBuildContext, ProjectManifest>
     private readonly buildService: BuildService
 
     public constructor(userDataDir: string)
@@ -45,7 +45,7 @@ export class MainBuildProvider
 
     public Applicable(manifestJson: string): readonly BuildApplicable[]
     {
-        let manifest
+        let manifest: ProjectManifest
         try
         {
             manifest = parseManifest(manifestJson)
