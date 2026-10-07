@@ -21,6 +21,7 @@ export class DiskBuildStorageProvider extends ServiceBase implements IBuildStora
     private static readonly RootPath = '';
     private static readonly MissingRootMessage = 'DiskBuildStorageProvider requires options.OutputRootOverride';
 
+    private readonly runId = Date.now().toString(36);
     private counter = 0;
 
     constructor(provider: IServiceProvider)
@@ -41,7 +42,7 @@ export class DiskBuildStorageProvider extends ServiceBase implements IBuildStora
 
     public async CreateSandbox(): Promise<IStorage>
     {
-        const dir = join(this.env.UserDataDirectory, DiskBuildStorageProvider.SandboxesDir, `${DiskBuildStorageProvider.SandboxPrefix}${this.counter++}`);
+        const dir = join(this.env.UserDataDirectory, DiskBuildStorageProvider.SandboxesDir, `${DiskBuildStorageProvider.SandboxPrefix}${this.runId}-${this.counter++}`);
         const storage = this.storage.Create(DiskBuildStorageProvider.LocalBackendId, dir);
         await storage.CreateDirectory(DiskBuildStorageProvider.RootPath);
         return storage;
