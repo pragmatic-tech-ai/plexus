@@ -7,11 +7,12 @@ import {
     type HierarchyItem, type HierarchyHost,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    SolutionManagerService, ProjectType, BuildService, BuildSystemRegistryKey,
+    SolutionManagerService, ProjectType,
     type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
 } from '@pragmatic-tech-ai/todl'
 import { BackgroundWorkService } from '../../background-work/index.js'
+import { BuildClientKey } from '../../build/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
 import { SolutionWorkspaceService } from './solution-workspace-service.js'
 import { ProjectCommandsService } from './project-commands-service.js'
@@ -143,9 +144,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         services.registerInstance(ReferenceSubmenuContributor.Key, new ReferenceSubmenuContributor(this.workspace.References))
         services.registerInstance(ConnectionActiveSubmenuContributor.Key, new ConnectionActiveSubmenuContributor(this.workspace.Connections))
         services.registerTransient(AddNewSubmenuContributor.Key, () => new AddNewSubmenuContributor(this.requireFiles()))
-        // The Build ▸ flavor submenu reads the composed per-project build systems (absent in
+        // The Build ▸ flavor submenu asks the IBuildClient which flavors apply (client absent in
         // headless/unit contexts — the submenu then yields nothing rather than throwing).
-        services.registerInstance(BuildFlavorSubmenuContributor.Key, new BuildFlavorSubmenuContributor(this.provider.get(BuildSystemRegistryKey)))
+        services.registerInstance(BuildFlavorSubmenuContributor.Key, new BuildFlavorSubmenuContributor(this.provider.get(BuildClientKey)))
         return services
     }
 
@@ -188,17 +189,10 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         const projectActions = new ProjectActionsContributor(this.workspace)
         const referenceActions = new ReferenceActionsContributor(this.workspace.References)
         const connectionActions = new ConnectionActionsContributor(this.workspace.Connections, launcher)
-        // The Build/Publish contributor needs runtime collaborators (BuildService + the
+        // The Build/Publish contributor needs runtime collaborators (the IBuildClient + the
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
-        // path like the other action contributors. BuildService is a thin provider wrapper;
-        // resolve a registered/substituted one and fall back to a direct construction (nothing
-        // registers BuildService.Key today — Task 7's DI pass) — the same idiom publishProject uses.
-        const build = this.provider.get(BuildService.Key) ?? new BuildService(this.provider)
-        // Hand the Build/Publish contributor the flavor submenu instance (registered in
-        // buildMenuServices) so it can warm the manifest cache at context-menu open — the Build ▸
-        // submenu then shows its real rows on first open instead of a stuck "Loading…" row.
-        const buildSubmenu = this.menuServices?.get(BuildFlavorSubmenuContributor.Key)
-        const buildContributor = new BuildContributor(build, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
+        // path like the other action contributors.
+        const buildClient = this.provider.get(BuildClientKey)
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         // The Solution root node (single visible top-level row) is registered first so it exists
@@ -210,9 +204,17 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.handles.push(registry.RegisterInstance(projectActions, projectActions.Actions))
         this.handles.push(registry.RegisterInstance(referenceActions, referenceActions.Actions))
         this.handles.push(registry.RegisterInstance(connectionActions, connectionActions.Actions))
-        this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
-        const htmlApp = new HtmlAppContributor(build, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.provider.get(PreviewServerKey))
-        this.handles.push(registry.RegisterInstance(htmlApp, htmlApp.Actions))
+        if (buildClient !== undefined)
+        {
+            // Hand the Build/Publish contributor the flavor submenu instance (registered in
+            // buildMenuServices) so it can warm the applicable-rows cache at context-menu open — the Build ▸
+            // submenu then shows its real rows on first open instead of a stuck "Loading…" row.
+            const buildSubmenu = this.menuServices?.get(BuildFlavorSubmenuContributor.Key)
+            const buildContributor = new BuildContributor(buildClient, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
+            this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
+            const htmlApp = new HtmlAppContributor(buildClient, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.provider.get(PreviewServerKey))
+            this.handles.push(registry.RegisterInstance(htmlApp, htmlApp.Actions))
+        }
         this.setHasNoSolution(false)
         // The global bag persister is registered by the app (P6a DurableStoreRegistration). It
         // is absent in headless/unit contexts, so resolve it optionally — tree-state is a

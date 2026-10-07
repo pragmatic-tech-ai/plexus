@@ -13,7 +13,7 @@ import { MuralRendererConfig } from '@pragmatic-tech-ai/plexus-core/vite/mural-r
 // readdirp's fs walk — as DEAD code: the renderer does all real fs/registry work over IPC
 // and never executes them. Vite's default `__vite-browser-external` stub lacks their named
 // exports (gunzipSync, Readable, …) so the production Rollup build errors. The ONE builtin
-// the renderer truly executes is node:path (DiskBuildStorageProvider + HtmlAppContributor
+// the renderer truly executes is node:path (HtmlAppContributor
 // `join` display/disk paths that are then handed to main over IPC) — it gets a real POSIX
 // browser impl; every other builtin resolves to a harmless no-op so the dead code links.
 // Renderer-only (added to `renderer.plugins`): main/preload keep real Node via externalize.
@@ -37,9 +37,27 @@ class RendererNodeBoundary
         'const noop = function () {};\n'
         + 'export default new Proxy(noop, { get: () => noop, apply: () => undefined });\n'
 
+    // esbuild is pulled into the renderer graph as DEAD code via the shared todl barrels
+    // (todl's html-bundle BundleAppAction `import`s it), but the renderer never runs a
+    // build — builds execute in the Electron main process over IPC. Unlike a Node builtin,
+    // esbuild is a real package whose module body reads the `process` GLOBAL at import time
+    // (`process.versions.node` in its worker-thread init), which is undefined in the browser
+    // and throws `process is not defined` at boot. Stub it to a no-op like the builtins.
+    private static readonly EsbuildModule = 'esbuild'
+
+    // Other dead node PACKAGES in the renderer graph read the `process` global at import
+    // time too (readdirp's `process.platform` in its fs-walk init, reachable via the
+    // todl-runtime barrels). They never run in the browser, but the top-level read throws
+    // `process is not defined`. A minimal `process` global satisfies those dead reads so the
+    // bundle links and boots; prepended as a chunk banner so it runs before any module body.
+    public static readonly ProcessShim =
+        'globalThis.process = globalThis.process || '
+        + '{ platform: "browser", env: {}, versions: {}, argv: [], cwd: function () { return "/"; } };'
+
     public static Plugin(): Plugin
     {
         const builtins = new Set<string>(builtinModules.flatMap((m) => [m, `node:${m}`]))
+        const deadPackages = new Set<string>([RendererNodeBoundary.EsbuildModule])
         const pathIds = new Set<string>(['path', 'node:path'])
         const prefix = RendererNodeBoundary.VirtualPrefix
         return {
@@ -47,7 +65,7 @@ class RendererNodeBoundary
             enforce: 'pre',
             resolveId(id)
             {
-                return builtins.has(id) ? `${prefix}${id}` : null
+                return builtins.has(id) || deadPackages.has(id) ? `${prefix}${id}` : null
             },
             load(id)
             {
@@ -67,6 +85,22 @@ class RendererNodeBoundary
 // esbuild handles when bundling. electron/chokidar/etc. stay external as usual.
 const CORE = '@pragmatic-tech-ai/plexus-core'
 
+// todl + todl-runtime ship ESM-only; main/preload are CJS, so left external the main
+// process would require() ESM and fail. Bundle them (esbuild handles the interop). esbuild
+// carries a native binary, so it must stay external — but it is only a TRANSITIVE dep (via todl),
+// which externalizeDepsPlugin does not cover, so it is listed explicitly as a rollup external.
+// mural + fresco are likewise ESM-only (their package.json exports expose ONLY an `import`
+// condition — no `require`/`default` a CJS require could resolve), and todl's build pipeline
+// couples to the mural compiler/presentation baker, so bundling todl into main transitively
+// reaches mural (and fresco). They must be bundled too, or main's CJS require() of them throws
+// ERR_PACKAGE_PATH_NOT_EXPORTED at load. Their build-reachable modules run in Node — todl's own
+// node build tests compile .mu / bake presentation through mural headlessly.
+const ESBUILD = 'esbuild'
+const TODL = '@pragmatic-tech-ai/todl'
+const TODL_RUNTIME = '@pragmatic-tech-ai/todl-runtime'
+const MURAL = '@pragmatic-tech-ai/mural'
+const FRESCO = '@pragmatic-tech-ai/fresco'
+
 // @pragmatic-tech-ai/todl's dist entry — probe app-local then hoisted
 // workspace-root node_modules (npm workspaces hoist todl to the repo root).
 const TODL_DIST: string = (() => {
@@ -85,10 +119,11 @@ const TODL_DIST: string = (() => {
 // `file:../..` linked dependency.
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
+    plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME, MURAL, FRESCO] })],
+    build: { rollupOptions: { external: [ESBUILD] } },
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: [CORE] })],
+    plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME] })],
   },
   renderer: {
     // Keep Node builtins out of the browser bundle (dead fs/registry code from the
@@ -124,6 +159,9 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: { index: resolve('src/renderer/index.html') },
+        // Minimal `process` global for dead node-package code (readdirp, …) pulled into
+        // the renderer graph by the shared todl barrels. See RendererNodeBoundary.ProcessShim.
+        output: { banner: RendererNodeBoundary.ProcessShim },
       },
     },
   },

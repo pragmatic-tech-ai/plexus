@@ -9,10 +9,12 @@ import { CommandDefinition, type CommandContext } from '@pragmatic-tech-ai/mural
 import { BuildService, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { FileTreeContributor } from './file-tree-contributor.js'
-import { BuildProgressReporter } from './build-progress-reporter.js'
+import { BuildProgressReporter, type ITaskProgressSink } from './build-progress-reporter.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { FileSystemService } from '../../storage/file-system-service.js'
 import type { IPreviewServer } from '../../preview-server/preview-server.js'
+import type { IBuildClient } from '../../build/index.js'
+import type { BuildRunResult } from '../../../../shared/build-api.js'
 
 // Contributes the Open HTML app command to a project row: builds the html-bundle build system
 // to <project>/build/ on disk (via the build-root override), then opens the resulting
@@ -34,6 +36,8 @@ export class HtmlAppContributor implements IHierarchyContributor
     private static readonly ServeTitlePrefix = 'Serving HTML app '
     private static readonly BuildFailedPrefix = 'Build failed: '
     private static readonly NoOutputPathError = 'Build produced no output path to serve'
+    // The empty path resolves to the storage root (the project directory itself).
+    private static readonly RootMarker = ''
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 21
@@ -41,7 +45,7 @@ export class HtmlAppContributor implements IHierarchyContributor
     public readonly Actions: readonly CommandDefinition[]
 
     constructor(
-        private readonly build: BuildService,
+        private readonly buildClient: IBuildClient,
         private readonly work: BackgroundWorkService | undefined,
         private readonly fs: FileSystemService,
         private readonly previewServer?: IPreviewServer,
@@ -96,19 +100,10 @@ export class HtmlAppContributor implements IHierarchyContributor
         if (work === undefined || storage === undefined) return
         void work.run(`${HtmlAppContributor.OpenTitlePrefix}${member.Title}`, async (ctx) =>
         {
-            const root = HtmlAppContributor.OutputRoot(storage)
-            const output = await this.build.Build(storage, HtmlAppContributor.SystemId, HtmlAppContributor.FlavorId, new BuildProgressReporter(ctx), { OutputRootOverride: root })
-            if (!output.Result.Ok)
-            {
-                throw new Error(`${HtmlAppContributor.BuildFailedPrefix}${BuildService.FormatErrors(output.Result.Diagnostics)}`)
-            }
-            const outputPath = output.Result.OutputPath
-            if (outputPath === undefined)
-            {
-                throw new Error(HtmlAppContributor.NoOutputPathError)
-            }
+            const result = await this.buildHtml(storage, ctx)
+            const outputPath = HtmlAppContributor.RequireOutputPath(result)
             await this.fs.OpenExternal(join(outputPath, HtmlAppContributor.IndexFile))
-            return output
+            return result
         })
     }
 
@@ -120,21 +115,55 @@ export class HtmlAppContributor implements IHierarchyContributor
         if (work === undefined || storage === undefined || previewServer === undefined) return
         void work.run(`${HtmlAppContributor.ServeTitlePrefix}${member.Title}`, async (ctx) =>
         {
-            const root = HtmlAppContributor.OutputRoot(storage)
-            const output = await this.build.Build(storage, HtmlAppContributor.SystemId, HtmlAppContributor.FlavorId, new BuildProgressReporter(ctx), { OutputRootOverride: root })
-            if (!output.Result.Ok)
-            {
-                throw new Error(`${HtmlAppContributor.BuildFailedPrefix}${BuildService.FormatErrors(output.Result.Diagnostics)}`)
-            }
-            const outputPath = output.Result.OutputPath
-            if (outputPath === undefined)
-            {
-                throw new Error(HtmlAppContributor.NoOutputPathError)
-            }
+            const result = await this.buildHtml(storage, ctx)
+            const outputPath = HtmlAppContributor.RequireOutputPath(result)
             const served = await previewServer.Start(outputPath)
             this.openUrl(served.Url)
-            return output
+            return result
         })
+    }
+
+    // Builds the html-bundle flavor through the client into <project>/build, mapping progress onto the task.
+    // Paths are resolved inside the job so a non-local storage fails the task row, not the command.
+    private async buildHtml(storage: IStorage, ctx: ITaskProgressSink): Promise<BuildRunResult>
+    {
+        const projectRoot = HtmlAppContributor.ProjectRoot(storage)
+        const outputRoot = HtmlAppContributor.OutputRoot(storage)
+        const runId = HtmlAppContributor.NewRunId()
+        const sub = this.buildClient.OnProgress(runId, new BuildProgressReporter(ctx))
+        try
+        {
+            const result = await this.buildClient.Build({ runId, projectRoot, systemId: HtmlAppContributor.SystemId, flavorId: HtmlAppContributor.FlavorId, options: { OutputRootOverride: outputRoot } })
+            if (!result.Ok)
+            {
+                throw new Error(`${HtmlAppContributor.BuildFailedPrefix}${BuildService.FormatErrors(result.Diagnostics as Parameters<typeof BuildService.FormatErrors>[0])}`)
+            }
+            return result
+        }
+        finally
+        {
+            sub.dispose()
+        }
+    }
+
+    private static RequireOutputPath(result: BuildRunResult): string
+    {
+        if (result.OutputPath === undefined)
+        {
+            throw new Error(HtmlAppContributor.NoOutputPathError)
+        }
+        return result.OutputPath
+    }
+
+    // The project's OS root directory, via the storage's local-file access.
+    private static ProjectRoot(storage: IStorage): string
+    {
+        return (storage as unknown as ILocalFileAccess).ResolveOsPath(HtmlAppContributor.RootMarker)
+    }
+
+    private static NewRunId(): string
+    {
+        return crypto.randomUUID()
     }
 }
 

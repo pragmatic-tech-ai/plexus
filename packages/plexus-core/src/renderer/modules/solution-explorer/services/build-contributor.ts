@@ -5,32 +5,30 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition, type CommandContext, type ICommandContributor } from '@pragmatic-tech-ai/mural/framework'
-import { BuildService, parseManifest, type SolutionMember, type ProjectManifest } from '@pragmatic-tech-ai/todl'
-import type { BuildSystemRegistry } from '@pragmatic-tech-ai/todl/build-system-core'
-import type { TodlBuildContext } from '@pragmatic-tech-ai/todl/todl-build-system'
+import { BuildService, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { BuildProgressReporter } from './build-progress-reporter.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { IContentMutations } from './content-mutations.js'
+import type { IBuildClient } from '../../build/index.js'
+import type { BuildApplicable } from '../../../../shared/build-api.js'
 
-// The resolved type of the composed BuildSystemRegistryKey — the per-project build systems
-// the todl project-system module seeds. Named once so the submenu and wiring agree.
-type ProjectBuildSystems = BuildSystemRegistry<TodlBuildContext, ProjectManifest>
-
-// Contributes the Build ▸ / Publish commands to a project (member) row. Build runs
-// BuildService.Build for a chosen build-system flavor as a background-work task (its
-// IBuildProgress maps onto the task through BuildProgressReporter); Publish delegates to
+// Contributes the Build ▸ / Publish commands to a project (member) row. Build dispatches the
+// chosen build-system flavor through IBuildClient (the build runs in the host's main process
+// over IPC) as a background-work task (the client's progress maps onto the task through
+// BuildProgressReporter); Publish delegates to
 // SolutionWorkspaceService's publish path (IContentMutations.PublishMember),
 // which itself runs BuildService.Publish through background-work. An action-only
 // contributor (Contribute yields no nodes — the rows are ProjectsProvider's);
-// the applicable systems/flavors are queried per open by BuildFlavorSubmenuContributor, so
-// the submenu is rebuilt each time with no availability signal. Solution-wide Build All /
+// the applicable systems/flavors come from BuildFlavorSubmenuContributor (cached per member from
+// IBuildClient.Applicable), so there is no availability signal. Solution-wide Build All /
 // Publish All is deferred (SolutionBuildManager is node-only — never imported here).
 //
 // DR8 (type-Key gating) — PARTIAL: Build ▸ / Publish are tagged with the generic
 // HierarchyContext.For(NodeKey.Project), so they appear on every project row; the Build ▸
-// flavor submenu resolves the applicable (system, flavor) pairs per open and shows
+// flavor submenu lists the applicable (system, flavor) pairs the client reports and shows
 // "(nothing to build)" when none apply, and Publish stays gated by IsVersionedMember.
 // Suppressing the top-level Build/Publish entirely for a type with no applicable system needs
 // either a mural per-item action-availability signal or per-project-type node Keys (all rows
@@ -50,6 +48,8 @@ export class BuildContributor implements IHierarchyContributor
     private static readonly PublishLabel = 'Publish'
     private static readonly BuildTitlePrefix = 'Building '
     private static readonly BuildFailedPrefix = 'Build failed: '
+    // The empty path resolves to the storage root (the project directory itself).
+    private static readonly RootMarker = ''
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 20
@@ -61,7 +61,7 @@ export class BuildContributor implements IHierarchyContributor
     public readonly Actions: readonly CommandDefinition[]
 
     constructor(
-        private readonly build: BuildService,
+        private readonly buildClient: IBuildClient,
         private readonly work: BackgroundWorkService | undefined,
         private readonly mutations: IContentMutations,
         // The flavor submenu contributor, warmed at context-menu open so the Build ▸ children are
@@ -129,7 +129,7 @@ export class BuildContributor implements IHierarchyContributor
         return new RelayCommand(() => this.runBuild(member, run.systemId, run.flavorId), () => this.work !== undefined)
     }
 
-    // Build the member through BuildService for the chosen flavor as a background-work task;
+    // Build the member through the IBuildClient (main process) for the chosen flavor as a background-work task;
     // the task's row + output log surface progress (via BuildProgressReporter). A build that
     // fails its diagnostics throws so the task row shows the failure text.
     private runBuild(member: SolutionMember, systemId: string, flavorId: string): void
@@ -140,22 +140,41 @@ export class BuildContributor implements IHierarchyContributor
         const title = `${BuildContributor.BuildTitlePrefix}${member.Title}`
         void work.run(title, async (ctx) =>
         {
-            const output = await this.build.Build(storage, systemId, flavorId, new BuildProgressReporter(ctx))
-            if (!output.Result.Ok)
+            // Resolved inside the job so a non-local storage fails the task row, not the command.
+            const projectRoot = BuildContributor.ProjectRoot(storage)
+            const runId = BuildContributor.NewRunId()
+            const sub = this.buildClient.OnProgress(runId, new BuildProgressReporter(ctx))
+            try
             {
-                throw new Error(`${BuildContributor.BuildFailedPrefix}${BuildService.FormatErrors(output.Result.Diagnostics)}`)
+                const result = await this.buildClient.Build({ runId, projectRoot, systemId, flavorId })
+                if (!result.Ok)
+                {
+                    throw new Error(`${BuildContributor.BuildFailedPrefix}${BuildService.FormatErrors(result.Diagnostics as Parameters<typeof BuildService.FormatErrors>[0])}`)
+                }
+                return result
             }
-            return output
+            finally
+            {
+                sub.dispose()
+            }
         })
+    }
+
+    // The project's OS root directory, via the storage's local-file access.
+    private static ProjectRoot(storage: IStorage): string
+    {
+        return (storage as unknown as ILocalFileAccess).ResolveOsPath(BuildContributor.RootMarker)
+    }
+
+    private static NewRunId(): string
+    {
+        return crypto.randomUUID()
     }
 }
 
-// The lazy submenu under Build ▸: at each open it asks the composed build-system registry
-// which systems apply to the member's manifest and yields one command per (system, flavor).
-// Only the parsed MANIFEST is cached per member (async read, a Loading… row until the next
-// open fills it) — the applicable systems/flavors are re-queried from the registry on EVERY
-// open, so a build system registered mid-session appears the next time the submenu opens (it
-// would never appear if the computed rows were cached for the service's life). The child ids
+// The lazy submenu under Build ▸: it reads the member's manifest text, asks IBuildClient which
+// (system, flavor) pairs apply (Applicable) and yields one command per pair. The rows are
+// cached per member (async read, a Loading… row until warmed). The child ids
 // are resolved back to a build by BuildContributor.Resolve (via the routing-dispatcher fallback).
 export class BuildFlavorSubmenuContributor implements ICommandContributor
 {
@@ -166,37 +185,40 @@ export class BuildFlavorSubmenuContributor implements ICommandContributor
     private static readonly NothingToBuildLabel = '(nothing to build)'
     private static readonly LoadingLabel = 'Loading…'
 
-    // Cache the parsed manifest only; `null` records a read/parse failure (a member that never
-    // builds) so a failed read is not retried every open. Rows are recomputed from the live
-    // registry each open. `loading` guards an in-flight read so concurrent Warm/Contribute calls
-    // for the same member start the read once.
-    private readonly manifests = new Map<SolutionMember, ProjectManifest | null>()
+    // Applicable rows cached per member for the service's life; `null` records a read/query
+    // failure (a member that never builds) so it is not retried every open. Rows are NOT
+    // re-queried on a mid-session manifest edit — build systems are fixed at composition, so no
+    // invalidation is needed. `loading` guards an in-flight read so concurrent Warm/Contribute
+    // calls for the same member start it once.
+    private readonly applicable = new Map<SolutionMember, readonly BuildApplicable[] | null>()
     private readonly loading = new Set<SolutionMember>()
 
-    constructor(private readonly systems: ProjectBuildSystems | undefined)
+    constructor(private readonly buildClient: IBuildClient | undefined)
     {
     }
 
-    // Begin reading + parsing a member's manifest into the per-member cache unless it is already
+    // Begin reading a member's manifest and querying the client's Applicable rows into the per-member cache unless it is already
     // loaded or in flight — idempotent, fire-and-forget. Called at context-menu open (the Build ▸
     // header resolves then, see BuildContributor.Resolve) so the flavor children are ready by the
     // time the hover-dwell opens the submenu: the first Contribute hits a warm cache and renders
     // the real rows instead of a "Loading…" placeholder that only filled on the NEXT open.
     public Warm(member: SolutionMember): void
     {
-        if (this.manifests.has(member) || this.loading.has(member)) return
+        if (this.applicable.has(member) || this.loading.has(member)) return
         const storage = member.Storage
-        if (storage === undefined) return
+        const client = this.buildClient
+        if (storage === undefined || client === undefined) return
         this.loading.add(member)
         void (async () =>
         {
             try
             {
-                this.manifests.set(member, parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME)))
+                const text = await storage.ReadText(PROJECT_MANIFEST_FILENAME)
+                this.applicable.set(member, await client.Applicable(text))
             }
             catch
             {
-                this.manifests.set(member, null)
+                this.applicable.set(member, null)
             }
             finally
             {
@@ -209,31 +231,22 @@ export class BuildFlavorSubmenuContributor implements ICommandContributor
     {
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return []
-        const systems = this.systems
-        const storage = member.Storage
-        if (systems === undefined || storage === undefined) return []
-        const manifest = this.manifests.get(member)
-        if (manifest === undefined)
+        if (this.buildClient === undefined || member.Storage === undefined) return []
+        const rows = this.applicable.get(member)
+        if (rows === undefined)
         {
             // Not warmed yet (menu opened faster than the read) — kick it off and show Loading…;
             // it fills on the next open, and pre-warming at header-resolve makes this rare.
             this.Warm(member)
             return [BuildFlavorSubmenuContributor.row(BuildFlavorSubmenuContributor.LoadingId, BuildFlavorSubmenuContributor.LoadingLabel)]
         }
-        if (manifest === null) return [BuildFlavorSubmenuContributor.row(BuildFlavorSubmenuContributor.EmptyId, BuildFlavorSubmenuContributor.NothingToBuildLabel)]
-        return BuildFlavorSubmenuContributor.rowsFor(systems, manifest)
+        if (rows === null) return [BuildFlavorSubmenuContributor.row(BuildFlavorSubmenuContributor.EmptyId, BuildFlavorSubmenuContributor.NothingToBuildLabel)]
+        return BuildFlavorSubmenuContributor.rowsFor(rows)
     }
 
-    private static rowsFor(systems: ProjectBuildSystems, manifest: ProjectManifest): readonly CommandDefinition[]
+    private static rowsFor(applicable: readonly BuildApplicable[]): readonly CommandDefinition[]
     {
-        const rows: CommandDefinition[] = []
-        for (const system of systems.For(manifest))
-        {
-            for (const flavor of system.Flavors())
-            {
-                rows.push(BuildFlavorSubmenuContributor.row(BuildContributor.BuildRunId(system.Id, flavor.Id), flavor.DisplayName))
-            }
-        }
+        const rows = applicable.map((a) => BuildFlavorSubmenuContributor.row(BuildContributor.BuildRunId(a.systemId, a.flavorId), a.flavorName))
         if (rows.length === 0) return [BuildFlavorSubmenuContributor.row(BuildFlavorSubmenuContributor.EmptyId, BuildFlavorSubmenuContributor.NothingToBuildLabel)]
         return rows
     }

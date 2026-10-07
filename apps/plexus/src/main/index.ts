@@ -23,6 +23,8 @@ import { ConnectionsBridge } from './connections/connections-bridge.js'
 import { ConnectionsIpc } from './connections/register-connections-ipc.js'
 import { PreviewServerManager } from './preview-server/preview-server-manager.js'
 import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
+import { MainBuildProvider } from './build/main-build-provider.js'
+import { BuildIpc } from './build/register-build-ipc.js'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
 // the native caption strip to that scheme's title-bar surface + glyph ink; the
@@ -165,6 +167,10 @@ app.whenReady().then(async () => {
   const previewServers = new PreviewServerManager()
   registerPreviewServerIpc(ipcMain, previewServers)
   app.on('will-quit', () => void previewServers.StopAll())
+
+  // Build capability: todl builds run here in main (the renderer drives them over build:*).
+  const buildProvider = new MainBuildProvider(app.getPath('userData'))
+  BuildIpc.Register(ipcMain, buildProvider)
 
   createWindow()
   Updater.init()
