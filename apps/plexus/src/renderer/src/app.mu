@@ -114,7 +114,7 @@ import ClipboardService from "./services/clipboard/clipboard-service.js"
 // static Key) so HtmlAppContributor's Serve HTML app command resolves it.
 import IpcPreviewServer from "./services/preview-server/ipc-preview-server.js"
 
-// Build client — the concrete IBuildClient (plexus-core capability) over the window.api.build
+// Build client â€” the concrete IBuildClient (plexus-core capability) over the window.api.build
 // preload bridge; todl builds execute in Electron main. Registered under BuildClientKey (its
 // static Key).
 import IpcBuildClient from "./services/build/ipc-build-client.js"
