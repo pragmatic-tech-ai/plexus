@@ -12,6 +12,7 @@ import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-t
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
+import { BuildChannel, type BuildApplicable, type BuildProgressEvent, type BuildRunRequest, type BuildRunResult, type IBuildServerApi } from '@pragmatic-tech-ai/plexus-core/shared/build-api.js'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
@@ -137,7 +138,20 @@ const previewServer: IPreviewServerApi = {
   Stop: (root: string) => ipcRenderer.invoke(PreviewServerChannel.Stop, root),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer }
+// Build bridge — todl builds run in Electron main. Run/Applicable are thin invokes to the
+// matching BuildChannel handlers; OnProgress subscribes to the pushed BuildChannel.Progress
+// stream and returns an unsubscribe — same shape as agent.onEvent.
+const build: IBuildServerApi = {
+  Run: (req: BuildRunRequest): Promise<BuildRunResult> => ipcRenderer.invoke(BuildChannel.Run, req),
+  Applicable: (manifestJson: string): Promise<readonly BuildApplicable[]> => ipcRenderer.invoke(BuildChannel.Applicable, manifestJson),
+  OnProgress: (cb: (e: BuildProgressEvent) => void): (() => void) => {
+    const listener = (_e: unknown, msg: BuildProgressEvent): void => cb(msg)
+    ipcRenderer.on(BuildChannel.Progress, listener)
+    return () => { ipcRenderer.removeListener(BuildChannel.Progress, listener) }
+  },
+}
+
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, build }
 
 if (process.contextIsolated)
 {
