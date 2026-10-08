@@ -35,14 +35,6 @@ class RendererNodeBoundary
         'const noop = function () {};\n'
         + 'export default new Proxy(noop, { get: () => noop, apply: () => undefined });\n'
 
-    // esbuild is pulled into the renderer graph as DEAD code via the shared todl barrels
-    // (todl's html-bundle BundleAppAction `import`s it), but the renderer never runs a
-    // build — builds execute in the Electron main process over IPC. Unlike a Node builtin,
-    // esbuild is a real package whose module body reads the `process` GLOBAL at import time
-    // (`process.versions.node` in its worker-thread init), which is undefined in the browser
-    // and throws `process is not defined` at boot. Stub it to a no-op like the builtins.
-    private static readonly EsbuildModule = 'esbuild'
-
     // Other dead node PACKAGES in the renderer graph read the `process` global at import
     // time too (readdirp's `process.platform` in its fs-walk init, reachable via the
     // todl-runtime barrels). They never run in the browser, but the top-level read throws
@@ -113,7 +105,6 @@ class RendererNodeBoundary
     public static Plugin(): Plugin
     {
         const builtins = new Set<string>(builtinModules.flatMap((m) => [m, `node:${m}`]))
-        const deadPackages = new Set<string>([RendererNodeBoundary.EsbuildModule])
         const pathIds = new Set<string>(['path', 'node:path'])
         const prefix = RendererNodeBoundary.VirtualPrefix
         return {
@@ -121,7 +112,7 @@ class RendererNodeBoundary
             enforce: 'pre',
             resolveId(id)
             {
-                return builtins.has(id) || deadPackages.has(id) ? `${prefix}${id}` : null
+                return builtins.has(id) ? `${prefix}${id}` : null
             },
             load(id)
             {
@@ -138,7 +129,7 @@ class RendererNodeBoundary
                 if (id.startsWith(prefix)) return null
                 const rewritten = RendererNodeBoundary.RewriteNamedStubImports(
                     code,
-                    (specifier) => builtins.has(specifier) || deadPackages.has(specifier),
+                    (specifier) => builtins.has(specifier),
                 )
                 return rewritten === null ? null : { code: rewritten, map: null }
             },

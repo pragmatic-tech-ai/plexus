@@ -23,8 +23,6 @@ import { ConnectionsBridge } from './connections/connections-bridge.js'
 import { ConnectionsIpc } from './connections/register-connections-ipc.js'
 import { PreviewServerManager } from './preview-server/preview-server-manager.js'
 import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
-import { MainBuildProvider } from './build/main-build-provider.js'
-import { BuildIpc } from './build/register-build-ipc.js'
 import { BundleIpc } from './build/bundle-ipc.js'
 import { EsbuildBundler } from '@pragmatic-tech-ai/todl/project-system'
 
@@ -170,9 +168,6 @@ app.whenReady().then(async () => {
   registerPreviewServerIpc(ipcMain, previewServers)
   app.on('will-quit', () => void previewServers.StopAll())
 
-  // Build capability: todl builds run here in main (the renderer drives them over build:*).
-  const buildProvider = new MainBuildProvider(app.getPath('userData'))
-  BuildIpc.Register(ipcMain, buildProvider)
   // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.
   BundleIpc.Register(ipcMain, new EsbuildBundler())
 
