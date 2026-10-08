@@ -56,6 +56,60 @@ class RendererNodeBoundary
         'globalThis.process = globalThis.process || '
         + '{ platform: "browser", env: {}, versions: {}, argv: [], cwd: function () { return "/"; } };'
 
+    // The dead renderer code imports stubbed modules with NAMED specifiers —
+    // `import { gunzipSync } from "node:zlib"`, `import { join } from "node:path"`,
+    // `import { build } from "esbuild"`. Rollup satisfies those off the stub's default
+    // export via `syntheticNamedExports` (build), but Vite's dev server validates named
+    // imports with es-module-lexer and does NOT honor syntheticNamedExports, so dev boots
+    // into `does not provide an export named 'gunzipSync'`. Rewrite each named import of a
+    // stubbed module to a default import + a destructure, so every name resolves off the
+    // Proxy default (real impls for node:path, no-ops for the dead ones) in BOTH dev and
+    // build, without enumerating names.
+    // Any named import; the replacer decides per specifier whether it is a stubbed module.
+    // Must cover BARE builtin specifiers too (chokidar: `import { watch } from "fs"`), not
+    // just the `node:`-prefixed form — matching by prefix misses those.
+    private static readonly NamedImport = /import\s*\{([^}]*)\}\s*from\s*(['"])([^'"\n]+)\2/g
+    // Inline TS type import — `type Foo` / `type Foo as Bar` — is erased, so drop it. The
+    // negative lookahead keeps a VALUE member literally named `type` (e.g. `type as osType`
+    // from node:os, where the token after `type` is `as`, not an identifier being typed).
+    private static readonly InlineType = /^type\s+(?!as\s)/
+
+    private static RewriteNamedStubImports(code: string, isStubbed: (specifier: string) => boolean): string | null
+    {
+        if (!code.includes('import'))
+        {
+            return null
+        }
+        let rewritten = false
+        let index = 0
+        const out = code.replace(
+            RendererNodeBoundary.NamedImport,
+            (match: string, specifiers: string, _quote: string, specifier: string): string =>
+            {
+                if (!isStubbed(specifier))
+                {
+                    return match
+                }
+                rewritten = true
+                const binding = `__stub_${specifier.replace(/[^a-z0-9]/gi, '_')}_${index}`
+                index += 1
+                const destructure = specifiers
+                    .split(',')
+                    .map((part) => part.trim())
+                    .filter((part) => part !== '' && !RendererNodeBoundary.InlineType.test(part))
+                    .map((part) =>
+                    {
+                        const aliased = part.match(/^(\S+)\s+as\s+(\S+)$/)
+                        return aliased ? `${aliased[1]}: ${aliased[2]}` : part
+                    })
+                    .join(', ')
+                const importLine = `import ${binding} from "${specifier}";`
+                return destructure === '' ? importLine : `${importLine}const { ${destructure} } = ${binding};`
+            },
+        )
+        return rewritten ? out : null
+    }
+
     public static Plugin(): Plugin
     {
         const builtins = new Set<string>(builtinModules.flatMap((m) => [m, `node:${m}`]))
@@ -75,6 +129,18 @@ class RendererNodeBoundary
                 const name = id.slice(prefix.length)
                 if (pathIds.has(name)) return { code: RendererNodeBoundary.PathModule, syntheticNamedExports: 'default', moduleSideEffects: false }
                 return { code: RendererNodeBoundary.DeadStub, syntheticNamedExports: 'default', moduleSideEffects: false }
+            },
+            // Named imports of stubbed modules must become default-import + destructure so
+            // Vite's dev import analysis (which ignores syntheticNamedExports) accepts them.
+            // Skips our own virtual stub modules. See RewriteNamedStubImports.
+            transform(code, id)
+            {
+                if (id.startsWith(prefix)) return null
+                const rewritten = RendererNodeBoundary.RewriteNamedStubImports(
+                    code,
+                    (specifier) => builtins.has(specifier) || deadPackages.has(specifier),
+                )
+                return rewritten === null ? null : { code: rewritten, map: null }
             },
             // Runs in BOTH dev and build — see ProcessShim. `head-prepend` + a classic
             // (non-module) script guarantees the shim executes before the deferred entry
