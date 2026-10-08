@@ -69,15 +69,26 @@ jobs:
       # The lock is authored on Windows, so npm recorded only the win32 rollup
       # native optional deps (npm/cli#4828); `npm ci` therefore leaves Linux/
       # macOS without their @rollup/rollup-<platform> binary and the Vite build
-      # crashes ("Cannot find module @rollup/rollup-linux-x64-gnu"). Inject just
-      # that leaf binary, at the version npm ci installed for rollup, with
-      # --no-save --no-package-lock so the rest of the npm ci tree is untouched.
+      # crashes ("Cannot find module @rollup/rollup-linux-x64-gnu"). We can't add
+      # it with `npm install` — any install into this workspace (even
+      # --no-save --no-package-lock) trips npm's arborist on the root `overrides`
+      # ("Cannot read properties of null (reading 'edgesOut')"). So fetch the one
+      # leaf binary with `npm pack` in an isolated temp dir (no workspace, no
+      # arborist) and unpack it straight into node_modules, at the exact rollup
+      # version npm ci installed.
       - name: Add runner-native rollup binary
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          ROLLUP_VER="$(node -p "require('./node_modules/rollup/package.json').version")"
-          npm install --no-save --no-package-lock "@rollup/rollup-${{ matrix.rollupNative }}@${ROLLUP_VER}"
+          set -euo pipefail
+          ROLLUP_VER="$(node -p "require('$PWD/node_modules/rollup/package.json').version")"
+          PKG="@rollup/rollup-${{ matrix.rollupNative }}"
+          TMP="$(mktemp -d)"
+          ( cd "$TMP" && npm pack "${PKG}@${ROLLUP_VER}" >/dev/null )
+          mkdir -p "node_modules/${PKG}"
+          tar -xzf "$TMP"/*.tgz -C "node_modules/${PKG}" --strip-components=1
+          rm -rf "$TMP"
+          ls "node_modules/${PKG}"/*.node >/dev/null && echo "injected ${PKG}@${ROLLUP_VER}"
       - run: npm run build
       # electron-builder's config (apps/plexus/electron-builder.yml) and the
       # app manifest it reads (main = ./out/main/index.js) are both relative to
