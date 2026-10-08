@@ -68,6 +68,8 @@ import LspServicesEngine from "@pragmatic-tech-ai/todl"
 // which build the manager. Registering these in main.js is too late: that resolution
 // happens during compose, before main.js runs.
 import SolutionSeamsHostModule from "./services/solution/solution-seams-host-module.js"
+// Renderer build seams (IBundler over IPC + build storage/package store) for BuildService.
+import BuildHostModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/build/build-host-module.js"
 // Per-project Build/Publish facade (todl) over the composed BuildSystemRegistryKey
 // (seeded by TodlProjectSystemModule below). Root-registered here so publishProject
 // and the Solution Explorer's Build/Publish contributor resolve the one instance via
@@ -510,6 +512,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Solution engine module (todl): SolutionManagerService + settings registry
         // (no project types — those come from TodlProjectSystemModule above).
         SolutionServicesEngine
+        // Build seams: binds the renderer IBundler (IPC) + storage/package-store providers so todl's BuildService runs builds/publish in-renderer; registers the html-bundle system.
+        BuildHostModule
         // Hosts the in-process TODL language service; composes after SolutionServicesEngine
         // so it inherits SolutionManagerService + the package-source seam.
         LspServicesEngine

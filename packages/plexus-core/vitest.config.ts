@@ -157,6 +157,13 @@ const todlShimPlugin: Plugin = {
             `export { MemberContentOps, RenameError } from ${p('solution-services/project-services/content/member-content-ops.js')}`,
             `export { ReferenceEditor, ReferenceResolutionKind } from ${p('solution-services/project-services/references/reference-editor.js')}`,
             `export { ProjectLifecycle, CreateError, OpenError } from ${p('solution-services/solution-manager/engine/project-lifecycle.js')}`,
+            // P4 (renderer builds): BuildComposition binds the three build seams + registers the
+            // html-bundle system (todl 0.50: imports only BundlerKey/IBundler — mural-free), and the
+            // test composes ProjectSystemComposer to seed the registry.
+            `export { HtmlBundleBuildSystem } from ${p('solution-services/todl-build-system/html-bundle/html-bundle-build-system.js')}`,
+            `export { BuildStorageProviderKey } from ${p('solution-services/todl-build-system/build-storage-provider-key.js')}`,
+            `export { PackageStoreKey, StoragePackageStore } from ${p('solution-services/todl-build-system/package-store.js')}`,
+            `export { ProjectSystemComposer } from ${p('solution-services/project-services/composition/project-system-composer.js')}`,
         ].join('\n')
     },
 }
