@@ -49,7 +49,11 @@ class RendererNodeBoundary
     // time too (readdirp's `process.platform` in its fs-walk init, reachable via the
     // todl-runtime barrels). They never run in the browser, but the top-level read throws
     // `process is not defined`. A minimal `process` global satisfies those dead reads so the
-    // bundle links and boots; prepended as a chunk banner so it runs before any module body.
+    // renderer links and boots. Injected as an inline <head> classic script via
+    // transformIndexHtml (NOT a build-only rollup banner): the dev server applies no rollup
+    // `output` options, so a banner leaves `npm run dev` crashing on boot while the packaged
+    // build is fine — the HTML injection runs in BOTH dev and build, and a classic head
+    // script executes before the deferred entry module.
     public static readonly ProcessShim =
         'globalThis.process = globalThis.process || '
         + '{ platform: "browser", env: {}, versions: {}, argv: [], cwd: function () { return "/"; } };'
@@ -73,6 +77,19 @@ class RendererNodeBoundary
                 const name = id.slice(prefix.length)
                 if (pathIds.has(name)) return { code: RendererNodeBoundary.PathModule, syntheticNamedExports: 'default', moduleSideEffects: false }
                 return { code: RendererNodeBoundary.DeadStub, syntheticNamedExports: 'default', moduleSideEffects: false }
+            },
+            // Runs in BOTH dev and build — see ProcessShim. `head-prepend` + a classic
+            // (non-module) script guarantees the shim executes before the deferred entry
+            // module, so the first dead `process.platform` read already has its global.
+            transformIndexHtml()
+            {
+                return [
+                    {
+                        tag: 'script',
+                        injectTo: 'head-prepend',
+                        children: RendererNodeBoundary.ProcessShim,
+                    },
+                ]
             },
         }
     }
@@ -159,9 +176,6 @@ export default defineConfig({
     build: {
       rollupOptions: {
         input: { index: resolve('src/renderer/index.html') },
-        // Minimal `process` global for dead node-package code (readdirp, …) pulled into
-        // the renderer graph by the shared todl barrels. See RendererNodeBoundary.ProcessShim.
-        output: { banner: RendererNodeBoundary.ProcessShim },
       },
     },
   },
