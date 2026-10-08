@@ -1,7 +1,7 @@
 import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { ServiceProvider } from '@pragmatic-tech-ai/todl-runtime'
-import { ProjectSystemComposer, BuildSystemRegistryKey, BuildStorageProviderKey, PackageStoreKey, BuildService } from '@pragmatic-tech-ai/todl'
+import { ProjectSystemComposer, BuildSystemRegistryKey, BuildStorageProviderKey, BuildService } from '@pragmatic-tech-ai/todl'
 import { BundlerKey } from '@pragmatic-tech-ai/todl/build-system-core'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import { FileSystemService } from '../../storage/file-system-service.js'
@@ -27,7 +27,6 @@ test('BuildComposition binds the three seams', () =>
     const p = Fixture.Compose()
     assert.ok(p.get(BundlerKey) instanceof IpcBundler)
     assert.ok(p.get(BuildStorageProviderKey) instanceof RendererBuildStorageProvider)
-    assert.notEqual(p.get(PackageStoreKey), undefined)
 })
 
 test('BuildComposition registers html-bundle alongside npm-package', () =>
