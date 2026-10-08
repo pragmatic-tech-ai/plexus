@@ -76,6 +76,7 @@ import { ConnectionEditingService, type IConnectionHost } from './connection-edi
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { InfoDialog } from './info-dialog.js'
 import { DocOwnership, type ReloadableDocument } from './doc-ownership.js'
+import { EnvironmentService } from '../../../environment/environment-service.js'
 import {
     MemberContentOps,
     RenameError,
@@ -130,6 +131,14 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // diagnostic prefix for a thrown publish (vs. a diagnostics failure).
     private static readonly PublishOwner = 'publish'
     private static readonly PublishingPrefix = 'Publishing '
+    private static readonly PublishOperation = 'Publishing'
+    // The published package's on-disk home is the app's packages backend,
+    // <userData>/packages/<id>/<version> (see packages-backend.ts). Named here so the
+    // success log can tell the user WHERE it went. [[feedback_user_facing_progress_messages]]
+    private static readonly PackagesFolder = 'packages'
+    private static readonly PublishedPrefix = 'Published '
+    private static readonly LocalStoreLabel = ' to the local package store'
+    private static readonly CoordSeparator = '@'
     private static readonly PublishFailedPrefix = 'Publish failed: '
 
     // Dialog widths (match the legacy explorer).
@@ -605,13 +614,32 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         const { done } = work.submit<InlineJob<BuildPublishOutcome>, BuildPublishOutcome>({
             kind: TaskKind.Publish,
             title,
-            payload: async (ctx) => PublishFailure.Guard(await build.Publish(storage, new BuildProgressReporter(ctx))),
+            payload: async (ctx) =>
+            {
+                const reporter = new BuildProgressReporter(ctx, SolutionWorkspaceService.PublishOperation)
+                const outcome = await build.Publish(storage, reporter)
+                if (outcome.Ok) ctx.log(this.PublishedLocationLine(outcome))
+                return PublishFailure.Guard(outcome)
+            },
         })
         return done.catch((e) =>
         {
             if (e instanceof PublishFailure) return e.Outcome
             throw e
         })
+    }
+
+    // The final "where it went" line appended to a successful publish's log: the package
+    // coordinate (<id>@<version>) and its on-disk home in the local package store, so the
+    // user can see and verify the result rather than reading internal step ids.
+    private PublishedLocationLine(outcome: BuildPublishOutcome): string
+    {
+        const coord = `${outcome.Id}${SolutionWorkspaceService.CoordSeparator}${outcome.Version}`
+        const head = `${SolutionWorkspaceService.PublishedPrefix}${coord}${SolutionWorkspaceService.LocalStoreLabel}`
+        const env = this.Provider.get(EnvironmentService.Key)
+        if (env === undefined) return head
+        const path = [env.UserDataDirectory, SolutionWorkspaceService.PackagesFolder, outcome.Id, outcome.Version].join(env.PathSeparator)
+        return `${head} (${path})`
     }
 
     private ApplyPublishOutcome(member: SolutionMember, outcome: BuildPublishOutcome): void

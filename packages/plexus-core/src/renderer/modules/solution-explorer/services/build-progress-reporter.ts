@@ -24,23 +24,45 @@ export class BuildProgressReporter implements IBuildProgress
     private static readonly NoProgress = 0
     private static readonly Complete = 1
     private static readonly SingleProject = 1
-    private static readonly ActionIndent = '    '
-    private static readonly BuildingPrefix = 'Building '
-    private static readonly ProjectStartPrefix = '› '
-    private static readonly StatusSeparator = ': '
+    private static readonly ActionIndent = '  '
+    private static readonly DefaultOperation = 'Building'
+    private static readonly StartSuffix = '…'
+    private static readonly ActionFailedSuffix = ' failed'
+    private static readonly WordSeparator = ' '
+    private static readonly IdSeparator = '-'
     private static readonly FailedLabel = 'error: '
     private static readonly WarningLabel = 'warning: '
     private static readonly InfoLabel = ''
+    private static readonly BuiltStatusText = 'built successfully'
+    private static readonly FailedStatusText = 'failed'
+    private static readonly SkippedStatusText = 'skipped'
+    // Internal build-action ids → plain-language descriptions for the user-facing log.
+    // One home for the step wording; an unmapped action falls back to a humanized id.
+    private static readonly ActionLabels: Readonly<Record<string, string>> = {
+        'resolve-bases':       'Resolving referenced packages',
+        'compile-model':       'Compiling the model',
+        'compile-mural':       'Compiling views',
+        'stamp-resource-keys': 'Assigning resource keys',
+        'bake-resources':      'Baking icons and presentation',
+        'emit-bundle':         'Bundling the palette',
+        'emit-package-layout': 'Writing the package layout',
+        'publish-package':     'Publishing to the registry',
+        'bundle-app':          'Bundling the app',
+        'emit-entry':          'Writing the entry point',
+        'emit-bundled-host':   'Writing the host page',
+    }
 
     private readonly sink: ITaskProgressSink
+    private readonly operation: string
     private projectsTotal = BuildProgressReporter.SingleProject
     private projectsDone = 0
     private actionsTotal = 0
     private actionsDone = 0
 
-    constructor(sink: ITaskProgressSink)
+    constructor(sink: ITaskProgressSink, operation: string = BuildProgressReporter.DefaultOperation)
     {
         this.sink = sink
+        this.operation = operation
     }
 
     public SolutionStarted(order: readonly ProjectId[]): void
@@ -54,13 +76,14 @@ export class BuildProgressReporter implements IBuildProgress
     {
         this.actionsTotal = actions.length
         this.actionsDone = 0
-        this.sink.log(`${BuildProgressReporter.ProjectStartPrefix}${id}`)
-        this.sink.report(this.Fraction(), `${BuildProgressReporter.BuildingPrefix}${id}`)
+        const header = `${this.operation}${BuildProgressReporter.WordSeparator}${id}${BuildProgressReporter.StartSuffix}`
+        this.sink.log(header)
+        this.sink.report(this.Fraction(), header)
     }
 
     public ActionStarted(_project: ProjectId, action: string): void
     {
-        this.sink.log(`${BuildProgressReporter.ActionIndent}${action}`)
+        this.sink.log(`${BuildProgressReporter.ActionIndent}${BuildProgressReporter.FriendlyAction(action)}${BuildProgressReporter.StartSuffix}`)
     }
 
     public ActionFinished(_project: ProjectId, action: string, status: ActionStatus): void
@@ -68,7 +91,7 @@ export class BuildProgressReporter implements IBuildProgress
         this.actionsDone += 1
         if (status === ActionStatus.Failed)
         {
-            this.sink.log(`${BuildProgressReporter.ActionIndent}${action}${BuildProgressReporter.StatusSeparator}${status}`)
+            this.sink.log(`${BuildProgressReporter.ActionIndent}${BuildProgressReporter.FriendlyAction(action)}${BuildProgressReporter.ActionFailedSuffix}`)
         }
         this.sink.report(this.Fraction())
     }
@@ -78,7 +101,7 @@ export class BuildProgressReporter implements IBuildProgress
         this.projectsDone += 1
         this.actionsTotal = 0
         this.actionsDone = 0
-        this.sink.log(`${id}${BuildProgressReporter.StatusSeparator}${status}`)
+        this.sink.log(`${id}${BuildProgressReporter.WordSeparator}${BuildProgressReporter.FriendlyStatus(status)}`)
         this.sink.report(this.Fraction())
     }
 
@@ -95,6 +118,32 @@ export class BuildProgressReporter implements IBuildProgress
         const total = this.projectsTotal > 0 ? this.projectsTotal : BuildProgressReporter.SingleProject
         const within = this.actionsTotal > 0 ? this.actionsDone / this.actionsTotal : 0
         return Math.min(BuildProgressReporter.Complete, (this.projectsDone + within) / total)
+    }
+
+    // A plain-language label for an internal build-action id (see ActionLabels); an
+    // unmapped id is humanized ("emit-bundled-host" → "Emit bundled host"), so a new
+    // action still reads sensibly rather than leaking its raw id.
+    private static FriendlyAction(id: string): string
+    {
+        const mapped = BuildProgressReporter.ActionLabels[id]
+        if (mapped !== undefined) return mapped
+        const words = id.split(BuildProgressReporter.IdSeparator)
+        const head = words[0] ?? id
+        const capitalized = head.charAt(0).toUpperCase() + head.slice(1)
+        return [capitalized, ...words.slice(1)].join(BuildProgressReporter.WordSeparator)
+    }
+
+    private static FriendlyStatus(status: ProjectBuildStatus): string
+    {
+        switch (status)
+        {
+            case ProjectBuildStatus.Built:
+                return BuildProgressReporter.BuiltStatusText
+            case ProjectBuildStatus.Failed:
+                return BuildProgressReporter.FailedStatusText
+            default:
+                return BuildProgressReporter.SkippedStatusText
+        }
     }
 
     private static LabelFor(severity: Severity): string

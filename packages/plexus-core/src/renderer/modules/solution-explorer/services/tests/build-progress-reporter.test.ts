@@ -55,17 +55,37 @@ describe('BuildProgressReporter', () =>
         expect(sink.Fractions[sink.Fractions.length - 1]).toBe(0.5)
     })
 
-    it('logs each started action and the per-project terminal status', () =>
+    it('logs each started action in plain language and a friendly terminal status', () =>
     {
         const sink = new RecordingSink()
         const reporter = new BuildProgressReporter(sink)
 
-        reporter.ProjectStarted('a', ['compile'])
-        reporter.ActionStarted('a', 'compile')
+        reporter.ProjectStarted('a', ['compile-model'])
+        reporter.ActionStarted('a', 'compile-model')
         reporter.ProjectFinished('a', ProjectBuildStatus.Failed)
 
-        expect(sink.Lines.some((l) => l.includes('compile'))).toBe(true)
-        expect(sink.Lines.some((l) => l.includes(ProjectBuildStatus.Failed))).toBe(true)
+        expect(sink.Lines).toContain('  Compiling the model…')
+        expect(sink.Lines).toContain('a failed')
+    })
+
+    it('humanizes an unmapped action id rather than leaking the raw id', () =>
+    {
+        const sink = new RecordingSink()
+        const reporter = new BuildProgressReporter(sink)
+
+        reporter.ActionStarted('a', 'emit-widget-manifest')
+
+        expect(sink.Lines).toContain('  Emit widget manifest…')
+    })
+
+    it('uses the given operation verb in the project header', () =>
+    {
+        const sink = new RecordingSink()
+        const reporter = new BuildProgressReporter(sink, 'Publishing')
+
+        reporter.ProjectStarted('tech-architecture', ['resolve-bases'])
+
+        expect(sink.Lines).toContain('Publishing tech-architecture…')
     })
 
     it('logs a diagnostic with its severity label', () =>
