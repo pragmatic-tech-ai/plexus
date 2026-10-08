@@ -50,7 +50,7 @@ class RendererNodeBoundary
 
     // The dead renderer code imports stubbed modules with NAMED specifiers —
     // `import { gunzipSync } from "node:zlib"`, `import { join } from "node:path"`,
-    // `import { build } from "esbuild"`. Rollup satisfies those off the stub's default
+    // `import { readFileSync } from "node:fs"`. Rollup satisfies those off the stub's default
     // export via `syntheticNamedExports` (build), but Vite's dev server validates named
     // imports with es-module-lexer and does NOT honor syntheticNamedExports, so dev boots
     // into `does not provide an export named 'gunzipSync'`. Rewrite each named import of a

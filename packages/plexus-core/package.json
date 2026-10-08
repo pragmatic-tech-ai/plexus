@@ -31,7 +31,6 @@
     "./renderer/modules/solution-seams/*": "./dist/renderer/modules/solution-seams/*",
     "./renderer/modules/preview-server": "./dist/renderer/modules/preview-server/index.js",
     "./renderer/modules/preview-server/*": "./dist/renderer/modules/preview-server/*",
-    "./renderer/modules/build": "./dist/renderer/modules/build/index.js",
     "./renderer/modules/build/*": "./dist/renderer/modules/build/*",
     "./shared/*.js": "./dist/shared/*.js"
   },
