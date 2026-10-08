@@ -30,6 +30,11 @@ describe('TaskHandle', () => {
         expect(h.Output).toBe('a\nb\n')
     })
 
+    it('log() mirrors each line into OutputLines (one row per step)', () => {
+        const h = make(); h.log('step 1'); h.log('step 2')
+        expect([...h.OutputLines].map((l) => l.Text)).toEqual(['step 1', 'step 2'])
+    })
+
     it('succeed() resolves Done with the result and marks Succeeded', async () => {
         const h = make(); h.markRunning(); h.succeed(42)
         expect(h.Status).toBe(TaskStatus.Succeeded)

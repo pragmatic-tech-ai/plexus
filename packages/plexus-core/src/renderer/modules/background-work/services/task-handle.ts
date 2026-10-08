@@ -1,4 +1,4 @@
-import { MuralBase, MetaData, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
+import { MuralBase, MetaData, ObservableCollection, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 
 // Lifecycle of one background task.
 export enum TaskStatus
@@ -9,6 +9,20 @@ export enum TaskStatus
     Failed     = 'failed',
     Cancelling = 'cancelling',
     Cancelled  = 'cancelled',
+}
+
+// One line of a task's output log — a value object so the output document can render
+// the log line-by-line in a vertical ItemsControl. A plain TextBlock bound to the
+// whole Output string collapses the log's newlines onto one line (mural's text layout
+// treats `\n` as a space), so each step needs its own element. Text is set once.
+export class LogLine
+{
+    public readonly Text: string
+
+    constructor(text: string)
+    {
+        this.Text = text
+    }
 }
 
 function abortError(): DOMException { return new DOMException('Task cancelled', 'AbortError') }
@@ -40,6 +54,9 @@ export class TaskHandle extends MuralBase
     public readonly Id: string
     public readonly Kind: string
     public readonly Done: Promise<unknown>
+    // The log as a live collection of lines, mirroring the Output string. The output
+    // document binds this (not Output) so each step renders on its own row.
+    private readonly _outputLines = new ObservableCollection<LogLine>()
     private readonly controller = new AbortController()
     private _resolve!: (v: unknown) => void
     private _reject!:  (e: unknown) => void
@@ -63,6 +80,7 @@ export class TaskHandle extends MuralBase
     public get IsIndeterminate(): boolean { return this.get_property_value(TaskHandle.IsIndeterminateKey) }
     public get Note(): string { return this.get_property_value(TaskHandle.NoteKey) }
     public get Output(): string { return this.get_property_value(TaskHandle.OutputKey) }
+    public get OutputLines(): ObservableCollection<LogLine> { return this._outputLines }
     public get Error(): string { return this.get_property_value(TaskHandle.ErrorKey) }
     public get IsRunning(): boolean { return this.get_property_value(TaskHandle.IsRunningKey) }
     public get IsQueued(): boolean { return this.get_property_value(TaskHandle.IsQueuedKey) }
@@ -84,6 +102,7 @@ export class TaskHandle extends MuralBase
     public log(line: string): void
     {
         this.set_property_value(TaskHandle.OutputKey, this.Output + line + '\n')
+        this._outputLines.Add(new LogLine(line))
     }
 
     public throwIfCancelled(): void { if (this.controller.signal.aborted) throw abortError() }

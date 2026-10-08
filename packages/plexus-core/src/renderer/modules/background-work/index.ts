@@ -10,6 +10,6 @@
 // service classes from this barrel.
 export { BackgroundWorkService, BackgroundWorkServiceKey, type SubmitResult } from './services/background-work-service.js'
 export { TaskExecutorRegistry, TaskKind, type BackgroundTask, type ITaskContext, type ITaskExecutor } from './services/task-executor.js'
-export { TaskHandle, TaskStatus } from './services/task-handle.js'
+export { TaskHandle, TaskStatus, LogLine } from './services/task-handle.js'
 export { InlineExecutor, type InlineJob } from './services/inline-executor.js'
 export { TaskOutputDocument } from './services/task-output-document.js'
