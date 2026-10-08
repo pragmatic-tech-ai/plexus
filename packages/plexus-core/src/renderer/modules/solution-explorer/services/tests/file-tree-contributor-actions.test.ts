@@ -78,7 +78,7 @@ function fakeMutations(): IContentMutations & { deleted: [SolutionMember, string
         DeleteMemberFiles: async (m: SolutionMember, ps: readonly string[]) => { for (const p of ps) rec.deleted.push([m, p]) },
         NewFileForMember: async () => {}, NewFolderForMember: async () => {},
         ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
-        MoveMemberNodes: async () => {}, PublishMember: async () => {},
+        MoveMemberNodes: async () => {}, EnsureMemberGenerated: async () => {}, PublishMember: async () => {},
         BumpMemberVersion: async () => {}, SetMemberVersion: async () => {},
         ManageMemberReferences: async () => {}, RefreshMemberBases: () => {},
         UpdateMemberAgentMetadata: async () => {}, CloseMember: async () => {}, RemoveMember: async () => {},

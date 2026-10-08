@@ -18,6 +18,11 @@ export interface IContentMutations
     ImportFilesForMember(member: SolutionMember, target: string): Promise<void>
     ImportFolderForMember(member: SolutionMember, target: string): Promise<void>
     MoveMemberNodes(member: SolutionMember, paths: readonly string[], destPath: string): Promise<void>
+    // Ensure the member's generated content (generated/model.ts, generated/app.mu) is
+    // present before a build requires it — runs the project's content generators against
+    // its now-resolved bases. Idempotent (only produces files that are missing). Closes the
+    // gap where a project opened before its bases were published never regenerated.
+    EnsureMemberGenerated(member: SolutionMember): Promise<void>
     PublishMember(member: SolutionMember): Promise<void>
     BumpMemberVersion(member: SolutionMember, part: VersionPart): Promise<void>
     SetMemberVersion(member: SolutionMember): Promise<void>

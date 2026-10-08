@@ -31,6 +31,8 @@ import {
     BuildService,
     MemberProjectOps,
     ProjectEventsKey,
+    ProjectEventKind,
+    parseManifest,
     ProjectType,
     ProjectNodeKind,
     SolutionLanguageService,
@@ -47,6 +49,7 @@ import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtim
 import {
     isVersioned,
     ProjectFactoryRegistryKey,
+    PROJECT_MANIFEST_FILENAME,
     type IProjectFactory,
     type ProjectFileFormat,
 } from '../../../projects/project-factory.js'
@@ -600,6 +603,30 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
             await this.projectOps.RefreshBases(member)
             await validation?.ResyncProject(storage.Root, storage)
             await validation?.RefreshBases(storage)
+        }
+    }
+
+    // Raise an Opened lifecycle event for the member so the generator scheduler backfills any
+    // MISSING generated/ content (generated/model.ts via model-dto, generated/app.mu via app-ui)
+    // against the member's now-resolved bases — before a build requires those files. The backfill
+    // only writes files that are absent (never overwriting edits), so this is a safe, idempotent
+    // pre-build step. It closes the gap where a project opened before its bases were published ran
+    // its generators once with unresolved bases (producing nothing) and never re-ran, so the build
+    // failed its "generated/… is missing — run generator …" require-check.
+    public async EnsureMemberGenerated(member: SolutionMember): Promise<void>
+    {
+        const storage = member.Storage
+        if (storage === undefined) return
+        const events = this.Provider.get(ProjectEventsKey)
+        if (events === undefined) return
+        try
+        {
+            const manifest = parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
+            await events.Raise({ Kind: ProjectEventKind.Opened, ProjectType: manifest.type, Project: storage, Manifest: manifest })
+        }
+        catch
+        {
+            // No/invalid manifest → nothing to generate for; the build's own require-check reports it.
         }
     }
 

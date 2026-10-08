@@ -139,6 +139,10 @@ export class BuildContributor implements IHierarchyContributor
         const title = `${BuildContributor.BuildTitlePrefix}${member.Title}`
         void work.run(title, async (ctx) =>
         {
+            // Ensure the project's generated content exists before the build requires it — a
+            // project opened before its bases were published never regenerated, so without this
+            // the build fails its "generated/… is missing" check even though the bases now resolve.
+            await this.mutations.EnsureMemberGenerated(member)
             const options = { OutputRootOverride: BuildContributor.ProjectBuildDir(storage) }
             const result = await this.buildService.Build(storage, systemId, flavorId, new BuildProgressReporter(ctx), options)
             if (!result.Result.Ok)

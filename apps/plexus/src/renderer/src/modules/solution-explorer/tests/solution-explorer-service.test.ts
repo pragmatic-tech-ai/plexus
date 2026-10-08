@@ -40,6 +40,7 @@ class FakeWorkspace
     public async ImportFilesForMember(): Promise<void> {}
     public async ImportFolderForMember(): Promise<void> {}
     public async MoveMemberNodes(): Promise<void> {}
+    public async EnsureMemberGenerated(): Promise<void> {}
     public async PublishMember(): Promise<void> {}
     public async BumpMemberVersion(): Promise<void> {}
     public async SetMemberVersion(): Promise<void> {}

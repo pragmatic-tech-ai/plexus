@@ -77,6 +77,7 @@ class BuildTestHelper
             NewFileForMember: async () => {}, NewFolderForMember: async () => {},
             ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
             MoveMemberNodes: async () => {},
+            EnsureMemberGenerated: async () => {},
             PublishMember: async (m: SolutionMember) => { rec.published.push(m) },
             BumpMemberVersion: async () => {}, SetMemberVersion: async () => {},
             ManageMemberReferences: async () => {}, RefreshMemberBases: () => {},
@@ -199,6 +200,20 @@ describe('BuildContributor.runBuild', () =>
         expect(svc.builds[0].progress).toBeInstanceOf(BuildProgressReporter)
         // Output is rooted at the project's own build/ dir so projects don't clobber a shared one.
         expect(svc.builds[0].options).toEqual({ OutputRootOverride: '/proj/build' })
+    })
+
+    it('ensures the member is generated before building it', async () =>
+    {
+        const svc = new FakeBuildService()
+        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
+        let ensured: SolutionMember | undefined
+        const mutations = BuildTestHelper.FakeMutations({ EnsureMemberGenerated: async (m: SolutionMember) => { ensured = m } })
+        const w = BuildTestHelper.FakeWork()
+        const c = new BuildContributor(svc.AsService(), w.work, mutations)
+        c.Resolve(BuildContributor.BuildRunId('html-bundle', 'html-bundle'), BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))!.Execute()
+        await w.done()
+        expect(ensured).toBe(member)
+        expect(svc.builds).toHaveLength(1)
     })
 
     it('throws the formatted diagnostics on a non-Ok result', async () =>

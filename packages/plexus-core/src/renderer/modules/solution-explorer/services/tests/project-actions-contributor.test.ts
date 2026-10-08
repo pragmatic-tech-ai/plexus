@@ -25,7 +25,7 @@ function fakeMutations(over: Partial<IContentMutations> = {}): IContentMutations
         RenameMemberFile: async () => {}, DeleteMemberFiles: async () => {},
         NewFileForMember: async () => {}, NewFolderForMember: async () => {},
         ImportFilesForMember: async () => {}, ImportFolderForMember: async () => {},
-        MoveMemberNodes: async () => {}, PublishMember: async () => {},
+        MoveMemberNodes: async () => {}, EnsureMemberGenerated: async () => {}, PublishMember: async () => {},
         BumpMemberVersion: async (m: SolutionMember) => { rec.bumped.push(m) }, SetMemberVersion: async () => {},
         ManageMemberReferences: async () => {}, RefreshMemberBases: () => {},
         UpdateMemberAgentMetadata: async () => {}, CloseMember: async () => {},
