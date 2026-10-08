@@ -2,10 +2,8 @@ import { join } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { Solution } from '@pragmatic-tech-ai/todl'
-import type { IBuildProgress } from '@pragmatic-tech-ai/todl/build-system-core'
 import { HtmlAppContributor } from '../html-app-contributor.js'
-import type { IBuildClient } from '../../../build/index.js'
-import type { BuildRunRequest, BuildRunResult, BuildApplicable } from '../../../../../shared/build-api.js'
+import { BuildProgressReporter } from '../build-progress-reporter.js'
 
 // A fake project row carrying its member as ExtObject (what FileTreeContributor.MemberOf matches).
 class FakeItem
@@ -41,31 +39,19 @@ class HtmlAppTestHelper
     }
 }
 
-class FakeBuildClient implements IBuildClient
+// A fake BuildService: records Build calls and returns a canned ProjectBuildOutput.
+class FakeBuildService
 {
-    public Requests: BuildRunRequest[] = []
-    public Disposed = 0
-    public Subscribed: string[] = []
+    public Calls: Array<{ storage: unknown; systemId: string; flavorId: string | undefined; progress: unknown; options: any }> = []
 
-    constructor(private readonly result: BuildRunResult)
+    constructor(private readonly result: unknown)
     {
     }
 
-    public Build(req: BuildRunRequest): Promise<BuildRunResult>
+    public Build(storage: unknown, systemId: string, flavorId?: string, progress?: unknown, options?: any): Promise<unknown>
     {
-        this.Requests.push(req)
+        this.Calls.push({ storage, systemId, flavorId, progress, options })
         return Promise.resolve(this.result)
-    }
-
-    public Applicable(_manifestJson: string): Promise<readonly BuildApplicable[]>
-    {
-        return Promise.resolve([])
-    }
-
-    public OnProgress(runId: string, _p: IBuildProgress): { dispose: () => void }
-    {
-        this.Subscribed.push(runId)
-        return { dispose: () => { this.Disposed++ } }
     }
 }
 
@@ -84,74 +70,70 @@ class HtmlAppFakes
 
 describe('HtmlAppContributor', () =>
 {
-    it('Open HTML app builds html-bundle via the client with the build-root override, then opens index.html', async () =>
+    it('Open HTML app builds html-bundle via BuildService with the build-root override, then opens index.html', async () =>
     {
         const calls: any = {}
-        const client = new FakeBuildClient({ Ok: true, OutputPath: '/out', Diagnostics: [] })
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(client as any, work as any, HtmlAppFakes.Fs(calls))
-        c.Resolve('html.open', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
+        const member = HtmlAppTestHelper.Member()
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls))
+        c.Resolve('html.open', HtmlAppTestHelper.CtxFor(member))!.Execute()
         await work.task
-        expect(client.Requests).toHaveLength(1)
-        expect(client.Requests[0].systemId).toBe('html-bundle')
-        expect(client.Requests[0].flavorId).toBe('html-bundle')
-        expect(client.Requests[0].projectRoot).toBe('/proj/')
-        expect(client.Requests[0].options.OutputRootOverride).toBe('/proj/build')
-        expect(client.Subscribed).toEqual([client.Requests[0].runId])
-        expect(client.Disposed).toBe(1)
+        expect(svc.Calls).toHaveLength(1)
+        expect(svc.Calls[0].storage).toBe(member.Storage)
+        expect(svc.Calls[0].systemId).toBe('html-bundle')
+        expect(svc.Calls[0].flavorId).toBe('html-bundle')
+        expect(svc.Calls[0].progress).toBeInstanceOf(BuildProgressReporter)
+        expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build' })
         expect(calls.opened).toBe(join('/out', 'index.html'))
     })
 
-    it('Open HTML app does not open when the build fails, and still disposes the subscription', async () =>
+    it('Open HTML app does not open when the build fails', async () =>
     {
         const calls: any = {}
-        const client = new FakeBuildClient({ Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] })
+        const svc = new FakeBuildService({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] } })
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(client as any, work as any, HtmlAppFakes.Fs(calls))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls))
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(calls.opened).toBeUndefined()
-        expect(client.Disposed).toBe(1)
     })
 
     it('Open HTML app throws when the build reports no output path', async () =>
     {
         const calls: any = {}
-        const client = new FakeBuildClient({ Ok: true, OutputPath: undefined, Diagnostics: [] } as BuildRunResult)
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: undefined, Diagnostics: [] } })
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(client as any, work as any, HtmlAppFakes.Fs(calls))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls))
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Build produced no output path to serve')
         expect(calls.opened).toBeUndefined()
-        expect(client.Disposed).toBe(1)
     })
 
     it('Serve HTML app builds, starts the server for the output dir, and opens its URL', async () =>
     {
         const calls: any = {}
-        const client = new FakeBuildClient({ Ok: true, OutputPath: '/out', Diagnostics: [] })
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const opened: string[] = []
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(client as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
         c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await work.task
-        expect(client.Requests[0].options).toEqual({ OutputRootOverride: '/proj/build' })
+        expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build' })
         expect(calls.served).toBe('/out')
         expect(opened).toEqual(['http://127.0.0.1:4599'])
-        expect(client.Disposed).toBe(1)
     })
 
     it('Serve HTML app does not start the server or open when the build fails', async () =>
     {
         const calls: any = {}
-        const client = new FakeBuildClient({ Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] })
+        const svc = new FakeBuildService({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] } })
         const opened: string[] = []
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(client as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
         c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(calls.served).toBeUndefined()
         expect(opened).toEqual([])
-        expect(client.Disposed).toBe(1)
     })
 })

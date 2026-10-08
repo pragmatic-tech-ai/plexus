@@ -2,12 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition } from '@pragmatic-tech-ai/mural/framework'
-import { Solution, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { Solution, type BuildService, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import type { BuildSystemRegistry } from '@pragmatic-tech-ai/todl/build-system-core'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { BuildContributor, BuildFlavorSubmenuContributor } from '../build-contributor.js'
+import { BuildProgressReporter } from '../build-progress-reporter.js'
 import type { IContentMutations } from '../content-mutations.js'
-import type { IBuildClient } from '../../../build/index.js'
-import type { BuildRunRequest, BuildRunResult, BuildApplicable } from '../../../../../shared/build-api.js'
 
 // A fake project row: it carries its member as ExtObject (what FileTreeContributor.MemberOf
 // matches when BuildContributor.Resolve climbs to the owning member).
@@ -21,36 +21,49 @@ class FakeItem
     }
 }
 
-// A fake build client: records Build calls + progress subscriptions; Applicable resolves on demand.
-class FakeBuildClient implements IBuildClient
+interface BuildCall
 {
-    public builds: BuildRunRequest[] = []
-    public subscribed: string[] = []
-    public disposed = 0
-    public result: BuildRunResult = { Ok: true, Diagnostics: [] }
-    public applicableRows: readonly BuildApplicable[] = []
-    private pending: Array<() => void> = []
+    storage: unknown
+    systemId: string
+    flavorId: string | undefined
+    progress: unknown
+    options: unknown
+}
 
-    public async Build(req: BuildRunRequest): Promise<BuildRunResult>
+// A fake BuildService: records Build calls and returns a canned ProjectBuildOutput.
+class FakeBuildService
+{
+    public builds: BuildCall[] = []
+    public result: unknown = { Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } }
+
+    public async Build(storage: unknown, systemId: string, flavorId?: string, progress?: unknown, options?: unknown): Promise<unknown>
     {
-        this.builds.push(req)
+        this.builds.push({ storage, systemId, flavorId, progress, options })
         return this.result
     }
 
-    public Applicable(_manifestJson: string): Promise<readonly BuildApplicable[]>
+    public AsService(): BuildService
     {
-        return new Promise((resolve) => { this.pending.push(() => resolve(this.applicableRows)) })
+        return this as unknown as BuildService
+    }
+}
+
+// A fake BuildSystemRegistry: For() ignores the manifest and returns one system with the given flavors.
+class FakeRegistry
+{
+    constructor(private readonly flavors: ReadonlyArray<{ Id: string; DisplayName: string }>)
+    {
     }
 
-    public Resolve(): void
+    public For(_manifest: unknown): readonly unknown[]
     {
-        this.pending.splice(0).forEach((r) => r())
+        if (this.flavors.length === 0) return []
+        return [{ Id: 'html-bundle', DisplayName: 'HTML', Flavors: () => this.flavors }]
     }
 
-    public OnProgress(runId: string): { dispose(): void }
+    public AsRegistry(): BuildSystemRegistry
     {
-        this.subscribed.push(runId)
-        return { dispose: () => { this.disposed++ } }
+        return this as unknown as BuildSystemRegistry
     }
 }
 
@@ -85,9 +98,14 @@ class BuildTestHelper
         return new HierarchyActionContext(anchor, [anchor])
     }
 
-    public static NoBuild(): FakeBuildClient
+    public static NoBuild(): BuildService
     {
-        return new FakeBuildClient()
+        return new FakeBuildService().AsService()
+    }
+
+    public static HtmlRegistry(): BuildSystemRegistry
+    {
+        return new FakeRegistry([{ Id: 'html-bundle', DisplayName: 'HTML app' }]).AsRegistry()
     }
 
     public static SomeMember(): SolutionMember
@@ -99,13 +117,11 @@ class BuildTestHelper
     public static MemberWithManifest(json: string): SolutionMember
     {
         const m = new Solution('S').AddMember('./p', 'architecture')
-        m.Storage = { ReadText: async () => json, ResolveOsPath: (p: string) => p === '' ? '/proj' : `/proj/${p}` } as unknown as IStorage
+        m.Storage = { ReadText: async () => json } as unknown as IStorage
         return m
     }
 
-    public static readonly HtmlRow: BuildApplicable = { systemId: 'html-bundle', systemName: 'HTML', flavorId: 'html-bundle', flavorName: 'HTML app' }
-
-    public static readonly ValidManifest = '{"type":"architecture","name":"p","version":1}'
+    public static readonly ValidManifest = '{"type":"architecture","name":"a","version":1}'
 
     public static Flush(): Promise<void>
     {
@@ -120,11 +136,10 @@ class BuildTestHelper
         return { work: work as unknown as never, done: () => p }
     }
 
-    public static RunIt(client: FakeBuildClient)
+    public static RunIt(service: FakeBuildService, member: SolutionMember = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest))
     {
         const w = BuildTestHelper.FakeWork()
-        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
-        const c = new BuildContributor(client, w.work, BuildTestHelper.FakeMutations())
+        const c = new BuildContributor(service.AsService(), w.work, BuildTestHelper.FakeMutations())
         c.Resolve(BuildContributor.BuildRunId('html-bundle', 'html-bundle'), BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))!.Execute()
         return w
     }
@@ -172,25 +187,26 @@ describe('BuildContributor', () =>
 
 describe('BuildContributor.runBuild', () =>
 {
-    it('calls Build with runId/projectRoot/systemId/flavorId and registers + disposes progress', async () =>
+    it('calls Build with the member storage, systemId/flavorId and a BuildProgressReporter', async () =>
     {
-        const client = new FakeBuildClient()
-        await BuildTestHelper.RunIt(client).done()
-        expect(client.builds).toHaveLength(1)
-        expect(client.builds[0]).toMatchObject({ projectRoot: '/proj', systemId: 'html-bundle', flavorId: 'html-bundle' })
-        expect(client.subscribed).toEqual([client.builds[0].runId])
-        expect(client.disposed).toBe(1)
+        const svc = new FakeBuildService()
+        const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
+        await BuildTestHelper.RunIt(svc, member).done()
+        expect(svc.builds).toHaveLength(1)
+        expect(svc.builds[0].storage).toBe(member.Storage)
+        expect(svc.builds[0].systemId).toBe('html-bundle')
+        expect(svc.builds[0].flavorId).toBe('html-bundle')
+        expect(svc.builds[0].progress).toBeInstanceOf(BuildProgressReporter)
     })
 
-    it('throws the formatted diagnostics on a non-Ok result (and still disposes progress)', async () =>
+    it('throws the formatted diagnostics on a non-Ok result', async () =>
     {
-        const client = new FakeBuildClient()
-        client.result = { Ok: false, Diagnostics: [{ severity: 'error', message: 'boom' }] } as unknown as BuildRunResult
-        const err = await BuildTestHelper.RunIt(client).done()
+        const svc = new FakeBuildService()
+        svc.result = { Result: { Ok: false, Diagnostics: [{ severity: 'error', message: 'boom' }] } }
+        const err = await BuildTestHelper.RunIt(svc).done()
         expect(err).toBeInstanceOf(Error)
         expect((err as Error).message).toContain('Build failed: ')
         expect((err as Error).message).toContain('boom')
-        expect(client.disposed).toBe(1)
     })
 })
 
@@ -198,22 +214,18 @@ describe('BuildFlavorSubmenuContributor', () =>
 {
     const parent = new CommandDefinition()
 
-    it('shows Loading… before Applicable resolves', () =>
+    it('shows Loading… before the manifest read resolves', () =>
     {
-        const sub = new BuildFlavorSubmenuContributor(new FakeBuildClient())
+        const sub = new BuildFlavorSubmenuContributor(BuildTestHelper.HtmlRegistry())
         const rows = sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest))))
         expect(rows.map((r) => r.Title)).toEqual(['Loading…'])
     })
 
-    it('Warm caches the applicable rows and emits build.run::<system>::<flavor>', async () =>
+    it('Warm computes the applicable rows locally and emits build.run::<system>::<flavor>', async () =>
     {
-        const client = new FakeBuildClient()
-        client.applicableRows = [BuildTestHelper.HtmlRow]
-        const sub = new BuildFlavorSubmenuContributor(client)
+        const sub = new BuildFlavorSubmenuContributor(BuildTestHelper.HtmlRegistry())
         const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
         sub.Warm(member)
-        await BuildTestHelper.Flush()
-        client.Resolve()
         await BuildTestHelper.Flush()
         const rows = sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))
         expect(rows.map((r) => r.Id)).toEqual(['build.run::html-bundle::html-bundle'])
@@ -222,26 +234,28 @@ describe('BuildFlavorSubmenuContributor', () =>
 
     it('shows (nothing to build) when no system applies', async () =>
     {
-        const client = new FakeBuildClient()
-        const sub = new BuildFlavorSubmenuContributor(client)
+        const sub = new BuildFlavorSubmenuContributor(new FakeRegistry([]).AsRegistry())
         const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
         sub.Warm(member)
         await BuildTestHelper.Flush()
-        client.Resolve()
+        expect(sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member))).map((r) => r.Title)).toEqual(['(nothing to build)'])
+    })
+
+    it('shows (nothing to build) when the manifest text is unparseable', async () =>
+    {
+        const sub = new BuildFlavorSubmenuContributor(BuildTestHelper.HtmlRegistry())
+        const member = BuildTestHelper.MemberWithManifest('not json')
+        sub.Warm(member)
         await BuildTestHelper.Flush()
         expect(sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member))).map((r) => r.Title)).toEqual(['(nothing to build)'])
     })
 
     it('resolving the Build ▸ header warms the submenu', async () =>
     {
-        const client = new FakeBuildClient()
-        client.applicableRows = [BuildTestHelper.HtmlRow]
-        const sub = new BuildFlavorSubmenuContributor(client)
+        const sub = new BuildFlavorSubmenuContributor(BuildTestHelper.HtmlRegistry())
         const member = BuildTestHelper.MemberWithManifest(BuildTestHelper.ValidManifest)
-        const c = new BuildContributor(client, undefined, BuildTestHelper.FakeMutations(), sub)
+        const c = new BuildContributor(BuildTestHelper.NoBuild(), undefined, BuildTestHelper.FakeMutations(), sub)
         c.Resolve(BuildContributor.BuildMenuId, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member)))
-        await BuildTestHelper.Flush()
-        client.Resolve()
         await BuildTestHelper.Flush()
         expect(sub.Contribute(parent, BuildTestHelper.CtxFor(BuildTestHelper.MemberRow(member))).map((r) => r.Title)).toEqual(['HTML app'])
     })
