@@ -56,7 +56,7 @@ resources BackgroundWorkResources {
         MenuPopupHost x:name="PART_PopupHost" {
             ClickAwayScrim x:name="PART_Scrim"
             Border x:name="PART_PopupContainer"
-                [ Width = 420,
+                [ Width = $PopupWidth,
                   Fill = @Bg2, Stroke = Pen [ Brush = @Border ],
                   CornerRadius = @RadiusLg, Effect = @ShadowMd, Padding = (0) ] {
                 DockPanel [ LastChildFill = true ] {
@@ -72,7 +72,7 @@ resources BackgroundWorkResources {
                     // Hairline separating the header from the list.
                     Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border ]
                     // The task list (fills the remainder), capped in height.
-                    ScrollViewer [ MaxHeight = 320, HorizontalScrollEnabled = false ] {
+                    ScrollViewer [ MaxHeight = $ListMaxHeight, HorizontalScrollEnabled = false ] {
                         ItemsControl [ ItemsSource = $Tasks, ItemsPanel = @VerticalStackPanel ]
                     }
                 }
@@ -93,7 +93,7 @@ resources BackgroundWorkResources {
                 }
                 ProgressIndicator [ Value = $Progress, IsIndeterminate = $IsIndeterminate, Height = 4,
                                     Margin = (0,2,0,2), Visibility = $IsRunning << ToVisibility ]
-                TextBlock [ Text = $Note, Foreground = @Fg2, Style = @UiCaption ]
+                TextBlock [ Text = $LastLine, Foreground = @Fg2, Style = @UiCaption, TextTrimming = CharacterEllipsis ]
                 TextBlock [ Text = $Error, Foreground = @StateDanger, Style = @UiCaption,
                             Visibility = $Error << ToVisibility ]
                 // Re-run affordance for skill runs (Skills #4): re-opens the input

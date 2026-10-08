@@ -1,4 +1,5 @@
-import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import { ViewportKey, type IViewport } from '@pragmatic-tech-ai/plexus-core/renderer/viewport/viewport.js'
 
 // The window-height feed behind a seam so ViewportService is testable without a
 // real DOM. The default implementation (windowViewportSource) reads the renderer
@@ -26,9 +27,11 @@ function windowViewportSource(): IViewportSource
 // Subscribe listeners on every resize. Consumers that need a value derived from
 // the window size (the Problems popup caps its list at 30% of Height) subscribe
 // here rather than touching the DOM.
-export class ViewportService extends ServiceBase
+export class ViewportService extends ServiceBase implements IViewport
 {
-    public static readonly Key = new ServiceKey<ViewportService>('ViewportService')
+    // The seam key lives in plexus-core (IViewport), so lower-layer services (the
+    // Background Work dock) can resolve the same instance this app registers.
+    public static readonly Key = ViewportKey
 
     private _height = 0
     private _width = 0

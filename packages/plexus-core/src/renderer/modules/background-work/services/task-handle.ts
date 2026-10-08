@@ -40,6 +40,9 @@ export class TaskHandle extends MuralBase
     public static readonly IsIndeterminateKey = MuralBase.RegisterProperty<boolean>(TaskHandle, 'IsIndeterminate', true, MetaData.None)
     public static readonly NoteKey            = MuralBase.RegisterProperty<string>(TaskHandle, 'Note', '', MetaData.None)
     public static readonly OutputKey          = MuralBase.RegisterProperty<string>(TaskHandle, 'Output', '', MetaData.None)
+    // The most recent log line — the row's one-line description binds this (not the first
+    // progress note), so a finished task reads as finished rather than "just started".
+    public static readonly LastLineKey        = MuralBase.RegisterProperty<string>(TaskHandle, 'LastLine', '', MetaData.None)
     public static readonly ErrorKey           = MuralBase.RegisterProperty<string>(TaskHandle, 'Error', '', MetaData.None)
     public static readonly IsRunningKey       = MuralBase.RegisterProperty<boolean>(TaskHandle, 'IsRunning', false, MetaData.None)
     public static readonly IsQueuedKey        = MuralBase.RegisterProperty<boolean>(TaskHandle, 'IsQueued', true, MetaData.None)
@@ -80,6 +83,7 @@ export class TaskHandle extends MuralBase
     public get IsIndeterminate(): boolean { return this.get_property_value(TaskHandle.IsIndeterminateKey) }
     public get Note(): string { return this.get_property_value(TaskHandle.NoteKey) }
     public get Output(): string { return this.get_property_value(TaskHandle.OutputKey) }
+    public get LastLine(): string { return this.get_property_value(TaskHandle.LastLineKey) }
     public get OutputLines(): ObservableCollection<LogLine> { return this._outputLines }
     public get Error(): string { return this.get_property_value(TaskHandle.ErrorKey) }
     public get IsRunning(): boolean { return this.get_property_value(TaskHandle.IsRunningKey) }
@@ -102,6 +106,7 @@ export class TaskHandle extends MuralBase
     public log(line: string): void
     {
         this.set_property_value(TaskHandle.OutputKey, this.Output + line + '\n')
+        this.set_property_value(TaskHandle.LastLineKey, line)
         this._outputLines.Add(new LogLine(line))
     }
 

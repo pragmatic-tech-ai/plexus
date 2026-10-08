@@ -3,6 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { BackgroundWorkService } from '../background-work-service.js'
 import { TaskStatus } from '../task-handle.js'
 import { TaskKind, type ITaskContext, type ITaskExecutor } from '../task-executor.js'
+import { ViewportKey, type IViewport } from '../../../../viewport/viewport.js'
 
 function svc(): BackgroundWorkService { return new BackgroundWorkService(new ServiceProvider()) }
 
@@ -22,6 +23,21 @@ const tick = () => new Promise((r) => setTimeout(r, 0))
 describe('BackgroundWorkService', () => {
     it('summarises an empty queue', () => {
         expect(svc().SummaryText).toBe('No background tasks')
+    })
+
+    it('sizes the popup to the window via the viewport seam', () => {
+        const provider = new ServiceProvider()
+        const viewport: IViewport = { Width: 1400, Height: 900, Subscribe: () => () => {} }
+        provider.registerInstance(ViewportKey, viewport)
+        const s = new BackgroundWorkService(provider)
+        expect(s.PopupWidth).toBe(1400)
+        expect(s.ListMaxHeight).toBe(270)   // 30% of 900
+    })
+
+    it('falls back to fixed popup sizes when no viewport is available', () => {
+        const s = svc()
+        expect(s.PopupWidth).toBe(420)
+        expect(s.ListMaxHeight).toBe(320)
     })
 
     it('submit with an open override wires OpenOutputCommand to it', () => {

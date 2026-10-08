@@ -3,6 +3,7 @@ import {
     type ICommand, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
+import { ViewportKey } from '../../../viewport/viewport.js'
 import { TaskExecutorRegistry, TaskKind, type BackgroundTask, type ITaskContext, type ITaskExecutor } from './task-executor.js'
 import { TaskHandle, TaskStatus } from './task-handle.js'
 import { InlineExecutor, type InlineJob } from './inline-executor.js'
@@ -25,11 +26,20 @@ export class BackgroundWorkService extends ServiceBase
 {
     public static readonly Key = BackgroundWorkServiceKey
 
+    // Popup sizing mirrors the Problems dock: the popup spans the full window width and
+    // its list is capped at 30% of the window height, recomputed on every resize via the
+    // ViewportKey seam (falls back to fixed sizes when no viewport is available).
+    private static readonly ListHeightFraction = 0.3
+    private static readonly FallbackListMaxHeight = 320
+    private static readonly FallbackPopupWidth = 420
+
     private readonly _tasks = new ObservableCollection<TaskHandle>()
     private _runningCount = 0
     private _queuedCount = 0
     private _summaryText = 'No background tasks'
     private _isOpen = false
+    private _popupWidth = BackgroundWorkService.FallbackPopupWidth
+    private _listMaxHeight = BackgroundWorkService.FallbackListMaxHeight
     private readonly _clearCompletedCommand: ICommand
 
     private readonly registry = new TaskExecutorRegistry()
@@ -43,9 +53,23 @@ export class BackgroundWorkService extends ServiceBase
         super(provider)
         this._clearCompletedCommand = new RelayCommand(() => this.clearCompleted())
         this.registry.register(new InlineExecutor())
+        const viewport = provider.get(ViewportKey)
+        if (viewport !== undefined)
+        {
+            const sync = (): void => {
+                this.setPopupWidth(viewport.Width > 0 ? viewport.Width : BackgroundWorkService.FallbackPopupWidth)
+                this.setListMaxHeight(viewport.Height > 0 ? Math.round(viewport.Height * BackgroundWorkService.ListHeightFraction) : BackgroundWorkService.FallbackListMaxHeight)
+            }
+            sync()
+            viewport.Subscribe(sync)
+        }
     }
 
     public get Tasks(): ObservableCollection<TaskHandle> { return this._tasks }
+    public get PopupWidth(): number { return this._popupWidth }
+    private setPopupWidth(v: number): void { const o = this._popupWidth; if (o === v) return; this._popupWidth = v; this.RaisePropertyChanged('PopupWidth', o, v) }
+    public get ListMaxHeight(): number { return this._listMaxHeight }
+    private setListMaxHeight(v: number): void { const o = this._listMaxHeight; if (o === v) return; this._listMaxHeight = v; this.RaisePropertyChanged('ListMaxHeight', o, v) }
     public get RunningCount(): number { return this._runningCount }
     private setRunningCount(v: number): void { const o = this._runningCount; if (o === v) return; this._runningCount = v; this.RaisePropertyChanged('RunningCount', o, v) }
     public get QueuedCount(): number { return this._queuedCount }

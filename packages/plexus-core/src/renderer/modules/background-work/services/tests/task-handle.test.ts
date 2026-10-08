@@ -35,6 +35,14 @@ describe('TaskHandle', () => {
         expect([...h.OutputLines].map((l) => l.Text)).toEqual(['step 1', 'step 2'])
     })
 
+    it('LastLine tracks the most recent log line (so the row shows the latest message)', () => {
+        const h = make()
+        expect(h.LastLine).toBe('')
+        h.log('Resolving referenced packages…')
+        h.log('tech-architecture built successfully')
+        expect(h.LastLine).toBe('tech-architecture built successfully')
+    })
+
     it('succeed() resolves Done with the result and marks Succeeded', async () => {
         const h = make(); h.markRunning(); h.succeed(42)
         expect(h.Status).toBe(TaskStatus.Succeeded)

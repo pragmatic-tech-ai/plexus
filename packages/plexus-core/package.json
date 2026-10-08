@@ -19,6 +19,7 @@
     "./renderer/projects": "./dist/renderer/projects/index.js",
     "./renderer/projects/*": "./dist/renderer/projects/*",
     "./renderer/environment/*": "./dist/renderer/environment/*",
+    "./renderer/viewport/*": "./dist/renderer/viewport/*",
     "./renderer/documents/*": "./dist/renderer/documents/*",
     "./renderer/diagnostics/*": "./dist/renderer/diagnostics/*",
     "./renderer/dialogs/*": "./dist/renderer/dialogs/*",
