@@ -1,6 +1,4 @@
 import { resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { existsSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import type { Plugin } from 'vite'
@@ -118,18 +116,6 @@ const TODL_RUNTIME = '@pragmatic-tech-ai/todl-runtime'
 const MURAL = '@pragmatic-tech-ai/mural'
 const FRESCO = '@pragmatic-tech-ai/fresco'
 
-// @pragmatic-tech-ai/todl's dist entry — probe app-local then hoisted
-// workspace-root node_modules (npm workspaces hoist todl to the repo root).
-const TODL_DIST: string = (() => {
-  const rel = '@pragmatic-tech-ai/todl/dist/index.js'
-  const hit = [
-    new URL(`./node_modules/${rel}`, import.meta.url),
-    new URL(`../../node_modules/${rel}`, import.meta.url),
-  ].map((u) => fileURLToPath(u)).find(existsSync)
-  if (hit === undefined) throw new Error(`cannot resolve ${rel} in app or workspace-root node_modules`)
-  return hit
-})()
-
 // electron-vite drives three separate Rollup/Vite builds — main (Node),
 // preload (Node, isolated bridge), and renderer (Chromium). The renderer is
 // where mural lives: Vite bundles `mural/*` from the
@@ -156,16 +142,6 @@ export default defineConfig({
       // without it two theme copies load and the shell crashes on boot.
       conditions: MuralRendererConfig.resolve().conditions,
       dedupe: MuralRendererConfig.resolve().dedupe,
-      alias: [
-        // App-specific: @pragmatic-tech-ai/todl exposes only a ROOT ('.') export
-        // whose nested import.default → dist/index.js trips Vite's
-        // resolvePackageEntry; redirect the bare specifier to the built entry.
-        // The path is app-specific (probed above), so it stays here.
-        {
-          find: /^@pragmatic-tech-ai\/todl$/,
-          replacement: TODL_DIST,
-        },
-      ],
     },
     // Keep mural + fresco out of Vite's dep pre-bundler so a rebuilt framework
     // dist is served live and both share one mural instance (see plexus-core's
