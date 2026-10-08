@@ -4,6 +4,7 @@
   "private": true,
   "license": "Apache-2.0",
   "author": "Pragmatic Lab <evgen.napryaglo@gmail.com>",
+  "homepage": "https://github.com/pragmatic-tech-ai/plexus",
   "description": "Plexus - a diagram editor built on mural, packaged as an Electron desktop app (electron-vite). Sibling app in the mural repo: consumes mural through its published package surface (no relative ../src imports, no internals), so extracting to its own repo later is a config change, not a rewrite.",
   "main": "./out/main/index.js",
   "scripts": {
