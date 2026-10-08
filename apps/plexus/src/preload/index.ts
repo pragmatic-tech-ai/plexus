@@ -13,6 +13,8 @@ import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServ
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { BuildChannel, type BuildApplicable, type BuildProgressEvent, type BuildRunRequest, type BuildRunResult, type IBuildServerApi } from '@pragmatic-tech-ai/plexus-core/shared/build-api.js'
+import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
+import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
@@ -151,7 +153,13 @@ const build: IBuildServerApi = {
   },
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, build }
+// Bundler bridge — the html-bundle esbuild bundle runs in main; the renderer's IpcBundler
+// invokes this single channel.
+const bundle = {
+  Bundle: (request: BundleAppRequest): Promise<BundleAppResult> => ipcRenderer.invoke(BundleChannel.Bundle, request),
+}
+
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, build, bundle }
 
 if (process.contextIsolated)
 {

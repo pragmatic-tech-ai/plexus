@@ -25,6 +25,8 @@ import { PreviewServerManager } from './preview-server/preview-server-manager.js
 import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
 import { MainBuildProvider } from './build/main-build-provider.js'
 import { BuildIpc } from './build/register-build-ipc.js'
+import { BundleIpc } from './build/bundle-ipc.js'
+import { EsbuildBundler } from '@pragmatic-tech-ai/todl/project-system'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
 // the native caption strip to that scheme's title-bar surface + glyph ink; the
@@ -171,6 +173,8 @@ app.whenReady().then(async () => {
   // Build capability: todl builds run here in main (the renderer drives them over build:*).
   const buildProvider = new MainBuildProvider(app.getPath('userData'))
   BuildIpc.Register(ipcMain, buildProvider)
+  // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.
+  BundleIpc.Register(ipcMain, new EsbuildBundler())
 
   createWindow()
   Updater.init()
