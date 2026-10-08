@@ -6,6 +6,7 @@ import {
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition, type CommandContext, type ICommandContributor } from '@pragmatic-tech-ai/mural/framework'
 import { BuildService, parseManifest, type BuildSystemRegistryKey, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import type { ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { BuildProgressReporter } from './build-progress-reporter.js'
@@ -44,6 +45,10 @@ export class BuildContributor implements IHierarchyContributor
     private static readonly PublishLabel = 'Publish'
     private static readonly BuildTitlePrefix = 'Building '
     private static readonly BuildFailedPrefix = 'Build failed: '
+    // Build output lands in the project's own build/ dir (per OutputName under it), so each
+    // project's output is isolated — without an override the engine falls back to a single
+    // shared <userData>/build-output that one project's build would clobber for another.
+    private static readonly BuildDir = 'build'
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 20
@@ -134,13 +139,21 @@ export class BuildContributor implements IHierarchyContributor
         const title = `${BuildContributor.BuildTitlePrefix}${member.Title}`
         void work.run(title, async (ctx) =>
         {
-            const result = await this.buildService.Build(storage, systemId, flavorId, new BuildProgressReporter(ctx))
+            const options = { OutputRootOverride: BuildContributor.ProjectBuildDir(storage) }
+            const result = await this.buildService.Build(storage, systemId, flavorId, new BuildProgressReporter(ctx), options)
             if (!result.Result.Ok)
             {
                 throw new Error(`${BuildContributor.BuildFailedPrefix}${BuildService.FormatErrors(result.Result.Diagnostics)}`)
             }
             return result
         })
+    }
+
+    // The project's build/ output dir (OS path), via the storage's local-file access — the
+    // same per-project build root HtmlAppContributor.OutputRoot uses.
+    private static ProjectBuildDir(storage: SolutionMember['Storage']): string
+    {
+        return (storage as unknown as ILocalFileAccess).ResolveOsPath(BuildContributor.BuildDir)
     }
 }
 

@@ -117,7 +117,7 @@ class BuildTestHelper
     public static MemberWithManifest(json: string): SolutionMember
     {
         const m = new Solution('S').AddMember('./p', 'architecture')
-        m.Storage = { ReadText: async () => json } as unknown as IStorage
+        m.Storage = { ReadText: async () => json, ResolveOsPath: (p: string) => `/proj/${p}` } as unknown as IStorage
         return m
     }
 
@@ -197,6 +197,8 @@ describe('BuildContributor.runBuild', () =>
         expect(svc.builds[0].systemId).toBe('html-bundle')
         expect(svc.builds[0].flavorId).toBe('html-bundle')
         expect(svc.builds[0].progress).toBeInstanceOf(BuildProgressReporter)
+        // Output is rooted at the project's own build/ dir so projects don't clobber a shared one.
+        expect(svc.builds[0].options).toEqual({ OutputRootOverride: '/proj/build' })
     })
 
     it('throws the formatted diagnostics on a non-Ok result', async () =>
