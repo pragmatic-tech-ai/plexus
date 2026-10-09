@@ -51,7 +51,7 @@ export default defineConfig({
     resolve: { conditions: CONDITIONS, alias: ALIASES },
     ssr: { resolve: { conditions: CONDITIONS } },
     test: {
-        include: ['src/**/*.test.ts'],
+        include: ['src/**/*.test.ts', 'scripts/tests/**/*.test.ts'],
         environment: 'node',
         // Inline fresco AND todl/todl-runtime so Vite TRANSFORMS them and routes
         // their `@pragmatic-tech-ai/mural/*` imports through the dist aliases above
