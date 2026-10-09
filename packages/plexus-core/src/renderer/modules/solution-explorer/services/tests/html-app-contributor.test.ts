@@ -62,6 +62,12 @@ class HtmlAppFakes
         return { Start: (root: string) => { calls.served = root; return Promise.resolve({ Url: 'http://127.0.0.1:4599' }) }, Stop: () => Promise.resolve() }
     }
 
+    // A fake IContentMutations: records the member EnsureMemberGenerated saw and how many builds had run by then.
+    public static Mutations(calls: any, svc: FakeBuildService): any
+    {
+        return { EnsureMemberGenerated: (m: unknown) => { calls.ensured = m; calls.buildsAtEnsure = svc.Calls.length; return Promise.resolve() } }
+    }
+
     public static Fs(calls: any): any
     {
         return { OpenExternal: (p: string) => { calls.opened = p; return Promise.resolve() } }
@@ -76,7 +82,7 @@ describe('HtmlAppContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const work = HtmlAppTestHelper.Work()
         const member = HtmlAppTestHelper.Member()
-        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Mutations(calls, svc))
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(member))!.Execute()
         await work.task
         expect(svc.Calls).toHaveLength(1)
@@ -86,6 +92,8 @@ describe('HtmlAppContributor', () =>
         expect(svc.Calls[0].progress).toBeInstanceOf(BuildProgressReporter)
         expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build' })
         expect(calls.opened).toBe(join('/out', 'index.html'))
+        expect(calls.ensured).toBe(member)
+        expect(calls.buildsAtEnsure).toBe(0)
     })
 
     it('Open HTML app does not open when the build fails', async () =>
@@ -93,7 +101,7 @@ describe('HtmlAppContributor', () =>
         const calls: any = {}
         const svc = new FakeBuildService({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] } })
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Mutations(calls, svc))
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(calls.opened).toBeUndefined()
@@ -104,7 +112,7 @@ describe('HtmlAppContributor', () =>
         const calls: any = {}
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: undefined, Diagnostics: [] } })
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Mutations(calls, svc))
         c.Resolve('html.open', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Build produced no output path to serve')
         expect(calls.opened).toBeUndefined()
@@ -116,9 +124,12 @@ describe('HtmlAppContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const opened: string[] = []
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
-        c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Mutations(calls, svc), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
+        const member = HtmlAppTestHelper.Member()
+        c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(member))!.Execute()
         await work.task
+        expect(calls.ensured).toBe(member)
+        expect(calls.buildsAtEnsure).toBe(0)
         expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build' })
         expect(calls.served).toBe('/out')
         expect(opened).toEqual(['http://127.0.0.1:4599'])
@@ -130,7 +141,7 @@ describe('HtmlAppContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] } })
         const opened: string[] = []
         const work = HtmlAppTestHelper.Work()
-        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
+        const c = new HtmlAppContributor(svc as any, work as any, HtmlAppFakes.Fs(calls), HtmlAppFakes.Mutations(calls, svc), HtmlAppFakes.Server(calls), (u: string) => opened.push(u))
         c.Resolve('html.serve', HtmlAppTestHelper.CtxFor(HtmlAppTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(calls.served).toBeUndefined()

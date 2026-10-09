@@ -211,7 +211,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const buildSubmenu = this.menuServices?.get(BuildFlavorSubmenuContributor.Key)
             const buildContributor = new BuildContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, buildSubmenu)
             this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
-            const htmlApp = new HtmlAppContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.provider.get(PreviewServerKey))
+            const htmlApp = new HtmlAppContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.workspace, this.provider.get(PreviewServerKey))
             this.handles.push(registry.RegisterInstance(htmlApp, htmlApp.Actions))
         }
         this.setHasNoSolution(false)
