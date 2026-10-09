@@ -14,6 +14,8 @@ import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-a
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
+import { TypeCheckChannel } from '@pragmatic-tech-ai/plexus-core/shared/type-check-api.js'
+import type { TypeCheckRequest, TypeCheckResult } from '@pragmatic-tech-ai/todl/build-system-core'
 
 // Preload — the ONLY place renderer and main meet, across the context bridge.
 // Exposes Plexus's native surface as a small typed `api`. The renderer wraps
@@ -145,7 +147,13 @@ const bundle = {
   Bundle: (request: BundleAppRequest): Promise<BundleAppResult> => ipcRenderer.invoke(BundleChannel.Bundle, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, bundle }
+// Type-check bridge — the html-bundle tsc pass runs in main; the renderer's IpcTypeChecker
+// invokes this single channel.
+const typeCheck = {
+  Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
+}
+
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, bundle, typeCheck }
 
 if (process.contextIsolated)
 {
