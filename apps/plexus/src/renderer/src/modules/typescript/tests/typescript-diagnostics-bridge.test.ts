@@ -8,8 +8,15 @@ class FakeMarkerSource implements IMarkerSource
 {
     private listener: (() => void) | undefined
     public markers: MarkerRecord[] = []
-    public OnDidChange(l: () => void) { this.listener = l; return { dispose: () => { this.listener = undefined } } }
-    public All() { return this.markers }
+    public attached = false
+    public allCalls = 0
+    public OnDidChange(l: () => void)
+    {
+        this.listener = l
+        this.attached = true
+        return { dispose: () => { this.listener = undefined; this.attached = false } }
+    }
+    public All() { this.allCalls++; return this.markers }
     public Fire() { this.listener?.() }
 }
 
@@ -69,14 +76,17 @@ describe('TypeScriptDiagnosticsBridge', () =>
         const diag = new FakeDiagnostics()
         const bridge = new TypeScriptDiagnosticsBridge(src, diag as never)
         bridge.TrackProject(A, 'a')
+        expect(src.attached).toBe(true)
         const before = diag.published.get('typescript ' + A)
         bridge.dispose()
+        expect(src.attached).toBe(false)
         src.markers = [
             { Uri: TypeScriptWorkspace.ModelUriFor(A, 'src/main.ts'), Severity: 8, Message: 'oops', StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 2 },
         ]
+        const callsBefore = src.allCalls
         src.Fire()
+        expect(src.allCalls).toBe(callsBefore)
         expect(diag.published.get('typescript ' + A)).toBe(before)
-        expect(diag.published.get('typescript ' + A)).toHaveLength(0)
     })
 
     it('maps Info and Hint severities', () =>
