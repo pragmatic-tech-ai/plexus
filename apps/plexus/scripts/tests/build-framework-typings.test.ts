@@ -6,18 +6,18 @@ class FakeFs
 {
     public constructor(private readonly files: Record<string, string>) { }
 
-    public exists(path: string): boolean
+    public Exists(path: string): boolean
     {
         const prefix = path.endsWith('/') ? path : `${path}/`
         return path in this.files || Object.keys(this.files).some(k => k.startsWith(prefix))
     }
 
-    public readText(path: string): string
+    public ReadText(path: string): string
     {
         return this.files[path]
     }
 
-    public walk(dir: string): string[]
+    public Walk(dir: string): string[]
     {
         return Object.keys(this.files).filter(k => k.startsWith(`${dir}/`))
     }
