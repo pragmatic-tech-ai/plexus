@@ -47,6 +47,54 @@ describe('TypeScriptDiagnosticsBridge', () =>
         expect(bSlice[0].severity).toBe(DiagnosticSeverity.Warning)
     })
 
+    it('republishes an empty slice when markers disappear', () =>
+    {
+        const src = new FakeMarkerSource()
+        const diag = new FakeDiagnostics()
+        const bridge = new TypeScriptDiagnosticsBridge(src, diag as never)
+        bridge.TrackProject(A, 'a')
+        src.markers = [
+            { Uri: TypeScriptWorkspace.ModelUriFor(A, 'src/main.ts'), Severity: 8, Message: 'oops', StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 2 },
+        ]
+        src.Fire()
+        expect(diag.published.get('typescript ' + A)).toHaveLength(1)
+        src.markers = []
+        src.Fire()
+        expect(diag.published.get('typescript ' + A)).toHaveLength(0)
+    })
+
+    it('dispose detaches the marker listener', () =>
+    {
+        const src = new FakeMarkerSource()
+        const diag = new FakeDiagnostics()
+        const bridge = new TypeScriptDiagnosticsBridge(src, diag as never)
+        bridge.TrackProject(A, 'a')
+        const before = diag.published.get('typescript ' + A)
+        bridge.dispose()
+        src.markers = [
+            { Uri: TypeScriptWorkspace.ModelUriFor(A, 'src/main.ts'), Severity: 8, Message: 'oops', StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 2 },
+        ]
+        src.Fire()
+        expect(diag.published.get('typescript ' + A)).toBe(before)
+        expect(diag.published.get('typescript ' + A)).toHaveLength(0)
+    })
+
+    it('maps Info and Hint severities', () =>
+    {
+        const src = new FakeMarkerSource()
+        const diag = new FakeDiagnostics()
+        const bridge = new TypeScriptDiagnosticsBridge(src, diag as never)
+        bridge.TrackProject(A, 'a')
+        src.markers = [
+            { Uri: TypeScriptWorkspace.ModelUriFor(A, 'src/i.ts'), Severity: 2, Message: 'info', StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 2 },
+            { Uri: TypeScriptWorkspace.ModelUriFor(A, 'src/h.ts'), Severity: 1, Message: 'hint', StartLine: 1, StartColumn: 1, EndLine: 1, EndColumn: 2 },
+        ]
+        src.Fire()
+        const slice = diag.published.get('typescript ' + A) as any[]
+        expect(slice[0].severity).toBe(DiagnosticSeverity.Info)
+        expect(slice[1].severity).toBe(DiagnosticSeverity.Hint)
+    })
+
     it('UntrackProject clears the project slice', () =>
     {
         const diag = new FakeDiagnostics()
