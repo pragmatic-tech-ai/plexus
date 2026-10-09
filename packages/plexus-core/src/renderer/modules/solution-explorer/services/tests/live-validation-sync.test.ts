@@ -5,6 +5,7 @@ import {
     Solution, SolutionManagerService, SolutionMemberStatus, ProjectEvents, ProjectEventsKey, ProjectEventKind, type SolutionMember,
 } from '@pragmatic-tech-ai/todl'
 import { LiveValidationKey, type ILiveValidation } from '../../../../projects/capabilities/live-validation.js'
+import { TypeScriptWorkspaceSinkKey, TypeScriptDiagnosticsSinkKey } from '../../../../typescript/typescript-seams.js'
 import { LiveValidationSync } from '../live-validation-sync.js'
 
 class FakeManager extends Observable
@@ -46,11 +47,26 @@ class FakeValidation implements ILiveValidation
     }
 }
 
+class FakeTsSink
+{
+    public readonly calls: string[] = []
+
+    public async AttachProject(id: string, name: string, storage: IStorage): Promise<void>
+    {
+        this.calls.push(`ws-attach:${id}:${name}:${(storage as unknown as { Tag: string }).Tag}`)
+    }
+
+    public DetachProject(id: string): void { this.calls.push(`ws-detach:${id}`) }
+    public TrackProject(id: string, name: string): void { this.calls.push(`diag-track:${id}:${name}`) }
+    public UntrackProject(id: string): void { this.calls.push(`diag-untrack:${id}`) }
+}
+
 class Harness
 {
     public readonly manager = new FakeManager()
     public readonly validation = new FakeValidation()
     public readonly events = new ProjectEvents()
+    public readonly tsSink = new FakeTsSink()
     public readonly sync: LiveValidationSync
 
     constructor()
@@ -59,6 +75,8 @@ class Harness
         provider.registerInstance(SolutionManagerService.Key, this.manager as unknown as SolutionManagerService)
         provider.registerInstance(LiveValidationKey, this.validation)
         provider.registerInstance(ProjectEventsKey, this.events)
+        provider.registerInstance(TypeScriptWorkspaceSinkKey, this.tsSink as never)
+        provider.registerInstance(TypeScriptDiagnosticsSinkKey, this.tsSink as never)
         this.sync = new LiveValidationSync(provider)
     }
 
@@ -101,6 +119,20 @@ describe('LiveValidationSync', () =>
         expect(h.validation.calls).toEqual(['attach:/a:A:a'])
         sol.RemoveMember(member)
         expect(h.validation.calls).toEqual(['attach:/a:A:a', 'detach:a'])
+    })
+
+    it('drives the TypeScript workspace and diagnostics sinks on attach and detach', () =>
+    {
+        const h = new Harness()
+        const sol = new Solution('S')
+        h.manager.Swap(sol)
+        h.sync.Start()
+        const member = sol.AddMember('./a', 'architecture')
+        expect(h.tsSink.calls).toEqual([])
+        Harness.Resolve(member, 'a')
+        expect(h.tsSink.calls).toEqual(['ws-attach:/a:A:a', 'diag-track:/a:A'])
+        sol.RemoveMember(member)
+        expect(h.tsSink.calls).toEqual(['ws-attach:/a:A:a', 'diag-track:/a:A', 'ws-detach:/a', 'diag-untrack:/a'])
     })
 
     it('never attaches a member removed before it resolved', () =>

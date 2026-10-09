@@ -20,7 +20,6 @@ interface ProjectIdentity
     readonly Name: string
 }
 
-// Adapts a bare-function disposer (ObservableCollection.Subscribe) to IDisposable.
 // What Attach recorded for a member, so Detach/Resync need not re-read the (possibly gone) Project.
 interface AttachedProject
 {
@@ -29,6 +28,7 @@ interface AttachedProject
     readonly projectName: string
 }
 
+// Adapts a bare-function disposer (ObservableCollection.Subscribe) to IDisposable.
 class FunctionDisposable implements IDisposable
 {
     constructor(private readonly disposer: () => void) {}
