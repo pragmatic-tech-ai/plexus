@@ -10,7 +10,7 @@ import type { IModelRegistry } from './model-registry.js'
 // projects never collide on a shared file name.
 export class TypeScriptWorkspace implements ITypeScriptWorkspaceSink
 {
-    public static Key = new ServiceKey<TypeScriptWorkspace>('TypeScriptWorkspace')
+    public static readonly Key = new ServiceKey<TypeScriptWorkspace>('TypeScriptWorkspace')
 
     private static readonly Scheme = 'file:///'
     private static readonly SourceDirectory = 'src'
@@ -32,13 +32,17 @@ export class TypeScriptWorkspace implements ITypeScriptWorkspaceSink
 
     public async AttachProject(projectId: string, _projectName: string, storage: IStorage): Promise<void>
     {
+        this.DetachProject(projectId)
         const relPaths = new Set<string>()
         await this.Gather(storage, TypeScriptWorkspace.SourceDirectory, relPaths)
         await this.Gather(storage, TypeScriptWorkspace.GeneratedDirectory, relPaths)
-        this.projects.set(projectId, { storage, relPaths })
+        const record = { storage, relPaths }
+        this.projects.set(projectId, record)
         for (const relPath of relPaths)
         {
-            this.registry.Ensure(TypeScriptWorkspace.ModelUriFor(projectId, relPath), await storage.ReadText(relPath), TypeScriptWorkspace.Language)
+            const text = await storage.ReadText(relPath)
+            if (this.projects.get(projectId) !== record) return // detached/re-attached mid-await
+            this.registry.Ensure(TypeScriptWorkspace.ModelUriFor(projectId, relPath), text, TypeScriptWorkspace.Language)
         }
     }
 
@@ -125,6 +129,10 @@ export class TypeScriptWorkspace implements ITypeScriptWorkspaceSink
         const rest = uri.slice(TypeScriptWorkspace.Scheme.length)
         const slash = rest.indexOf(TypeScriptWorkspace.Separator)
         if (slash <= 0) return undefined
-        return { projectKey: rest.slice(0, slash), relPath: rest.slice(slash + 1) }
+        const raw = rest.slice(slash + 1)
+        let relPath = raw
+        try { relPath = decodeURIComponent(raw) }
+        catch { relPath = raw } // stray literal '%': keep the raw path
+        return { projectKey: rest.slice(0, slash), relPath }
     }
 }

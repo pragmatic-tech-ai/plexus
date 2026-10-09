@@ -86,6 +86,53 @@ describe('TypeScriptWorkspace', () =>
         expect(reg.Has(TypeScriptWorkspace.ModelUriFor(PROJECT, 'src/main.ts'))).toBe(true)
     })
 
+    it('AttachProject tolerates List rejecting for an absent directory', async () =>
+    {
+        const reg = new FakeRegistry()
+        const inner = new FakeStorage({ 'src/main.ts': 'x' })
+        const storage = {
+            List: async (dir: string) =>
+            {
+                if (dir === 'generated') throw new Error('ENOENT')
+                return inner.List(dir)
+            },
+            ReadText: (p: string) => inner.ReadText(p),
+        } as never
+        await new TypeScriptWorkspace(reg).AttachProject(PROJECT, 'app', storage)
+        expect(reg.Has(TypeScriptWorkspace.ModelUriFor(PROJECT, 'src/main.ts'))).toBe(true)
+    })
+
+    it('ensures .ts, .tsx and .d.ts models but not .mu', async () =>
+    {
+        const reg = new FakeRegistry()
+        const storage = new FakeStorage({ 'src/a.ts': '1', 'src/b.tsx': '2', 'src/c.d.ts': '3', 'src/d.mu': '4' }) as never
+        await new TypeScriptWorkspace(reg).AttachProject(PROJECT, 'app', storage)
+        for (const f of ['a.ts', 'b.tsx', 'c.d.ts']) expect(reg.Has(TypeScriptWorkspace.ModelUriFor(PROJECT, `src/${f}`))).toBe(true)
+        expect(reg.Has(TypeScriptWorkspace.ModelUriFor(PROJECT, 'src/d.mu'))).toBe(false)
+    })
+
+    it('re-attach disposes stale models; detach mid-attach leaves no orphans', async () =>
+    {
+        const reg = new FakeRegistry()
+        const ws = new TypeScriptWorkspace(reg)
+        await ws.AttachProject(PROJECT, 'app', new FakeStorage({ 'src/old.ts': 'x' }) as never)
+        await ws.AttachProject(PROJECT, 'app', new FakeStorage({ 'src/new.ts': 'y' }) as never)
+        expect(reg.Has(TypeScriptWorkspace.ModelUriFor(PROJECT, 'src/old.ts'))).toBe(false)
+        expect(reg.Has(TypeScriptWorkspace.ModelUriFor(PROJECT, 'src/new.ts'))).toBe(true)
+
+        const inner = new FakeStorage({ 'src/z.ts': 'z' })
+        const slow = { List: (d: string) => inner.List(d), ReadText: async (p: string) => { ws.DetachProject(OTHER); return inner.ReadText(p) } } as never
+        await ws.AttachProject(OTHER, 'o', slow)
+        expect(reg.Has(TypeScriptWorkspace.ModelUriFor(OTHER, 'src/z.ts'))).toBe(false)
+    })
+
+    it('RelPathFromUri decodes percent-encoding', () =>
+    {
+        const key = TypeScriptWorkspace.ProjectKeyFor(PROJECT)
+        expect(TypeScriptWorkspace.RelPathFromUri(`file:///${key}/my%20file.ts`)?.relPath).toBe('my file.ts')
+        expect(TypeScriptWorkspace.RelPathFromUri(`file:///${key}/100%.ts`)?.relPath).toBe('100%.ts')
+    })
+
     it('ProjectIdFor maps storage to id; ProjectIdForKey maps hex key to id', async () =>
     {
         const ws = new TypeScriptWorkspace(new FakeRegistry())
