@@ -13,7 +13,6 @@
 import BackgroundWorkService from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
 import TaskHandle from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
 import TaskOutputDocument from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
-import LogLine from "@pragmatic-tech-ai/plexus-core/renderer/modules/background-work"
 
 resources BackgroundWorkResources {
     DataTemplate x:key="BackgroundWorkDock" [ DataType = BackgroundWorkService ] {
@@ -106,20 +105,16 @@ resources BackgroundWorkResources {
         }
     }
 
-    // The output document view: a scrolling, read-only monospace log bound to the
-    // task's live OutputLines (two-hop through the constant Handle). Rendered one line
-    // per row in a vertical stack — a single TextBlock bound to the whole Output string
-    // would collapse the log's newlines onto one line (mural text layout treats `\n` as
-    // a space). HorizontalScrollEnabled = false bounds the width so long lines wrap.
+    // The output document view: a read-only, SELECTABLE monospace log bound to the
+    // task's live Output string (two-hop through the constant Handle). A read-only
+    // multiline TextBox — not a TextBlock/ItemsControl — so the text can be selected
+    // and copied (mouse / Ctrl+A / Ctrl+C work while read-only blocks editing). It
+    // preserves the log's newlines, scrolls vertically on its own, and wraps long lines
+    // (TextWrapping = Wrap, so no horizontal scroll). Variant = Plain drops the input
+    // chrome so it reads as a log, not a text field.
     DataTemplate [ DataType = TaskOutputDocument ] {
-        ScrollViewer [ HorizontalScrollEnabled = false ] {
-            ItemsControl [ ItemsSource = $Handle.OutputLines, ItemsPanel = @VerticalStackPanel, Margin = (8,8,8,8) ]
-        }
-    }
-
-    // One log line: a monospace row that wraps rather than overflowing horizontally.
-    DataTemplate [ DataType = LogLine ] {
-        TextBlock [ Text = $Text, FontFamily = "monospace", FontSize = 12,
-                    Foreground = @Fg1, TextWrapping = Wrap ]
+        TextBox [ Text = $Handle.Output, IsReadOnly = true, AcceptsReturn = true,
+                  Variant = Plain, TextWrapping = Wrap,
+                  FontFamily = "monospace", FontSize = 12, Foreground = @Fg1, Margin = (8,8,8,8) ]
     }
 }
