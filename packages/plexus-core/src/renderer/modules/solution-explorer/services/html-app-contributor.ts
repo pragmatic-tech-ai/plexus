@@ -10,6 +10,7 @@ import { BuildService, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { FileTreeContributor } from './file-tree-contributor.js'
 import { BuildProgressReporter, type ITaskProgressSink } from './build-progress-reporter.js'
+import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { FileSystemService } from '../../storage/file-system-service.js'
 import type { IPreviewServer } from '../../preview-server/preview-server.js'
@@ -45,6 +46,7 @@ export class HtmlAppContributor implements IHierarchyContributor
         private readonly buildService: BuildService,
         private readonly work: BackgroundWorkService | undefined,
         private readonly fs: FileSystemService,
+        private readonly mutations: IContentMutations,
         private readonly previewServer?: IPreviewServer,
         private readonly openUrl: (url: string) => void = (u) => void window.open(u, '_blank', 'noopener'))
     {
@@ -97,6 +99,7 @@ export class HtmlAppContributor implements IHierarchyContributor
         if (work === undefined || storage === undefined) return
         void work.run(`${HtmlAppContributor.OpenTitlePrefix}${member.Title}`, async (ctx) =>
         {
+            await this.mutations.EnsureMemberGenerated(member)
             const result = await this.buildHtml(storage, ctx)
             const outputPath = HtmlAppContributor.RequireOutputPath(result)
             await this.fs.OpenExternal(join(outputPath, HtmlAppContributor.IndexFile))
@@ -112,6 +115,7 @@ export class HtmlAppContributor implements IHierarchyContributor
         if (work === undefined || storage === undefined || previewServer === undefined) return
         void work.run(`${HtmlAppContributor.ServeTitlePrefix}${member.Title}`, async (ctx) =>
         {
+            await this.mutations.EnsureMemberGenerated(member)
             const result = await this.buildHtml(storage, ctx)
             const outputPath = HtmlAppContributor.RequireOutputPath(result)
             const served = await previewServer.Start(outputPath)
