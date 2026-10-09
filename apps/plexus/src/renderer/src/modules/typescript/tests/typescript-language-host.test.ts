@@ -53,7 +53,7 @@ describe('TypeScriptLanguageHost.MonacoOptions', () =>
         expect(opts.strict).toBe(true)
         expect(opts.noEmit).toBe(true)
         expect(opts.allowNonTsExtensions).toBe(true)
-        expect(opts.lib).toEqual(CanonicalTypeScriptOptions.Lib.map((l) => l.toLowerCase()))
+        expect(opts.lib).toEqual(['lib.es2020.d.ts', 'lib.dom.d.ts', 'lib.dom.iterable.d.ts'])
     })
 
     it('uses the enum lookup, not the fallbacks, for distinct inputs', () =>

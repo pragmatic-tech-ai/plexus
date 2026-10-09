@@ -15,6 +15,9 @@ export class TypeScriptLanguageHost
     private static readonly BundlerResolutionKind = 100
     private static readonly BundlerName = 'Bundler'
 
+    private static readonly LibPrefix = 'lib.'
+    private static readonly LibSuffix = '.d.ts'
+
     private static configured = false
 
     public static Configure(): void
@@ -50,7 +53,8 @@ export class TypeScriptLanguageHost
                     ? TypeScriptLanguageHost.BundlerResolutionKind
                     : ts.ModuleResolutionKind.NodeJs),
             jsx: ts.JsxEmit[canonical.Jsx as keyof typeof ts.JsxEmit] ?? ts.JsxEmit.Preserve,
-            lib: canonical.Lib.map((l) => l.toLowerCase()),
+            // tsc file-name form (same as the build gate); bare names load no standard lib.
+            lib: canonical.Lib.map((l) => `${TypeScriptLanguageHost.LibPrefix}${l.toLowerCase()}${TypeScriptLanguageHost.LibSuffix}`),
             strict: canonical.Strict,
             noEmit: canonical.NoEmit,
             skipLibCheck: canonical.SkipLibCheck,
