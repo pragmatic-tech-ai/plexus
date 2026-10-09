@@ -83,6 +83,7 @@ import HelpOverlayModule from "./modules/help-overlay/help-overlay.module.mu.js"
 import AgentChatModule from "./modules/agent-chat/agent-chat.module.mu.js"
 import ProblemsModule from "./modules/problems/problems.module.mu.js"
 import CodeEditorModule from "./modules/code-editor/code-editor.module.mu.js"
+import TypeScriptEditorModule from "./modules/typescript/typescript.module.mu.js"
 import SvgEditorModule from "./modules/svg-editor/svg-editor.module.mu.js"
 import MarkdownViewerModule from "./modules/markdown-viewer/markdown-viewer.module.mu.js"
 
@@ -525,6 +526,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         AgentChatModule
         ProblemsModule
         CodeEditorModule
+        TypeScriptEditorModule
         SvgEditorModule
         MarkdownViewerModule
         BackgroundWorkModule

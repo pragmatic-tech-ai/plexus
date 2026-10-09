@@ -44,6 +44,7 @@ import { TodlLanguageClient } from './services/todl/todl-language-client.js'
 import { ProblemsService } from './modules/problems/problems-service.js'
 import { LiveValidationKey, BaseResolverKey, ProblemsDockKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
+import { TypeScriptModule } from './modules/typescript/typescript-module.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
@@ -96,6 +97,9 @@ try {
     app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
     app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionLanguageService.Key))
     app.Services.register(ProblemsDockKey,    (p) => p.getRequired(ProblemsService.Key))
+    // TypeScript editing: Monaco TS worker config + per-project workspace/diagnostics sinks. Must
+    // precede session restore (a restored .ts doc) and project attach (LiveValidationSync.Start).
+    TypeScriptModule.Compose(app.Services, app.Services)
     // The SolutionManagerService host seams (StorageRegistry/Prompt/PackageSource +
     // the durable session store) are registered by SolutionSeamsHostModule in app.mu's
     // .modules: block — NOT here. They must exist before the shell mount resolves

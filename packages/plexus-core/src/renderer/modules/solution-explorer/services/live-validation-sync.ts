@@ -10,6 +10,7 @@ import {
     SolutionManagerService, ProjectEventsKey, type Solution, ProjectEvents, ProjectEventKind,
     type SolutionMember, type ProjectEvent,
 } from '@pragmatic-tech-ai/todl'
+import { TypeScriptWorkspaceSinkKey, TypeScriptDiagnosticsSinkKey } from '../../../typescript/typescript-seams.js'
 import { LiveValidationKey, type ILiveValidation } from '../../../projects/capabilities/live-validation.js'
 
 // The bits of a resolved member's Project that live validation registers under.
@@ -20,6 +21,14 @@ interface ProjectIdentity
 }
 
 // Adapts a bare-function disposer (ObservableCollection.Subscribe) to IDisposable.
+// What Attach recorded for a member, so Detach/Resync need not re-read the (possibly gone) Project.
+interface AttachedProject
+{
+    readonly storage: IStorage
+    readonly projectId: string
+    readonly projectName: string
+}
+
 class FunctionDisposable implements IDisposable
 {
     constructor(private readonly disposer: () => void) {}
@@ -39,7 +48,7 @@ export class LiveValidationSync extends ServiceBase
     private activeSolutionSub: IDisposable | undefined
     private membersSub: IDisposable | undefined
     // Members currently registered with live validation, and the storage they were registered under.
-    private readonly attached = new Map<SolutionMember, IStorage>()
+    private readonly attached = new Map<SolutionMember, AttachedProject>()
     // Per-member Status subscriptions, alive while the member is in the tracked collection.
     private readonly watching = new Map<SolutionMember, IDisposable>()
     private currentMembers: Solution['Members'] | undefined
@@ -68,10 +77,10 @@ export class LiveValidationSync extends ServiceBase
     // (rescan). No-op for a member that is not currently attached.
     public ResyncMember(member: SolutionMember): void
     {
-        const storage = this.attached.get(member)
+        const rec = this.attached.get(member)
         const identity = member.Project as ProjectIdentity | undefined
-        if (storage === undefined || identity === undefined) return
-        void this.validation?.ResyncProject(identity.RootPath, storage)
+        if (rec === undefined || identity === undefined) return
+        void this.validation?.ResyncProject(identity.RootPath, rec.storage)
     }
 
     public override dispose(): void
@@ -173,10 +182,12 @@ export class LiveValidationSync extends ServiceBase
 
     private Detach(member: SolutionMember): void
     {
-        const storage = this.attached.get(member)
-        if (storage === undefined) return
+        const rec = this.attached.get(member)
+        if (rec === undefined) return
         this.attached.delete(member)
-        this.validation?.DetachProject(storage)
+        this.validation?.DetachProject(rec.storage)
+        this.Provider.get(TypeScriptWorkspaceSinkKey)?.DetachProject(rec.projectId)
+        this.Provider.get(TypeScriptDiagnosticsSinkKey)?.UntrackProject(rec.projectId)
     }
 
     private Attach(member: SolutionMember): void
@@ -184,8 +195,10 @@ export class LiveValidationSync extends ServiceBase
         const storage = member.Storage
         const identity = member.Project as ProjectIdentity | undefined
         if (storage === undefined || identity === undefined) return
-        this.attached.set(member, storage)
+        this.attached.set(member, { storage, projectId: identity.RootPath, projectName: identity.Name })
         void this.validation?.AttachProject(identity.RootPath, identity.Name, storage)
+        void this.Provider.get(TypeScriptWorkspaceSinkKey)?.AttachProject(identity.RootPath, identity.Name, storage)
+        this.Provider.get(TypeScriptDiagnosticsSinkKey)?.TrackProject(identity.RootPath, identity.Name)
     }
 
     // The engine raises ReferencesChanged (carrying the project's storage) after a reference edit
@@ -201,9 +214,9 @@ export class LiveValidationSync extends ServiceBase
     private async OnProjectEvent(event: ProjectEvent): Promise<void>
     {
         if (this.disposed || event.Kind !== ProjectEventKind.ReferencesChanged) return
-        for (const storage of [...this.attached.values()])
+        for (const rec of [...this.attached.values()])
         {
-            if (storage === event.Project) await this.validation?.RefreshBases(storage)
+            if (rec.storage === event.Project) await this.validation?.RefreshBases(rec.storage)
         }
     }
 }
