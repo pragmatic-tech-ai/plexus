@@ -23,6 +23,7 @@
     "./renderer/documents/*": "./dist/renderer/documents/*",
     "./renderer/diagnostics/*": "./dist/renderer/diagnostics/*",
     "./renderer/dialogs/*": "./dist/renderer/dialogs/*",
+    "./renderer/typescript/*": "./dist/renderer/typescript/*",
     "./renderer/file-watch/*": "./dist/renderer/file-watch/*",
     "./renderer/modules/solution-explorer": "./dist/renderer/modules/solution-explorer/index.js",
     "./renderer/modules/solution-explorer/*": "./dist/renderer/modules/solution-explorer/*",
