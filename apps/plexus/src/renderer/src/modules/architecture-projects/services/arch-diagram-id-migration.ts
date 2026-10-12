@@ -2,6 +2,7 @@ import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import type { NodeVisual } from '@pragmatic-tech-ai/mural/framework/diagram/serialization/node-visual-store.js'
 import type { ArchModel } from './arch-model.js'
 import { ARCH_CONNECTOR_VISUALS_KEY } from './arch-diagram-connector-visuals-store.js'
+import { ARCH_VIEWPOINTS_KEY } from './arch-diagram-viewpoints-store.js'
 
 // Upgrades a `.diagram` authored before model instance ids were namespace-qualified.
 //
@@ -13,8 +14,12 @@ import { ARCH_CONNECTOR_VISUALS_KEY } from './arch-diagram-connector-visuals-sto
 // blank. This migration rewrites the three places a `.diagram` encodes a node id —
 // the node's own `Id`, its geometry entry in the visual store (keyed by id, incl. a
 // container `parentId`), and the `arch.connectorVisuals` edge keys (`from|token|to`) —
-// to the qualified ids the current model produces. Idempotent: an already-qualified id
-// resolves against the model and is skipped, so a migrated diagram is left untouched.
+// to the qualified ids the current model produces. The diagram's governing scope
+// (`arch.viewpoints`) is upgraded the same way — the loader also qualifies viewpoint
+// ids (`tech_architecture.Scenarios`), so a bare stored scope (`Scenarios`) matches no
+// concept's framing and every model-derived connector is filtered out of the view.
+// Idempotent: an already-qualified id resolves against the model and is skipped, so a
+// migrated diagram is left untouched.
 export class ArchDiagramIdMigration
 {
     private static readonly EdgeKeySeparator = '|'
@@ -86,31 +91,66 @@ export class ArchDiagramIdMigration
             renames.set(id, qualified)
         }
 
-        if (renames.size === 0)
+        if (renames.size > 0)
+        {
+            // Pass 2: remap container parentId references that point at a renamed node.
+            for (const node of doc.Nodes.ToArray())
+            {
+                const id = (node as { Id?: string }).Id
+                if (id === undefined)
+                {
+                    continue
+                }
+                const visual = doc.GetNodeVisual(id)
+                const parentId = visual?.parentId
+                if (visual !== undefined && parentId !== undefined && renames.has(parentId))
+                {
+                    const remapped: NodeVisual = { ...visual, parentId: renames.get(parentId) }
+                    doc.SetNodeVisual(id, remapped)
+                }
+            }
+
+            // Pass 3: remap the `from|token|to` endpoints of every connectorVisuals key.
+            ArchDiagramIdMigration.remapConnectorVisualKeys(doc, renames)
+        }
+
+        // Pass 4: upgrade the governing viewpoint scope. Independent of node renames —
+        // a diagram migrated by an earlier pass keeps qualified node ids but a stale
+        // bare scope, which would otherwise silently filter out every connector.
+        const scopeChanged = ArchDiagramIdMigration.remapViewpoints(doc, existingIds, namespace)
+        return renames.size > 0 || scopeChanged
+    }
+
+    // Rewrite each `arch.viewpoints` entry to the qualified viewpoint id, in place.
+    // Returns whether anything changed. Entries that already resolve (or map to no
+    // unique viewpoint) are left as they are.
+    private static remapViewpoints(doc: DiagramDocument, existingIds: ReadonlySet<string>, namespace: string): boolean
+    {
+        const raw = doc.Metadata[ARCH_VIEWPOINTS_KEY]
+        if (!Array.isArray(raw))
         {
             return false
         }
-
-        // Pass 2: remap container parentId references that point at a renamed node.
-        for (const node of doc.Nodes.ToArray())
+        let changed = false
+        const next = raw.map((entry) =>
         {
-            const id = (node as { Id?: string }).Id
-            if (id === undefined)
+            if (typeof entry !== 'string')
             {
-                continue
+                return entry
             }
-            const visual = doc.GetNodeVisual(id)
-            const parentId = visual?.parentId
-            if (visual !== undefined && parentId !== undefined && renames.has(parentId))
+            const qualified = ArchDiagramIdMigration.QualifiedIdFor(entry, existingIds, namespace)
+            if (qualified === undefined)
             {
-                const remapped: NodeVisual = { ...visual, parentId: renames.get(parentId) }
-                doc.SetNodeVisual(id, remapped)
+                return entry
             }
+            changed = true
+            return qualified
+        })
+        if (changed)
+        {
+            doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: next }
         }
-
-        // Pass 3: remap the `from|token|to` endpoints of every connectorVisuals key.
-        ArchDiagramIdMigration.remapConnectorVisualKeys(doc, renames)
-        return true
+        return changed
     }
 
     // Rewrite the endpoint ids in each `arch.connectorVisuals` key (`from|token|to`,

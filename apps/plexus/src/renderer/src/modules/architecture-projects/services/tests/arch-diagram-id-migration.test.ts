@@ -6,6 +6,7 @@ import { ArchModel } from '../arch-model.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ArchDiagramIdMigration } from '../arch-diagram-id-migration.js'
 import { ARCH_CONNECTOR_VISUALS_KEY } from '../arch-diagram-connector-visuals-store.js'
+import { ARCH_VIEWPOINTS_KEY } from '../arch-diagram-viewpoints-store.js'
 
 // --- QualifiedIdFor: the pure bare/partial -> qualified mapping ---
 
@@ -121,4 +122,35 @@ test('Migrate leaves freeform (unresolved) node ids untouched', () => {
 
     expect(ArchDiagramIdMigration.Migrate(doc, model)).toBe(false)
     expect(shape.Id).toBe('n3')
+})
+
+test('Migrate upgrades a bare arch.viewpoints id to the qualified viewpoint id', () => {
+    const model = buildModel()
+    const doc = new DiagramDocument()
+    const a = new ArchNodeVM(); a.Id = 'component1'; doc.Nodes.Add(a)
+    doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: ['ComponentView'] }
+
+    expect(ArchDiagramIdMigration.Migrate(doc, model)).toBe(true)
+    expect(doc.Metadata[ARCH_VIEWPOINTS_KEY]).toEqual(['archmm.ComponentView'])
+})
+
+test('Migrate fixes a stale arch.viewpoints even when every node id is already qualified', () => {
+    // Regression: a diagram migrated by an earlier pass (nodes already qualified) must
+    // still get its bare viewpoint scope upgraded, or connectors stay filtered out.
+    const model = buildModel()
+    const doc = new DiagramDocument()
+    const a = new ArchNodeVM(); a.Id = 'archmm.component1'; doc.Nodes.Add(a)
+    doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: ['ComponentView'] }
+
+    expect(ArchDiagramIdMigration.Migrate(doc, model)).toBe(true)
+    expect(doc.Metadata[ARCH_VIEWPOINTS_KEY]).toEqual(['archmm.ComponentView'])
+})
+
+test('Migrate leaves an already-qualified arch.viewpoints untouched (idempotent)', () => {
+    const model = buildModel()
+    const doc = new DiagramDocument()
+    const a = new ArchNodeVM(); a.Id = 'archmm.component1'; doc.Nodes.Add(a)
+    doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: ['archmm.ComponentView'] }
+
+    expect(ArchDiagramIdMigration.Migrate(doc, model)).toBe(false)
 })
