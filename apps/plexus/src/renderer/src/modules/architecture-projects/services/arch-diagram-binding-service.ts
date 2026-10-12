@@ -15,6 +15,7 @@ import { WikiLocator } from '../../../services/projects/wiki-origin.js'
 import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import type { ArchModel } from './arch-model.js'
 import { loadViewpoints, writeViewpoints } from './arch-diagram-viewpoints-store.js'
+import { ArchDiagramIdMigration } from './arch-diagram-id-migration.js'
 import { readScenarios, writeScenarios } from './arch-diagram-scenarios-store.js'
 import { nodesLeavingScope, type LeavingNode } from './viewpoint-scope-reconcile.js'
 import { registerArchNodeSerializer } from './arch-node-serializer.js'
@@ -128,6 +129,16 @@ export class ArchDiagramBindingService extends ServiceBase
             const dialogs = this.Provider.get(DialogService.Key)
             const nav = this.Provider.get(ArchNavigationService.Key)
             const registry = this.Provider.get(TodlPresentationRegistry.Key)
+            // Upgrade a pre-qualification diagram in place: old .diagrams stored arch
+            // nodes by bare / partially-qualified ids the current (namespace-qualified)
+            // model no longer matches, so every node would bind to nothing and render
+            // blank. Rewrite them to the model's ids BEFORE the binding's first rescan,
+            // and persist so it is a one-time upgrade (idempotent on already-current ones).
+            if (ArchDiagramIdMigration.Migrate(doc, model))
+            {
+                doc.Save()
+                if (doc.Storage instanceof FileDiagramStorage) await doc.Storage.WhenWritten()
+            }
             const binding = new ArchDiagramBinding(doc, model, chooser, wiki, status, dialogs, nav, op.Project.RootPath, registry)
             binding.attach()
             const store = doc.Storage
@@ -200,6 +211,9 @@ export class ArchDiagramBindingService extends ServiceBase
         const status = this.Provider.get(StatusService.Key)
         const dialogs = this.Provider.get(DialogService.Key)
         const registry = this.Provider.get(TodlPresentationRegistry.Key)
+        // Upgrade stale ids in memory so a headless render (export) of a pre-qualification
+        // diagram still resolves its nodes; no save — the interactive open owns persistence.
+        ArchDiagramIdMigration.Migrate(doc, model)
         const binding = new ArchDiagramBinding(doc, model, chooser, wiki, status, dialogs, undefined, undefined, registry)
         binding.attach()
         const store = doc.Storage
