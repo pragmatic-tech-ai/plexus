@@ -3,7 +3,7 @@
 // A ShellModule that contributes both a "meta-models" NAV CAPABILITY and the
 // "meta-model" PROJECT TYPE. The capability adds one root-nav entry whose
 // left-panel content is served by MetaModelsService (via the shared
-// `DataTemplate [DataType = PlexusPanelService]`). The project type lets a user
+// `DataTemplate [DataType = PanelService]`). The project type lets a user
 // create a Meta-model project from New Project, author .todl definitions inside
 // it (validated live), and publish the compiled model + sources into the
 // meta-models storage backend.

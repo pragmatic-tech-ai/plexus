@@ -13,7 +13,7 @@ import ToolboxService from "./services/diagram-panel-services.js"
 import LayoutPipelineService from "./layout/layout-pipeline-service.js"
 import DiagramExportService from "../diagram-export/services/diagram-export-service.js"
 import WikiService from "../../services/wiki/wiki-service.js"
-import DropCandidateChooserService from "../architecture-projects/services/drop-candidate-chooser-service.js"
+import CandidateChooserService from "@pragmatic-tech-ai/mural/framework"
 import ArchNodeVM from "../architecture-projects/services/arch-node-vm.js"
 import ArchToolboxItem from "./services/arch-toolbox-item.js"
 import EntityIconVM from "./services/entity-icon-vm.js"
@@ -127,9 +127,9 @@ resources DiagramResources {
                       Focusable                    = true,
                       ContextMenuService.ContextMenu = @DiagramContextMenu ]
                 // Ambiguous term-drop chooser: implicit DataTemplate[
-                // DropCandidateChooserService] renders a hidden MenuButton whose
+                // CandidateChooserService] renders a hidden MenuButton whose
                 // popup lists the candidates. Content is the app-scoped service.
-                ContentControl [ Content = $service(DropCandidateChooserService),
+                ContentControl [ Content = $service(CandidateChooserService),
                                  HorizontalAlignment = Left, VerticalAlignment = Top ]
             }
         }
@@ -699,7 +699,7 @@ resources DiagramResources {
     }
 
     // ── ToolBox capability panel — the shapes palette in the left pane.
-    // Overrides the generic `DataTemplate [DataType = PlexusPanelService]` for the
+    // Overrides the generic `DataTemplate [DataType = PanelService]` for the
     // ToolboxService subtype (exact-type match wins). The unified toolbox presents
     // $Pages as an ACCORDION (a built-in Shapes page plus one section per visible
     // taxonomy): each section's header two-ways the page's IsExpanded and its body

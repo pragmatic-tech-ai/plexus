@@ -31,7 +31,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework'
 import type { TodlDocument } from '@pragmatic-tech-ai/todl'
 
-import { PlexusPanelService } from '../../../services/panels/panel-services.js'
+import { PanelService } from '@pragmatic-tech-ai/mural/framework'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
 import { ArchDiagramBindingService } from '../../architecture-projects/services/arch-diagram-binding-service.js'
 import { ArchitectureModelService } from '../../architecture-projects/services/architecture-model-service.js'
@@ -75,7 +75,7 @@ export function applyToolboxItemSize(settings: { Get(key: string): unknown }, re
 }
 
 
-export class ToolboxService extends PlexusPanelService implements IActivatable
+export class ToolboxService extends PanelService implements IActivatable
 {
     public static readonly Key = new ServiceKey<ToolboxService>('ToolboxService')
 

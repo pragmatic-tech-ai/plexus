@@ -10,7 +10,7 @@ import { materializeOf } from './arch-materialize.js'
 import { conceptTypeOf } from './arch-concept-type.js'
 import { defaultLabel } from './arch-default-label.js'
 import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
-import { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
+import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import type { ArchModel } from './arch-model.js'
 import { ArchNodeVM, ARCH_TILE_DEFAULT } from './arch-node-vm.js'
 
@@ -52,7 +52,7 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         }
         if (actions.length === 1) return this.apply(model, context, scope, actions[0])
 
-        this.provider.getRequired(DropCandidateChooserService.Key).Show(actions, (chosen) => { this.apply(model, context, scope, chosen) })
+        this.provider.getRequired(CandidateChooserService.Key).Show(actions, (chosen) => { this.apply(model, context, scope, chosen) })
         return null
     }
 

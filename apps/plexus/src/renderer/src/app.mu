@@ -110,7 +110,7 @@ import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environm
 import ViewportService from "./services/viewport/viewport-service.js"
 
 // System-clipboard seam — the Problems popup's copy actions write through it.
-import ClipboardService from "./services/clipboard/clipboard-service.js"
+import ClipboardService from "@pragmatic-tech-ai/mural/framework"
 
 // Preview server — the concrete IPreviewServer (plexus-core capability) over the
 // window.api.previewServer preload bridge. Registered under PreviewServerKey (its
@@ -157,7 +157,7 @@ import PanelsResources from "./services/panels/panels.resources.mu.js"
 // regions). DiagramWorkspaceService owns the seeded DiagramDocument + the live
 // Diagram control and presents the canvas in the Content region; DiagramResources
 // carries the icons, toolbar/tile templates, and the ToolBox shapes panel.
-import DiagramWorkspaceService from "./modules/diagram/services/diagram-workspace-service.js"
+import DiagramWorkspaceService from "@pragmatic-tech-ai/mural/framework"
 import DiagramResources from "./modules/diagram/diagram.resources.mu.js"
 
 // Layout pipeline inspector: composes a Fresco layout pipeline and runs it on
@@ -218,7 +218,7 @@ import TodlPresentationRegistry from "./modules/diagram/services/todl-presentati
 import ArchitectureModelService from "./modules/architecture-projects/services/architecture-model-service.js"
 import ArchDiagramBindingService from "./modules/architecture-projects/services/arch-diagram-binding-service.js"
 import ArchNavigationService from "./modules/architecture-projects/services/arch-navigation-service.js"
-import DropCandidateChooserService from "./modules/architecture-projects/services/drop-candidate-chooser-service.js"
+import CandidateChooserService from "@pragmatic-tech-ai/mural/framework"
 import ChooserResources from "./modules/architecture-projects/services/chooser.resources.mu.js"
 import ViewpointPickerResources from "./modules/architecture-projects/services/viewpoint-picker.resources.mu.js"
 import SkillsResources from "./modules/skills/skills.resources.mu.js"
@@ -242,10 +242,10 @@ import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.r
 // `Impl -> Key` form as ElectronSettingsStore / DocumentsContentHostService above).
 import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
 import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
-import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
+import DiagramCanvasService from "@pragmatic-tech-ai/mural/framework"
 import SaveOnCloseGuard from "@pragmatic-tech-ai/mural/framework"
 import DocumentCloseInterceptorKey from "@pragmatic-tech-ai/mural/framework"
-import AutosaveService from "./services/autosave/autosave-service.js"
+import AutosaveService from "@pragmatic-tech-ai/mural/framework"
 import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
 import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
 import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"
@@ -282,7 +282,7 @@ import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources
 // HelpCommandsService resolves. All root-registered so the menu bar (mounted
 // once, at title-bar template application) and any other call site resolve the
 // SAME instance.
-import EditCommandsService from "./services/menu/edit-commands-service.js"
+import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
 import ViewCommandsService from "./services/menu/view-commands-service.js"
 import HelpCommandsService from "./services/menu/help-commands-service.js"
 import WindowService from "./services/window/window-service.js"
@@ -435,7 +435,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Popup for ambiguous term-drops: lists candidate (X,m) actions and
         // completes the drop with the chosen one. Mounted as a diagram-canvas
         // overlay (see DiagramResources); resolved on demand by the drop factory.
-        DropCandidateChooserService
+        CandidateChooserService
         // Shared "edit governing viewpoints" flow (pick → confirm removals →
         // re-scope) for the diagram toolbar command + explorer context menu.
         DiagramViewpointsEditor
@@ -649,7 +649,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Problems dock (StatusBar DataTemplate[ProblemsService] + ProblemsRow rows).
         merge ProblemsResources
 
-        // Drop-candidate chooser popup (DataTemplate[DropCandidateChooserService] +
+        // Drop-candidate chooser popup (DataTemplate[CandidateChooserService] +
         // ChooserRow rows), overlaid on the diagram canvas.
         merge ChooserResources
 

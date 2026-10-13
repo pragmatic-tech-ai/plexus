@@ -12,8 +12,8 @@
 //
 // Capability content is service-backed (the updated mechanism): the module's
 // `.services:` block registers a service per capability, and a shared
-// `DataTemplate [DataType = PlexusPanelService]` (in panels.resources.mu) renders whichever
-// one is active. See services/panels/panel-services.ts.
+// `DataTemplate [DataType = PanelService]` (in panels.resources.mu) renders whichever
+// one is active. Base: PanelService (mural framework).
 
 import ToolboxService from "./services/diagram-panel-services.js"
 import DiagramDocumentFactory from "./services/diagram-document-factory.js"

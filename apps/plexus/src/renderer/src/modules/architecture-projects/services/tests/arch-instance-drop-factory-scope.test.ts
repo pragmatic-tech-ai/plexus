@@ -6,7 +6,7 @@ import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
-import { DropCandidateChooserService } from '../drop-candidate-chooser-service.js'
+import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import { ArchInstanceDropFactory } from '../arch-instance-drop-factory.js'
 
 // `component` framed only by ComponentView; `node` only by DeploymentView.
@@ -32,7 +32,7 @@ function wire(doc: DiagramDocument, model: ArchModel, scope: Set<string>)
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
         scopeForDocument: (d: unknown) => (d === doc ? scope : undefined),
     } as unknown as ArchDiagramBindingService)
-    provider.registerInstance(DropCandidateChooserService.Key, new DropCandidateChooserService(provider))
+    provider.registerInstance(CandidateChooserService.Key, new CandidateChooserService(provider))
     return provider
 }
 function ctx(doc: DiagramDocument, key: string): ToolboxDropContext

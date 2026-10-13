@@ -5,7 +5,7 @@ import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pr
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
-import { DropCandidateChooserService } from '../drop-candidate-chooser-service.js'
+import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import { ArchInstanceDropFactory } from '../arch-instance-drop-factory.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 
@@ -29,7 +29,7 @@ function wire(doc: DiagramDocument, model: ArchModel | undefined)
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
         scopeForDocument: () => undefined,   // falls back to all viewpoints
     } as unknown as ArchDiagramBindingService)
-    provider.registerInstance(DropCandidateChooserService.Key, new DropCandidateChooserService(provider))
+    provider.registerInstance(CandidateChooserService.Key, new CandidateChooserService(provider))
     return provider
 }
 
@@ -228,7 +228,7 @@ test('dropping a location where its viewpoint is not framed is REJECTED with a m
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
         scopeForDocument: () => new Set(['archmm.Scenarios']),   // frames component, NOT location
     } as unknown as ArchDiagramBindingService)
-    provider.registerInstance(DropCandidateChooserService.Key, new DropCandidateChooserService(provider))
+    provider.registerInstance(CandidateChooserService.Key, new CandidateChooserService(provider))
     provider.registerInstance(DialogService.Key, { Show: (o: { Title?: string }) => { shows.push(o); return Promise.resolve(undefined) }, Close: () => {} } as unknown as DialogService)
     const factory = new ArchInstanceDropFactory(provider)
 
