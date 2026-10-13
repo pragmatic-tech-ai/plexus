@@ -245,7 +245,7 @@ import DiagramGuidesService from "./modules/diagram/services/diagram-guides-serv
 import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
 import SaveOnCloseGuard from "@pragmatic-tech-ai/mural/framework"
 import DocumentCloseInterceptorKey from "@pragmatic-tech-ai/mural/framework"
-import AutosaveService from "./services/autosave/autosave-service.js"
+import AutosaveService from "@pragmatic-tech-ai/mural/framework"
 import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
 import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
 import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"

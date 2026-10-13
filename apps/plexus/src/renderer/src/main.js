@@ -36,7 +36,7 @@ import { ArchModelToolboxContributor } from './modules/architecture-projects/ser
 import { DiagramCameraService } from './modules/diagram/services/diagram-camera-service.js'
 import { DiagramGuidesService } from './modules/diagram/services/diagram-guides-service.js'
 import { DiagramCanvasService } from './modules/diagram/services/diagram-canvas-service.js'
-import { AutosaveService } from './services/autosave/autosave-service.js'
+import { AutosaveService } from '@pragmatic-tech-ai/mural/framework'
 import { DocumentCloseInterceptorKey } from '@pragmatic-tech-ai/mural/framework'
 import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
 import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
