@@ -3,7 +3,7 @@ import type { PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 
 // Per-diagram layout persistence, stored in the document's opaque metadata
 // (DiagramDocument.Metadata) so it travels with the .diagram file and restores
-// on open. Mirrors diagram-camera-store.ts. Two independent slots:
+// on open. Mirrors mural's diagram camera store. Two independent slots:
 //   * layout.config  — the diagram's CURRENT working pipeline config (the
 //     implicit, unnamed autosave: the inspector hydrates from it on open and
 //     writes it back on every edit).

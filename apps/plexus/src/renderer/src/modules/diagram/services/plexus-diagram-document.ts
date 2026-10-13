@@ -1,7 +1,7 @@
 import { MetaData, MuralBase, RelayCommand, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagramDocument, DialogService, type CommandContext, type DiagramStorage, type Diagram } from '@pragmatic-tech-ai/mural/framework'
 import { DiagramCommandExtensionKey } from './diagram-command-extension.js'
-import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { attachMediaDrop, attachMediaPaste, type MediaDropDeps } from '../media/media-drop-handler.js'
 import { makeLargeFilePrompt } from '../media/prompt-large-file.js'
 

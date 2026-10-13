@@ -3,7 +3,7 @@ import { DiagramDocument, type IDocument } from '@pragmatic-tech-ai/mural/framew
 
 import type { IDocumentFactory, IRelocatableDocumentFactory } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-factory.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { PlexusDiagramDocument } from './plexus-diagram-document.js'
 // Side-effect import: registers the `media` node serializer at module load so a
 // diagram containing media nodes restores them (mirrors the arch serializer).

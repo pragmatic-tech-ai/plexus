@@ -40,7 +40,7 @@ import { promptSavePreset } from './save-preset-prompt.js'
 import { PresetScope, LayoutPresetRef } from './preset-scope.js'
 import { LayoutInspector } from './layout-inspector.js'
 import { LayoutStageVM } from './layout-stage-vm.js'
-import { FileDiagramStorage } from '../persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import {
     readLayoutConfig, writeLayoutConfig,
     diagramPresetNames, getDiagramPreset, saveDiagramPreset, deleteDiagramPreset,

@@ -3,7 +3,7 @@ import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/
 import { ContentHostService, DiagramDocument, type IDocument, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { ArchitectureModelService } from '../architecture-model-service.js'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
