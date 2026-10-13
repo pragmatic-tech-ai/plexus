@@ -168,9 +168,11 @@ try {
     app.Services.get(DiagramCameraService.Key)
     app.Services.get(DiagramGuidesService.Key)
     app.Services.get(DiagramCanvasService.Key)
-    // Document close guard (app.mu .services:): prompts Save / Don't Save / Cancel
-    // before a dirty tab closes — the tab template's ✕ and the solution-explorer/quit
-    // paths reach this same instance. Woken now so it's ready before any close.
+    // Close interceptor (SaveOnCloseGuard, app.mu .services:): prompts Save / Don't
+    // Save / Cancel before a dirty document closes. The host's close commands (tab ✕,
+    // Close All) and the solution-explorer delete/close paths route through it; app
+    // quit uses its own consolidated gate (confirmCloseDocs). Woken now so it's ready
+    // before any close.
     app.Services.get(DocumentCloseInterceptorKey)
     // Autosave (app.mu .services:): periodically saves every dirty document (interval
     // + on/off from the "Documents" settings). Woken now so its timer starts at boot.
