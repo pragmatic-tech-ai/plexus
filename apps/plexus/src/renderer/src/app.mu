@@ -282,7 +282,7 @@ import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources
 // HelpCommandsService resolves. All root-registered so the menu bar (mounted
 // once, at title-bar template application) and any other call site resolve the
 // SAME instance.
-import EditCommandsService from "./services/menu/edit-commands-service.js"
+import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
 import ViewCommandsService from "./services/menu/view-commands-service.js"
 import HelpCommandsService from "./services/menu/help-commands-service.js"
 import WindowService from "./services/window/window-service.js"

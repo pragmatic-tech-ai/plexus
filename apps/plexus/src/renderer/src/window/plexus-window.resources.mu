@@ -7,7 +7,7 @@
 // ContentControl[Template].
 import DiagramExportService from "../modules/diagram-export/services/diagram-export-service.js"
 import ProjectCommandsService from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js"
-import EditCommandsService from "../services/menu/edit-commands-service.js"
+import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
 import ViewCommandsService from "../services/menu/view-commands-service.js"
 import HelpCommandsService from "../services/menu/help-commands-service.js"
 
