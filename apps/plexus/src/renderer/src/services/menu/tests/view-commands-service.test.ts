@@ -11,7 +11,8 @@ import { ViewCommandsService } from '../view-commands-service.js'
 // A real class implementing just the ContentHostService.ActiveDocument surface
 // ViewCommandsService consumes, with a genuine Signal so the ctor's
 // subscribe-once-and-re-raise wiring is exercised for real, not mocked. Mirrors
-// edit-commands-service.test.ts's fake of the same name.
+// the fake used in mural's edit-commands-service test (EditCommandsService moved
+// to the framework).
 class FakeDocumentsContentHostService
 {
     private readonly _changed = new Signal<{ property: string }>()

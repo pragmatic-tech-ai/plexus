@@ -13,8 +13,8 @@ function activeView(host: ZoomHost): Diagram | undefined
 }
 
 // Wire Ctrl/⌘ +/−/0 → zoom-in / zoom-out / reset on the active diagram's camera,
-// at the window CAPTURE phase (parity with save-shortcuts: fires before editor
-// key-swallow boundaries). Only these chords are intercepted, and only when there
+// at the window CAPTURE phase (parity with mural's DocumentShortcutsService:
+// fires before editor key-swallow boundaries). Only these chords are intercepted, and only when there
 // is a live diagram view to receive them. Returns a detach thunk.
 export function attachZoomShortcuts(
     host: ZoomHost,
