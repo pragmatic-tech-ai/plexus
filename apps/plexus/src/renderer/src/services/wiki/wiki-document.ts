@@ -2,7 +2,7 @@ import { MetaData, MuralBase } from '@pragmatic-tech-ai/mural/runtime'
 import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 
-import { buildFlowDocument } from '../markdown/markdown-document.js'
+import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 
 // The file name (last path segment) of an absolute path.
 function fileName(path: string): string
@@ -29,7 +29,7 @@ export class WikiDocument extends MuralBase implements IDocument
         super()
         this.set_property_value(WikiDocument.IdKey, path)
         this.set_property_value(WikiDocument.TitleKey, fileName(path))
-        this.set_property_value(WikiDocument.DocumentKey, buildFlowDocument(text))
+        this.set_property_value(WikiDocument.DocumentKey, MarkdownRenderer.Render(text))
     }
 
     public get Id(): string { return this.get_property_value(WikiDocument.IdKey) }
@@ -43,6 +43,6 @@ export class WikiDocument extends MuralBase implements IDocument
     // Re-render from new text (a regenerated page) so a reused tab isn't stale.
     public Refresh(text: string): void
     {
-        this.set_property_value(WikiDocument.DocumentKey, buildFlowDocument(text))
+        this.set_property_value(WikiDocument.DocumentKey, MarkdownRenderer.Render(text))
     }
 }

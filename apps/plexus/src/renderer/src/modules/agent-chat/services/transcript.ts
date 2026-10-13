@@ -5,7 +5,7 @@
 import { MetaData, MuralBase, ObservableCollection, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { type FlowDocument } from '@pragmatic-tech-ai/mural/basic'
 import { AgentEventKind, type AgentEvent, type QuestionAnswer, type ToolApprovalAnswer } from '../../../../../shared/agent-api.js'
-import { buildFlowDocument } from '../../../services/markdown/markdown-document.js'
+import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 import { QuestionCard } from './question-card.js'
 import { ToolApprovalCard } from './approval-card.js'
 import { SessionRecoveryCard, type RecoveryMode } from './session-recovery-card.js'
@@ -37,7 +37,7 @@ export class AssistantMessage extends MuralBase
     // (no images); the agent chat injects an image-capable renderer.
     private readonly render: MarkdownRender
 
-    constructor(render: MarkdownRender = buildFlowDocument) { super(); this.render = render }
+    constructor(render: MarkdownRender = (t) => MarkdownRenderer.Render(t)) { super(); this.render = render }
 
     public get Text(): string { return this.get_property_value(AssistantMessage.TextKey) }
     public get Document(): FlowDocument | undefined { return this.get_property_value(AssistantMessage.DocumentKey) }
@@ -163,7 +163,7 @@ export class TranscriptReducer
     // lean built-in parser; the agent chat passes an image-capable one.
     private readonly render: MarkdownRender
 
-    constructor(render: MarkdownRender = buildFlowDocument) { this.render = render }
+    constructor(render: MarkdownRender = (t) => MarkdownRenderer.Render(t)) { this.render = render }
 
     // The assistant bubble currently being streamed into, or null when the next
     // text delta should open a fresh one.

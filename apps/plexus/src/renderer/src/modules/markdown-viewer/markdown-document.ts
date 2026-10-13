@@ -3,11 +3,11 @@ import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { renderMarkdown } from '../../services/markdown/marked-flow-renderer.js'
+import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 
 // A markdown (.md) file opened as a READ-ONLY rendered document tab. Holds the
 // FlowDocument the DataTemplate[MarkdownDocument] lays out with a RichTextBlock —
-// full-fidelity CommonMark+GFM via renderMarkdown (highlighted code, inline
+// full-fidelity CommonMark+GFM via MarkdownRenderer.Render (highlighted code, inline
 // images, best-effort raw html). Id is the file's project-relative path so
 // re-opening dedupes to one tab. Never dirties, never saves (view-only).
 export class MarkdownDocument extends MuralBase implements IDocument
@@ -36,7 +36,7 @@ export class MarkdownDocument extends MuralBase implements IDocument
 
     private render(text: string): FlowDocument
     {
-        return renderMarkdown(text, {
+        return MarkdownRenderer.Render(text, {
             image: { storage: this._storage, baseDir: dirName(this._path) },
             openLink: openExternal,
         })

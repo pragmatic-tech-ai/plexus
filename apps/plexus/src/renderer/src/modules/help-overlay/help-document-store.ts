@@ -2,7 +2,7 @@
 import { ServiceBase, ServiceKey, ResourceDictionary } from '@pragmatic-tech-ai/mural/runtime'
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
-import { renderMarkdown } from '../../services/markdown/marked-flow-renderer.js'
+import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 import skillsMd from './docs/skills.md?raw'
 
 // Holds each feature's help markdown, split into scenario sections keyed by
@@ -59,7 +59,7 @@ export class HelpDocumentStore extends ServiceBase
         if (cached !== undefined) return cached
         const md = this.sections.get(key)
         if (md === undefined) return undefined
-        const doc = renderMarkdown(md)
+        const doc = MarkdownRenderer.Render(md)
         this.rendered.Set(key, doc)
         return doc
     }

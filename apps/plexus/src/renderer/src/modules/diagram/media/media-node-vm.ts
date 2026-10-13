@@ -2,7 +2,7 @@ import { MetaData, MuralBase, Size } from '@pragmatic-tech-ai/mural/runtime'
 import { NodeViewModel } from '@pragmatic-tech-ai/mural/framework'
 import { BitmapImage } from '@pragmatic-tech-ai/mural/visual-engine'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { resolveImageUri } from '../../../services/markdown/markdown-image'
+import { MarkdownImage } from '@pragmatic-tech-ai/mural/basic'
 import { MediaKind } from './media-kind'
 
 export interface MediaLoadDeps
@@ -56,7 +56,7 @@ export class MediaNodeVM extends NodeViewModel
     async LoadAsync(deps: MediaLoadDeps): Promise<Size | undefined>
     {
         if (this.MediaKind !== MediaKind.Image || this.Source === undefined) return undefined
-        const uri = await resolveImageUri(this.Source, { storage: deps.storage, baseDir: deps.baseDir ?? '' })
+        const uri = await MarkdownImage.ResolveUri(this.Source, { storage: deps.storage, baseDir: deps.baseDir ?? '' })
         if (uri === undefined) return undefined
         const measure = deps.measure ?? decodeSizeInBrowser
         const natural = await measure(uri)
