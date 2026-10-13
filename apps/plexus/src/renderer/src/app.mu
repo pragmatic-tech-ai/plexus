@@ -242,7 +242,7 @@ import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.r
 // `Impl -> Key` form as ElectronSettingsStore / DocumentsContentHostService above).
 import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
 import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
-import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
+import DiagramCanvasService from "@pragmatic-tech-ai/mural/framework"
 import SaveOnCloseGuard from "@pragmatic-tech-ai/mural/framework"
 import DocumentCloseInterceptorKey from "@pragmatic-tech-ai/mural/framework"
 import AutosaveService from "@pragmatic-tech-ai/mural/framework"

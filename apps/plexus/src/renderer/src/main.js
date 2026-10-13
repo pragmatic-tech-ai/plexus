@@ -34,7 +34,7 @@ import { ArchDiagramBindingService } from './modules/architecture-projects/servi
 import { ArchModelToolboxContributor } from './modules/architecture-projects/services/arch-model-toolbox-contributor.js'
 import { DiagramCameraService } from './modules/diagram/services/diagram-camera-service.js'
 import { DiagramGuidesService } from './modules/diagram/services/diagram-guides-service.js'
-import { DiagramCanvasService } from './modules/diagram/services/diagram-canvas-service.js'
+import { DiagramCanvasService } from '@pragmatic-tech-ai/mural/framework'
 import { AutosaveService } from '@pragmatic-tech-ai/mural/framework'
 import { DocumentCloseInterceptorKey } from '@pragmatic-tech-ai/mural/framework'
 import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
