@@ -20,6 +20,7 @@
     "./renderer/projects/*": "./dist/renderer/projects/*",
     "./renderer/environment/*": "./dist/renderer/environment/*",
     "./renderer/viewport/*": "./dist/renderer/viewport/*",
+    "./renderer/help/*": "./dist/renderer/help/*",
     "./renderer/settings/*": "./dist/renderer/settings/*",
     "./renderer/documents/*": "./dist/renderer/documents/*",
     "./renderer/diagnostics/*": "./dist/renderer/diagnostics/*",
