@@ -11,7 +11,7 @@ import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 // ObservableCollection is the base collection — distinct from mural/runtime's richer
 // collection above. Choices binds that source directly, so its DP uses this type.
 import type { ObservableCollection as SettingChoices } from '@pragmatic-tech-ai/todl-runtime'
-import type { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import type { FileSystemService } from '../modules/storage/index.js'
 
 // View-models for the settings editor shown in the center content region (the
 // VSCode-style Settings page). ApplicationSettings holds a flat list of live
@@ -117,20 +117,6 @@ export class FilePathSettingRow extends SettingRow
     public get BrowseCommand(): ICommand { return this.get_property_value(FilePathSettingRow.BrowseCommandKey) }
 }
 
-function createRow(setting: Setting, files: FileSystemService | undefined): SettingRow
-{
-    switch (setting.Kind)
-    {
-        case SettingKind.Boolean:  return new BooleanSettingRow(setting)
-        case SettingKind.Number:   return new NumberSettingRow(setting)
-        case SettingKind.Color:    return new ColorSettingRow(setting)
-        case SettingKind.Choice:   return new ChoiceSettingRow(setting)
-        case SettingKind.FilePath: return new FilePathSettingRow(setting, files)
-        case SettingKind.String:
-        default:                   return new StringSettingRow(setting)
-    }
-}
-
 // One category section (grouping bucket) with its rows.
 export class SettingsCategory extends MuralBase
 {
@@ -185,9 +171,23 @@ export class SettingsPage extends MuralBase implements IDocument
                 byName.set(name, category)
                 categories.Add(category)
             }
-            category.Rows.Add(createRow(setting, files))
+            category.Rows.Add(SettingsPage.CreateRow(setting, files))
         }
         this.set_property_value(SettingsPage.CategoriesKey, categories)
+    }
+
+    private static CreateRow(setting: Setting, files: FileSystemService | undefined): SettingRow
+    {
+        switch (setting.Kind)
+        {
+            case SettingKind.Boolean:  return new BooleanSettingRow(setting)
+            case SettingKind.Number:   return new NumberSettingRow(setting)
+            case SettingKind.Color:    return new ColorSettingRow(setting)
+            case SettingKind.Choice:   return new ChoiceSettingRow(setting)
+            case SettingKind.FilePath: return new FilePathSettingRow(setting, files)
+            case SettingKind.String:
+            default:                   return new StringSettingRow(setting)
+        }
     }
 
     public get Categories(): ObservableCollection<SettingsCategory> { return this.get_property_value(SettingsPage.CategoriesKey) }

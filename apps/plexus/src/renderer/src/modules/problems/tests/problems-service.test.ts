@@ -3,7 +3,7 @@ import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { ClipboardService } from '@pragmatic-tech-ai/mural/framework'
-import { ViewportService, type IViewportSource } from '../../../services/viewport/viewport-service.js'
+import { ViewportService, type IViewportSource } from '@pragmatic-tech-ai/plexus-core/renderer/viewport/viewport-service.js'
 import { ProblemsService, ProblemRowKind } from '../problems-service.js'
 
 function diag(over: Partial<Diagnostic>): Diagnostic

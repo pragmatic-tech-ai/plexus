@@ -4,7 +4,7 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
-import { WindowService } from '../window/window-service.js'
+import { WindowService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome/window-service.js'
 import { AboutDialogVm } from './about-dialog.js'
 import { ShortcutsDialogVm } from './shortcuts-dialog.js'
 

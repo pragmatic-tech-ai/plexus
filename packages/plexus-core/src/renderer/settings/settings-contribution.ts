@@ -1,7 +1,7 @@
 import { Application, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ApplicationSettings, type IDocument, type ISettingsContribution } from '@pragmatic-tech-ai/mural/framework'
 import type { Geometry } from '@pragmatic-tech-ai/mural/visual-engine'
-import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
+import { FileSystemService } from '../modules/storage/index.js'
 import { SettingsPage } from './settings-page.js'
 
 // PlexusSettingsContribution — the app half of the framework's settings seam.

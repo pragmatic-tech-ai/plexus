@@ -107,7 +107,7 @@ import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environm
 
 // Live window-height feed (ViewportService.Height) — the Problems popup caps its
 // list at 30% of it. No view resources.
-import ViewportService from "./services/viewport/viewport-service.js"
+import ViewportService from "@pragmatic-tech-ai/plexus-core/renderer/viewport/viewport-service.js"
 
 // System-clipboard seam — the Problems popup's copy actions write through it.
 import ClipboardService from "@pragmatic-tech-ai/mural/framework"
@@ -264,9 +264,9 @@ import WikiResources from "./services/wiki/wiki.resources.mu.js"
 // Settings: persistence store, the footer-gear launcher, and the settings-page
 // view resources. ApplicationSettings (framework, auto-provided by EditorShell)
 // + the store under SettingsStoreKey turn on persistence to userData/settings.json.
-import ElectronSettingsStore from "./services/settings/settings-store.js"
-import PlexusSettingsContribution from "./services/settings/settings-contribution.js"
-import SettingsResources from "./services/settings/settings.resources.mu.js"
+import ElectronSettingsStore from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings-store.js"
+import PlexusSettingsContribution from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings-contribution.js"
+import SettingsResources from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings.resources.mu.js"
 import SavePromptResources from "./services/dialogs/save-prompt.resources.mu.js"
 import DiagramExportPreviewResources from "./modules/diagram-export/diagram-export-preview.resources.mu.js"
 
@@ -285,7 +285,7 @@ import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources
 import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
 import ViewCommandsService from "./services/menu/view-commands-service.js"
 import HelpCommandsService from "./services/menu/help-commands-service.js"
-import WindowService from "./services/window/window-service.js"
+import WindowService from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome/window-service.js"
 // Framework tokens registered at the app ROOT below (see `.services:`).
 import SettingsStoreKey from "@pragmatic-tech-ai/mural/framework"
 import ApplicationSettings from "@pragmatic-tech-ai/mural/framework"

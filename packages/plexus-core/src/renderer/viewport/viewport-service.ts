@@ -1,26 +1,14 @@
 import { ServiceBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ViewportKey, type IViewport } from '@pragmatic-tech-ai/plexus-core/renderer/viewport/viewport.js'
+import { ViewportKey, type IViewport } from './viewport.js'
 
 // The window-height feed behind a seam so ViewportService is testable without a
-// real DOM. The default implementation (windowViewportSource) reads the renderer
+// real DOM. The default implementation (ViewportService.WindowViewportSource) reads the renderer
 // window; tests inject a fake that can push heights.
 export interface IViewportSource
 {
     height(): number
     width(): number
     subscribe(onChange: () => void): () => void
-}
-
-function windowViewportSource(): IViewportSource
-{
-    return {
-        height: () => window.innerHeight,
-        width: () => window.innerWidth,
-        subscribe: (onChange) => {
-            window.addEventListener('resize', onChange)
-            return () => window.removeEventListener('resize', onChange)
-        },
-    }
 }
 
 // Tracks the live viewport (window) height as a bindable Height DP and notifies
@@ -38,7 +26,7 @@ export class ViewportService extends ServiceBase implements IViewport
 
     private readonly listeners = new Set<() => void>()
 
-    constructor(provider: IServiceProvider, source: IViewportSource = windowViewportSource())
+    constructor(provider: IServiceProvider, source: IViewportSource = ViewportService.WindowViewportSource())
     {
         super(provider)
         this.setHeight(source.height())
@@ -48,6 +36,19 @@ export class ViewportService extends ServiceBase implements IViewport
             this.setWidth(source.width())
             for (const l of this.listeners) l()
         })
+    }
+
+    // The default feed: reads the renderer window.
+    private static WindowViewportSource(): IViewportSource
+    {
+        return {
+            height: () => window.innerHeight,
+            width: () => window.innerWidth,
+            subscribe: (onChange) => {
+                window.addEventListener('resize', onChange)
+                return () => window.removeEventListener('resize', onChange)
+            },
+        }
     }
 
     public get Height(): number { return this._height }
