@@ -32,8 +32,9 @@ export class AssistantMessage extends MuralBase
     public static readonly DocumentKey = MuralBase.RegisterProperty<FlowDocument | undefined>(
         AssistantMessage, 'Document', undefined, MetaData.None)
 
-    // How Text becomes the rendered Document. Defaults to the lean built-in parser
-    // (no images); the agent chat injects an image-capable renderer.
+    // How Text becomes the rendered Document. Defaults to the shared marked-based
+    // MarkdownRenderer with no image context; the agent chat injects a renderer
+    // wired with an image context.
     private readonly render: MarkdownRender
 
     constructor(render: MarkdownRender = (t) => MarkdownRenderer.Render(t)) { super(); this.render = render }
@@ -159,7 +160,8 @@ export class TranscriptReducer
     public readonly Transcript = new ObservableCollection<MuralBase>()
 
     // Renderer used for every AssistantMessage this reducer opens. Defaults to the
-    // lean built-in parser; the agent chat passes an image-capable one.
+    // shared marked-based MarkdownRenderer (no image context); the agent chat
+    // passes one wired with an image context.
     private readonly render: MarkdownRender
 
     constructor(render: MarkdownRender = (t) => MarkdownRenderer.Render(t)) { this.render = render }
