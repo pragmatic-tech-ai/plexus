@@ -1,8 +1,7 @@
 import { MetaData, MuralBase } from '@pragmatic-tech-ai/mural/runtime'
-import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
+import { FlowDocument, MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 
-import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 
 // The file name (last path segment) of an absolute path.
 function fileName(path: string): string

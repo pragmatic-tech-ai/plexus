@@ -1,8 +1,7 @@
 // help-document-store.ts — the lazy help resource dictionary.
 import { ServiceBase, ServiceKey, ResourceDictionary } from '@pragmatic-tech-ai/mural/runtime'
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
-import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
+import { FlowDocument, MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 import skillsMd from './docs/skills.md?raw'
 
 // Holds each feature's help markdown, split into scenario sections keyed by

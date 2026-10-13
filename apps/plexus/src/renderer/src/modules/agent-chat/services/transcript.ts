@@ -3,9 +3,8 @@
 // ObservableCollection. Kept free of ServiceBase/window so it is unit-testable;
 // AgentService is a thin shell over it.
 import { MetaData, MuralBase, ObservableCollection, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
-import { type FlowDocument } from '@pragmatic-tech-ai/mural/basic'
+import { type FlowDocument, MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 import { AgentEventKind, type AgentEvent, type QuestionAnswer, type ToolApprovalAnswer } from '../../../../../shared/agent-api.js'
-import { MarkdownRenderer } from '@pragmatic-tech-ai/mural/basic'
 import { QuestionCard } from './question-card.js'
 import { ToolApprovalCard } from './approval-card.js'
 import { SessionRecoveryCard, type RecoveryMode } from './session-recovery-card.js'
