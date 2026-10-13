@@ -5,7 +5,7 @@ import {
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import { ViewportService } from '../../services/viewport/viewport-service.js'
-import { ClipboardService } from '../../services/clipboard/clipboard-service.js'
+import { ClipboardService } from '@pragmatic-tech-ai/mural/framework'
 import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 
 // The Problems popup caps its scrollable list at this fraction of the live
@@ -266,12 +266,12 @@ export class ProblemsService extends ServiceBase
         const store = this.Provider.get(DiagnosticsService.Key)
         const all: Diagnostic[] = store ? [...store.All] : []
         const text = all.filter((d) => this.matchesFilter(d)).map(problemLine).join('\n')
-        await this.Provider.get(ClipboardService.Key)?.writeText(text)
+        await this.Provider.get(ClipboardService.Key)?.WriteText(text)
     }
 
     private async copyOne(d: Diagnostic): Promise<void>
     {
-        await this.Provider.get(ClipboardService.Key)?.writeText(problemLine(d))
+        await this.Provider.get(ClipboardService.Key)?.WriteText(problemLine(d))
     }
 
     // Reset all filters and rebuild once (suppressRebuild coalesces the three DP

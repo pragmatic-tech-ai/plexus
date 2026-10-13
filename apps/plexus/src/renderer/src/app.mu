@@ -110,7 +110,7 @@ import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environm
 import ViewportService from "./services/viewport/viewport-service.js"
 
 // System-clipboard seam — the Problems popup's copy actions write through it.
-import ClipboardService from "./services/clipboard/clipboard-service.js"
+import ClipboardService from "@pragmatic-tech-ai/mural/framework"
 
 // Preview server — the concrete IPreviewServer (plexus-core capability) over the
 // window.api.previewServer preload bridge. Registered under PreviewServerKey (its
