@@ -148,7 +148,7 @@ export class WikiService extends ServiceBase
     }
 
     // Read via the absolute-path filesystem (legacy path), degrading a read error
-    // to '' (buildFlowDocument renders an empty page rather than throwing).
+    // to '' (MarkdownRenderer.Render renders an empty page rather than throwing).
     private async readFs(path: string): Promise<string>
     {
         const fs = this.Provider.getRequired(FileSystemService.Key)

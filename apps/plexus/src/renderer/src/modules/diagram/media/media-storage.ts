@@ -1,5 +1,5 @@
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { bytesToDataUri, mimeForPath } from '../../../services/markdown/markdown-image'
+import { MarkdownImage } from '@pragmatic-tech-ai/mural/basic'
 import { MediaKind } from './media-kind'
 
 export const MEDIA_INLINE_LIMIT_BYTES = 1024 * 1024
@@ -49,7 +49,7 @@ export async function resolveDroppedFile(
     const label = name
 
     if (bytes.byteLength < MEDIA_INLINE_LIMIT_BYTES)
-        return { source: bytesToDataUri(bytes, mimeForPath(name)), label }
+        return { source: MarkdownImage.BytesToDataUri(bytes, MarkdownImage.MimeForPath(name)), label }
 
     // >= 1 MB. Images always embed; arbitrary files prompt Embed vs Link.
     if (kind === MediaKind.Image)

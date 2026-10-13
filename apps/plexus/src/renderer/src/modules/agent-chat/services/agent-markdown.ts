@@ -1,7 +1,7 @@
 // agent-markdown.ts — the agent-chat assistant-bubble markdown renderer.
 //
 // Assistant replies are markdown; the transcript renders them into a FlowDocument
-// a RichTextBlock lays out. This uses the full `renderMarkdown` (the same renderer
+// a RichTextBlock lays out. This uses the full `MarkdownRenderer.Render` (the same renderer
 // the .md viewer uses) so an image the agent references — `![alt](path)` — is
 // DRAWN, not dropped, alongside highlighted code and full GFM.
 //
@@ -14,8 +14,7 @@
 import { Size } from '@pragmatic-tech-ai/mural/runtime'
 import { FlowDocument } from '@pragmatic-tech-ai/mural/basic'
 import type { IFileSystemApi } from '@pragmatic-tech-ai/plexus-core/shared/file-system-api.js'
-import { renderMarkdown } from '../../../services/markdown/marked-flow-renderer.js'
-import type { ImageByteSource } from '../../../services/markdown/markdown-image.js'
+import { MarkdownRenderer, type ImageByteSource } from '@pragmatic-tech-ai/mural/basic'
 
 // Reads raw bytes from an ABSOLUTE OS path — the file-system bridge's readBytes,
 // injectable so the renderer unit-tests headless.
@@ -79,7 +78,7 @@ export class AgentMarkdownRenderer
     // still resolves correctly.
     public render(text: string, baseDir: string): FlowDocument
     {
-        return renderMarkdown(text, {
+        return MarkdownRenderer.Render(text, {
             image: { storage: this.storage, baseDir, measure: (uri) => this.decode(uri) },
             openLink: AgentMarkdownRenderer.openExternal,
         })
