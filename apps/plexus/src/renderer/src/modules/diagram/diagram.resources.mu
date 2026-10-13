@@ -699,7 +699,7 @@ resources DiagramResources {
     }
 
     // ── ToolBox capability panel — the shapes palette in the left pane.
-    // Overrides the generic `DataTemplate [DataType = PlexusPanelService]` for the
+    // Overrides the generic `DataTemplate [DataType = PanelService]` for the
     // ToolboxService subtype (exact-type match wins). The unified toolbox presents
     // $Pages as an ACCORDION (a built-in Shapes page plus one section per visible
     // taxonomy): each section's header two-ways the page's IsExpanded and its body
