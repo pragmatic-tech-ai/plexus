@@ -12,23 +12,23 @@ function makeStore(): HelpDocumentStore
 }
 
 describe('HelpOverlayController', () => {
-    test('handleMove shows a hotspot for the nearest ancestor with a valid Help.Topic', () => {
+    test('HandleMove shows a hotspot for the nearest ancestor with a valid Help.Topic', () => {
         const deco = new AdornerDecorator()
         const tagged = new Border(); Help.SetTopic(tagged, 'skills#create-a-skill')
         const leaf = new Border(); tagged.SetChild(leaf)   // leaf nested under the tagged control
         deco.Child = tagged
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(leaf)
+        c.HandleMove(leaf)
         expect(c.CurrentTarget).toBe(tagged)
         expect(deco.AdornerLayer.GetAdorners(tagged)?.length).toBe(1)
         c.dispose()
     })
 
-    test('handleMove over a subtree with no Help.Topic shows nothing', () => {
+    test('HandleMove over a subtree with no Help.Topic shows nothing', () => {
         const deco = new AdornerDecorator()
         const plain = new Border(); deco.Child = plain
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(plain)
+        c.HandleMove(plain)
         expect(c.CurrentTarget).toBeUndefined()
         c.dispose()
     })
@@ -38,7 +38,7 @@ describe('HelpOverlayController', () => {
         const tagged = new Border(); Help.SetTopic(tagged, 'skills#does-not-exist')
         deco.Child = tagged
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(tagged)
+        c.HandleMove(tagged)
         expect(c.CurrentTarget).toBeUndefined()
         c.dispose()
     })
@@ -48,10 +48,10 @@ describe('HelpOverlayController', () => {
         const tagged = new Border(); Help.SetTopic(tagged, 'skills#create-a-skill')
         deco.Child = tagged
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(tagged)
+        c.HandleMove(tagged)
         const adorner = deco.AdornerLayer.GetAdorners(tagged)![0]
         const chip = adorner.visualChildren[0]   // the HelpHotspotButton, inside the adorner
-        c.handleMove(chip)                        // pointer moves onto the chip
+        c.HandleMove(chip)                        // pointer moves onto the chip
         expect(c.CurrentTarget).toBe(tagged)      // still shown — not torn down
         expect(deco.AdornerLayer.GetAdorners(tagged)?.length).toBe(1)
         c.dispose()
@@ -62,10 +62,10 @@ describe('HelpOverlayController', () => {
         const tagged = new Border(); Help.SetTopic(tagged, 'skills#create-a-skill')
         deco.Child = tagged
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(tagged)
+        c.HandleMove(tagged)
         const hotspot = deco.AdornerLayer.GetAdorners(tagged)![0]
         const chip = hotspot.visualChildren[0]
-        c.handleDown(chip)                        // press lands on the chip
+        c.HandleDown(chip)                        // press lands on the chip
         const ctors = deco.AdornerLayer.GetAdorners(tagged)!.map((a) => a.constructor.name)
         expect(ctors).toContain('HelpFlyoutAdorner')
         c.dispose()
@@ -76,8 +76,8 @@ describe('HelpOverlayController', () => {
         const tagged = new Border(); Help.SetTopic(tagged, 'skills#create-a-skill')
         deco.Child = tagged
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(tagged)
-        c.handleDown(tagged)                      // press on the control, not the chip
+        c.HandleMove(tagged)
+        c.HandleDown(tagged)                      // press on the control, not the chip
         const ctors = deco.AdornerLayer.GetAdorners(tagged)!.map((a) => a.constructor.name)
         expect(ctors).not.toContain('HelpFlyoutAdorner')
         c.dispose()
@@ -88,7 +88,7 @@ describe('HelpOverlayController', () => {
         const tagged = new Border(); Help.SetTopic(tagged, 'skills#create-a-skill')
         deco.Child = tagged
         const c = new HelpOverlayController(deco, makeStore())
-        c.handleMove(tagged)
+        c.HandleMove(tagged)
         expect(deco.AdornerLayer.GetAdorners(tagged)?.length).toBe(1)
         c.dispose()
         expect(deco.AdornerLayer.GetAdorners(tagged)?.length ?? 0).toBe(0)

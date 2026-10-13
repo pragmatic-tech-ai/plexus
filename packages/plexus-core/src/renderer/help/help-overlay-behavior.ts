@@ -19,9 +19,9 @@ export class HelpOverlayController implements IDisposable
     private hotspot: { detach: () => void } | undefined
     private flyout: { detach: () => void } | undefined
     private readonly onMove = (args: unknown): void =>
-        this.handleMove((args as PointerEventArgs).Source as unknown as Visual)
+        this.HandleMove((args as PointerEventArgs).Source as unknown as Visual)
     private readonly onDown = (args: unknown): void =>
-        this.handleDown((args as PointerEventArgs).Source as unknown as Visual)
+        this.HandleDown((args as PointerEventArgs).Source as unknown as Visual)
 
     constructor(private readonly root: Visual, private readonly store: HelpDocumentStore)
     {
@@ -33,14 +33,14 @@ export class HelpOverlayController implements IDisposable
     }
 
     // A press inside the "?" chip opens the flyout for the current target.
-    public handleDown(source: Visual): void
+    public HandleDown(source: Visual): void
     {
         if (this.target !== undefined && this.isWithin(source, HelpHotspotAdorner)) this.openFlyout(this.target)
     }
 
     public get CurrentTarget(): Visual | undefined { return this.target }
 
-    public handleMove(source: Visual): void
+    public HandleMove(source: Visual): void
     {
         // The "?" chip and the flyout live in the adorner layer, NOT under the
         // tagged control — so a naive ancestor-walk from them finds no topic and
