@@ -264,9 +264,9 @@ import WikiResources from "./services/wiki/wiki.resources.mu.js"
 // Settings: persistence store, the footer-gear launcher, and the settings-page
 // view resources. ApplicationSettings (framework, auto-provided by EditorShell)
 // + the store under SettingsStoreKey turn on persistence to userData/settings.json.
-import ElectronSettingsStore from "./services/settings/settings-store.js"
-import PlexusSettingsContribution from "./services/settings/settings-contribution.js"
-import SettingsResources from "./services/settings/settings.resources.mu.js"
+import ElectronSettingsStore from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings-store.js"
+import PlexusSettingsContribution from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings-contribution.js"
+import SettingsResources from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings.resources.mu.js"
 import SavePromptResources from "./services/dialogs/save-prompt.resources.mu.js"
 import DiagramExportPreviewResources from "./modules/diagram-export/diagram-export-preview.resources.mu.js"
 
