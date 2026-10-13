@@ -61,7 +61,6 @@ import { ConfirmDialogModel } from '../../../dialogs/confirm-dialog-model.js'
 import { SetVersionDialogModel, type SetVersionResult } from '../../../projects/set-version-dialog-model.js'
 import { ManageReferencesDialogModel } from '../../../projects/manage-references-dialog-model.js'
 import type { BaseBindings } from '../../../projects/base-binding.js'
-import { DocumentCloseGuard } from '../../../documents/document-close-guard.js'
 import type { IDocumentFactory } from '../../../documents/document-factory.js'
 import { FileSystemService } from '../../storage/index.js'
 import type { FileFilter } from '../../../../shared/file-system-api.js'
@@ -494,19 +493,10 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // the whole delete (returns false before the engine touches disk).
     public async CanRemove(member: SolutionMember, paths: readonly string[]): Promise<boolean>
     {
-        const guard = this.Provider.get(DocumentCloseGuard.Key)
         for (const doc of this.docs.DocsUnder(member, paths))
         {
-            if (guard !== undefined)
-            {
-                if (!(await guard.TryCloseDocument(doc))) return false
-                this.docs.Forget(doc)
-            }
-            else
-            {
-                this.host.Close(doc)
-                this.docs.Forget(doc)
-            }
+            if (!(await this.host.TryClose(doc))) return false
+            this.docs.Forget(doc)
         }
         return true
     }
@@ -526,19 +516,10 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     // ── ICloseGuard (the engine ProjectLifecycle.CloseProject calls this) ────
     public async CanClose(member: SolutionMember): Promise<boolean>
     {
-        const guard = this.Provider.get(DocumentCloseGuard.Key)
         for (const doc of this.docs.OwnedDocs(member))
         {
-            if (guard !== undefined)
-            {
-                if (!(await guard.TryCloseDocument(doc))) return false
-                this.docs.Forget(doc)
-            }
-            else
-            {
-                this.host.Close(doc)
-                this.docs.Forget(doc)
-            }
+            if (!(await this.host.TryClose(doc))) return false
+            this.docs.Forget(doc)
         }
         return true
     }

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { confirmCloseDocs } from '../confirm-close-docs.js'
-import { SavePromptResult } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/save-prompt-model.js'
+import { SavePromptResult } from '@pragmatic-tech-ai/mural/framework'
 
 function doc(dirty: boolean) { return { Id: 'x', Title: 'x', IsDirty: dirty, Save: vi.fn() } }
 function host(docs: ReturnType<typeof doc>[], saveAll = vi.fn(async () => {}))

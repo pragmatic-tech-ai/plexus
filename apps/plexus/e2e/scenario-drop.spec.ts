@@ -96,7 +96,7 @@ async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: n
             for (const [, e] of (p._cache ?? new Map()))
             {
                 const n = (e as any)?.constructor?.name
-                if (n === 'PlexusDocumentHost') host = e
+                if (n === 'DocumentsContentHostService') host = e
                 else if (n === 'ArchDiagramBindingService') binding = e
             }
         const doc = host?.ActiveDocument
@@ -234,7 +234,7 @@ async function waitForScenarioFlow(l: Launched, scenarioId: string): Promise<boo
                 for (const [, e] of (p._cache ?? new Map()))
                 {
                     const n = (e as any)?.constructor?.name
-                    if (n === 'PlexusDocumentHost') host = e
+                    if (n === 'DocumentsContentHostService') host = e
                     else if (n === 'ArchDiagramBindingService') binding = e
                 }
             const doc = host?.ActiveDocument

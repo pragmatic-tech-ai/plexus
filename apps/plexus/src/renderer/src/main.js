@@ -37,7 +37,7 @@ import { DiagramCameraService } from './modules/diagram/services/diagram-camera-
 import { DiagramGuidesService } from './modules/diagram/services/diagram-guides-service.js'
 import { DiagramCanvasService } from './modules/diagram/services/diagram-canvas-service.js'
 import { AutosaveService } from './services/autosave/autosave-service.js'
-import { DocumentCloseGuard } from '@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js'
+import { DocumentCloseInterceptorKey } from '@pragmatic-tech-ai/mural/framework'
 import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
 import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
 import { TodlLanguageClient } from './services/todl/todl-language-client.js'
@@ -168,10 +168,12 @@ try {
     app.Services.get(DiagramCameraService.Key)
     app.Services.get(DiagramGuidesService.Key)
     app.Services.get(DiagramCanvasService.Key)
-    // Document close guard (app.mu .services:): prompts Save / Don't Save / Cancel
-    // before a dirty tab closes — the tab template's ✕ and the solution-explorer/quit
-    // paths reach this same instance. Woken now so it's ready before any close.
-    app.Services.get(DocumentCloseGuard.Key)
+    // Close interceptor (SaveOnCloseGuard, app.mu .services:): prompts Save / Don't
+    // Save / Cancel before a dirty document closes. The host's close commands (tab ✕,
+    // Close All) and the solution-explorer delete/close paths route through it; app
+    // quit uses its own consolidated gate (confirmCloseDocs). Woken now so it's ready
+    // before any close.
+    app.Services.get(DocumentCloseInterceptorKey)
     // Autosave (app.mu .services:): periodically saves every dirty document (interval
     // + on/off from the "Documents" settings). Woken now so its timer starts at boot.
     app.Services.get(AutosaveService.Key)

@@ -27,7 +27,7 @@ function layoutOp(l: Launched, op: 'preview' | 'apply' | 'cancel')
             for (const [, e] of (p._cache ?? new Map()))
             {
                 const n = (e as any)?.constructor?.name
-                if (n === 'PlexusDocumentHost') host = e
+                if (n === 'DocumentsContentHostService') host = e
                 if (n === 'LayoutPipelineService') svc = e
             }
         }

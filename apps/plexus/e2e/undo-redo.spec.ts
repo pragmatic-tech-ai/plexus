@@ -57,7 +57,7 @@ function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string)
         {
             for (const [, e] of (p._cache ?? new Map()))
             {
-                if ((e as any)?.constructor?.name === 'PlexusDocumentHost') { host = e; break }
+                if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break }
             }
         }
         const doc = host?.ActiveDocument

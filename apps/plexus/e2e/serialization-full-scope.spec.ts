@@ -67,7 +67,7 @@ function readLiveBrushes(l: Launched)
         let host: any
         for (let p = root?.Services; p && !host; p = p._parent)
         {
-            for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'PlexusDocumentHost') { host = e; break } }
+            for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break } }
         }
         const doc = host?.ActiveDocument
         const view = doc?.ActiveView
@@ -107,7 +107,7 @@ function styleArchAndSave(l: Launched)
         let host: any
         for (let p = root?.Services; p && !host; p = p._parent)
         {
-            for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'PlexusDocumentHost') { host = e; break } }
+            for (const [, e] of (p._cache ?? new Map())) { if ((e as any)?.constructor?.name === 'DocumentsContentHostService') { host = e; break } }
         }
         const doc = host?.ActiveDocument
         const view = doc?.ActiveView

@@ -2,10 +2,11 @@
 // with their defaults, and a dirty document's tab-close raises the real
 // Save / Don't Save / Cancel dialog (Cancel keeps the tab, Don't Save closes it).
 //
-// The per-branch LOGIC is unit-tested (save-prompt-model, document-close-guard,
-// autosave-service, confirm-close-docs); this spec proves the wiring end-to-end in
-// the running app: the Save module's settings reached ApplicationSettings, and the
-// PlexusDocumentHost → DocumentCloseGuard → DialogService path is connected.
+// The per-branch LOGIC is unit-tested (autosave-service, confirm-close-docs; the
+// save prompt + close guard are unit-tested in mural); this spec proves the wiring
+// end-to-end in the running app: the Save module's settings reached
+// ApplicationSettings, and the DocumentsContentHostService → SaveOnCloseGuard →
+// DialogService path is connected.
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
 import path from 'node:path'
