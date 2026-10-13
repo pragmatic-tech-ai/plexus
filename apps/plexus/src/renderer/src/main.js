@@ -13,7 +13,7 @@ import './fonts.css'
 import { app } from './app.mu.js'
 import { HtmlTarget } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ThemeManager, Density, RelayCommand, SettingSourceKey } from '@pragmatic-tech-ai/mural/runtime'
-import { ContentHostService, PanelDockService, DialogService, ApplicationSettings } from '@pragmatic-tech-ai/mural/framework'
+import { ContentHostService, PanelDockService, DialogService, ApplicationSettings, DocumentShortcutsService } from '@pragmatic-tech-ai/mural/framework'
 import { confirmCloseDocs } from './services/documents/confirm-close-docs.js'
 import { ChatSessionsService } from './modules/agent-chat/services/chat-sessions-service.js'
 import { ProjectAgentCatalog } from './modules/agent-chat/services/project-agent-catalog.js'
@@ -21,7 +21,6 @@ import { TemplateGalleryService } from './modules/agent-chat/services/template-g
 import { attachAutoOpenInspector } from './modules/diagram/behaviors/auto-open-inspector-behavior.js'
 import { attachHelpOverlay } from './modules/help-overlay/help-overlay-behavior.js'
 import { HelpDocumentStore } from './modules/help-overlay/help-document-store.js'
-import { attachSaveShortcuts } from './services/documents/save-shortcuts.js'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
 import { attachTitleBar, removeSplash, TitleService, MenuDragRegion } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
@@ -210,7 +209,7 @@ try {
     // Ctrl+S / Ctrl+Shift+S → Save / Save All; Ctrl+W → close the active document
     // through the close guard (prompts if dirty). CloseActiveCommand bridges "the
     // active document" to the host's id-keyed CloseDocumentCommand.
-    if (host !== undefined) attachSaveShortcuts({
+    if (host !== undefined) new DocumentShortcutsService().Attach(window, {
         SaveActiveCommand: host.SaveActiveCommand,
         SaveAllCommand: host.SaveAllCommand,
         CloseActiveCommand: new RelayCommand(
