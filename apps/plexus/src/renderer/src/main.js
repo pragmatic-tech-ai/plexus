@@ -19,8 +19,9 @@ import { ChatSessionsService } from './modules/agent-chat/services/chat-sessions
 import { ProjectAgentCatalog } from './modules/agent-chat/services/project-agent-catalog.js'
 import { TemplateGalleryService } from './modules/agent-chat/services/template-gallery-service.js'
 import { attachAutoOpenInspector } from './modules/diagram/behaviors/auto-open-inspector-behavior.js'
-import { attachHelpOverlay } from './modules/help-overlay/help-overlay-behavior.js'
-import { HelpDocumentStore } from './modules/help-overlay/help-document-store.js'
+import { HelpOverlayController } from '@pragmatic-tech-ai/plexus-core/renderer/help/help-overlay-behavior.js'
+import { HelpDocumentStore } from '@pragmatic-tech-ai/plexus-core/renderer/help/help-document-store.js'
+import skillsMd from './modules/help-overlay/docs/skills.md?raw'
 import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
 import { attachTitleBar, removeSplash, TitleService, MenuDragRegion } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
@@ -318,8 +319,9 @@ try {
     // the shell root so PointerMove bubbles reach it; the store is a module
     // service. Mirrors the attach* behavior wiring above.
     const helpStore = app.Services.get(HelpDocumentStore.Key)
+    helpStore?.RegisterDoc('skills', skillsMd)
     const helpRoot = app.Resources.Root
-    if (helpStore !== undefined && helpRoot !== undefined) attachHelpOverlay(helpRoot, helpStore)
+    if (helpStore !== undefined && helpRoot !== undefined) HelpOverlayController.Attach(helpRoot, helpStore)
 } catch (err) {
     // Never let the splash hang over a failed mount — drop it so the error
     // surfaces (console / any error overlay) instead of a frozen loading screen.

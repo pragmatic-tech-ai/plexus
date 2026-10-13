@@ -1,6 +1,7 @@
 // help-overlay-behavior.ts — shell-attached hover→"?"→flyout controller.
 import { Help } from '@pragmatic-tech-ai/mural/visual-engine'
 import type { Visual } from '@pragmatic-tech-ai/mural/visual-engine'
+import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { PointerEventArgs } from '@pragmatic-tech-ai/mural/runtime'
 import { HelpDocumentStore } from './help-document-store.js'
 import { HelpHotspotAdorner } from './help-hotspot-adorner.js'
@@ -9,34 +10,37 @@ import { HelpFlyoutAdorner } from './help-flyout-adorner.js'
 // Watches pointer movement over the shell root, shows a "?" hotspot for the
 // nearest ancestor tagged with a resolvable Help.Topic, and opens a scenario
 // flyout when the hotspot is clicked. Holds only view-transient state.
-export class HelpOverlayController
+export class HelpOverlayController implements IDisposable
 {
+    private static readonly PointerMoveEvent = 'PointerMove'
+    private static readonly PointerDownEvent = 'PointerDown'
+
     private target: Visual | undefined
     private hotspot: { detach: () => void } | undefined
     private flyout: { detach: () => void } | undefined
     private readonly onMove = (args: unknown): void =>
-        this.handleMove((args as PointerEventArgs).Source as unknown as Visual)
+        this.HandleMove((args as PointerEventArgs).Source as unknown as Visual)
     private readonly onDown = (args: unknown): void =>
-        this.handleDown((args as PointerEventArgs).Source as unknown as Visual)
+        this.HandleDown((args as PointerEventArgs).Source as unknown as Visual)
 
     constructor(private readonly root: Visual, private readonly store: HelpDocumentStore)
     {
         // Both bubble to the root; args.Source is the hit-tested leaf. We resolve
         // hover + click at the root because the chip lives in the adorner layer,
         // where a listener on the chip itself isn't reliably on the dispatch route.
-        this.root.AddRoutedEventListener('PointerMove', this.onMove)
-        this.root.AddRoutedEventListener('PointerDown', this.onDown)
+        this.root.AddRoutedEventListener(HelpOverlayController.PointerMoveEvent, this.onMove)
+        this.root.AddRoutedEventListener(HelpOverlayController.PointerDownEvent, this.onDown)
     }
 
     // A press inside the "?" chip opens the flyout for the current target.
-    public handleDown(source: Visual): void
+    public HandleDown(source: Visual): void
     {
         if (this.target !== undefined && this.isWithin(source, HelpHotspotAdorner)) this.openFlyout(this.target)
     }
 
     public get CurrentTarget(): Visual | undefined { return this.target }
 
-    public handleMove(source: Visual): void
+    public HandleMove(source: Visual): void
     {
         // The "?" chip and the flyout live in the adorner layer, NOT under the
         // tagged control — so a naive ancestor-walk from them finds no topic and
@@ -80,7 +84,7 @@ export class HelpOverlayController
             if (topic !== '')
             {
                 const parts = Help.ParseTopic(topic)
-                if (parts !== undefined && this.store.hasScenario(parts.docId, parts.anchor)) return cur
+                if (parts !== undefined && this.store.HasScenario(parts.docId, parts.anchor)) return cur
             }
             cur = cur.GetVisualParent()
         }
@@ -93,7 +97,7 @@ export class HelpOverlayController
         this.flyout = undefined
         const parts = Help.ParseTopic(Help.GetTopic(target))
         if (parts === undefined) return
-        const doc = this.store.getScenario(parts.docId, parts.anchor)
+        const doc = this.store.GetScenario(parts.docId, parts.anchor)
         if (doc === undefined) return
         this.flyout = HelpFlyoutAdorner.Attach(target, doc) ?? undefined
     }
@@ -105,15 +109,14 @@ export class HelpOverlayController
     {
         this.clearHotspot()
         this.clearFlyout()
-        this.root.RemoveRoutedEventListener('PointerMove', this.onMove)
-        this.root.RemoveRoutedEventListener('PointerDown', this.onDown)
+        this.root.RemoveRoutedEventListener(HelpOverlayController.PointerMoveEvent, this.onMove)
+        this.root.RemoveRoutedEventListener(HelpOverlayController.PointerDownEvent, this.onDown)
     }
-}
 
-// Sanctioned behavior entry (mirrors attachAutoOpenInspector): construct the
-// controller against the shell root, return its dispose thunk.
-export function attachHelpOverlay(root: Visual, store: HelpDocumentStore): () => void
-{
-    const controller = new HelpOverlayController(root, store)
-    return () => controller.dispose()
+    // Sanctioned behavior entry (mirrors attachAutoOpenInspector): construct the
+    // controller against the shell root; the controller is the disposable.
+    public static Attach(root: Visual, store: HelpDocumentStore): IDisposable
+    {
+        return new HelpOverlayController(root, store)
+    }
 }
