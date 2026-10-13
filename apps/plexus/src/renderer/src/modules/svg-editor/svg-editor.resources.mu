@@ -12,7 +12,7 @@
 // invoke ShowVisualCommand / ShowTextCommand. Default is Visual (visual-first).
 
 import SvgDocument from "./svg-document.js"
-import SvgSceneHost from "./svg-scene-host.js"
+import SvgSceneHost from "@pragmatic-tech-ai/plexus-core/renderer/modules/svg-scene/svg-scene-host.js"
 import CodeEditor from "../code-editor/code-editor.js"
 
 resources SvgEditorResources {

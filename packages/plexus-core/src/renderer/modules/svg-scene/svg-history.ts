@@ -8,35 +8,35 @@ export class SvgHistory
 
     public constructor(initial: string) { this.stack = [initial] }
 
-    public current(): string { return this.stack[this.index] }
-    public canUndo(): boolean { return this.index > 0 }
-    public canRedo(): boolean { return this.index < this.stack.length - 1 }
+    public Current(): string { return this.stack[this.index] }
+    public CanUndo(): boolean { return this.index > 0 }
+    public CanRedo(): boolean { return this.index < this.stack.length - 1 }
 
     // Record a new snapshot. A snapshot equal to the current one records nothing
     // (a gesture that left the markup unchanged). Pushing truncates any redo tail.
-    public push(snapshot: string): void
+    public Push(snapshot: string): void
     {
-        if (snapshot === this.current()) return
+        if (snapshot === this.Current()) return
         this.stack = this.stack.slice(0, this.index + 1)
         this.stack.push(snapshot)
         this.index = this.stack.length - 1
     }
 
-    public undo(): string | undefined
+    public Undo(): string | undefined
     {
-        if (!this.canUndo()) return undefined
+        if (!this.CanUndo()) return undefined
         this.index -= 1
-        return this.current()
+        return this.Current()
     }
 
-    public redo(): string | undefined
+    public Redo(): string | undefined
     {
-        if (!this.canRedo()) return undefined
+        if (!this.CanRedo()) return undefined
         this.index += 1
-        return this.current()
+        return this.Current()
     }
 
     // Re-baseline after an external Content change (text-tab edit) so the next
     // gesture branches from the new state rather than the stale stack.
-    public reset(snapshot: string): void { this.stack = [snapshot]; this.index = 0 }
+    public Reset(snapshot: string): void { this.stack = [snapshot]; this.index = 0 }
 }

@@ -9,7 +9,7 @@ export class SvgStyle
 {
     // Parse a CSS colour (#rgb, #rrggbb, rgb()/rgba()) to #rrggbb; 'none'/''/
     // 'transparent' → undefined (no paint the editor can represent).
-    public static parseColorToHex(css: string): string | undefined
+    public static ParseColorToHex(css: string): string | undefined
     {
         const s = css.trim().toLowerCase()
         if (s === '' || s === 'none' || s === 'transparent') return undefined
@@ -36,38 +36,38 @@ export class SvgStyle
     // ── Brush / Pen conversion (the Format Shape sink's value types) ────────
 
     // A solid brush from a hex colour (for ShapeFormatControl.Fill).
-    public static brushFromHex(hex: string): SolidColorBrush { return new SolidColorBrush(Color.FromHex(hex)) }
+    public static BrushFromHex(hex: string): SolidColorBrush { return new SolidColorBrush(Color.FromHex(hex)) }
 
     // The hex of a solid brush, or undefined for none/other brush kinds.
-    public static hexFromBrush(b: Brush | undefined): string | undefined
+    public static HexFromBrush(b: Brush | undefined): string | undefined
     {
         return b instanceof SolidColorBrush ? b.Color.ToHex() : undefined
     }
 
     // A pen (brush + thickness) from a stroke hex + width (for ShapeFormatControl.Stroke).
-    public static penFromHex(hex: string, thickness: number): Pen
+    public static PenFromHex(hex: string, thickness: number): Pen
     {
-        return new Pen(SvgStyle.brushFromHex(hex), thickness)
+        return new Pen(SvgStyle.BrushFromHex(hex), thickness)
     }
 
     // ── Attribute writes ────────────────────────────────────────────────────
 
-    public static applyFill(el: Element, hex: string): void { el.setAttribute('fill', hex) }
-    public static applyStroke(el: Element, hex: string): void { el.setAttribute('stroke', hex) }
-    public static applyStrokeWidth(el: Element, n: number): void { el.setAttribute('stroke-width', String(n)) }
-    public static applyOpacity(el: Element, n: number): void
+    public static ApplyFill(el: Element, hex: string): void { el.setAttribute('fill', hex) }
+    public static ApplyStroke(el: Element, hex: string): void { el.setAttribute('stroke', hex) }
+    public static ApplyStrokeWidth(el: Element, n: number): void { el.setAttribute('stroke-width', String(n)) }
+    public static ApplyOpacity(el: Element, n: number): void
     {
         el.setAttribute('opacity', String(Math.max(0, Math.min(1, n))))
     }
 
     // Read the element's effective paint via computed style (resolves named
     // colours, inheritance). `win` is the host window (getComputedStyle source).
-    public static readComputed(el: Element, win: Window): { fill?: string; stroke?: string; strokeWidth: string; opacity: string }
+    public static ReadComputed(el: Element, win: Window): { fill?: string; stroke?: string; strokeWidth: string; opacity: string }
     {
         const cs = win.getComputedStyle(el)
         return {
-            fill: SvgStyle.parseColorToHex(cs.fill ?? ''),
-            stroke: SvgStyle.parseColorToHex(cs.stroke ?? ''),
+            fill: SvgStyle.ParseColorToHex(cs.fill ?? ''),
+            stroke: SvgStyle.ParseColorToHex(cs.stroke ?? ''),
             strokeWidth: (parseFloat(cs.strokeWidth ?? '') || 0).toString(),
             opacity: (parseFloat(cs.opacity ?? '') || 1).toString(),
         }

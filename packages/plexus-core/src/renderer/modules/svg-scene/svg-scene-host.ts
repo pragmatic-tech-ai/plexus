@@ -8,8 +8,6 @@ import { SvgStyle } from './svg-style.js'
 import { SvgStyleProp } from './svg-style-prop.js'
 import type { SvgFormatSink } from './svg-format-sink.js'
 
-const SVG_NS = 'http://www.w3.org/2000/svg'
-
 // The document (source of truth) the host writes edits back to, plus the Format
 // Shape sink it loads from the selection and the selection flag that drives the
 // inspector rail. Cast target so the access is typed + greppable without reaching
@@ -30,6 +28,12 @@ enum GestureMode { None = 'none', Pan = 'pan', Move = 'move', Resize = 'resize',
 // single source of truth); a guard stops that self-write from re-mounting.
 export class SvgSceneHost extends DomHost
 {
+    private static readonly SvgNs = 'http://www.w3.org/2000/svg'
+    private static readonly HandleAttr = 'data-handle'
+    private static readonly SelectionColor = '#3b82f6'
+    private static readonly HandleFill = '#ffffff'
+    private static readonly MarqueeFill = 'rgba(59,130,246,0.12)'
+
     // The markup to render, bound from the document's $Content.
     public static readonly ContentKey = MuralBase.RegisterProperty<string>(
         SvgSceneHost, 'Content', '', MetaData.None)
@@ -119,7 +123,7 @@ export class SvgSceneHost extends DomHost
     }
 
     // Stop observing canvas resizes (call when the host is torn down).
-    public detach(): void { this.resizeObs?.disconnect(); this.resizeObs = undefined }
+    public dispose(): void { this.resizeObs?.disconnect(); this.resizeObs = undefined }
 
     // Self-materialise: touching HostElement the first time we're measured runs
     // CreateHostElement — same pattern as CodeEditor.
@@ -152,7 +156,7 @@ export class SvgSceneHost extends DomHost
         if (this.authored.has(markup)) { this.authored.delete(markup); this.lastRendered = markup; return }
         this.lastRendered = markup
         this.mountMarkup(markup)
-        this.history.reset(markup)
+        this.history.Reset(markup)
     }
 
     // Parse `markup` and (re)mount the scene + overlay; clears selection. Pure
@@ -160,7 +164,7 @@ export class SvgSceneHost extends DomHost
     private mountMarkup(markup: string): void
     {
         if (this.viewport === undefined || this.errorBox === undefined) return
-        const result = SvgScene.parse(markup)
+        const result = SvgScene.Parse(markup)
         if ('error' in result)
         {
             this.clearScene()
@@ -185,7 +189,7 @@ export class SvgSceneHost extends DomHost
         this.viewport.appendChild(scene)
         this.mounted = scene
 
-        const overlay = owner.createElementNS(SVG_NS, 'svg') as SVGSVGElement
+        const overlay = owner.createElementNS(SvgSceneHost.SvgNs, 'svg') as SVGSVGElement
         overlay.setAttribute('width', String(vb.w))
         overlay.setAttribute('height', String(vb.h))
         overlay.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`)
@@ -218,7 +222,7 @@ export class SvgSceneHost extends DomHost
         if (this.sizedW) clone.removeAttribute('width')
         if (this.sizedH) clone.removeAttribute('height')
         clone.removeAttribute('style')
-        return SvgScene.serialize(clone)
+        return SvgScene.Serialize(clone)
     }
 
     // Commit an edit gesture: serialise the live scene back into the document's
@@ -234,7 +238,7 @@ export class SvgSceneHost extends DomHost
         this.authored.add(markup)
         const doc = this.DataContext as SvgContentTarget | undefined
         if (doc !== undefined) doc.Content = markup
-        this.history.push(markup)
+        this.history.Push(markup)
     }
 
     // Apply a history snapshot (undo/redo): re-mount it directly (a visible
@@ -344,11 +348,11 @@ export class SvgSceneHost extends DomHost
         for (const el of this.selected)
         {
             const b = this.elementBox(el)
-            const outline = owner.createElementNS(SVG_NS, 'rect')
+            const outline = owner.createElementNS(SvgSceneHost.SvgNs, 'rect')
             outline.setAttribute('x', String(b.x)); outline.setAttribute('y', String(b.y))
             outline.setAttribute('width', String(b.w)); outline.setAttribute('height', String(b.h))
             outline.setAttribute('fill', 'none')
-            outline.setAttribute('stroke', '#3b82f6')
+            outline.setAttribute('stroke', SvgSceneHost.SelectionColor)
             outline.setAttribute('stroke-width', String(1.5 * px))
             outline.setAttribute('stroke-dasharray', `${4 * px} ${3 * px}`)
             overlay.appendChild(outline)
@@ -360,12 +364,12 @@ export class SvgSceneHost extends DomHost
             const hs = 8 * px    // handle size in user units → ~8 screen px
             for (const h of this.handlePoints(b))
             {
-                const rect = owner.createElementNS(SVG_NS, 'rect')
+                const rect = owner.createElementNS(SvgSceneHost.SvgNs, 'rect')
                 rect.setAttribute('x', String(h.x - hs / 2)); rect.setAttribute('y', String(h.y - hs / 2))
                 rect.setAttribute('width', String(hs)); rect.setAttribute('height', String(hs))
-                rect.setAttribute('fill', '#ffffff'); rect.setAttribute('stroke', '#3b82f6')
+                rect.setAttribute('fill', SvgSceneHost.HandleFill); rect.setAttribute('stroke', SvgSceneHost.SelectionColor)
                 rect.setAttribute('stroke-width', String(1 * px))
-                rect.setAttribute('data-handle', h.kind)
+                rect.setAttribute(SvgSceneHost.HandleAttr, h.kind)
                 ;(rect as SVGElement).style.pointerEvents = 'all'
                 overlay.appendChild(rect)
             }
@@ -401,10 +405,10 @@ export class SvgSceneHost extends DomHost
         doc.HasSelection = true
         const win = this.hostEl?.ownerDocument.defaultView
         if (win === null || win === undefined) return
-        const v = SvgStyle.readComputed(this.selected[0], win)
+        const v = SvgStyle.ReadComputed(this.selected[0], win)
         sink.Load({
-            fill: SvgStyle.brushFromHex(v.fill ?? '#000000'),
-            stroke: SvgStyle.penFromHex(v.stroke ?? '#000000', parseFloat(v.strokeWidth) || 1),
+            fill: SvgStyle.BrushFromHex(v.fill ?? '#000000'),
+            stroke: SvgStyle.PenFromHex(v.stroke ?? '#000000', parseFloat(v.strokeWidth) || 1),
         })
     }
 
@@ -416,17 +420,17 @@ export class SvgSceneHost extends DomHost
         if (sink === undefined || this.selected.length === 0) return
         if (prop === SvgStyleProp.Fill)
         {
-            const hex = SvgStyle.hexFromBrush(sink.Fill)
-            if (hex !== undefined) for (const el of this.selected) SvgStyle.applyFill(el, hex)
+            const hex = SvgStyle.HexFromBrush(sink.Fill)
+            if (hex !== undefined) for (const el of this.selected) SvgStyle.ApplyFill(el, hex)
         }
         else if (prop === SvgStyleProp.Stroke)
         {
             const pen = sink.Stroke
-            const hex = SvgStyle.hexFromBrush(pen?.Brush)
+            const hex = SvgStyle.HexFromBrush(pen?.Brush)
             for (const el of this.selected)
             {
-                if (hex !== undefined) SvgStyle.applyStroke(el, hex)
-                if (pen !== undefined && Number.isFinite(pen.Thickness)) SvgStyle.applyStrokeWidth(el, pen.Thickness)
+                if (hex !== undefined) SvgStyle.ApplyStroke(el, hex)
+                if (pen !== undefined && Number.isFinite(pen.Thickness)) SvgStyle.ApplyStrokeWidth(el, pen.Thickness)
             }
         }
         this.commit()
@@ -477,7 +481,7 @@ export class SvgSceneHost extends DomHost
         this.start = user
 
         // A resize handle (only present when exactly one element is selected).
-        const handle = target.getAttribute?.('data-handle')
+        const handle = target.getAttribute?.(SvgSceneHost.HandleAttr)
         if (handle !== null && handle !== undefined && this.selected.length === 1)
         {
             this.mode = GestureMode.Resize
@@ -489,7 +493,7 @@ export class SvgSceneHost extends DomHost
 
         // A scene element → select its top-level owner + start a move.
         const top = this.mounted !== undefined && target !== this.mounted
-            ? SvgEdits.ownerTop(target, this.mounted)
+            ? SvgEdits.OwnerTop(target, this.mounted)
             : null
         if (top !== null)
         {
@@ -538,7 +542,7 @@ export class SvgSceneHost extends DomHost
             for (const [el, base] of this.bases)
             {
                 el.setAttribute('transform', base)
-                SvgEdits.move(el, dx, dy)
+                SvgEdits.Move(el, dx, dy)
                 if (el.getAttribute('transform') === 'matrix(1,0,0,1,0,0)' && base === '') el.removeAttribute('transform')
             }
             this.renderOverlay()
@@ -547,7 +551,7 @@ export class SvgSceneHost extends DomHost
         {
             const el = this.selected[0]
             el.setAttribute('transform', this.bases.get(el) ?? '')
-            SvgEdits.resize(el, this.resizeBox, this.resizeHandle, dx, dy)
+            SvgEdits.Resize(el, this.resizeBox, this.resizeHandle, dx, dy)
             this.renderOverlay()
         }
         else if (this.mode === GestureMode.Marquee)
@@ -595,10 +599,10 @@ export class SvgSceneHost extends DomHost
     private beginMarquee(user: { x: number; y: number }): void
     {
         if (this.overlay === undefined) return
-        const r = this.overlay.ownerDocument.createElementNS(SVG_NS, 'rect')
+        const r = this.overlay.ownerDocument.createElementNS(SvgSceneHost.SvgNs, 'rect')
         const px = 1 / this.screenScale()
-        r.setAttribute('fill', 'rgba(59,130,246,0.12)')
-        r.setAttribute('stroke', '#3b82f6')
+        r.setAttribute('fill', SvgSceneHost.MarqueeFill)
+        r.setAttribute('stroke', SvgSceneHost.SelectionColor)
         r.setAttribute('stroke-width', String(px))
         r.setAttribute('x', String(user.x)); r.setAttribute('y', String(user.y))
         r.setAttribute('width', '0'); r.setAttribute('height', '0')
@@ -671,7 +675,7 @@ export class SvgSceneHost extends DomHost
         if ((e.key === 'Delete' || e.key === 'Backspace') && this.selected.length > 0)
         {
             e.preventDefault()
-            for (const el of this.selected) SvgEdits.remove(el)
+            for (const el of this.selected) SvgEdits.Remove(el)
             this.selected = []
             this.renderOverlay()
             this.syncStyle()
@@ -689,14 +693,14 @@ export class SvgSceneHost extends DomHost
         if (ctrl && (e.key === 'z' || e.key === 'Z'))
         {
             e.preventDefault()
-            const snap = e.shiftKey ? this.history.redo() : this.history.undo()
+            const snap = e.shiftKey ? this.history.Redo() : this.history.Undo()
             if (snap !== undefined) this.applyHistory(snap)
             return
         }
         if (ctrl && (e.key === 'y' || e.key === 'Y'))
         {
             e.preventDefault()
-            const snap = this.history.redo()
+            const snap = this.history.Redo()
             if (snap !== undefined) this.applyHistory(snap)
         }
     }

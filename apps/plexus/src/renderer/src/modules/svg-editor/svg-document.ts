@@ -4,7 +4,7 @@ import type { ICodeFile } from '../code-editor/code-file.js'
 import type { EditorDiagnostic } from '../code-editor/editor-diagnostic.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { SvgViewKind } from './svg-view-kind.js'
-import { SvgFormatSink } from './svg-format-sink.js'
+import { SvgFormatSink } from '@pragmatic-tech-ai/plexus-core/renderer/modules/svg-scene'
 
 // A .svg file opened as one document with two stacked sub-views (visual /
 // text). The markup is the single source of truth, held in Content — named to

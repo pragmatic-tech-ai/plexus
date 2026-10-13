@@ -9,19 +9,19 @@ export class SvgEdits
     // Prepend `delta` to the element's current transform and write it back.
     private static prepend(el: Element, delta: SvgMatrix): void
     {
-        const base = SvgMatrix.parse(el.getAttribute('transform') ?? '')
-        el.setAttribute('transform', delta.multiply(base).toString())
+        const base = SvgMatrix.Parse(el.getAttribute('transform') ?? '')
+        el.setAttribute('transform', delta.Multiply(base).toString())
     }
 
     // Translate by (dx,dy) in user units.
-    public static move(el: Element, dx: number, dy: number): void
+    public static Move(el: Element, dx: number, dy: number): void
     {
-        SvgEdits.prepend(el, SvgMatrix.translate(dx, dy))
+        SvgEdits.prepend(el, SvgMatrix.Translate(dx, dy))
     }
 
     // Scale about the fixed (opposite) corner/edge for `handle`, given the current
     // box and the drag delta (dx,dy) in user units. Edge handles scale one axis.
-    public static resize(el: Element, box: { x: number; y: number; w: number; h: number }, handle: HandleKind, dx: number, dy: number): void
+    public static Resize(el: Element, box: { x: number; y: number; w: number; h: number }, handle: HandleKind, dx: number, dy: number): void
     {
         const west = handle === HandleKind.W || handle === HandleKind.NW || handle === HandleKind.SW
         const east = handle === HandleKind.E || handle === HandleKind.NE || handle === HandleKind.SE
@@ -36,14 +36,14 @@ export class SvgEdits
         if (south) { sy = box.h === 0 ? 1 : (box.h + dy) / box.h; py = box.y }
         else if (north) { sy = box.h === 0 ? 1 : (box.h - dy) / box.h; py = box.y + box.h }
 
-        SvgEdits.prepend(el, SvgMatrix.scaleAbout(sx, sy, px, py))
+        SvgEdits.prepend(el, SvgMatrix.ScaleAbout(sx, sy, px, py))
     }
 
-    public static remove(el: Element): void { el.remove() }
+    public static Remove(el: Element): void { el.remove() }
 
     // The editable unit for a hit element: its ancestor that is a direct child of
     // `root` (top-level shape/group). Returns null if the hit is the root itself.
-    public static ownerTop(el: Element, root: Element): Element | null
+    public static OwnerTop(el: Element, root: Element): Element | null
     {
         let cur: Element | null = el
         while (cur !== null && cur !== root && cur.parentNode !== root)

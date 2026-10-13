@@ -13,7 +13,7 @@ export class SvgScene
     // Parse markup into a detached SVGSVGElement, or report a parse error.
     // DOMParser emits a <parsererror> element (in the result document) for
     // malformed input rather than throwing, so we detect that explicitly.
-    public static parse(markup: string): SvgParseResult
+    public static Parse(markup: string): SvgParseResult
     {
         const doc = new DOMParser().parseFromString(markup, SvgScene.SVG_MIME)
         const problem = doc.querySelector('parsererror')
@@ -31,7 +31,7 @@ export class SvgScene
 
     // Serialise a (possibly edited) scene element back to markup for the source
     // of truth / text tab. XMLSerializer preserves untouched subtrees verbatim.
-    public static serialize(svg: SVGSVGElement): string
+    public static Serialize(svg: SVGSVGElement): string
     {
         return new XMLSerializer().serializeToString(svg)
     }
