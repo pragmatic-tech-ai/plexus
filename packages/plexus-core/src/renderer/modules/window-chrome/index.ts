@@ -5,3 +5,4 @@ export { removeSplash, type SplashDocument, type SplashElement } from './splash.
 // The compiled PragmaticWindowChrome module (its `resources:` merge app-global on
 // AddModule; its `.services:` registers TitleService). Apps add it to their shell.
 export { PragmaticWindowChrome } from './window-chrome.module.mu.js'
+export { WindowService, type IWindowService } from './window-service.js'

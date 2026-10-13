@@ -1,5 +1,5 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { type IWindowApi } from '@pragmatic-tech-ai/plexus-core/shared/window-api.js'
+import { type IWindowApi } from '../../../shared/window-api.js'
 
 // The host-chrome action HelpCommandsService.QuitCommand needs — quitting the
 // app. Kept as a real interface (not just the concrete class) so tests can

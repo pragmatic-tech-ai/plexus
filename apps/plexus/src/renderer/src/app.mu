@@ -285,7 +285,7 @@ import ShortcutsDialogResources from "./services/menu/shortcuts-dialog.resources
 import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
 import ViewCommandsService from "./services/menu/view-commands-service.js"
 import HelpCommandsService from "./services/menu/help-commands-service.js"
-import WindowService from "./services/window/window-service.js"
+import WindowService from "@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome/window-service.js"
 // Framework tokens registered at the app ROOT below (see `.services:`).
 import SettingsStoreKey from "@pragmatic-tech-ai/mural/framework"
 import ApplicationSettings from "@pragmatic-tech-ai/mural/framework"
