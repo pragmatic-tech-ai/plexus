@@ -1,11 +1,11 @@
 // chooser.resources.mu — the drop-candidate chooser popup. A hidden MenuButton
 // whose floating popup lists the candidate (X,m) actions for an ambiguous
-// term-drop. IsOpen / Rows bind the DropCandidateChooserService (the host's
+// term-drop. IsOpen / Rows bind the CandidateChooserService (the host's
 // DataContext at the mount site — the diagram canvas overlay). Mirrors the
 // Problems dock popup contract (MenuPopupHost + ClickAwayScrim + container).
 
-import DropCandidateChooserService from "./drop-candidate-chooser-service.js"
-import ChooserRow from "./drop-candidate-chooser-service.js"
+import CandidateChooserService from "@pragmatic-tech-ai/mural/framework"
+import ChooserRow from "@pragmatic-tech-ai/mural/framework"
 
 resources ChooserResources {
 
@@ -41,7 +41,7 @@ resources ChooserResources {
     }
 
     // Implicit host template for the service: a MenuButton overlay bound to it.
-    DataTemplate [ DataType = DropCandidateChooserService ] {
+    DataTemplate [ DataType = CandidateChooserService ] {
         MenuButton
             [ IsOpen          = $IsOpen,
               Template        = @ChooserPopup,

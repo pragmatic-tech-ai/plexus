@@ -218,7 +218,7 @@ import TodlPresentationRegistry from "./modules/diagram/services/todl-presentati
 import ArchitectureModelService from "./modules/architecture-projects/services/architecture-model-service.js"
 import ArchDiagramBindingService from "./modules/architecture-projects/services/arch-diagram-binding-service.js"
 import ArchNavigationService from "./modules/architecture-projects/services/arch-navigation-service.js"
-import DropCandidateChooserService from "./modules/architecture-projects/services/drop-candidate-chooser-service.js"
+import CandidateChooserService from "@pragmatic-tech-ai/mural/framework"
 import ChooserResources from "./modules/architecture-projects/services/chooser.resources.mu.js"
 import ViewpointPickerResources from "./modules/architecture-projects/services/viewpoint-picker.resources.mu.js"
 import SkillsResources from "./modules/skills/skills.resources.mu.js"
@@ -435,7 +435,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Popup for ambiguous term-drops: lists candidate (X,m) actions and
         // completes the drop with the chosen one. Mounted as a diagram-canvas
         // overlay (see DiagramResources); resolved on demand by the drop factory.
-        DropCandidateChooserService
+        CandidateChooserService
         // Shared "edit governing viewpoints" flow (pick → confirm removals →
         // re-scope) for the diagram toolbar command + explorer context menu.
         DiagramViewpointsEditor
@@ -649,7 +649,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Problems dock (StatusBar DataTemplate[ProblemsService] + ProblemsRow rows).
         merge ProblemsResources
 
-        // Drop-candidate chooser popup (DataTemplate[DropCandidateChooserService] +
+        // Drop-candidate chooser popup (DataTemplate[CandidateChooserService] +
         // ChooserRow rows), overlaid on the diagram canvas.
         merge ChooserResources
 

@@ -8,7 +8,7 @@ import { ArchitectureModelService } from './architecture-model-service.js'
 import { ArchDiagramBinding } from './arch-diagram-binding.js'
 import { ArchNavigationService } from './arch-navigation-service.js'
 import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
-import { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
+import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import { WikiService, type WikiTarget } from '../../../services/wiki/wiki-service.js'
 import { wikiPathOf } from '../../../services/wiki/wiki-locator.js'
 import { WikiLocator } from '../../../services/projects/wiki-origin.js'
@@ -123,7 +123,7 @@ export class ArchDiagramBindingService extends ServiceBase
         // re-showing every in-context page and churning ~400 tiles per switch.
         if (host.OpenDocuments.ToArray().includes(doc) || host.ActiveDocument === doc)
         {
-            const chooser = this.Provider.get(DropCandidateChooserService.Key)
+            const chooser = this.Provider.get(CandidateChooserService.Key)
             const wiki = this.Provider.get(WikiService.Key)
             const status = this.Provider.get(StatusService.Key)
             const dialogs = this.Provider.get(DialogService.Key)
@@ -206,7 +206,7 @@ export class ArchDiagramBindingService extends ServiceBase
     public async bindForRender(op: IProjectHandle, doc: DiagramDocument): Promise<ArchDiagramBinding>
     {
         const model = await this.Provider.getRequired(ArchitectureModelService.Key).modelFor(op)
-        const chooser = this.Provider.get(DropCandidateChooserService.Key)
+        const chooser = this.Provider.get(CandidateChooserService.Key)
         const wiki = this.Provider.get(WikiService.Key)
         const status = this.Provider.get(StatusService.Key)
         const dialogs = this.Provider.get(DialogService.Key)

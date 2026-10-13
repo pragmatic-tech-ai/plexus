@@ -17,7 +17,7 @@ import { canDrawConnectorEntity, mintConnectorEntity, connectorTypeOf, CONNECTOR
 import { readConnectorVisuals, writeConnectorVisual, captureConnectorVisual, applyConnectorVisual } from './arch-diagram-connector-visuals-store.js'
 import { ConnectorLabelText } from './connector-label-text.js'
 import { scenarioStepPairs, type FlowEntity } from './scenario-flow.js'
-import type { DropCandidateChooserService } from './drop-candidate-chooser-service.js'
+import type { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import type { WikiService } from '../../../services/wiki/wiki-service.js'
 import type { ArchNavigationService } from './arch-navigation-service.js'
 
@@ -66,7 +66,7 @@ export class ArchDiagramBinding
     public constructor(
         private readonly doc: DiagramDocument,
         public readonly model: ArchModel,
-        private readonly chooser?: DropCandidateChooserService,
+        private readonly chooser?: CandidateChooserService,
         private readonly wiki?: WikiService,
         // A status sink (StatusService) for user feedback on a rejected draw.
         // Minimal shape so the binding doesn't hard-depend on the shell service.
