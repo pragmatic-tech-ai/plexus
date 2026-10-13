@@ -4,7 +4,7 @@ import { Color, SolidColorBrush, TextAlignment } from '@pragmatic-tech-ai/mural/
 import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
 import { serializerByType } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { registerArchNodeSerializer } from '../arch-node-serializer.js'
 

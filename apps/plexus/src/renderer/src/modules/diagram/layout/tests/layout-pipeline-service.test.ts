@@ -15,7 +15,7 @@ import { PresetScope } from '../preset-scope.js'
 import { GetPipelineCatalog, type PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
-import { FileDiagramStorage } from '../../persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { readLayoutConfig, saveDiagramPreset, getDiagramPreset } from '../../persistence/diagram-layout-store.js'
 import type { IStorage, StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 

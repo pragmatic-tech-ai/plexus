@@ -240,8 +240,8 @@ import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.r
 // (they must construct at boot); the three architecture contributors are
 // alias-registered under the generic framework/document extension keys (the same
 // `Impl -> Key` form as ElectronSettingsStore / DocumentsContentHostService above).
-import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
-import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
+import DiagramCameraService from "@pragmatic-tech-ai/mural/framework"
+import DiagramGuidesService from "@pragmatic-tech-ai/mural/framework"
 import DiagramCanvasService from "@pragmatic-tech-ai/mural/framework"
 import SaveOnCloseGuard from "@pragmatic-tech-ai/mural/framework"
 import DocumentCloseInterceptorKey from "@pragmatic-tech-ai/mural/framework"

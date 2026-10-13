@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-
 import { ContentHostService, DiagramDocument, DialogService, StatusService, type DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 
-import { FileDiagramStorage } from '../../diagram/persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { ActiveSolutionMembers, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
 import { ArchitectureModelService } from './architecture-model-service.js'
 import { ArchDiagramBinding } from './arch-diagram-binding.js'

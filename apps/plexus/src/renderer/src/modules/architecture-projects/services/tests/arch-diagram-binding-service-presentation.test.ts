@@ -4,7 +4,7 @@ import { ContentHostService, DiagramDocument, type IDocument, type DocumentsCont
 import { load, toJSON, Repository, graphFromJSON, ModelDraft, ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
-import { FileDiagramStorage } from '../../../diagram/persistence/file-diagram-storage.js'
+import { FileDiagramStorage } from '@pragmatic-tech-ai/mural/framework'
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
 import { ArchitectureModelService } from '../architecture-model-service.js'
