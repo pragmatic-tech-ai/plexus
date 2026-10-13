@@ -157,7 +157,7 @@ import PanelsResources from "./services/panels/panels.resources.mu.js"
 // regions). DiagramWorkspaceService owns the seeded DiagramDocument + the live
 // Diagram control and presents the canvas in the Content region; DiagramResources
 // carries the icons, toolbar/tile templates, and the ToolBox shapes panel.
-import DiagramWorkspaceService from "./modules/diagram/services/diagram-workspace-service.js"
+import DiagramWorkspaceService from "@pragmatic-tech-ai/mural/framework"
 import DiagramResources from "./modules/diagram/diagram.resources.mu.js"
 
 // Layout pipeline inspector: composes a Fresco layout pipeline and runs it on
