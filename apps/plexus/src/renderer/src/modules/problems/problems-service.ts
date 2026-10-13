@@ -4,7 +4,7 @@ import {
 } from '@pragmatic-tech-ai/mural/runtime'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
-import { ViewportService } from '../../services/viewport/viewport-service.js'
+import { ViewportService } from '@pragmatic-tech-ai/plexus-core/renderer/viewport/viewport-service.js'
 import { ClipboardService } from '@pragmatic-tech-ai/mural/framework'
 import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 

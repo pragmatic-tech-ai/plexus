@@ -107,7 +107,7 @@ import EnvironmentService from "@pragmatic-tech-ai/plexus-core/renderer/environm
 
 // Live window-height feed (ViewportService.Height) — the Problems popup caps its
 // list at 30% of it. No view resources.
-import ViewportService from "./services/viewport/viewport-service.js"
+import ViewportService from "@pragmatic-tech-ai/plexus-core/renderer/viewport/viewport-service.js"
 
 // System-clipboard seam — the Problems popup's copy actions write through it.
 import ClipboardService from "@pragmatic-tech-ai/mural/framework"
