@@ -1,11 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ContentHostService, DialogService, DocumentTypeRegistry, type IDocument } from '@pragmatic-tech-ai/mural/framework'
+import { ContentHostService, DialogService, DocumentTypeRegistry, SaveOnCloseGuard, SavePromptResult, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { Solution, ProjectFactoryRegistryKey, ProjectNodeKind, SolutionLanguageService, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { LiveValidationKey } from '../../../../projects/index.js'
-import { DocumentCloseGuard } from '../../../../documents/document-close-guard.js'
-import { SavePromptResult } from '../../../../dialogs/save-prompt-model.js'
 import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
 import { SolutionWorkspaceService, MemberNewFileParticipantKey, type IMemberNewFileParticipant } from '../solution-workspace-service.js'
 
@@ -57,6 +55,13 @@ class FakeHost
     public Open(doc: IDocument): void { if (!this.open.includes(doc)) this.open.push(doc) }
     public OpenPreview(doc: IDocument): void { if (!this.open.includes(doc)) this.open.push(doc); this.previewed.push(doc) }
     public Promote(_doc: IDocument): void {}
+    public guard: SaveOnCloseGuard | undefined
+    public async TryClose(doc: IDocument): Promise<boolean>
+    {
+        if (this.guard !== undefined && !(await this.guard.TryClose(doc))) return false
+        this.Close(doc)
+        return true
+    }
     public Close(doc: IDocument): void { const i = this.open.indexOf(doc); if (i >= 0) this.open.splice(i, 1); this.log.push('close') }
     public Save(doc: IDocument): void { (doc as unknown as FakeDoc).IsDirty = false }
 }
@@ -104,10 +109,7 @@ async function harness(opts: HarnessOpts = {})
         },
         Close: () => {},
     } as never)
-    provider.registerInstance(DocumentCloseGuard.Key, new DocumentCloseGuard(provider, {
-        host,
-        prompt: async () => opts.promptResult ?? SavePromptResult.DontSave,
-    }))
+    host.guard = new SaveOnCloseGuard(provider, async () => opts.promptResult ?? SavePromptResult.DontSave)
     provider.registerInstance(SolutionManagerService.Key, {
         ActiveSolution: sol,
         CloseProject: async (m: SolutionMember) => { opts.closeProject?.(m) },

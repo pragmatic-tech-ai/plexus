@@ -239,11 +239,12 @@ import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.r
 // persistence trio + close-guard + autosave keep their eager `.get()` in main.js
 // (they must construct at boot); the three architecture contributors are
 // alias-registered under the generic framework/document extension keys (the same
-// `Impl -> Key` form as ElectronSettingsStore / PlexusDocumentHost above).
+// `Impl -> Key` form as ElectronSettingsStore / DocumentsContentHostService above).
 import DiagramCameraService from "./modules/diagram/services/diagram-camera-service.js"
 import DiagramGuidesService from "./modules/diagram/services/diagram-guides-service.js"
 import DiagramCanvasService from "./modules/diagram/services/diagram-canvas-service.js"
-import DocumentCloseGuard from "@pragmatic-tech-ai/plexus-core/renderer/documents/document-close-guard.js"
+import SaveOnCloseGuard from "@pragmatic-tech-ai/mural/framework"
+import DocumentCloseInterceptorKey from "@pragmatic-tech-ai/mural/framework"
 import AutosaveService from "./services/autosave/autosave-service.js"
 import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
 import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
@@ -285,7 +286,6 @@ import EditCommandsService from "./services/menu/edit-commands-service.js"
 import ViewCommandsService from "./services/menu/view-commands-service.js"
 import HelpCommandsService from "./services/menu/help-commands-service.js"
 import WindowService from "./services/window/window-service.js"
-import PlexusDocumentHost from "./services/documents/plexus-document-host.js"
 // Framework tokens registered at the app ROOT below (see `.services:`).
 import SettingsStoreKey from "@pragmatic-tech-ai/mural/framework"
 import ApplicationSettings from "@pragmatic-tech-ai/mural/framework"
@@ -363,11 +363,12 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // main.js all resolve THIS instance through that key. Root-registered so
         // the root-scoped launcher reaches the same instance the shell uses
         // (otherwise EditorShell registers it shell-scoped, unreachable from root).
-        // PlexusDocumentHost: the framework DocumentsContentHostService with its
-        // user-initiated close commands routed through DocumentCloseGuard (dirty →
-        // Save/Don't-Save/Cancel prompt). Bound to the framework's ContentHostService
-        // key, so the tab strip, settings launcher, and main.js resolve THIS instance.
-        PlexusDocumentHost -> ContentHostService
+        // The framework DocumentsContentHostService routes its user-initiated close
+        // commands through the registered IDocumentCloseInterceptor (SaveOnCloseGuard
+        // below: dirty → Save/Don't-Save/Cancel prompt). Bound to the framework's
+        // ContentHostService key, so the tab strip, settings launcher, and main.js
+        // resolve THIS instance.
+        DocumentsContentHostService -> ContentHostService
         // Right-dock region host — the tabbed panel service. Same root-scope
         // reason as the content host: main.js seeds the Chat tab (dock.Add(agent))
         // and routes inspectors here at startup, resolving this instance via
@@ -461,10 +462,10 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         DiagramCameraService
         DiagramGuidesService
         DiagramCanvasService
-        // Document close guard: prompts Save / Don't Save / Cancel before a dirty
-        // tab closes. PlexusDocumentHost (above) routes its user-initiated close
-        // commands through this instance; eagerly resolved in main.js.
-        DocumentCloseGuard
+        // Close interceptor: the framework SaveOnCloseGuard prompts Save / Don't Save /
+        // Cancel before a dirty tab closes. DocumentsContentHostService (above) finds it
+        // through DocumentCloseInterceptorKey; eagerly resolved in main.js.
+        SaveOnCloseGuard -> DocumentCloseInterceptorKey
         // Autosave: periodically saves every dirty document (interval + on/off from
         // the "Documents" settings). Eagerly resolved in main.js so its timer starts
         // from boot.

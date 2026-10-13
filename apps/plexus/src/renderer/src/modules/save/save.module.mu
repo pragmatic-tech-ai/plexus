@@ -3,7 +3,7 @@
 // A settings-only module: it contributes the two autosave SettingDefinitions to
 // the app's ApplicationSettings (they auto-render in the Settings page under the
 // "Documents" category). The behaviour that reads them — AutosaveService and
-// DocumentCloseGuard — is registered and eagerly resolved in main.js (the same
+// SaveOnCloseGuard (the framework close interceptor) — is registered and eagerly resolved in main.js (the same
 // boot-observer pattern as DiagramCameraService/DiagramGuidesService), so it runs
 // from launch without anyone resolving it.
 

@@ -307,7 +307,7 @@ export async function openProjectFile(
                         const n = (e as any)?.constructor?.name
                         if (n === 'SolutionWorkspaceService') ws = e
                         else if (n === 'SolutionManagerService') mgr = e
-                        else if (n === 'PlexusDocumentHost') host = e
+                        else if (n === 'DocumentsContentHostService') host = e
                     }
                 if (host?.ActiveDocument) return { active: true }
                 const members = mgr?.ActiveSolution?.Members?.ToArray?.() ?? []

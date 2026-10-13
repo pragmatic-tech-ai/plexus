@@ -28,7 +28,7 @@ function openDocTitles(l: Launched)
         {
             for (const [, e] of (p._cache ?? new Map()))
             {
-                if (e?.constructor?.name === 'PlexusDocumentHost') { host = e; break }
+                if (e?.constructor?.name === 'DocumentsContentHostService') { host = e; break }
             }
         }
         const docs = host?.OpenDocuments?.ToArray?.() ?? []
@@ -67,7 +67,7 @@ test('no seeded tabs at startup; auto-opened inspector edits the active diagram'
             let host: any
             for (let p = root?.Services; p && !host; p = p._parent)
             {
-                for (const [, e] of (p._cache ?? new Map())) { if (e?.constructor?.name === 'PlexusDocumentHost') { host = e; break } }
+                for (const [, e] of (p._cache ?? new Map())) { if (e?.constructor?.name === 'DocumentsContentHostService') { host = e; break } }
             }
             const view = host?.ActiveDocument?.ActiveView
             if (!view) return false
@@ -98,7 +98,7 @@ test('no seeded tabs at startup; auto-opened inspector edits the active diagram'
                 for (const [, e] of (p._cache ?? new Map()))
                 {
                     if (e?.constructor?.name === 'PanelDockService') dock = e
-                    if (e?.constructor?.name === 'PlexusDocumentHost') host = e
+                    if (e?.constructor?.name === 'DocumentsContentHostService') host = e
                 }
             }
             const diagram = host?.ActiveDocument?.ActiveView
