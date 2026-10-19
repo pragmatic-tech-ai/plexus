@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { TenantPublishStatus, TenantServerUrl } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { RemoteBuildDirName, TenantPublishStatus, TenantServerUrl } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { TenantPublishResult } from '../../shared/tenant-publish-api.js'
 import type { ITenantProfileSource } from './tenant-profile.js'
@@ -27,7 +27,6 @@ export class TenantDeployService
     private static readonly ManifestNotJson = 'servable-manifest.json is not valid JSON.'
     private static readonly MissingFile = 'Remote build output is missing: '
     private static readonly UnsafePath = 'Manifest references a path outside the build output: '
-    private static readonly RemoteBuildDirName = 'build-remote'
     private static readonly NotABuildDir = 'Refusing to publish a directory that is not a remote build output: '
     private static readonly ConnectFailed = 'Could not connect to the tenant server: '
 
@@ -61,16 +60,19 @@ export class TenantDeployService
         {
             return await this.clients.Connect(serverUrl, token)
         }
-        catch (e)
+        catch
         {
-            // Only the server URL and the underlying message: the token is never interpolated.
-            throw new Error(`${TenantDeployService.ConnectFailed}${serverUrl} (${e instanceof Error ? e.message : String(e)})`)
+            // Only the fixed prefix and the server URL: the underlying client error detail (which could
+            // echo connection material) never reaches the renderer, and the token is never interpolated.
+            throw new Error(`${TenantDeployService.ConnectFailed}${serverUrl}`)
         }
     }
 
+    // A lightweight sanity gate only. The real trust boundary is ReadFile's path confinement
+    // (resolved path must start with root + sep) plus tenant-scoping on the server.
     private static RequireBuildDir(outputDir: string): void
     {
-        if (!resolve(outputDir).split(sep).includes(TenantDeployService.RemoteBuildDirName))
+        if (!resolve(outputDir).split(sep).includes(RemoteBuildDirName))
         {
             throw new Error(`${TenantDeployService.NotABuildDir}${outputDir}`)
         }

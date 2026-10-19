@@ -13,11 +13,11 @@ import { BuildProgressReporter, type ITaskProgressSink } from './build-progress-
 import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
-import { TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
+import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
 import type { ITenantProfilePrompt } from './tenant-profile-dialog.js'
 
 // Contributes the Publish to tenant command to a project row: builds the html-bundle-remote
-// flavor to <project>/build/ (renderer BuildService, like Open/Serve HTML app), then hands the
+// flavor to <project>/build-remote/ (renderer BuildService, like Open/Serve HTML app), then hands the
 // output dir to the ITenantPublisher, whose main-process side uploads it via the protocol
 // deploy method. A non-applied server status fails the task row with the server reason.
 // Action-only (Contribute yields no nodes).
@@ -32,7 +32,7 @@ export class PublishTenantContributor implements IHierarchyContributor
     private static readonly FlavorId = 'html-bundle-remote'
     // Its own dir, distinct from HtmlAppContributor build/, so publishing never clobbers the
     // local Open/Serve HTML app output (and vice versa).
-    public static readonly BuildDir = 'build-remote'
+    public static readonly BuildDir = RemoteBuildDirName
     private static readonly PublishLabel = 'Publish to tenant'
     private static readonly ConfigureLabel = 'Configure tenant…'
     private static readonly TitlePrefix = 'Publishing to tenant '
@@ -114,7 +114,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         })
     }
 
-    // Builds the remote flavor into <project>/build and returns its output dir. The remote
+    // Builds the remote flavor into <project>/build-remote and returns its output dir. The remote
     // target AppName is the project manifest id (falling back to its name).
     private async buildRemote(storage: IStorage, ctx: ITaskProgressSink): Promise<string>
     {

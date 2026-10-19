@@ -139,7 +139,7 @@ describe('TenantDeployService', () =>
     {
         const factory = new FakeFactory(new FakeClient(), new Error('ECONNREFUSED'))
         const err = await new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(dir).catch((e: Error) => e)
-        expect((err as Error).message).toMatch(/ECONNREFUSED/)
+        expect((err as Error).message).not.toMatch(/ECONNREFUSED/)
         expect((err as Error).message).not.toContain(Fixture.Secret)
     })
 

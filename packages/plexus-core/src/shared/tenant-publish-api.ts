@@ -2,6 +2,10 @@
 // enum, the result shape, and the server-URL rule that keeps the admin bearer token off
 // cleartext transports. No credentials ever appear in these types.
 
+// Directory (under the project root) the remote flavor builds into; the renderer builds there and
+// the main-process deploy only accepts output dirs containing this segment. Single source of truth.
+export const RemoteBuildDirName = 'build-remote'
+
 // Mirrors the protocol AppWriteStatus wire values (a local enum because the renderer cannot
 // import the protocol package).
 export enum TenantPublishStatus
