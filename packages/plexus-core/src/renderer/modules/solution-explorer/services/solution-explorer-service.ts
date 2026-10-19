@@ -26,7 +26,9 @@ import { SolutionRootContributor } from './solution-root-contributor.js'
 import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, ConnectionEditorLauncherKey } from './connection-actions-contributor.js'
 import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contributor.js'
 import { HtmlAppContributor } from './html-app-contributor.js'
+import { PublishTenantContributor } from './publish-tenant-contributor.js'
 import { PreviewServerKey } from '../../preview-server/preview-server.js'
+import { TenantPublisherKey } from '../../tenant-publish/tenant-publisher.js'
 import { FileSystemService } from '../../storage/file-system-service.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
@@ -213,6 +215,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
             const htmlApp = new HtmlAppContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.workspace, this.provider.get(PreviewServerKey))
             this.handles.push(registry.RegisterInstance(htmlApp, htmlApp.Actions))
+            const publishTenant = new PublishTenantContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(TenantPublisherKey))
+            this.handles.push(registry.RegisterInstance(publishTenant, publishTenant.Actions))
         }
         this.setHasNoSolution(false)
         // The global bag persister is registered by the app (P6a DurableStoreRegistration). It

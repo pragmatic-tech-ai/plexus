@@ -117,6 +117,10 @@ import ClipboardService from "@pragmatic-tech-ai/mural/framework"
 // static Key) so HtmlAppContributor's Serve HTML app command resolves it.
 import IpcPreviewServer from "./services/preview-server/ipc-preview-server.js"
 
+// Tenant publish — the concrete ITenantPublisher (plexus-core capability) over the
+// window.api.tenantPublish preload bridge. Registered under TenantPublisherKey.
+import IpcTenantPublisher from "./services/tenant-publish/ipc-tenant-publisher.js"
+
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
 import RecentProjectsService from "@pragmatic-tech-ai/plexus-core/renderer/projects/recent-projects-service.js"
@@ -312,6 +316,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Preview server over the preload bridge (PreviewServerKey): HtmlAppContributor's
         // Serve HTML app command resolves it to serve the built html-bundle locally.
         IpcPreviewServer
+        // Tenant publish over the preload bridge (TenantPublisherKey): PublishTenantContributor's
+        // Publish to tenant command resolves it to upload the remote build via the main process.
+        IpcTenantPublisher
         // TitleService is registered by the PragmaticWindowChrome module (below);
         // Plexus supplies its title source here (bound to the shared TitleSourceKey)
         // so it is registered during app compose — before the header ControlTemplate

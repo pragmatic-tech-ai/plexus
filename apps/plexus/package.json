@@ -33,6 +33,7 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@pragmatic-tech-ai/mural": "^0.66.0",
     "@pragmatic-tech-ai/plexus-core": "*",
+    "@pragmatic-tech-ai/pragmatic-protocol": "file:../../../pragmatic-protocol",
     "@pragmatic-tech-ai/todl": "^0.51.2",
     "@pragmatic-tech-ai/todl-runtime": "^0.7.0",
     "chokidar": "^5.0.0",

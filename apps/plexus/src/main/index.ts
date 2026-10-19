@@ -24,6 +24,10 @@ import { ConnectionsIpc } from './connections/register-connections-ipc.js'
 import { PreviewServerManager } from './preview-server/preview-server-manager.js'
 import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
 import { BundleIpc } from './build/bundle-ipc.js'
+import { TenantDeployService } from './tenant-publish/tenant-deploy-service.js'
+import { TenantProfileStore } from './tenant-publish/tenant-profile-store.js'
+import { PragmaticTenantClientFactory } from './tenant-publish/tenant-client.js'
+import { TenantPublishIpc } from './tenant-publish/tenant-publish-ipc.js'
 import { TypeCheckIpc } from './build/type-check-ipc.js'
 import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-system'
 
@@ -168,6 +172,12 @@ app.whenReady().then(async () => {
   const previewServers = new PreviewServerManager()
   registerPreviewServerIpc(ipcMain, previewServers)
   app.on('will-quit', () => void previewServers.StopAll())
+
+  // Tenant publish capability: the renderer builds the remote flavor, then invokes
+  // tenant-publish:deploy; the upload (Node PragmaticClient + admin bearer token) runs here.
+  // The token is stored encrypted via safeStorage and never crosses back to the renderer.
+  const tenantProfiles = new TenantProfileStore(userData, new SafeStorageEncryptor())
+  TenantPublishIpc.Register(ipcMain, new TenantDeployService(tenantProfiles, new PragmaticTenantClientFactory()), tenantProfiles)
 
   // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.
   BundleIpc.Register(ipcMain, new EsbuildBundler())

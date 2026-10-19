@@ -12,6 +12,7 @@ import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-t
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
+import { TenantPublishChannel, type ITenantPublishApi } from '../shared/tenant-publish-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TypeCheckChannel } from '@pragmatic-tech-ai/plexus-core/shared/type-check-api.js'
@@ -141,6 +142,14 @@ const previewServer: IPreviewServerApi = {
   Stop: (root: string) => ipcRenderer.invoke(PreviewServerChannel.Stop, root),
 }
 
+// Tenant-publish bridge — uploads a built remote-flavor output dir to the configured tenant;
+// the admin token is write-only (SetProfile) and is never returned.
+const tenantPublish: ITenantPublishApi = {
+  Deploy: (outputDir: string) => ipcRenderer.invoke(TenantPublishChannel.Deploy, outputDir),
+  SetProfile: (serverUrl: string, token: string) => ipcRenderer.invoke(TenantPublishChannel.SetProfile, serverUrl, token),
+  HasProfile: () => ipcRenderer.invoke(TenantPublishChannel.HasProfile),
+}
+
 // Bundler bridge — the html-bundle esbuild bundle runs in main; the renderer's IpcBundler
 // invokes this single channel.
 const bundle = {
@@ -153,7 +162,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, tenantPublish, bundle, typeCheck }
 
 if (process.contextIsolated)
 {
