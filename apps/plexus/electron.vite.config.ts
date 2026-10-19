@@ -168,10 +168,22 @@ const CORE = '@pragmatic-tech-ai/plexus-core'
 // ERR_PACKAGE_PATH_NOT_EXPORTED at load. Their build-reachable modules run in Node — todl's own
 // node build tests compile .mu / bake presentation through mural headlessly.
 const ESBUILD = 'esbuild'
+// `ws` (pulled in transitively by the bundled pragmatic-protocol Node client) must be bundled
+// too — it is not on Plexus's own node_modules resolution path. But its OPTIONAL native speedup
+// addons are require()d behind a try/catch; esbuild bundles them as empty objects, so ws sees a
+// truthy module whose `mask`/`isValidUTF8` are undefined (`bufferUtil.mask is not a function`).
+// Leaving them external makes the runtime require() throw (they are not installed), so ws falls
+// back to its pure-JS implementations — the standard fix for bundling ws.
+const WS_NATIVE = ['bufferutil', 'utf-8-validate']
 const TODL = '@pragmatic-tech-ai/todl'
 const TODL_RUNTIME = '@pragmatic-tech-ai/todl-runtime'
 const MURAL = '@pragmatic-tech-ai/mural'
 const FRESCO = '@pragmatic-tech-ai/fresco'
+// pragmatic-protocol ships ESM-only too (its package.json exports expose ONLY an `import`
+// condition). The main process imports PragmaticClient (a runtime value) from it in
+// tenant-publish/tenant-client.ts, so left external the CJS main would require() it and throw
+// ERR_PACKAGE_PATH_NOT_EXPORTED at load. Bundle it like the other first-party ESM packages.
+const PROTOCOL = '@pragmatic-tech-ai/pragmatic-protocol'
 
 // electron-vite drives three separate Rollup/Vite builds — main (Node),
 // preload (Node, isolated bridge), and renderer (Chromium). The renderer is
@@ -179,8 +191,8 @@ const FRESCO = '@pragmatic-tech-ai/fresco'
 // `file:../..` linked dependency.
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME, MURAL, FRESCO] })],
-    build: { rollupOptions: { external: [ESBUILD] } },
+    plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME, MURAL, FRESCO, PROTOCOL] })],
+    build: { rollupOptions: { external: [ESBUILD, ...WS_NATIVE] } },
   },
   preload: {
     plugins: [externalizeDepsPlugin({ exclude: [CORE, TODL, TODL_RUNTIME] })],
