@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor'
+import type { MuralDiagnosticsBridge } from './mural-diagnostics-bridge.js'
 
 // Registers a 'mural' Monaco language so .mu / .mural files get basic syntax
 // colouring: comments, strings, @resource references, $bindings, #hex colours,
@@ -58,4 +59,23 @@ export function registerMuralLanguage(): void
             { open: '(', close: ')' }, { open: '"', close: '"' },
         ],
     })
+}
+
+// Drives the mural diagnostics bridge from Monaco: every 'mural' model is compiled on
+// creation and on each content change (the bridge ignores models outside tracked projects).
+export class MuralDiagnosticsWiring
+{
+    public static Attach(bridge: MuralDiagnosticsBridge): void
+    {
+        for (const model of monaco.editor.getModels()) MuralDiagnosticsWiring.Watch(bridge, model)
+        monaco.editor.onDidCreateModel((model) => MuralDiagnosticsWiring.Watch(bridge, model))
+    }
+
+    private static Watch(bridge: MuralDiagnosticsBridge, model: monaco.editor.ITextModel): void
+    {
+        if (model.getLanguageId() !== MURAL_LANGUAGE_ID) return
+        const check = (): void => bridge.CheckModel(model.uri.toString(), model.getValue())
+        check()
+        model.onDidChangeContent(check)
+    }
 }
