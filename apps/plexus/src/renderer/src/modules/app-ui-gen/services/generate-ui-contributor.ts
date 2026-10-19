@@ -71,7 +71,33 @@ export class GenerateUiContributor extends ServiceBase implements IHierarchyCont
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         const storage = member?.Storage
         if (member === undefined || storage === undefined) return undefined
-        return new RelayCommand(() => void this.Create().Run(storage, member.Title))
+        return new RelayCommand(() => void this.Execute(storage, member.Title))
+    }
+
+    // Runs the command; anything that escapes it (e.g. a missing service while composing, or a
+    // failing reporter) is surfaced in a dialog rather than left as an unhandled rejection.
+    private async Execute(storage: IStorage, title: string): Promise<void>
+    {
+        try
+        {
+            await this.Create().Run(storage, title)
+        }
+        catch (error)
+        {
+            await this.ReportEscaped(title, error)
+        }
+    }
+
+    private async ReportEscaped(title: string, error: unknown): Promise<void>
+    {
+        try
+        {
+            await new DialogGenerationReporter(this.Provider.getRequired(DialogService.Key)).ReportFailure(title, error)
+        }
+        catch
+        {
+            // No dialog available either — nothing further can be surfaced.
+        }
     }
 
     private Create(): GenerateUiCommand
