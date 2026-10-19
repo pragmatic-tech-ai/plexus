@@ -7,6 +7,7 @@ import { TypeScriptLanguageHost } from './typescript-language-host.js'
 import { TypeScriptWorkspace } from './typescript-workspace.js'
 import { MonacoModelRegistry } from './model-registry.js'
 import { TypeScriptDiagnosticsBridge } from './typescript-diagnostics-bridge.js'
+import { MuralDiagnosticsBridge, DiagnosticsSinkFanout } from '../code-editor/mural-diagnostics-bridge.js'
 import { MonacoMarkerSource } from './marker-source.js'
 
 // Bootstrap for TypeScript editing: configures the Monaco TS worker, registers the per-project
@@ -28,7 +29,11 @@ export class TypeScriptModule
 
         const bridge = new TypeScriptDiagnosticsBridge(new MonacoMarkerSource(), provider.getRequired(DiagnosticsService.Key))
         container.registerInstance(TypeScriptDiagnosticsBridge.Key, bridge)
-        container.registerInstance(TypeScriptDiagnosticsSinkKey, bridge)
+        // The mural (.mu) bridge shares the project track/untrack signal; one fan-out is the only
+        // registration under the sink key, so no cached instance is ever evicted/disposed.
+        const muralBridge = new MuralDiagnosticsBridge(provider.getRequired(DiagnosticsService.Key))
+        container.registerInstance(MuralDiagnosticsBridge.Key, muralBridge)
+        container.registerInstance(TypeScriptDiagnosticsSinkKey, new DiagnosticsSinkFanout([bridge, muralBridge]))
 
         TypeScriptModule.SubscribeClose(workspace, provider)
     }

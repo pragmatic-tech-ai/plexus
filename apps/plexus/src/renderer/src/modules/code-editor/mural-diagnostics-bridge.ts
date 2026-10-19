@@ -1,4 +1,4 @@
-import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
+import { ServiceKey, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import { compile, ParseError, EmitError, type SourceSpan } from '@pragmatic-tech-ai/mural/compiler'
 import { DiagnosticSeverity, type Diagnostic, type DiagnosticSpan } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import type { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
@@ -125,5 +125,11 @@ export class DiagnosticsSinkFanout implements ITypeScriptDiagnosticsSink
     public UntrackProject(projectId: string): void
     {
         for (const sink of this.sinks) sink.UntrackProject(projectId)
+    }
+
+    // Provider teardown: forward to the owned sinks that are disposable.
+    public dispose(): void
+    {
+        for (const sink of this.sinks) (sink as Partial<IDisposable>).dispose?.()
     }
 }

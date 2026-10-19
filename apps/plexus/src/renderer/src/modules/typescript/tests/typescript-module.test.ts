@@ -26,6 +26,7 @@ import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diag
 import { TypeScriptWorkspaceSinkKey, TypeScriptDiagnosticsSinkKey } from '@pragmatic-tech-ai/plexus-core/renderer/typescript/typescript-seams.js'
 import { TypeScriptModule } from '../typescript-module.js'
 import { TypeScriptWorkspace } from '../typescript-workspace.js'
+import { DiagnosticsSinkFanout } from '../../code-editor/mural-diagnostics-bridge.js'
 import { TypeScriptDiagnosticsBridge } from '../typescript-diagnostics-bridge.js'
 
 class FakeContainer
@@ -57,7 +58,7 @@ describe('TypeScriptModule.Compose', () =>
         expect(container.instances.get(TypeScriptWorkspace.Key)).toBeInstanceOf(TypeScriptWorkspace)
         expect(container.instances.get(TypeScriptWorkspaceSinkKey)).toBe(container.instances.get(TypeScriptWorkspace.Key))
         expect(container.instances.get(TypeScriptDiagnosticsBridge.Key)).toBeInstanceOf(TypeScriptDiagnosticsBridge)
-        expect(container.instances.get(TypeScriptDiagnosticsSinkKey)).toBe(container.instances.get(TypeScriptDiagnosticsBridge.Key))
+        expect(container.instances.get(TypeScriptDiagnosticsSinkKey)).toBeInstanceOf(DiagnosticsSinkFanout)
     })
 
     it('re-ensures a closed .ts model and ignores non-TS / unknown closes', async () =>

@@ -42,9 +42,7 @@ import { ProblemsService } from './modules/problems/problems-service.js'
 import { LiveValidationKey, BaseResolverKey, ProblemsDockKey } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import { registerTodlProviders } from './modules/meta-model/todl-lsp/register-providers.js'
 import { TypeScriptModule } from './modules/typescript/typescript-module.js'
-import { TypeScriptDiagnosticsSinkKey } from '@pragmatic-tech-ai/plexus-core/renderer/typescript/typescript-seams.js'
-import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
-import { MuralDiagnosticsBridge, DiagnosticsSinkFanout } from './modules/code-editor/mural-diagnostics-bridge.js'
+import { MuralDiagnosticsBridge } from './modules/code-editor/mural-diagnostics-bridge.js'
 import { MuralDiagnosticsWiring } from './modules/code-editor/mural-language.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
@@ -101,12 +99,8 @@ try {
     // TypeScript editing: Monaco TS worker config + per-project workspace/diagnostics sinks. Must
     // precede session restore (a restored .ts doc) and project attach (LiveValidationSync.Start).
     TypeScriptModule.Compose(app.Services, app.Services)
-    // .mu compile errors -> Problems dock: the mural bridge rides the same project track/untrack
-    // signal as the TS bridge (fan-out re-registered over the shared sink key).
-    const muralBridge = new MuralDiagnosticsBridge(app.Services.getRequired(DiagnosticsService.Key))
-    app.Services.registerInstance(MuralDiagnosticsBridge.Key, muralBridge)
-    app.Services.registerInstance(TypeScriptDiagnosticsSinkKey, new DiagnosticsSinkFanout([app.Services.getRequired(TypeScriptDiagnosticsSinkKey), muralBridge]))
-    MuralDiagnosticsWiring.Attach(muralBridge)
+    // .mu compile errors -> Problems dock (bridge composed in TypeScriptModule.Compose).
+    MuralDiagnosticsWiring.Attach(app.Services.getRequired(MuralDiagnosticsBridge.Key))
     // The SolutionManagerService host seams (StorageRegistry/Prompt/PackageSource +
     // the durable session store) are registered by SolutionSeamsHostModule in app.mu's
     // .modules: block — NOT here. They must exist before the shell mount resolves

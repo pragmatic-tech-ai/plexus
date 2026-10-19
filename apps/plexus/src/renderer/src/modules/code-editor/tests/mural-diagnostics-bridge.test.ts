@@ -39,8 +39,7 @@ describe('MuralDiagnosticsBridge', () =>
         expect(d.uri).toBe('views/a.mu')
         expect(d.message.length).toBeGreaterThan(0)
         expect(d.span).not.toBeNull()
-        expect(d.span!.startLine).toBeGreaterThanOrEqual(1)
-        expect(d.span!.startColumn).toBeGreaterThanOrEqual(1)
+        expect(d.span).toEqual({ startLine: 1, startColumn: 9, endLine: 1, endColumn: 9 })
     })
 
     it('publishes an empty slice for a valid source (clears prior errors)', () =>
