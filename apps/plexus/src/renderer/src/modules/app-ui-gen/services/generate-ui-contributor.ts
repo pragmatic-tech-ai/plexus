@@ -48,7 +48,7 @@ class StorageManifestReader implements IManifestReader
     }
 }
 
-// "Generate UIâ€¦" on a project row: generates list/form/CRUD view-model UI for a concept.
+// "Generate UI..." on a project row: generates list/form/CRUD view-model UI for a concept.
 // Action-only (Contribute yields no nodes).
 export class GenerateUiContributor extends ServiceBase implements IHierarchyContributor
 {
@@ -96,7 +96,7 @@ export class GenerateUiContributor extends ServiceBase implements IHierarchyCont
         }
         catch
         {
-            // No dialog available either — nothing further can be surfaced.
+            // No dialog available either - nothing further can be surfaced.
         }
     }
 
