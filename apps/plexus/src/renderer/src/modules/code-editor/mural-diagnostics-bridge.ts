@@ -23,13 +23,29 @@ export class MuralDiagnosticsBridge implements ITypeScriptDiagnosticsSink
     // Per project: the diagnostic for each document uri that currently has one.
     private readonly slices = new Map<string, Map<string, Diagnostic>>()
 
-    constructor(private readonly diagnostics: DiagnosticsService)
+    // Latest text of open models whose project was not tracked when last checked; rechecked on TrackProject.
+    private readonly pending = new Map<string, string>()
+
+    public constructor(private readonly diagnostics: DiagnosticsService)
     {
     }
 
     public TrackProject(projectId: string, projectName: string): void
     {
         this.tracked.set(projectId, { projectName, prefix: TypeScriptWorkspace.PrefixFor(projectId) })
+        const prefix = TypeScriptWorkspace.PrefixFor(projectId)
+        for (const [modelUri, text] of [...this.pending])
+        {
+            if (!modelUri.startsWith(prefix)) continue
+            this.pending.delete(modelUri)
+            this.CheckModel(modelUri, text)
+        }
+    }
+
+    // Drops the remembered text of a closed model.
+    public ForgetModel(modelUri: string): void
+    {
+        this.pending.delete(modelUri)
     }
 
     public UntrackProject(projectId: string): void
@@ -68,7 +84,11 @@ export class MuralDiagnosticsBridge implements ITypeScriptDiagnosticsSink
     public CheckModel(modelUri: string, text: string): void
     {
         const projectId = this.ProjectIdForModelUri(modelUri)
-        if (projectId === undefined) return
+        if (projectId === undefined)
+        {
+            this.pending.set(modelUri, text)
+            return
+        }
         const parsed = TypeScriptWorkspace.RelPathFromUri(modelUri)
         if (parsed === undefined) return
         const info = this.tracked.get(projectId)
@@ -113,7 +133,7 @@ export class MuralDiagnosticsBridge implements ITypeScriptDiagnosticsSink
 // the mural bridge both listen on TypeScriptDiagnosticsSinkKey).
 export class DiagnosticsSinkFanout implements ITypeScriptDiagnosticsSink
 {
-    constructor(private readonly sinks: readonly ITypeScriptDiagnosticsSink[])
+    public constructor(private readonly sinks: readonly ITypeScriptDiagnosticsSink[])
     {
     }
 

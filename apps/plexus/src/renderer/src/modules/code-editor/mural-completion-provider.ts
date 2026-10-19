@@ -144,16 +144,9 @@ export class MuralCompletionProvider implements monaco.languages.CompletionItemP
 
     private static EnumSuggestions(property: string): MuralSuggestion[]
     {
-        const enumNames = ENUM_MEMBERS.has(property) ? [property] : []
-        const out: MuralSuggestion[] = []
-        for (const enumName of enumNames)
-        {
-            for (const member of ENUM_MEMBERS.get(enumName) ?? [])
-            {
-                out.push({ Label: member, Kind: MuralSuggestionKind.EnumMember, Detail: enumName })
-            }
-        }
-        return out
+        // Enum members resolve when the attribute name equals the enum type name.
+        const members = ENUM_MEMBERS.get(property) ?? []
+        return [...members].map((member) => ({ Label: member, Kind: MuralSuggestionKind.EnumMember, Detail: property }))
     }
 
     // Name of the element heading the scope opened at `openerOffset` (`Border [` / `Border {`).

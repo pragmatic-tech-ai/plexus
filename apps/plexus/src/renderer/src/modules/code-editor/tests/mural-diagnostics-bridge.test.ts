@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { DiagnosticSeverity, type Diagnostic } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostic.js'
 import type { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
+import { TypeScriptWorkspace } from '../../typescript/typescript-workspace.js'
 import { MuralDiagnosticsBridge } from '../mural-diagnostics-bridge.js'
 
 class SpyDiagnostics
@@ -58,5 +59,29 @@ describe('MuralDiagnosticsBridge', () =>
         bridge.TrackProject('p1', 'Proj')
         bridge.UntrackProject('p1')
         expect(spy.Cleared).toEqual(['p1'])
+    })
+
+    it('rechecks an already-open model when its project is tracked later', () =>
+    {
+        const spy = new SpyDiagnostics()
+        const bridge = new MuralDiagnosticsBridge(spy as unknown as DiagnosticsService)
+        const uri = TypeScriptWorkspace.ModelUriFor('p1', 'views/a.mu')
+        bridge.CheckModel(uri, BadSource)
+        expect(spy.Published).toHaveLength(0)
+        bridge.TrackProject('p1', 'Proj')
+        const last = spy.Published[spy.Published.length - 1]
+        expect(last.projectId).toBe('p1')
+        expect(last.diagnostics).toHaveLength(1)
+    })
+
+    it('does not recheck a forgotten model on track', () =>
+    {
+        const spy = new SpyDiagnostics()
+        const bridge = new MuralDiagnosticsBridge(spy as unknown as DiagnosticsService)
+        const uri = TypeScriptWorkspace.ModelUriFor('p1', 'views/a.mu')
+        bridge.CheckModel(uri, BadSource)
+        bridge.ForgetModel(uri)
+        bridge.TrackProject('p1', 'Proj')
+        expect(spy.Published).toHaveLength(0)
     })
 })

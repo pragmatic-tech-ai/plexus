@@ -68,6 +68,8 @@ export function registerMuralLanguage(): void
 // creation and on each content change (the bridge ignores models outside tracked projects).
 export class MuralDiagnosticsWiring
 {
+    private static readonly DebounceMs = 250
+
     public static Attach(bridge: MuralDiagnosticsBridge): void
     {
         for (const model of monaco.editor.getModels()) MuralDiagnosticsWiring.Watch(bridge, model)
@@ -77,8 +79,19 @@ export class MuralDiagnosticsWiring
     private static Watch(bridge: MuralDiagnosticsBridge, model: monaco.editor.ITextModel): void
     {
         if (model.getLanguageId() !== MURAL_LANGUAGE_ID) return
-        const check = (): void => bridge.CheckModel(model.uri.toString(), model.getValue())
+        const uri = model.uri.toString()
+        const check = (): void => bridge.CheckModel(uri, model.getValue())
+        let timer: ReturnType<typeof setTimeout> | undefined
         check()
-        model.onDidChangeContent(check)
+        model.onDidChangeContent(() =>
+        {
+            if (timer !== undefined) clearTimeout(timer)
+            timer = setTimeout(check, MuralDiagnosticsWiring.DebounceMs)
+        })
+        model.onWillDispose(() =>
+        {
+            if (timer !== undefined) clearTimeout(timer)
+            bridge.ForgetModel(uri)
+        })
     }
 }
