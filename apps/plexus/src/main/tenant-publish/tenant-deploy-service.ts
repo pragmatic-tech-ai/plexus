@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
+import { TenantPublishStatus, TenantServerUrl } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { TenantPublishResult } from '../../shared/tenant-publish-api.js'
 import type { ITenantProfileSource } from './tenant-profile.js'
@@ -9,7 +10,9 @@ import type { ITenantClientFactory } from './tenant-client.js'
 // (index.html, servable-manifest.json, packages/<id>/<version>/model.json for the full
 // closure), assembles the protocol's CypherAppDeployParamsDto from it and uploads it to the
 // configured tenant over the Node PragmaticClient. The renderer does the build; this class
-// only reads its output, so no closure resolution happens here. The admin bearer token is
+// only reads its output, so no closure resolution happens here. Trust boundary: outputDir
+// arrives from the renderer, so it must be a remote-build dir (a path segment named build-remote,
+// the dir PublishTenantContributor builds into) and every file read stays confined inside it. The admin bearer token is
 // handed to the client factory and nowhere else: never logged, never put in an error/result.
 export class TenantDeployService
 {
@@ -21,8 +24,11 @@ export class TenantDeployService
     private static readonly NoProfile = 'No tenant is configured: set the tenant server URL and admin token before publishing.'
     private static readonly NoManifest = 'Remote build output has no servable-manifest.json: build the HTML app (remote) flavor first. Looked in: '
     private static readonly BadManifest = 'servable-manifest.json is not a valid servable app manifest.'
+    private static readonly ManifestNotJson = 'servable-manifest.json is not valid JSON.'
     private static readonly MissingFile = 'Remote build output is missing: '
     private static readonly UnsafePath = 'Manifest references a path outside the build output: '
+    private static readonly RemoteBuildDirName = 'build-remote'
+    private static readonly NotABuildDir = 'Refusing to publish a directory that is not a remote build output: '
     private static readonly ConnectFailed = 'Could not connect to the tenant server: '
 
     constructor(private readonly profiles: ITenantProfileSource, private readonly clients: ITenantClientFactory)
@@ -34,12 +40,14 @@ export class TenantDeployService
         // Profile first: a missing tenant fails before any disk read or network call.
         const profile = await this.profiles.Load()
         if (profile === undefined) throw new Error(TenantDeployService.NoProfile)
+        TenantDeployService.RequireBuildDir(outputDir)
+        const serverUrl = TenantServerUrl.Validate(profile.ServerUrl)
         const params = await TenantDeployService.Assemble(outputDir)
-        const client = await this.connect(profile.ServerUrl, profile.Token)
+        const client = await this.connect(serverUrl, profile.Token)
         try
         {
             const result = await client.DeployApplication(params)
-            return { Status: result.status, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
+            return { Status: result.status as string as TenantPublishStatus, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
         }
         finally
         {
@@ -57,6 +65,14 @@ export class TenantDeployService
         {
             // Only the server URL and the underlying message: the token is never interpolated.
             throw new Error(`${TenantDeployService.ConnectFailed}${serverUrl} (${e instanceof Error ? e.message : String(e)})`)
+        }
+    }
+
+    private static RequireBuildDir(outputDir: string): void
+    {
+        if (!resolve(outputDir).split(sep).includes(TenantDeployService.RemoteBuildDirName))
+        {
+            throw new Error(`${TenantDeployService.NotABuildDir}${outputDir}`)
         }
     }
 
@@ -91,8 +107,16 @@ export class TenantDeployService
         {
             throw new Error(`${TenantDeployService.NoManifest}${outputDir}`)
         }
-        const m = JSON.parse(text) as Partial<ServableAppManifestDto>
-        if (typeof m.name !== 'string' || typeof m.version !== 'string' || !Array.isArray(m.packages)
+        let m: Partial<ServableAppManifestDto>
+        try
+        {
+            m = JSON.parse(text) as Partial<ServableAppManifestDto>
+        }
+        catch
+        {
+            throw new Error(TenantDeployService.ManifestNotJson)
+        }
+        if (m === null || typeof m !== 'object' || typeof m.name !== 'string' || typeof m.version !== 'string' || !Array.isArray(m.packages)
             || m.ui === undefined || typeof m.ui.entry !== 'string' || !Array.isArray(m.ui.assets))
         {
             throw new Error(TenantDeployService.BadManifest)

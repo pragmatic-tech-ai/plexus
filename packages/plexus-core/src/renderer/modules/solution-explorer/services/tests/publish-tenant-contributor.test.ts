@@ -3,7 +3,9 @@ import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-
 import { Solution } from '@pragmatic-tech-ai/todl'
 import { PublishTenantContributor } from '../publish-tenant-contributor.js'
 import { BuildProgressReporter } from '../build-progress-reporter.js'
-import type { ITenantPublisher, TenantPublishResult } from '../../../tenant-publish/tenant-publisher.js'
+import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.js'
+import { TenantPublishStatus, type TenantPublishResult } from '../../../../../shared/tenant-publish-api.js'
+import type { ITenantProfilePrompt } from '../tenant-profile-dialog.js'
 
 class FakeItem
 {
@@ -63,6 +65,7 @@ class FakeBuildService
 class FakePublisher implements ITenantPublisher
 {
     public Published: string[] = []
+    public Profiles: Array<[string, string]> = []
 
     constructor(private readonly result: TenantPublishResult)
     {
@@ -73,11 +76,29 @@ class FakePublisher implements ITenantPublisher
         this.Published.push(outputDir)
         return Promise.resolve(this.result)
     }
+
+    public SetProfile(serverUrl: string, token: string): Promise<void>
+    {
+        this.Profiles.push([serverUrl, token])
+        return Promise.resolve()
+    }
+}
+
+class FakePrompt implements ITenantProfilePrompt
+{
+    constructor(private readonly input: { ServerUrl: string; Token: string } | undefined)
+    {
+    }
+
+    public Prompt(): Promise<{ ServerUrl: string; Token: string } | undefined>
+    {
+        return Promise.resolve(this.input)
+    }
 }
 
 describe('PublishTenantContributor', () =>
 {
-    const Applied: TenantPublishResult = { Status: 'applied', AppName: 'orders', AppVersion: '1' }
+    const Applied: TenantPublishResult = { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' }
 
     it('builds the html-bundle-remote flavor with the remote target, then publishes the output dir', async () =>
     {
@@ -91,7 +112,7 @@ describe('PublishTenantContributor', () =>
         expect(svc.Calls[0].systemId).toBe('html-bundle')
         expect(svc.Calls[0].flavorId).toBe('html-bundle-remote')
         expect(svc.Calls[0].progress).toBeInstanceOf(BuildProgressReporter)
-        expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build', Remote: { AppName: 'orders' } })
+        expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build-remote', Remote: { AppName: 'orders' } })
         expect(publisher.Published).toEqual(['/out'])
     })
 
@@ -109,11 +130,25 @@ describe('PublishTenantContributor', () =>
     it('fails the task with the server status and reason when the deploy is not applied', async () =>
     {
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
-        const publisher = new FakePublisher({ Status: 'denied', Reason: 'not an admin', AppName: 'orders', AppVersion: '1' })
+        const publisher = new FakePublisher({ Status: TenantPublishStatus.Denied, Reason: 'not an admin', AppName: 'orders', AppVersion: '1' })
         const work = PublishTestHelper.Work()
         const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher)
         c.Resolve('tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
         await expect(work.task).rejects.toThrow('Publish to tenant failed (denied): not an admin')
+    })
+
+    it('Configure tenant prompts and stores the profile; cancel stores nothing', async () =>
+    {
+        const publisher = new FakePublisher(Applied)
+        const ctx = PublishTestHelper.CtxFor(PublishTestHelper.Member())
+        const ok = new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), publisher, new FakePrompt({ ServerUrl: 'wss://srv', Token: 't0k' }))
+        ok.Resolve('tenant.configure', ctx)!.Execute()
+        await new Promise((res) => setTimeout(res, 0))
+        expect(publisher.Profiles).toEqual([['wss://srv', 't0k']])
+        const cancelled = new FakePublisher(Applied)
+        new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), cancelled, new FakePrompt(undefined)).Resolve('tenant.configure', ctx)!.Execute()
+        await new Promise((res) => setTimeout(res, 0))
+        expect(cancelled.Profiles).toEqual([])
     })
 
     it('is disabled without a publisher and ignores other command ids', () =>

@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
+import { TenantServerUrl } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import type { ITenantProfileSource, TenantProfile } from './tenant-profile.js'
 
 // Structural twin of todl-platform-node's Encryptor (SafeStorageEncryptor satisfies it), kept
@@ -11,15 +12,19 @@ export interface ITokenEncryptor
     Decrypt(blob: Buffer): string;
 }
 
-// Persists the tenant profile under the app's userData dir: the non-secret server URL in a JSON
-// file, the admin bearer token only as an OS-keyring-encrypted blob. No plaintext token is ever
-// written to disk, and there is no read path that hands the token to the renderer.
+// Persists the tenant profile under the app userData dir as ONE OS-keyring-encrypted blob
+// holding both the server URL and the admin bearer token. A single file written via
+// temp + rename means a crash can never leave a URL without its token (or the reverse), and no
+// plaintext token ever touches disk. There is no read path that hands the token to the renderer.
+// Load returns undefined only when nothing is configured; an unusable store (secure storage
+// unavailable, unreadable blob) throws a distinct error so it is not mistaken for "no profile".
 export class TenantProfileStore implements ITenantProfileSource
 {
-    private static readonly ProfileFile = 'tenant-profile.json'
-    private static readonly TokenFile = 'tenant-token.bin'
-    private static readonly Encoding = 'utf8'
-    private static readonly EncryptionUnavailable = 'Secure storage is unavailable; cannot store the tenant token.'
+    private static readonly ProfileFile = 'tenant-profile.bin'
+    private static readonly TempSuffix = '.tmp'
+    private static readonly NotFoundCode = 'ENOENT'
+    private static readonly EncryptionUnavailable = 'Secure storage is unavailable on this system; the tenant token cannot be stored or read.'
+    private static readonly Unreadable = 'The stored tenant profile could not be read; use Configure tenant to set it again.'
     private static readonly EmptyProfile = 'Tenant server URL and token are both required.'
 
     constructor(private readonly dir: string, private readonly encryptor: ITokenEncryptor)
@@ -29,47 +34,52 @@ export class TenantProfileStore implements ITenantProfileSource
     public async Save(serverUrl: string, token: string): Promise<void>
     {
         if (serverUrl.trim() === '' || token === '') throw new Error(TenantProfileStore.EmptyProfile)
+        const validated = TenantServerUrl.Validate(serverUrl)
         if (!this.encryptor.IsAvailable()) throw new Error(TenantProfileStore.EncryptionUnavailable)
+        const blob = this.encryptor.Encrypt(JSON.stringify({ ServerUrl: validated, Token: token }))
         await fs.mkdir(this.dir, { recursive: true })
-        await fs.writeFile(this.path(TenantProfileStore.ProfileFile), JSON.stringify({ ServerUrl: serverUrl.trim() }), TenantProfileStore.Encoding)
-        await fs.writeFile(this.path(TenantProfileStore.TokenFile), this.encryptor.Encrypt(token))
+        const target = join(this.dir, TenantProfileStore.ProfileFile)
+        const temp = `${target}${TenantProfileStore.TempSuffix}`
+        await fs.writeFile(temp, blob)
+        await fs.rename(temp, target)
     }
 
     public async Load(): Promise<TenantProfile | undefined>
     {
-        const url = await this.readUrl()
         const blob = await this.readBlob()
-        if (url === undefined || blob === undefined || !this.encryptor.IsAvailable()) return undefined
-        return { ServerUrl: url, Token: this.encryptor.Decrypt(blob) }
+        if (blob === undefined) return undefined
+        if (!this.encryptor.IsAvailable()) throw new Error(TenantProfileStore.EncryptionUnavailable)
+        return this.decode(blob)
     }
 
-    private async readUrl(): Promise<string | undefined>
+    // Decrypt/parse failures are reported without any of the blob content.
+    private decode(blob: Buffer): TenantProfile
     {
         try
         {
-            const parsed = JSON.parse(await fs.readFile(this.path(TenantProfileStore.ProfileFile), TenantProfileStore.Encoding)) as { ServerUrl?: unknown }
-            return typeof parsed.ServerUrl === 'string' && parsed.ServerUrl !== '' ? parsed.ServerUrl : undefined
+            const parsed = JSON.parse(this.encryptor.Decrypt(blob)) as { ServerUrl?: unknown; Token?: unknown }
+            if (typeof parsed.ServerUrl === 'string' && typeof parsed.Token === 'string' && parsed.ServerUrl !== '' && parsed.Token !== '')
+            {
+                return { ServerUrl: parsed.ServerUrl, Token: parsed.Token }
+            }
         }
         catch
         {
-            return undefined
+            // fall through to the single generic error
         }
+        throw new Error(TenantProfileStore.Unreadable)
     }
 
     private async readBlob(): Promise<Buffer | undefined>
     {
         try
         {
-            return await fs.readFile(this.path(TenantProfileStore.TokenFile))
+            return await fs.readFile(join(this.dir, TenantProfileStore.ProfileFile))
         }
-        catch
+        catch (e)
         {
-            return undefined
+            if ((e as NodeJS.ErrnoException).code === TenantProfileStore.NotFoundCode) return undefined
+            throw e
         }
-    }
-
-    private path(file: string): string
-    {
-        return join(this.dir, file)
     }
 }
