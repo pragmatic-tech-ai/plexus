@@ -49,12 +49,17 @@ export class MuralCompletionProvider implements monaco.languages.CompletionItemP
     private static readonly Closers = ']})'
     private static readonly SquareOpen = '['
     private static readonly CurlyOpen = '{'
+    private static readonly KindClass = 5
+    private static readonly KindProperty = 9
+    private static readonly KindEnumMember = 16
 
-    public readonly triggerCharacters = ['[', ',', '=', ' ']
+    public readonly triggerCharacters = ['[', ',', '=']
 
     public Suggest(source: string, offset: number): MuralSuggestion[]
     {
-        const scope = MuralCompletionProvider.InnermostScope(source, offset)
+        const scan = MuralCompletionProvider.Scan(source, offset)
+        if (scan.InLiteral) return []
+        const scope = scan.Scope
         if (scope === null || scope.Opener === MuralCompletionProvider.CurlyOpen)
         {
             return MuralCompletionProvider.ElementSuggestions(source, scope)
@@ -88,14 +93,14 @@ export class MuralCompletionProvider implements monaco.languages.CompletionItemP
         return { label: s.Label, kind: MuralCompletionProvider.MonacoKind(s.Kind), detail: s.Detail, insertText: s.Label, range }
     }
 
-    // CompletionItemKind numeric values are stable: Class = 5, Property = 9, EnumMember = 19.
+    // Monaco CompletionItemKind values (a type-only monaco import keeps this unit-testable).
     private static MonacoKind(kind: MuralSuggestionKind): monaco.languages.CompletionItemKind
     {
         switch (kind)
         {
-            case MuralSuggestionKind.Element: return 5
-            case MuralSuggestionKind.Property: return 9
-            default: return 19
+            case MuralSuggestionKind.Element: return MuralCompletionProvider.KindClass
+            case MuralSuggestionKind.Property: return MuralCompletionProvider.KindProperty
+            default: return MuralCompletionProvider.KindEnumMember
         }
     }
 
@@ -158,8 +163,9 @@ export class MuralCompletionProvider implements monaco.languages.CompletionItemP
         return m === null ? '' : m[1]
     }
 
-    // Innermost unclosed bracket before `offset`, skipping strings and comments.
-    private static InnermostScope(source: string, offset: number): OpenScope | null
+    // Innermost unclosed bracket before `offset`, skipping strings and comments; also
+    // reports whether `offset` itself sits inside an unterminated string or comment.
+    private static Scan(source: string, offset: number): { Scope: OpenScope | null; InLiteral: boolean }
     {
         const stack: OpenScope[] = []
         let i = 0
@@ -173,25 +179,28 @@ export class MuralCompletionProvider implements monaco.languages.CompletionItemP
                 {
                     i += source[i] === MuralCompletionProvider.Escape ? 2 : 1
                 }
+                if (i >= offset) return { Scope: null, InLiteral: true }
                 i++
                 continue
             }
             if (source.startsWith(MuralCompletionProvider.LineCommentStart, i))
             {
                 const end = source.indexOf(MuralCompletionProvider.Newline, i)
-                i = end < 0 ? offset : end
+                if (end < 0 || end >= offset) return { Scope: null, InLiteral: true }
+                i = end
                 continue
             }
             if (source.startsWith(MuralCompletionProvider.BlockCommentStart, i))
             {
                 const end = source.indexOf(MuralCompletionProvider.BlockCommentEnd, i + 2)
-                i = end < 0 ? offset : end + 2
+                if (end < 0 || end + 2 > offset) return { Scope: null, InLiteral: true }
+                i = end + 2
                 continue
             }
             if (MuralCompletionProvider.Openers.includes(c)) stack.push({ Opener: c, Offset: i })
             else if (MuralCompletionProvider.Closers.includes(c)) stack.pop()
             i++
         }
-        return stack.length === 0 ? null : stack[stack.length - 1]
+        return { Scope: stack.length === 0 ? null : stack[stack.length - 1], InLiteral: false }
     }
 }

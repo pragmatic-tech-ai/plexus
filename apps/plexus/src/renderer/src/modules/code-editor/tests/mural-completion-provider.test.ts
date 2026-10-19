@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import '@pragmatic-tech-ai/mural/basic'
-import { DEFAULT_SYMBOLS, ENUM_MEMBERS } from '@pragmatic-tech-ai/mural/compiler'
+import { DEFAULT_SYMBOLS, ENUM_MEMBERS, DEFAULT_SLOT_INFO } from '@pragmatic-tech-ai/mural/compiler'
 import { MuralCompletionProvider, MuralSuggestionKind, type MuralSuggestion } from '../mural-completion-provider.js'
 
 class Harness
@@ -45,5 +45,41 @@ describe('MuralCompletionProvider.Suggest', () =>
     {
         const labels = h.At('Border { // [\n  Text "]" |\n}').map((s) => s.Label)
         expect(labels).toContain('Border')
+    })
+
+    it('offers the default slot of an element with one', () =>
+    {
+        const slotted = [...DEFAULT_SLOT_INFO.entries()].find(([, i]) => i.kind !== 'string')!
+        const labels = h.At(slotted[0] + ' {
+  |
+}').map((s) => s.Label)
+        expect(labels).toContain(slotted[1].name + ':')
+    })
+
+    it('returns nothing inside a paren scope', () =>
+    {
+        expect(h.At('Border [Width=(|)]')).toEqual([])
+    })
+
+    it('returns no attributes for an unknown element', () =>
+    {
+        expect(h.At('NoSuchElement [|]')).toEqual([])
+    })
+
+    it('returns nothing inside a string literal', () =>
+    {
+        expect(h.At('Border [Text="He|"]')).toEqual([])
+    })
+
+    it('returns nothing inside a line comment', () =>
+    {
+        expect(h.At('Border {
+  // some | note
+}')).toEqual([])
+    })
+
+    it('does not trigger on space', () =>
+    {
+        expect(new MuralCompletionProvider().triggerCharacters).not.toContain(' ')
     })
 })
