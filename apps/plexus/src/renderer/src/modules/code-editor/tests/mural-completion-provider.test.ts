@@ -50,9 +50,7 @@ describe('MuralCompletionProvider.Suggest', () =>
     it('offers the default slot of an element with one', () =>
     {
         const slotted = [...DEFAULT_SLOT_INFO.entries()].find(([, i]) => i.kind !== 'string')!
-        const labels = h.At(slotted[0] + ' {
-  |
-}').map((s) => s.Label)
+        const labels = h.At(slotted[0] + ' {\n  |\n}').map((s) => s.Label)
         expect(labels).toContain(slotted[1].name + ':')
     })
 
@@ -73,9 +71,7 @@ describe('MuralCompletionProvider.Suggest', () =>
 
     it('returns nothing inside a line comment', () =>
     {
-        expect(h.At('Border {
-  // some | note
-}')).toEqual([])
+        expect(h.At('Border {\n  // some | note\n}')).toEqual([])
     })
 
     it('does not trigger on space', () =>
