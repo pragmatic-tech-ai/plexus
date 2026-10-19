@@ -79,6 +79,7 @@ import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
 import SkillsModule from "./modules/skills/skills.module.mu.js"
+import AppUiGenModule from "./modules/app-ui-gen/app-ui-gen.module.mu.js"
 import HelpOverlayModule from "@pragmatic-tech-ai/plexus-core/renderer/help/help-overlay.module.mu.js"
 import AgentChatModule from "./modules/agent-chat/agent-chat.module.mu.js"
 import ProblemsModule from "./modules/problems/problems.module.mu.js"
@@ -530,6 +531,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         LibraryModule
         McpClientModule
         SkillsModule
+        AppUiGenModule
         HelpOverlayModule
         AgentChatModule
         ProblemsModule
