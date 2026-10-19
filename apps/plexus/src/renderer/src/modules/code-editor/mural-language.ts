@@ -1,5 +1,6 @@
 import * as monaco from 'monaco-editor'
 import type { MuralDiagnosticsBridge } from './mural-diagnostics-bridge.js'
+import { MuralCompletionProvider } from './mural-completion-provider.js'
 
 // Registers a 'mural' Monaco language so .mu / .mural files get basic syntax
 // colouring: comments, strings, @resource references, $bindings, #hex colours,
@@ -50,6 +51,8 @@ export function registerMuralLanguage(): void
             ],
         },
     })
+
+    monaco.languages.registerCompletionItemProvider(MURAL_LANGUAGE_ID, new MuralCompletionProvider())
 
     monaco.languages.setLanguageConfiguration(MURAL_LANGUAGE_ID, {
         comments: { lineComment: '//', blockComment: ['/*', '*/'] },
