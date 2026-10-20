@@ -15,6 +15,16 @@ export interface IFixtureDescriptor
     assertValue: string
 }
 
+/** The parsed shape of a fixture's project.plexus manifest. */
+export interface IFixtureManifest
+{
+    type: string
+    name: string
+    version: number
+    id: string
+    packageVersion: string
+}
+
 class FixtureLocator
 {
     private static readonly ContosoFolder = 'contoso'
