@@ -669,6 +669,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
             isClass: false,
             class: null,
             storageId: null,
+            canonicalId: null,
             fields: [],
             attrs: {},
         }

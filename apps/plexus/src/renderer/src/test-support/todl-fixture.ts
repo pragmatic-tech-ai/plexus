@@ -37,6 +37,7 @@ export function jsonNode(spec: NodeSpec): JsonNode
         isClass: spec.isClass ?? false,
         class: spec.class ?? null,
         storageId: spec.storageId ?? null,
+        canonicalId: null,
         fields: [],
         attrs: spec.attrs ?? {},
     }
