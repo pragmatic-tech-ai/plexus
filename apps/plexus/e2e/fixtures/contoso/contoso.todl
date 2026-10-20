@@ -1,0 +1,22 @@
+namespace contoso
+{
+    concept Category { name : string; }
+    concept Product { name : string; unitPrice : number; category : Category?; }
+    concept Customer { company : string; region : string; }
+    concept Store { name : string; city : string; }
+    concept Sale { product : Product?; store : Store?; qty : integer; }
+
+    model Contoso : contoso
+    {
+        annotate entrypoint { }
+        Category appliances { name = "Appliances"; }
+        Category audio { name = "Audio"; }
+        Product aurora { name = "Contoso Aurora Espresso Machine"; unitPrice = 249; category = appliances; }
+        Product zephyr { name = "Contoso Zephyr Soundbar"; unitPrice = 179; category = audio; }
+        Customer fabrikam { company = "Fabrikam Home"; region = "west"; }
+        Store seattle { name = "Contoso Seattle Flagship"; city = "Seattle"; }
+        Store austin { name = "Contoso Austin Outlet"; city = "Austin"; }
+        Sale s1 { product = aurora; store = seattle; qty = 3; }
+        Sale s2 { product = zephyr; store = austin; qty = 5; }
+    }
+}

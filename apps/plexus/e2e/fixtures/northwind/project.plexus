@@ -1,0 +1,7 @@
+{
+  "type": "architecture",
+  "name": "Northwind",
+  "version": 1,
+  "id": "northwind",
+  "packageVersion": "0.1.0"
+}

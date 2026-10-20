@@ -1,0 +1,16 @@
+namespace northwind
+{
+    concept Category { name : string; }
+    concept Product { name : string; unitPrice : number; category : Category?; }
+    concept Customer { company : string; contact : string; region : string; creditLimit : number; }
+    concept Order { orderNo : string; customer : Customer?; freight : number; status : string; }
+
+    model Northwind : northwind
+    {
+        annotate entrypoint { }
+        Category beverages { name = "Beverages"; }
+        Product chai { name = "Chai"; unitPrice = 18; category = beverages; }
+        Customer alfki { company = "Fixture Trading Co. of Reykjavik"; contact = "Maria Anders"; region = "north"; creditLimit = 5000; }
+        Order o1 { orderNo = "10248"; customer = alfki; freight = 32; status = "open"; }
+    }
+}

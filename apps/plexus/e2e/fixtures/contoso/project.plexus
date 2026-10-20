@@ -1,0 +1,7 @@
+{
+  "type": "architecture",
+  "name": "Contoso",
+  "version": 1,
+  "id": "contoso",
+  "packageVersion": "0.1.0"
+}
