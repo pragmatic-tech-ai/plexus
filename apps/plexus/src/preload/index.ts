@@ -13,6 +13,7 @@ import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServ
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { TenantPublishChannel, type ITenantPublishApi } from '../shared/tenant-publish-api.js'
+import { GraphContributeChannel, type IGraphContributeApi, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TypeCheckChannel } from '@pragmatic-tech-ai/plexus-core/shared/type-check-api.js'
@@ -150,6 +151,14 @@ const tenantPublish: ITenantPublishApi = {
   HasProfile: () => ipcRenderer.invoke(TenantPublishChannel.HasProfile),
 }
 
+// Graph-contribute bridge — contributes a solution's compiled packages to a graph on the
+// configured server; the token is write-only (SetProfile) and is never returned.
+const graphContribute: IGraphContributeApi = {
+  Contribute: (graphName: string, solutionId: string, packages: ContributedPackage[]) => ipcRenderer.invoke(GraphContributeChannel.Contribute, graphName, solutionId, packages),
+  SetProfile: (serverUrl: string, token: string) => ipcRenderer.invoke(GraphContributeChannel.SetProfile, serverUrl, token),
+  HasProfile: () => ipcRenderer.invoke(GraphContributeChannel.HasProfile),
+}
+
 // Bundler bridge — the html-bundle esbuild bundle runs in main; the renderer's IpcBundler
 // invokes this single channel.
 const bundle = {
@@ -162,7 +171,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, tenantPublish, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, tenantPublish, graphContribute, bundle, typeCheck }
 
 if (process.contextIsolated)
 {

@@ -28,6 +28,10 @@ import { TenantDeployService } from './tenant-publish/tenant-deploy-service.js'
 import { TenantProfileStore } from './tenant-publish/tenant-profile-store.js'
 import { PragmaticTenantClientFactory } from './tenant-publish/tenant-client.js'
 import { TenantPublishIpc } from './tenant-publish/tenant-publish-ipc.js'
+import { GraphProfileStore } from './graph-contribute/graph-profile-store.js'
+import { GraphContributeService } from './graph-contribute/graph-contribute-service.js'
+import { PragmaticGraphClientFactory } from './graph-contribute/graph-client.js'
+import { GraphContributeIpc } from './graph-contribute/graph-contribute-ipc.js'
 import { TypeCheckIpc } from './build/type-check-ipc.js'
 import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-system'
 
@@ -178,6 +182,12 @@ app.whenReady().then(async () => {
   // The token is stored encrypted via safeStorage and never crosses back to the renderer.
   const tenantProfiles = new TenantProfileStore(userData, new SafeStorageEncryptor())
   TenantPublishIpc.Register(ipcMain, new TenantDeployService(tenantProfiles, new PragmaticTenantClientFactory()), tenantProfiles)
+
+  // Graph contribute capability: the renderer invokes graph-contribute:contribute; the upload
+  // (Node protocol client + bearer token) runs here. The token is stored encrypted via
+  // safeStorage and never crosses back to the renderer.
+  const graphProfiles = new GraphProfileStore(userData, new SafeStorageEncryptor())
+  GraphContributeIpc.Register(ipcMain, new GraphContributeService(graphProfiles, new PragmaticGraphClientFactory()), graphProfiles)
 
   // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.
   BundleIpc.Register(ipcMain, new EsbuildBundler())

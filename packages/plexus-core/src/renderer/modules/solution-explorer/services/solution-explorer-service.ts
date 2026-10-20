@@ -8,6 +8,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
     SolutionManagerService, ProjectType, BuildService, BuildSystemRegistryKey,
+    BuildStorageProviderKey, PackageStoreKey,
     type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
 } from '@pragmatic-tech-ai/todl'
@@ -28,6 +29,10 @@ import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contrib
 import { HtmlAppContributor } from './html-app-contributor.js'
 import { PublishTenantContributor } from './publish-tenant-contributor.js'
 import { TenantProfileDialog } from './tenant-profile-dialog.js'
+import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
+import { GraphProfileDialog } from './graph-profile-dialog.js'
+import { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
+import { GraphContributorKey } from '../../graph-contribute/graph-contributor.js'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { PreviewServerKey } from '../../preview-server/preview-server.js'
 import { TenantPublisherKey } from '../../tenant-publish/tenant-publisher.js'
@@ -220,6 +225,18 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const dialogs = this.provider.get(DialogService.Key)
             const publishTenant = new PublishTenantContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(TenantPublisherKey), dialogs === undefined ? undefined : new TenantProfileDialog(dialogs))
             this.handles.push(registry.RegisterInstance(publishTenant, publishTenant.Actions))
+            // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
+            // registry + storage provider + package store (absent in headless/unit contexts): only
+            // wire the graph contributor when all three resolve, mirroring the undefined-safe spirit.
+            const graphRegistry = this.provider.get(BuildSystemRegistryKey)
+            const graphStorage = this.provider.get(BuildStorageProviderKey)
+            const graphPackages = this.provider.get(PackageStoreKey)
+            if (graphRegistry !== undefined && graphStorage !== undefined && graphPackages !== undefined)
+            {
+                const graphBuilder = new SolutionPackageBuilder(graphRegistry, graphStorage, graphPackages, this.provider.getRequired(SolutionManagerService.Key))
+                const contributeGraph = new ContributeToGraphContributor(solution, graphBuilder, this.provider.get(BackgroundWorkService.Key), this.provider.get(GraphContributorKey), dialogs, dialogs === undefined ? undefined : new GraphProfileDialog(dialogs))
+                this.handles.push(registry.RegisterInstance(contributeGraph, contributeGraph.Actions))
+            }
         }
         this.setHasNoSolution(false)
         // The global bag persister is registered by the app (P6a DurableStoreRegistration). It
