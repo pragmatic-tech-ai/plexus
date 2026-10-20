@@ -75,7 +75,7 @@ export class ContributeToGraphContributor implements IHierarchyContributor
             return new RelayCommand(() => void this.configure(), () => this.contributor !== undefined && this.prompt !== undefined)
         }
         if (commandId !== ContributeToGraphContributor.ContributeCommandId) return undefined
-        return new RelayCommand(() => void this.contribute(), () => this.builder !== undefined && this.contributor !== undefined && this.work !== undefined)
+        return new RelayCommand(() => void this.contribute(), () => this.builder !== undefined && this.contributor !== undefined && this.work !== undefined && this.prompt !== undefined)
     }
 
     // Collects URL + token and hands them to the main-side store. The token goes straight to

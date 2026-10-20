@@ -50,7 +50,7 @@ export class GraphProfileDialog implements IGraphProfilePrompt
         panel.AddChild(error)
         const save = new RelayCommand(() =>
         {
-            if (url.Text.trim() === '' || graph.Text.trim() === '' || token.Text === '')
+            if (url.Text.trim() === '' || graph.Text.trim() === '' || token.Text.trim() === '')
             {
                 error.Text = GraphProfileDialog.MissingFields
                 return
