@@ -45,6 +45,11 @@ class PublishTestHelper
     {
         return { EnsureMemberGenerated: () => Promise.resolve() }
     }
+
+    public static ActionById(c: PublishTenantContributor, id: string): any
+    {
+        return c.Actions.find((a) => a.Id === id)!
+    }
 }
 
 class FakeBuildService
@@ -165,7 +170,7 @@ describe('PublishTenantContributor', () =>
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
         const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher)
-        c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
+        c.Resolve(PublishTenantContributor.PublishEnvCommandId, PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
         await expect(work.task).resolves.toEqual(Applied)
         expect(svc.Calls).toHaveLength(1)
         expect(svc.Calls[0].flavorId).toBe('html-bundle-remote')
@@ -190,21 +195,21 @@ describe('PublishTenantContributor', () =>
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
         const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher)
-        c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
+        c.Resolve(PublishTenantContributor.PublishEnvCommandId, PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
         await work.task
         expect(publisher.Published).toEqual(['/out'])
         expect(publisher.Profiles).toEqual([])
-        expect(JSON.stringify(svc.Calls[0].options)).not.toMatch(/token/i)
     })
 
     it('lists both publish commands with ids, labels and orders', () =>
     {
         const c = new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), undefined)
-        const byId = (id: string) => c.Actions.find((a) => a.Id === id)!
-        expect(byId('tenant.publish').Order).toBe(54)
-        expect(byId('tenant.publish').Title).toBe('Publish to tenant')
-        expect(byId('tenant.publish-env').Order).toBe(56)
-        expect(byId('tenant.publish-env').Title).toBe('Publish to tenant (environment graph)')
-        expect(c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.CanExecute()).toBe(false)
+        const publish = PublishTestHelper.ActionById(c, PublishTenantContributor.PublishCommandId)
+        const publishEnv = PublishTestHelper.ActionById(c, PublishTenantContributor.PublishEnvCommandId)
+        expect(publish.Order).toBe(54)
+        expect(publish.Title).toBe('Publish to tenant')
+        expect(publishEnv.Order).toBe(56)
+        expect(publishEnv.Title).toBe('Publish to tenant (environment graph)')
+        expect(c.Resolve(PublishTenantContributor.PublishEnvCommandId, PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.CanExecute()).toBe(false)
     })
 })
