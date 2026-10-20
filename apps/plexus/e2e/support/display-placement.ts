@@ -65,6 +65,7 @@ export class DisplayPlacement
         return { x: Number(match[1]), y: Number(match[2]) };
     }
 
+    // Treating the display at origin (0,0) as primary is a deliberate Windows approximation (per the brief).
     private static IsPrimary(display: DisplayBounds): boolean
     {
         return display.x === DisplayPlacement.PrimaryX && display.y === DisplayPlacement.PrimaryY;
