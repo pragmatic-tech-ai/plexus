@@ -37,6 +37,12 @@ describe('IpcGraphContributor', () =>
         expect(() => new IpcGraphContributor()).toThrow(/graphContribute is unavailable/)
     })
 
+    it('throws when window.api is entirely absent', () =>
+    {
+        delete (globalThis as any).api
+        expect(() => new IpcGraphContributor()).toThrow(/graphContribute is unavailable/)
+    })
+
     it('forwards Contribute and returns the result', async () =>
     {
         const fake = new FakeGraphContribute();
@@ -59,6 +65,8 @@ describe('IpcGraphContributor', () =>
     {
         const fake = new FakeGraphContribute();
         (globalThis as any).api = { graphContribute: fake }
-        expect(await new IpcGraphContributor().HasProfile()).toBe(true)
+        const value = await new IpcGraphContributor().HasProfile()
+        expect(typeof value).toBe('boolean')
+        expect(value).toBe(true)
     })
 })

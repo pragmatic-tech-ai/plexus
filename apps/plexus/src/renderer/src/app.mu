@@ -121,6 +121,8 @@ import IpcPreviewServer from "./services/preview-server/ipc-preview-server.js"
 // Tenant publish — the concrete ITenantPublisher (plexus-core capability) over the
 // window.api.tenantPublish preload bridge. Registered under TenantPublisherKey.
 import IpcTenantPublisher from "./services/tenant-publish/ipc-tenant-publisher.js"
+// Graph contribute — the concrete IGraphContributor (plexus-core capability) over the
+// window.api.graphContribute preload bridge. Registered under GraphContributorKey.
 import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contributor.js"
 
 // Recent-projects MRU — persists opened/created projects to a JSON file under
