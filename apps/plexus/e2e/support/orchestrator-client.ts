@@ -1,20 +1,22 @@
 // Support for the runtime-publishing live-loop e2e (Task 5): a thin wrapper over the Task 2
-// control-plane orchestrator CLI, plus a direct-wire environment-graph reader used by the
-// pre-promote review assertion.
+// control-plane orchestrator CLI, plus a runtime environment-graph reader used by the pre-promote
+// review assertion.
 //
-// The orchestrator (pragmatic-server/admin/control-plane/loop-orchestrator.ts) composes the
-// real control-plane in-process and exposes three subcommands, each printing ONE JSON
-// descriptor to stdout; stderr carries only redacted logs. Separate invocations share state
-// through the --data-root directory, so the SAME data root (captured from create-dev) is passed
-// to every call. Descriptors carry tokens and passwords: this client NEVER logs stdout.
+// The orchestrator (pragmatic-server/admin/control-plane/loop-orchestrator.ts) composes the real
+// control-plane in-process and exposes FOUR subcommands, each printing ONE JSON descriptor to
+// stdout; stderr carries only redacted logs. Separate invocations share state through the
+// --data-root directory, so the SAME data root (captured from create-dev) is passed to every call.
+// Descriptors carry tokens and passwords: this client NEVER logs stdout.
+//
+//   create-dev                -> DevDescriptor
+//   create-runtime            -> RuntimeDescriptor   (creates + provisions; env graph still EMPTY)
+//   promote --graph <g>       -> PromoteDescriptor   (idempotent; relays dev graph into the runtime)
+//   teardown                  -> TeardownDescriptor
 import { spawn } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import {
-    CypherProtocol, WsMessageSocket, WebSocketMessageReader, WebSocketMessageWriter,
-    createMessageConnection, NullLogger, ResponseError, type MessageConnection,
-} from '@pragmatic-tech-ai/pragmatic-protocol'
+import { PragmaticClient, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { PLEXUS_ROOT } from '../plexus-app'
 
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
@@ -35,7 +37,8 @@ export interface DevDescriptor
     makerToken: string
 }
 
-/** Output of promote-and-provision. */
+/** Output of create-runtime: the runtime exists and reader/ungranted accounts are provisioned, but
+ *  nothing has been promoted yet — the environment graph is empty. */
 export interface RuntimeDescriptor
 {
     runtimeEnv: string
@@ -46,6 +49,14 @@ export interface RuntimeDescriptor
     deployToken: string
     reader: CredentialDescriptor
     ungranted: CredentialDescriptor
+}
+
+/** Output of promote: relays the dev graph into the existing runtime; re-runnable. */
+export interface PromoteDescriptor
+{
+    graphName: string
+    packageCount: number
+    targetEnv: string
 }
 
 /** Output of teardown. */
@@ -65,7 +76,8 @@ export class OrchestratorClient
     private static readonly NpxPosix = 'npx'
     private static readonly TsxBin = 'tsx'
     private static readonly CreateDevCommand = 'create-dev'
-    private static readonly PromoteAndProvisionCommand = 'promote-and-provision'
+    private static readonly CreateRuntimeCommand = 'create-runtime'
+    private static readonly PromoteCommand = 'promote'
     private static readonly TeardownCommand = 'teardown'
     private static readonly DataRootFlag = '--data-root'
     private static readonly GraphFlag = '--graph'
@@ -76,7 +88,7 @@ export class OrchestratorClient
     private static readonly CloseEvent = 'close'
     private static readonly ErrorEvent = 'error'
     private static readonly DataEvent = 'data'
-    private static readonly NoDataRootMessage = 'CreateDev must run before PromoteAndProvision/Teardown (no data root captured yet)'
+    private static readonly NoDataRootMessage = 'CreateDev must run before CreateRuntime/Promote/Teardown (no data root captured yet)'
     private static readonly NoJsonMessage = 'orchestrator produced no JSON descriptor on stdout'
     private static readonly FailedPrefix = 'orchestrator '
     private static readonly FailedExit = ' exited with code '
@@ -108,10 +120,14 @@ export class OrchestratorClient
         return this.Run<DevDescriptor>(args)
     }
 
-    public async PromoteAndProvision(graph: string): Promise<RuntimeDescriptor>
+    public async CreateRuntime(): Promise<RuntimeDescriptor>
     {
-        const args = [OrchestratorClient.PromoteAndProvisionCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot(), OrchestratorClient.GraphFlag, graph]
-        return this.Run<RuntimeDescriptor>(args)
+        return this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot()])
+    }
+
+    public async Promote(graph: string): Promise<PromoteDescriptor>
+    {
+        return this.Run<PromoteDescriptor>([OrchestratorClient.PromoteCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot(), OrchestratorClient.GraphFlag, graph])
     }
 
     public async Teardown(): Promise<TeardownDescriptor>
@@ -186,7 +202,7 @@ export class OrchestratorClient
     }
 }
 
-/** Outcome of a direct-wire environment-graph read: either rows came back, or the server rejected cleanly. */
+/** Outcome of a runtime environment-graph read: either rows came back, or the server rejected cleanly. */
 export interface WireReadOutcome
 {
     Ok: boolean
@@ -194,30 +210,32 @@ export interface WireReadOutcome
     ErrorMessage?: string
 }
 
-// Issues a single Cypher read against a runtime tenant's environment graph over the same WebSocket
-// JSON-RPC surface the real clients use. Used by the pre-promote review assertion to prove the
-// "no environment graph loaded" path surfaces a clean, structured error rather than crashing.
-//
-// The `ws` package is not hoisted to the Plexus workspace root, so it is imported dynamically (and
-// only when this reader actually runs) through a non-literal specifier — this keeps the module
-// resolvable/typecheckable without a top-level `ws` dependency; an operator enabling the gated
-// pre-promote step installs `ws` in apps/plexus.
-export class EnvGraphWireReader
+// Reads a runtime tenant's ENVIRONMENT graph node-side over the same PragmaticClient the real Node
+// clients use (control-plane-smoke / the sp1 capstone read this way). Used by the pre-promote review
+// assertion: a Cypher read issued WITHOUT OpenApplication resolves to the environment graph, so when
+// nothing has been promoted the server must surface a clean "no environment graph is loaded"
+// (NoEnvironmentGraphError) rather than crashing. No raw `ws` dependency: importing the protocol
+// barrel installs its Node dialer for ConnectAsync.
+export class RuntimeEnvGraphReader
 {
-    private static readonly WsModuleSpecifier = 'ws'
-    private static readonly WebSocketExport = 'WebSocket'
-    private static readonly DefaultExport = 'default'
-    private static readonly AuthorizationHeader = 'Authorization'
-    private static readonly BearerPrefix = 'Bearer '
-    private static readonly OpenEvent = 'open'
-    private static readonly ErrorEvent = 'error'
+    private static readonly LoginPath = '/auth/login'
+    private static readonly TenantQuery = '?tenant='
+    private static readonly PostMethod = 'POST'
+    private static readonly ContentTypeHeader = 'content-type'
+    private static readonly JsonContentType = 'application/json'
+    private static readonly LoginFailedPrefix = 'login failed with HTTP '
+    private static readonly NoTokenMessage = 'login response contained no token'
+    private static readonly TokenKey = 'token'
 
-    public async ReadEnvGraph(wsUrl: string, token: string, cypher: string): Promise<WireReadOutcome>
+    // Logs in (bearer), connects node-side, runs one environment-graph read without binding an app,
+    // and returns the outcome. The bearer token never leaves this method.
+    public async ReadEnvGraph(appOriginBase: string, runtimeWsUrl: string, tenant: string, email: string, password: string, cypher: string): Promise<WireReadOutcome>
     {
-        const connection = await this.Connect(wsUrl, token)
+        const token = await this.Login(appOriginBase, tenant, email, password)
+        const client = await PragmaticClient.ConnectAsync(runtimeWsUrl, { bearerToken: token })
         try
         {
-            const page = await connection.sendRequest(CypherProtocol.Query, { cypher })
+            const page = await client.CypherQuery(cypher)
             return { Ok: true, RowCount: page.items.length }
         }
         catch (error)
@@ -230,24 +248,28 @@ export class EnvGraphWireReader
         }
         finally
         {
-            connection.dispose()
+            await client.DisposeAsync()
         }
     }
 
-    private async Connect(wsUrl: string, token: string): Promise<MessageConnection>
+    private async Login(appOriginBase: string, tenant: string, email: string, password: string): Promise<string>
     {
-        const specifier = EnvGraphWireReader.WsModuleSpecifier
-        const wsModule = await import(specifier) as Record<string, unknown>
-        const WebSocketCtor = (wsModule[EnvGraphWireReader.WebSocketExport] ?? wsModule[EnvGraphWireReader.DefaultExport]) as new (url: string, options: { headers: Record<string, string> }) => unknown
-        const socket = new WebSocketCtor(wsUrl, { headers: { [EnvGraphWireReader.AuthorizationHeader]: EnvGraphWireReader.BearerPrefix + token } }) as { once(event: string, handler: (arg?: unknown) => void): void }
-        await new Promise<void>((resolve, reject) =>
-        {
-            socket.once(EnvGraphWireReader.OpenEvent, () => resolve())
-            socket.once(EnvGraphWireReader.ErrorEvent, (err) => reject(err instanceof Error ? err : new Error(String(err))))
+        const url = `${appOriginBase}${RuntimeEnvGraphReader.LoginPath}${RuntimeEnvGraphReader.TenantQuery}${encodeURIComponent(tenant)}`
+        const response = await fetch(url, {
+            method: RuntimeEnvGraphReader.PostMethod,
+            headers: { [RuntimeEnvGraphReader.ContentTypeHeader]: RuntimeEnvGraphReader.JsonContentType },
+            body: JSON.stringify({ email, password }),
         })
-        const messageSocket = new WsMessageSocket(socket as never)
-        const connection = createMessageConnection(new WebSocketMessageReader(messageSocket), new WebSocketMessageWriter(messageSocket), NullLogger)
-        connection.listen()
-        return connection
+        if (!response.ok)
+        {
+            throw new Error(RuntimeEnvGraphReader.LoginFailedPrefix + String(response.status))
+        }
+        const body = await response.json() as Record<string, unknown>
+        const token = body[RuntimeEnvGraphReader.TokenKey]
+        if (typeof token !== 'string' || token === '')
+        {
+            throw new Error(RuntimeEnvGraphReader.NoTokenMessage)
+        }
+        return token
     }
 }

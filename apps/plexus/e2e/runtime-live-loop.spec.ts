@@ -22,7 +22,7 @@ import { RemoteBindMode } from '@pragmatic-tech-ai/todl'
 import { launchPlexus, seedSession, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ContosoFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
-import { OrchestratorClient, EnvGraphWireReader, type DevDescriptor, type RuntimeDescriptor } from './support/orchestrator-client'
+import { OrchestratorClient, RuntimeEnvGraphReader, type DevDescriptor, type RuntimeDescriptor } from './support/orchestrator-client'
 
 // Result of resolving + driving the real Generate-UI command on the Contoso project row.
 interface GenerateOutcome
@@ -294,28 +294,21 @@ class BrowserReader
     }
 }
 
-// Clones the Contoso fixture into a throwaway temp dir so the re-promote step can mutate it without
-// touching the committed corpus, and knows how to inject a new instance for the re-promote assertion.
+// Clones the Contoso fixture into a throwaway temp dir so the re-promote step can mutate its seeded
+// data without ever touching the committed corpus. The same clone is the project Plexus opens, so
+// rewriting its .todl on disk and re-contributing produces a genuine v2 of the solution.
 class ContosoClone
 {
     private static readonly ClonePrefix = 'plexus-contoso-'
     private static readonly TodlFile = 'contoso.todl'
-    // A stable, unique anchor inside the model block; the new instance is inserted right after it.
-    private static readonly Anchor = 'annotate entrypoint { }'
-    private static readonly RePromoteValue = 'Contoso Nebula Grinder'
-    // Omits the optional `category` so there is no forward reference to a concept defined later in the block.
-    private static readonly Insertion = '\n        Product nebula { name = "Contoso Nebula Grinder"; unitPrice = 1; }'
+    private static readonly Utf8 = 'utf8'
+    private static readonly Quote = '"'
 
     public readonly Folder: string
 
     private constructor(folder: string)
     {
         this.Folder = folder
-    }
-
-    public static get NewValue(): string
-    {
-        return ContosoClone.RePromoteValue
     }
 
     public static From(sourceFolder: string): ContosoClone
@@ -325,31 +318,32 @@ class ContosoClone
         return new ContosoClone(folder)
     }
 
-    // Appends a new Product instance (NewValue) to the model so a re-contribute + re-promote surfaces
-    // a new value on the next read with no redeploy.
-    public InjectNewInstance(): void
+    // Rewrites the one seeded assert-value instance (`<original>` -> `<updated>`) so a re-contribute
+    // + re-promote surfaces the changed data on the next read with no redeploy. The value is matched
+    // quoted, so it binds exactly the seeded field literal.
+    public ReplaceSeededValue(original: string, updated: string): void
     {
         const file = path.join(this.Folder, ContosoClone.TodlFile)
-        const text = readFileSync(file, 'utf8')
-        writeFileSync(file, text.replace(ContosoClone.Anchor, ContosoClone.Anchor + ContosoClone.Insertion))
+        const text = readFileSync(file, ContosoClone.Utf8)
+        writeFileSync(file, text.replace(ContosoClone.Quote + original + ContosoClone.Quote, ContosoClone.Quote + updated + ContosoClone.Quote))
     }
 }
 
 const GateEnv = 'SP_RUNTIME_LOOP_E2E'
 const GateValue = '1'
 const WindowOriginEnv = 'SP_E2E_WINDOW_ORIGIN'
-// Operator-supplied fresh (provisioned-but-UNPROMOTED) runtime for the strict pre-promote assertion.
-// The delivered Task 2 orchestrator couples provision with promote in a single `promote-and-provision`
-// (EnvironmentService.Create throws on an existing env), so a fresh runtime whose environment graph is
-// empty is not reachable through the CLI; the operator provides one here to exercise step 5 strictly.
-const FreshWsEnv = 'SP_RUNTIME_LOOP_FRESH_WS'
-const FreshTokenEnv = 'SP_RUNTIME_LOOP_FRESH_TOKEN'
 
 const ProjectMatch = 'contoso'
 const AppliedStatus = 'applied'
 const PrePromoteCypher = 'MATCH (n) RETURN n LIMIT 1'
 const NoEnvironmentGraphPattern = /no environment graph is loaded/i
 const GraphName = 'loop-graph'
+// The re-promote step changes the one seeded assert value to this distinct v2 string.
+const UpdatedSuffix = ' (updated)'
+const V2Value = ContosoFixture.assertValue + UpdatedSuffix
+const ReloadTimeoutMs = 60_000
+const AppPathPrefix = '/app/'
+const PathSep = '/'
 
 test.describe('runtime publishing live loop', () =>
 {
@@ -382,7 +376,7 @@ test.describe('runtime publishing live loop', () =>
                 expect(gen, `generate stage: ${gen.stage ?? ''}`).toMatchObject({ ok: true })
             })
 
-            // Step 4: Phase 1 (create-dev) + Contribute the solution packages to the dev graph.
+            // Step 4a: Phase 1 (create-dev) + Contribute the solution packages to the dev graph.
             await test.step('create-dev + Contribute', async () =>
             {
                 dev = await orchestrator.CreateDev(GraphName)
@@ -390,33 +384,36 @@ test.describe('runtime publishing live loop', () =>
                 expect(contributed, `contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
             })
 
-            // Step 5: pre-promote read assertion (Review focus). An environment-bound read against a
-            // runtime whose env graph has nothing promoted must surface NoEnvironmentGraphError cleanly
-            // (not a crash/blank). Asserted here via a DIRECT WIRE read (brief's sanctioned fallback).
-            //
-            // NOTE: the delivered Task 2 orchestrator couples provisioning with promotion in a single
-            // `promote-and-provision`, so a provisioned-but-unpromoted runtime is not reachable through
-            // the CLI. When the operator supplies such a fresh runtime via SP_RUNTIME_LOOP_FRESH_WS/_TOKEN,
-            // the strict assertion runs; otherwise it is recorded (skipped with reason), never a false pass.
+            // Step 4b: create the runtime (now CREATE + PROVISION only — no promote). The runtime env
+            // exists and the reader/ungranted accounts are provisioned, but the env graph is still EMPTY.
+            await test.step('create-runtime (env graph empty)', async () =>
+            {
+                rt = await orchestrator.CreateRuntime()
+            })
+
+            // Step 5: pre-promote read assertion (Review focus) — UNCONDITIONAL. A read against the
+            // runtime's environment graph before anything is promoted must surface the clear
+            // NoEnvironmentGraphError to the client, not a crash/blank. Driven node-side over the real
+            // PragmaticClient: log in as the reader, connect, and run one Cypher read WITHOUT
+            // OpenApplication so it resolves to the (empty) environment graph.
             await test.step('pre-promote: NoEnvironmentGraphError surfaces cleanly', async () =>
             {
-                const freshWs = process.env[FreshWsEnv]
-                const freshToken = process.env[FreshTokenEnv]
-                if (freshWs === undefined || freshWs === '' || freshToken === undefined || freshToken === '')
-                {
-                    test.info().annotations.push({ type: 'skip-reason', description: `pre-promote strict assertion needs a provisioned-but-unpromoted runtime via ${FreshWsEnv}/${FreshTokenEnv}; the delivered orchestrator couples provision+promote so it is not reachable through the CLI` })
-                    return
-                }
-                const outcome = await new EnvGraphWireReader().ReadEnvGraph(freshWs, freshToken, PrePromoteCypher)
-                expect(outcome.Ok, 'a fresh runtime with nothing promoted must reject the env read, not return rows').toBeFalsy()
+                const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.reader.email, rt!.reader.password, PrePromoteCypher)
+                expect(outcome.Ok, 'a runtime with nothing promoted must reject the env read, not return rows').toBeFalsy()
                 expect(outcome.ErrorMessage ?? '').toMatch(NoEnvironmentGraphPattern)
             })
 
-            // Step 6: Phase 2 (promote-and-provision) + Publish-env the Contoso app to the runtime tenant.
-            await test.step('promote-and-provision + Publish-env', async () =>
+            // Step 6: promote the dev graph into the existing runtime env.
+            await test.step('promote dev graph into runtime', async () =>
             {
-                rt = await orchestrator.PromoteAndProvision(dev!.graphName)
-                const published = await RendererOps.PublishEnv(l!.win, rt.runtimeWsUrl, rt.deployToken, ProjectMatch, RemoteBindMode.Environment)
+                const promoted = await orchestrator.Promote(dev!.graphName)
+                expect(promoted.packageCount, 'promote contributed zero packages').toBeGreaterThan(0)
+            })
+
+            // Step 7: configure tenant + Publish-env the Contoso app (RemoteBindMode.Environment).
+            await test.step('Publish-env', async () =>
+            {
+                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeWsUrl, rt!.deployToken, ProjectMatch, RemoteBindMode.Environment)
                 expect(published.buildError, published.buildError).toBeUndefined()
                 expect(published.buildOk, 'html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
@@ -424,7 +421,7 @@ test.describe('runtime publishing live loop', () =>
                 expect(published.publishStatus, `publish status: ${published.publishStatus ?? ''}`).toBe(AppliedStatus)
             })
 
-            // Step 7: the milestone — a real browser on the second monitor reads the promoted value.
+            // Step 8: the milestone — a real browser on the second monitor reads the promoted value.
             await test.step('browser read (milestone)', async () =>
             {
                 await reader.Launch(origin)
@@ -432,7 +429,7 @@ test.describe('runtime publishing live loop', () =>
                 await reader.AssertRenders(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId, ContosoFixture.assertValue)
             })
 
-            // Step 8: ungranted-denied assertion (Review focus) — a fresh context as the ungranted
+            // Step 9: ungranted-denied assertion (Review focus) — a fresh context as the ungranted
             // account proves the reader's grant is real, not an open door.
             await test.step('ungranted read is denied', async () =>
             {
@@ -440,45 +437,28 @@ test.describe('runtime publishing live loop', () =>
                 await reader.AssertDenied(denied, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId, ContosoFixture.assertValue)
             })
 
-            // Step 9: re-promote assertion (Review focus) — contribute a changed instance, re-promote,
-            // reload the already-served app, and assert the new value appears with NO redeploy.
-            //
-            // NOTE: a standalone re-promote (relay the dev graph into the existing runtime again) is not
-            // exposed by the delivered Task 2 orchestrator — `promote-and-provision` re-creates the runtime
-            // env and EnvironmentService.Create throws EnvironmentExistsError. The re-promote is therefore
-            // attempted and, on that known coupling failure, recorded (skipped with reason) rather than
-            // forcing a false pass; the reload+assert logic is real and runs once the orchestrator exposes
-            // an idempotent/standalone promote.
+            // Step 10: re-promote assertion (Review focus) — UNCONDITIONAL. Change one seeded value in
+            // the open solution to a distinct v2 string, re-contribute into the SAME dev graph, promote
+            // again (idempotent), then reload the already-served app and assert the v2 value renders
+            // while the original no longer does — reflected live, with NO redeploy.
             await test.step('re-promote reflected on reload, no redeploy', async () =>
             {
-                clone.InjectNewInstance()
+                clone.ReplaceSeededValue(ContosoFixture.assertValue, V2Value)
                 const recontributed = await RendererOps.Contribute(l!.win, dev!.devWsUrl, dev!.makerToken, dev!.graphName)
                 expect(recontributed, `re-contribute stage: ${recontributed.stage ?? ''}`).toMatchObject({ ok: true })
+                await orchestrator.Promote(dev!.graphName)
 
-                let rePromoted = false
-                try
-                {
-                    await orchestrator.PromoteAndProvision(dev!.graphName)
-                    rePromoted = true
-                }
-                catch (error)
-                {
-                    test.info().annotations.push({ type: 'skip-reason', description: `re-promote not reachable: the orchestrator's promote-and-provision re-creates the runtime env (${error instanceof Error ? error.name : 'error'}); a standalone/idempotent promote subcommand is required` })
-                }
-
-                if (rePromoted)
-                {
-                    const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
-                    const page = await context.newPage()
-                    await page.goto(`${rt!.appOriginBase}/app/${rt!.tenant}/${ContosoFixture.appId}/`)
-                    await page.reload()
-                    await expect(page.getByText(ContosoClone.NewValue, { exact: false })).toBeVisible({ timeout: 60_000 })
-                }
+                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
+                const page = await context.newPage()
+                await page.goto(`${rt!.appOriginBase}${AppPathPrefix}${rt!.tenant}${PathSep}${ContosoFixture.appId}${PathSep}`)
+                await page.reload()
+                await expect(page.getByText(V2Value, { exact: false })).toBeVisible({ timeout: ReloadTimeoutMs })
+                await expect(page.getByText(ContosoFixture.assertValue, { exact: true })).toHaveCount(0)
             })
         }
         finally
         {
-            // Step 10: teardown — close chromium, the app, restore the session, remove envs/containers.
+            // Step 11: teardown — close chromium, the app, restore the session, remove envs/containers.
             await reader.Close()
             if (l !== undefined)
             {
