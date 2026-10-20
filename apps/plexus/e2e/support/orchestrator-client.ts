@@ -16,7 +16,7 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { PragmaticClient, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { PLEXUS_ROOT } from '../plexus-app'
 
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
@@ -156,8 +156,7 @@ export class OrchestratorClient
         const orchestrator = path.join(this.serverRepo, OrchestratorClient.OrchestratorRel)
         const npx = process.platform === OrchestratorClient.WindowsPlatform ? OrchestratorClient.NpxWindows : OrchestratorClient.NpxPosix
         const command = args[0]
-        return new Promise<T>((resolve, reject) =>
-        {
+        return new Promise<T>((resolve, reject) => {
             const child = spawn(npx, [OrchestratorClient.TsxBin, orchestrator, ...args], {
                 cwd: this.serverRepo,
                 timeout: OrchestratorClient.SpawnTimeoutMs,
@@ -169,8 +168,7 @@ export class OrchestratorClient
             child.stdout.on(OrchestratorClient.DataEvent, (chunk: string) => { stdout += chunk })
             child.stderr.on(OrchestratorClient.DataEvent, (chunk: string) => { stderr += chunk })
             child.on(OrchestratorClient.ErrorEvent, reject)
-            child.on(OrchestratorClient.CloseEvent, (code) =>
-            {
+            child.on(OrchestratorClient.CloseEvent, (code) => {
                 if (code !== 0)
                 {
                     reject(new Error(OrchestratorClient.FailedPrefix + String(command) + OrchestratorClient.FailedExit + String(code) + (stderr.trim() === '' ? '' : OrchestratorClient.StderrSep + stderr.trim())))
@@ -211,11 +209,13 @@ export interface WireReadOutcome
 }
 
 // Reads a runtime tenant's ENVIRONMENT graph node-side over the same PragmaticClient the real Node
-// clients use (control-plane-smoke / the sp1 capstone read this way). Used by the pre-promote review
-// assertion: a Cypher read issued WITHOUT OpenApplication resolves to the environment graph, so when
-// nothing has been promoted the server must surface a clean "no environment graph is loaded"
-// (NoEnvironmentGraphError) rather than crashing. No raw `ws` dependency: importing the protocol
-// barrel installs its Node dialer for ConnectAsync.
+// clients use (control-plane-smoke / the sp1 capstone read this way). A Cypher read issued WITHOUT
+// OpenApplication resolves to the environment graph. Used by two symmetric review assertions:
+//   - pre-promote (as the reader): nothing promoted yet, so the server surfaces a clean
+//     NoEnvironmentGraphError ("no environment graph is loaded") rather than crashing;
+//   - ungranted (after promote): a graph IS loaded, so the readTenant/RBAC gate refuses the
+//     ungranted principal with a permission denial ("no grant covers this action on this resource").
+// No raw `ws` dependency: importing the protocol barrel installs its Node dialer for ConnectAsync.
 export class RuntimeEnvGraphReader
 {
     private static readonly LoginPath = '/auth/login'
@@ -228,7 +228,8 @@ export class RuntimeEnvGraphReader
     private static readonly TokenKey = 'token'
 
     // Logs in (bearer), connects node-side, runs one environment-graph read without binding an app,
-    // and returns the outcome. The bearer token never leaves this method.
+    // and returns the outcome. A ResponseError (the server's clean rejection) is an Error, so its
+    // message is captured by the single catch. The bearer token never leaves this method.
     public async ReadEnvGraph(appOriginBase: string, runtimeWsUrl: string, tenant: string, email: string, password: string, cypher: string): Promise<WireReadOutcome>
     {
         const token = await this.Login(appOriginBase, tenant, email, password)
@@ -240,10 +241,6 @@ export class RuntimeEnvGraphReader
         }
         catch (error)
         {
-            if (error instanceof ResponseError)
-            {
-                return { Ok: false, ErrorMessage: error.message }
-            }
             return { Ok: false, ErrorMessage: error instanceof Error ? error.message : String(error) }
         }
         finally

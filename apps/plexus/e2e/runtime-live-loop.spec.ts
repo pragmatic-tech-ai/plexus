@@ -15,7 +15,7 @@
 // Configure surfaces and the auth endpoints; they are NEVER passed to console/log/test output.
 import { test, expect, type Page, type JSHandle } from '@playwright/test'
 import { chromium, type Browser, type BrowserContext } from 'playwright'
-import { existsSync, readFileSync, writeFileSync, mkdtempSync, cpSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { RemoteBindMode } from '@pragmatic-tech-ai/todl'
@@ -52,67 +52,112 @@ interface PublishOutcome
 
 // Renderer-side operations: each reaches the live app's service container via the mural visual
 // backref (identical to sp1-plexus-smoke) and drives a real contributor. These run as Playwright
-// `page.evaluate` callbacks, so their bodies execute inside the renderer and are necessarily inline.
+// `page.evaluate` callbacks, so their bodies execute inside the renderer. The shared root/service
+// walk is installed ONCE on `window` by InstallHelpers so no evaluate body re-copies it.
 class RendererOps
 {
+    private static readonly VisualBackref = 'mural:visual-backref'
+    private static readonly HelpersKey = '__runtimeLoopHelpers'
+    private static readonly PublishStateKey = '__runtimeLoopPublish'
+    private static readonly SolutionManagerName = 'SolutionManagerService'
+    private static readonly RegistryName = 'HierarchyContributorRegistry'
+    private static readonly WorkspaceName = 'SolutionWorkspaceService'
+    private static readonly GenerateContributorName = 'GenerateUiContributor'
+    private static readonly ContributeContributorName = 'ContributeToGraphContributor'
+    private static readonly PublishContributorName = 'PublishTenantContributor'
+    private static readonly ProjectFamily = 'project'
+    private static readonly SolutionFamily = 'solution'
+    private static readonly StageResolve = 'resolve'
+    private static readonly StageMutationsMissing = 'mutations-missing'
+    private static readonly StageContributorMissing = 'contributor-missing'
     private static readonly ResolveTimeoutMs = 60_000
     private static readonly PollMs = 500
     private static readonly PublishWaitMs = 180_000
-    private static readonly PublishStateKey = '__runtimeLoopPublish'
+
+    // Installs the shared browser-side helpers on `window` once (findRoot + services + byCtor), so
+    // the operation evaluates below share a single copy of the mural service-container walk.
+    public static async InstallHelpers(win: Page): Promise<void>
+    {
+        await win.evaluate(
+            ({ helpersKey, backref }) => {
+                const S = Symbol.for(backref)
+                ;(window as any)[helpersKey] = {
+                    findRoot()
+                    {
+                        for (const el of document.querySelectorAll('*'))
+                        {
+                            const v = (el as any)[S]
+                            if (v && v.Services) return v
+                        }
+                        return undefined
+                    },
+                    services(root: any)
+                    {
+                        const map: Record<string, any> = {}
+                        for (let p = root?.Services; p; p = p._parent)
+                        {
+                            for (const [, e] of (p._cache ?? new Map()))
+                            {
+                                const n = (e as any)?.constructor?.name
+                                if (n && !(n in map)) map[n] = e
+                            }
+                        }
+                        return map
+                    },
+                    byCtor(list: any[], name: string)
+                    {
+                        return (list ?? []).find((c) => c?.constructor?.name === name)
+                    },
+                }
+            },
+            { helpersKey: RendererOps.HelpersKey, backref: RendererOps.VisualBackref },
+        )
+    }
 
     // Runs the base scaffold then the real Generate-UI command for the entrypoint concept,
     // non-interactively (concept prompt + completion reporter stubbed on the command instance).
     public static async GenerateUi(win: Page, projectMatch: string, concept: string): Promise<GenerateOutcome>
     {
         return win.evaluate(
-            async ({ projectMatch, concept, resolveTimeoutMs, pollMs }) =>
-            {
-                const S = Symbol.for('mural:visual-backref')
-                const findRoot = (): any =>
-                {
-                    for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) return v }
-                    return undefined
-                }
-                const services = (root: any): Record<string, any> =>
-                {
-                    const map: Record<string, any> = {}
-                    for (let p = root?.Services; p; p = p._parent)
-                        for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n && !(n in map)) map[n] = e }
-                    return map
-                }
-                const byCtor = (list: any[], name: string): any => list.find((c) => c?.constructor?.name === name)
+            async (p) => {
+                const H = (window as any)[p.helpersKey]
                 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
                 let member: any, genContrib: any, svc: Record<string, any> = {}
-                const deadline = Date.now() + resolveTimeoutMs
+                const deadline = Date.now() + p.resolveTimeoutMs
                 for (;;)
                 {
-                    const root = findRoot()
-                    svc = services(root)
-                    const mgr = svc['SolutionManagerService']
-                    const reg = svc['HierarchyContributorRegistry']
+                    svc = H.services(H.findRoot())
+                    const mgr = svc[p.solutionManagerName]
+                    const reg = svc[p.registryName]
                     const members = mgr?.ActiveSolution?.Members?.ToArray?.() ?? []
                     member = members.filter((m: any) => m.Storage !== undefined)
-                        .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(projectMatch))
-                    if (member && reg) genContrib = byCtor(reg.For('project') ?? [], 'GenerateUiContributor')
+                        .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(p.projectMatch))
+                    if (member && reg) genContrib = H.byCtor(reg.For(p.projectFamily) ?? [], p.generateContributorName)
                     if (member && genContrib) break
-                    if (Date.now() > deadline) return { ok: false, stage: 'resolve' }
-                    await sleep(pollMs)
+                    if (Date.now() > deadline) return { ok: false, stage: p.stageResolve }
+                    await sleep(p.pollMs)
                 }
 
-                const mutations = svc['SolutionWorkspaceService']
+                const mutations = svc[p.workspaceName]
                 const storage = member.Storage
-                const title = member.Title ?? projectMatch
-                if (mutations === undefined) return { ok: false, stage: 'mutations-missing' }
+                const title = member.Title ?? p.projectMatch
+                if (mutations === undefined) return { ok: false, stage: p.stageMutationsMissing }
                 await mutations.EnsureMemberGenerated(member)
 
                 const cmd: any = genContrib.Create()
-                cmd.selection = { Select: async () => concept }
+                cmd.selection = { Select: async () => p.concept }
                 cmd.reporter = { Report: async () => {}, ReportFailure: async (_c: string, e: unknown) => { throw e } }
                 await cmd.Run(storage, title)
                 return { ok: true, title }
             },
-            { projectMatch, concept, resolveTimeoutMs: RendererOps.ResolveTimeoutMs, pollMs: RendererOps.PollMs },
+            {
+                helpersKey: RendererOps.HelpersKey, projectMatch, concept,
+                solutionManagerName: RendererOps.SolutionManagerName, registryName: RendererOps.RegistryName,
+                workspaceName: RendererOps.WorkspaceName, generateContributorName: RendererOps.GenerateContributorName,
+                projectFamily: RendererOps.ProjectFamily, stageResolve: RendererOps.StageResolve,
+                stageMutationsMissing: RendererOps.StageMutationsMissing,
+                resolveTimeoutMs: RendererOps.ResolveTimeoutMs, pollMs: RendererOps.PollMs,
+            },
         )
     }
 
@@ -122,45 +167,36 @@ class RendererOps
     public static async Contribute(win: Page, serverUrl: string, token: string, graphName: string): Promise<ContributeOutcome>
     {
         return win.evaluate(
-            async ({ serverUrl, token, graphName, resolveTimeoutMs, pollMs }) =>
-            {
-                const S = Symbol.for('mural:visual-backref')
-                const findRoot = (): any =>
-                {
-                    for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) return v }
-                    return undefined
-                }
-                const services = (root: any): Record<string, any> =>
-                {
-                    const map: Record<string, any> = {}
-                    for (let p = root?.Services; p; p = p._parent)
-                        for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n && !(n in map)) map[n] = e }
-                    return map
-                }
-                const byCtor = (list: any[], name: string): any => list.find((c) => c?.constructor?.name === name)
+            async (p) => {
+                const H = (window as any)[p.helpersKey]
                 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
                 let contrib: any
-                const deadline = Date.now() + resolveTimeoutMs
+                const deadline = Date.now() + p.resolveTimeoutMs
                 for (;;)
                 {
-                    const reg = services(findRoot())['HierarchyContributorRegistry']
-                    if (reg) contrib = byCtor(reg.For('solution') ?? [], 'ContributeToGraphContributor')
+                    const reg = H.services(H.findRoot())[p.registryName]
+                    if (reg) contrib = H.byCtor(reg.For(p.solutionFamily) ?? [], p.contributeContributorName)
                     if (contrib) break
-                    if (Date.now() > deadline) return { ok: false, stage: 'resolve' }
-                    await sleep(pollMs)
+                    if (Date.now() > deadline) return { ok: false, stage: p.stageResolve }
+                    await sleep(p.pollMs)
                 }
 
                 const contributor = contrib.contributor
                 const builder = contrib.builder
                 const solution = contrib.solution
-                if (contributor === undefined || builder === undefined || solution === undefined) return { ok: false, stage: 'contributor-missing' }
-                await contributor.SetProfile(serverUrl, token)
+                if (contributor === undefined || builder === undefined || solution === undefined) return { ok: false, stage: p.stageContributorMissing }
+                await contributor.SetProfile(p.serverUrl, p.token)
                 const packages = [...await builder.Build()]
-                const result = await contributor.Contribute(graphName, solution.Name, packages)
+                const result = await contributor.Contribute(p.graphName, solution.Name, packages)
                 return { ok: true, packageCount: result?.PackageCount }
             },
-            { serverUrl, token, graphName, resolveTimeoutMs: RendererOps.ResolveTimeoutMs, pollMs: RendererOps.PollMs },
+            {
+                helpersKey: RendererOps.HelpersKey, serverUrl, token, graphName,
+                registryName: RendererOps.RegistryName, solutionFamily: RendererOps.SolutionFamily,
+                contributeContributorName: RendererOps.ContributeContributorName,
+                stageResolve: RendererOps.StageResolve, stageContributorMissing: RendererOps.StageContributorMissing,
+                resolveTimeoutMs: RendererOps.ResolveTimeoutMs, pollMs: RendererOps.PollMs,
+            },
         )
     }
 
@@ -171,38 +207,55 @@ class RendererOps
     public static async PublishEnv(win: Page, serverUrl: string, token: string, projectMatch: string, bind: RemoteBindMode): Promise<PublishOutcome>
     {
         await win.evaluate(
-            async ({ serverUrl, token, projectMatch, bind, stateKey }) =>
-            {
-                const S = Symbol.for('mural:visual-backref')
-                let root: any
-                for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v && v.Services) { root = v; break } }
-                const svc: Record<string, any> = {}
-                for (let p = root?.Services; p; p = p._parent)
-                    for (const [, e] of (p._cache ?? new Map())) { const n = (e as any)?.constructor?.name; if (n && !(n in svc)) svc[n] = e }
-                const mgr = svc['SolutionManagerService']
+            async (p) => {
+                const H = (window as any)[p.helpersKey]
+                const svc = H.services(H.findRoot())
+                const mgr = svc[p.solutionManagerName]
                 const member = (mgr?.ActiveSolution?.Members?.ToArray?.() ?? []).filter((m: any) => m.Storage)
-                    .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(projectMatch))
-                const pub = (svc['HierarchyContributorRegistry'].For('project') ?? []).find((c: any) => c?.constructor?.name === 'PublishTenantContributor')
-                const state: any = (window as any)[stateKey] = {}
-                await pub.publisher.SetProfile(serverUrl, token)
+                    .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(p.projectMatch))
+                const pub = H.byCtor(svc[p.registryName].For(p.projectFamily) ?? [], p.publishContributorName)
+                const state: any = (window as any)[p.stateKey] = {}
+                await pub.publisher.SetProfile(p.serverUrl, p.token)
 
                 const origBuild = pub.buildService.Build.bind(pub.buildService)
-                pub.buildService.Build = async (...a: any[]) =>
-                {
-                    try { const r = await origBuild(...a); state.buildOk = r.Result.Ok; if (!r.Result.Ok) state.buildError = 'build diagnostics present'; return r }
-                    catch (e) { state.buildError = String((e as any)?.message ?? e); throw e }
+                pub.buildService.Build = async (...a: any[]) => {
+                    try
+                    {
+                        const r = await origBuild(...a)
+                        state.buildOk = r.Result.Ok
+                        if (!r.Result.Ok) state.buildError = 'build diagnostics present'
+                        return r
+                    }
+                    catch (e)
+                    {
+                        state.buildError = String((e as any)?.message ?? e)
+                        throw e
+                    }
                 }
                 const origPub = pub.publisher.Publish.bind(pub.publisher)
-                pub.publisher.Publish = async (dir: string) =>
-                {
-                    try { const r = await origPub(dir); state.publishStatus = r?.Status; return r }
-                    catch (e) { state.publishError = String((e as any)?.message ?? e); throw e }
+                pub.publisher.Publish = async (dir: string) => {
+                    try
+                    {
+                        const r = await origPub(dir)
+                        state.publishStatus = r?.Status
+                        return r
+                    }
+                    catch (e)
+                    {
+                        state.publishError = String((e as any)?.message ?? e)
+                        throw e
+                    }
                 }
                 // Drive the private publish(member, bind) directly (TS-private; reachable at runtime),
                 // the same call the resolved `tenant.publish-env` RelayCommand makes.
-                try { pub.publish(member, bind) } catch (e) { state.invokeError = String((e as any)?.message ?? e) }
+                try { pub.publish(member, p.bind) } catch (e) { state.invokeError = String((e as any)?.message ?? e) }
             },
-            { serverUrl, token, projectMatch, bind, stateKey: RendererOps.PublishStateKey },
+            {
+                helpersKey: RendererOps.HelpersKey, serverUrl, token, projectMatch, bind,
+                solutionManagerName: RendererOps.SolutionManagerName, registryName: RendererOps.RegistryName,
+                projectFamily: RendererOps.ProjectFamily, publishContributorName: RendererOps.PublishContributorName,
+                stateKey: RendererOps.PublishStateKey,
+            },
         )
 
         await win.waitForFunction(
@@ -243,7 +296,6 @@ class BrowserReader
     private static readonly AppPathPrefix = '/app/'
     private static readonly PathSep = '/'
     private static readonly RenderTimeoutMs = 60_000
-    private static readonly DenyTimeoutMs = 20_000
     private static readonly EmailKey = 'email'
     private static readonly PasswordKey = 'password'
 
@@ -264,7 +316,7 @@ class BrowserReader
         return context
     }
 
-    private static AppUrl(appOriginBase: string, tenant: string, appId: string): string
+    public static AppUrl(appOriginBase: string, tenant: string, appId: string): string
     {
         return `${appOriginBase}${BrowserReader.AppPathPrefix}${tenant}${BrowserReader.PathSep}${appId}${BrowserReader.PathSep}`
     }
@@ -276,15 +328,6 @@ class BrowserReader
         await page.goto(BrowserReader.AppUrl(appOriginBase, tenant, appId))
         await expect(page.getByText(value, { exact: false })).toBeVisible({ timeout: BrowserReader.RenderTimeoutMs })
         return page
-    }
-
-    // Opens the served app as a principal with no read grant and asserts the value never renders
-    // (the read is denied) within the deny window.
-    public async AssertDenied(context: BrowserContext, appOriginBase: string, tenant: string, appId: string, value: string): Promise<void>
-    {
-        const page = await context.newPage()
-        await page.goto(BrowserReader.AppUrl(appOriginBase, tenant, appId))
-        await expect(page.getByText(value, { exact: false })).not.toBeVisible({ timeout: BrowserReader.DenyTimeoutMs })
     }
 
     public async Close(): Promise<void>
@@ -319,13 +362,19 @@ class ContosoClone
     }
 
     // Rewrites the one seeded assert-value instance (`<original>` -> `<updated>`) so a re-contribute
-    // + re-promote surfaces the changed data on the next read with no redeploy. The value is matched
-    // quoted, so it binds exactly the seeded field literal.
+    // + re-promote surfaces the changed data on the next read. The value is matched quoted, so it
+    // binds exactly the seeded field literal; `updated` is chosen NOT to contain `original` so the
+    // re-promote step can prove the old value is genuinely gone.
     public ReplaceSeededValue(original: string, updated: string): void
     {
         const file = path.join(this.Folder, ContosoClone.TodlFile)
         const text = readFileSync(file, ContosoClone.Utf8)
         writeFileSync(file, text.replace(ContosoClone.Quote + original + ContosoClone.Quote, ContosoClone.Quote + updated + ContosoClone.Quote))
+    }
+
+    public Dispose(): void
+    {
+        try { rmSync(this.Folder, { recursive: true, force: true }) } catch { /* best-effort cleanup */ }
     }
 }
 
@@ -337,21 +386,19 @@ const ProjectMatch = 'contoso'
 const AppliedStatus = 'applied'
 const PrePromoteCypher = 'MATCH (n) RETURN n LIMIT 1'
 const NoEnvironmentGraphPattern = /no environment graph is loaded/i
+// The readTenant/RBAC gate's deny reason for a principal with no covering grant.
+const PermissionDeniedPattern = /no grant covers this action on this resource/i
 const GraphName = 'loop-graph'
-// The re-promote step changes the one seeded assert value to this distinct v2 string.
-const UpdatedSuffix = ' (updated)'
-const V2Value = ContosoFixture.assertValue + UpdatedSuffix
+// The re-promote step rewrites the one seeded assert value to this distinct v2 string. It must NOT
+// contain the original (so "original no longer shown" is a robust check).
+const V2Value = 'Fabrikam Quantum Kettle'
 const ReloadTimeoutMs = 60_000
-const AppPathPrefix = '/app/'
-const PathSep = '/'
 
-test.describe('runtime publishing live loop', () =>
-{
+test.describe('runtime publishing live loop', () => {
     test.skip(process.env[GateEnv] !== GateValue, `set ${GateEnv}=${GateValue} to run`)
     test.setTimeout(900_000)
 
-    test('real app contribute -> promote -> publish-env -> browser read', async () =>
-    {
+    test('real app contribute -> promote -> publish-env -> browser read', async () => {
         expect(existsSync(MAIN), `built app missing at ${MAIN} — run npm run build`).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), 'electron binary missing').toBeTruthy()
 
@@ -365,54 +412,49 @@ test.describe('runtime publishing live loop', () =>
 
         try
         {
-            // Step 2: launch Plexus and place it on the second monitor.
+            // Step 2: launch Plexus, place it on the second monitor, install shared renderer helpers.
             l = await launchPlexus()
             const origin = await WindowPlacer.PlaceOnSecondMonitor(l, process.env[WindowOriginEnv])
+            await RendererOps.InstallHelpers(l.win)
 
             // Step 3: open Contoso (seeded above) + Generate UI for the entrypoint concept.
-            await test.step('Generate UI', async () =>
-            {
+            await test.step('Generate UI', async () => {
                 const gen = await RendererOps.GenerateUi(l!.win, ProjectMatch, ContosoFixture.entrypointConcept)
                 expect(gen, `generate stage: ${gen.stage ?? ''}`).toMatchObject({ ok: true })
             })
 
             // Step 4a: Phase 1 (create-dev) + Contribute the solution packages to the dev graph.
-            await test.step('create-dev + Contribute', async () =>
-            {
+            await test.step('create-dev + Contribute', async () => {
                 dev = await orchestrator.CreateDev(GraphName)
                 const contributed = await RendererOps.Contribute(l!.win, dev.devWsUrl, dev.makerToken, dev.graphName)
                 expect(contributed, `contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
             })
 
-            // Step 4b: create the runtime (now CREATE + PROVISION only — no promote). The runtime env
-            // exists and the reader/ungranted accounts are provisioned, but the env graph is still EMPTY.
-            await test.step('create-runtime (env graph empty)', async () =>
-            {
+            // Step 4b: create the runtime (CREATE + PROVISION only — no promote). The runtime env
+            // exists and reader/ungranted accounts are provisioned, but the env graph is still EMPTY.
+            await test.step('create-runtime (env graph empty)', async () => {
                 rt = await orchestrator.CreateRuntime()
             })
 
             // Step 5: pre-promote read assertion (Review focus) — UNCONDITIONAL. A read against the
             // runtime's environment graph before anything is promoted must surface the clear
             // NoEnvironmentGraphError to the client, not a crash/blank. Driven node-side over the real
-            // PragmaticClient: log in as the reader, connect, and run one Cypher read WITHOUT
+            // PragmaticClient: log in as the reader, connect, run one Cypher read WITHOUT
             // OpenApplication so it resolves to the (empty) environment graph.
-            await test.step('pre-promote: NoEnvironmentGraphError surfaces cleanly', async () =>
-            {
+            await test.step('pre-promote: NoEnvironmentGraphError surfaces cleanly', async () => {
                 const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.reader.email, rt!.reader.password, PrePromoteCypher)
                 expect(outcome.Ok, 'a runtime with nothing promoted must reject the env read, not return rows').toBeFalsy()
                 expect(outcome.ErrorMessage ?? '').toMatch(NoEnvironmentGraphPattern)
             })
 
             // Step 6: promote the dev graph into the existing runtime env.
-            await test.step('promote dev graph into runtime', async () =>
-            {
+            await test.step('promote dev graph into runtime', async () => {
                 const promoted = await orchestrator.Promote(dev!.graphName)
                 expect(promoted.packageCount, 'promote contributed zero packages').toBeGreaterThan(0)
             })
 
             // Step 7: configure tenant + Publish-env the Contoso app (RemoteBindMode.Environment).
-            await test.step('Publish-env', async () =>
-            {
+            await test.step('Publish-env', async () => {
                 const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeWsUrl, rt!.deployToken, ProjectMatch, RemoteBindMode.Environment)
                 expect(published.buildError, published.buildError).toBeUndefined()
                 expect(published.buildOk, 'html-bundle-remote build failed').toBeTruthy()
@@ -422,27 +464,28 @@ test.describe('runtime publishing live loop', () =>
             })
 
             // Step 8: the milestone — a real browser on the second monitor reads the promoted value.
-            await test.step('browser read (milestone)', async () =>
-            {
+            await test.step('browser read (milestone)', async () => {
                 await reader.Launch(origin)
                 const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
                 await reader.AssertRenders(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId, ContosoFixture.assertValue)
             })
 
-            // Step 9: ungranted-denied assertion (Review focus) — a fresh context as the ungranted
-            // account proves the reader's grant is real, not an open door.
-            await test.step('ungranted read is denied', async () =>
-            {
-                const denied = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.ungranted.email, rt!.ungranted.password)
-                await reader.AssertDenied(denied, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId, ContosoFixture.assertValue)
+            // Step 9: ungranted-denied assertion (Review focus) — a REAL denial proof. A graph IS
+            // loaded now, so an env-graph read as the ungranted account must be refused by the
+            // readTenant/RBAC gate (a permission denial), NOT the no-graph error. Driven node-side
+            // over PragmaticClient (symmetric with step 5) so the proof does not depend on SPA timing.
+            await test.step('ungranted read is denied by RBAC', async () => {
+                const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.ungranted.email, rt!.ungranted.password, PrePromoteCypher)
+                expect(outcome.Ok, 'an ungranted principal must be refused the env read').toBeFalsy()
+                expect(outcome.ErrorMessage ?? '').toMatch(PermissionDeniedPattern)
+                expect(outcome.ErrorMessage ?? '', 'denial must be a permission refusal, not the no-graph error').not.toMatch(NoEnvironmentGraphPattern)
             })
 
-            // Step 10: re-promote assertion (Review focus) — UNCONDITIONAL. Change one seeded value in
-            // the open solution to a distinct v2 string, re-contribute into the SAME dev graph, promote
-            // again (idempotent), then reload the already-served app and assert the v2 value renders
-            // while the original no longer does — reflected live, with NO redeploy.
-            await test.step('re-promote reflected on reload, no redeploy', async () =>
-            {
+            // Step 10: re-promote assertion (Review focus) — UNCONDITIONAL. Change the one seeded
+            // assert value in the open solution to a distinct v2 string, re-contribute into the SAME
+            // dev graph, promote again (idempotent), then reload the already-served app and assert the
+            // v2 value renders while the original no longer appears — reflected live, NO redeploy.
+            await test.step('re-promote reflected on reload, no redeploy', async () => {
                 clone.ReplaceSeededValue(ContosoFixture.assertValue, V2Value)
                 const recontributed = await RendererOps.Contribute(l!.win, dev!.devWsUrl, dev!.makerToken, dev!.graphName)
                 expect(recontributed, `re-contribute stage: ${recontributed.stage ?? ''}`).toMatchObject({ ok: true })
@@ -450,24 +493,27 @@ test.describe('runtime publishing live loop', () =>
 
                 const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
                 const page = await context.newPage()
-                await page.goto(`${rt!.appOriginBase}${AppPathPrefix}${rt!.tenant}${PathSep}${ContosoFixture.appId}${PathSep}`)
+                await page.goto(BrowserReader.AppUrl(rt!.appOriginBase, rt!.tenant, ContosoFixture.appId))
                 await page.reload()
                 await expect(page.getByText(V2Value, { exact: false })).toBeVisible({ timeout: ReloadTimeoutMs })
-                await expect(page.getByText(ContosoFixture.assertValue, { exact: true })).toHaveCount(0)
+                // exact:false substring match — a stale render of the original inside any node fails this.
+                await expect(page.getByText(ContosoFixture.assertValue, { exact: false })).toHaveCount(0)
             })
         }
         finally
         {
-            // Step 11: teardown — close chromium, the app, restore the session, remove envs/containers.
-            await reader.Close()
+            // Step 11: teardown — each step is independent so a throw in one never skips the costly
+            // container/env cleanup (orchestrator.Teardown).
+            await reader.Close().catch(() => {})
             if (l !== undefined)
             {
                 const appErrs = l.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
                 if (appErrs.length) console.log('[runtime-loop] renderer errors:\n' + appErrs.slice(0, 20).join('\n'))
                 await l.app.close().catch(() => {})
             }
-            restore()
+            try { restore() } catch { /* restore is best-effort; must not skip Teardown */ }
             await orchestrator.Teardown().catch(() => {})
+            clone.Dispose()
         }
     })
 })
