@@ -64,9 +64,16 @@ class FakeBuilder
 class FakePrompt implements IGraphProfilePrompt
 {
     public Calls = 0
+    public GraphNameCalls = 0
 
-    constructor(private readonly input: GraphProfileInput | undefined)
+    constructor(private readonly input: GraphProfileInput | undefined, private readonly graphName: string | undefined = 'g-only')
     {
+    }
+
+    public PromptGraphName(): Promise<string | undefined>
+    {
+        this.GraphNameCalls++
+        return Promise.resolve(this.graphName)
     }
 
     public Prompt(): Promise<GraphProfileInput | undefined>
@@ -142,6 +149,30 @@ describe('ContributeToGraphContributor', () =>
         await GraphTestHelper.Flush()
         expect(hasProfile.Profiles).toEqual([])
         expect(hasProfile.Contributions).toHaveLength(1)
+    })
+
+    it('prompts only for the graph name when a profile exists, without SetProfile or the full prompt', async () =>
+    {
+        const contributor = new FakeContributor(Result, true)
+        const prompt = new FakePrompt(Input)
+        const c = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, GraphTestHelper.Work(), contributor, {} as any, prompt)
+        c.Resolve('graph.contribute', {} as any)!.Execute()
+        await GraphTestHelper.Flush()
+        expect(prompt.GraphNameCalls).toBe(1)
+        expect(prompt.Calls).toBe(0)
+        expect(contributor.Profiles).toEqual([])
+        expect(contributor.Contributions).toEqual([{ graphName: 'g-only', solutionId: 'S', packages: Packages }])
+    })
+
+    it('does nothing when the graph-name prompt is cancelled', async () =>
+    {
+        const contributor = new FakeContributor(Result, true)
+        const work = GraphTestHelper.Work()
+        const c = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, work, contributor, {} as any, new FakePrompt(Input, undefined))
+        c.Resolve('graph.contribute', {} as any)!.Execute()
+        await GraphTestHelper.Flush()
+        expect(work.task).toBeUndefined()
+        expect(contributor.Contributions).toEqual([])
     })
 
     it('fails the task with the build error reason, and the token never appears in it', async () =>

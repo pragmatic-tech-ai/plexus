@@ -47,7 +47,8 @@ export class CapturingBuildStorageProvider implements IBuildStorageProvider
         }
         const output = await this.delegate.OpenOutput(outputName, options)
         this.openedByKey.set(key, output)
-        if (rootOverride !== undefined)
+        // First write wins: the first open per root is the build-write handle that receives model.json.
+        if (rootOverride !== undefined && !this.capturedByRoot.has(rootOverride))
         {
             this.capturedByRoot.set(rootOverride, output.Storage)
         }

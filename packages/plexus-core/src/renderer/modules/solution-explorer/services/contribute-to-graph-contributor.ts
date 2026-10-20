@@ -32,6 +32,8 @@ export class ContributeToGraphContributor implements IHierarchyContributor
     private static readonly TitlePrefix = 'Contributing '
     private static readonly ToGraph = ' to graph '
     private static readonly ContributeFailedTitle = 'Contribute to graph failed'
+    private static readonly ContributedTitle = 'Contributed to graph'
+    private static readonly CountSeparator = ' - packages contributed: '
     private static readonly ConfigureFailedTitle = 'Configure graph server failed'
 
     public readonly ParentKeys = [NodeKey.Solution]
@@ -97,8 +99,8 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         }
     }
 
-    // Prompts for the target graph (and, when no profile is stored yet, the server URL + token
-    // it persists first), then runs the build+contribute under a background task so a build /
+    // Prompts for the target graph name only when a profile is stored (else the full URL + token +
+    // graph prompt, persisting URL + token first), then runs the build+contribute under a background task so a build /
     // auth / conflict / non-dev failure fails that row with the reason. The prompt + SetProfile
     // run before the task so a cancel / bad-profile error blocks early via InfoDialog.
     private async contribute(): Promise<void>
@@ -111,13 +113,19 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         let graphName: string
         try
         {
-            const input = await prompt.Prompt()
-            if (input === undefined) return
-            if (!(await contributor.HasProfile()))
+            if (await contributor.HasProfile())
             {
-                await contributor.SetProfile(input.ServerUrl, input.Token)
+                const name = await prompt.PromptGraphName()
+                if (name === undefined) return
+                graphName = name
             }
-            graphName = input.GraphName
+            else
+            {
+                const input = await prompt.Prompt()
+                if (input === undefined) return
+                await contributor.SetProfile(input.ServerUrl, input.Token)
+                graphName = input.GraphName
+            }
         }
         catch (e)
         {
@@ -129,7 +137,16 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         {
             const packages = [...await builder.Build()]
             return contributor.Contribute(graphName, solution.Name, packages)
-        })
+        }).done.then(
+            (result) =>
+            {
+                if (this.dialogs !== undefined)
+                {
+                    void InfoDialog.Show(this.dialogs, ContributeToGraphContributor.ContributedTitle, `${graphName}${ContributeToGraphContributor.CountSeparator}${result.PackageCount}`)
+                }
+            },
+            () => { /* failure is already shown in the background task row */ },
+        )
     }
 
     // Blocking error surface: the Solution Explorer has no toast/status channel, so failures

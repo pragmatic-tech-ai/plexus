@@ -62,6 +62,17 @@ describe('CapturingBuildStorageProvider', () =>
         expect(capturing.CapturedOutputs().get('p2')).toBe(b.Storage)
     })
 
+    it('keeps the first recorded handle when a different outputName opens under the same root', async () =>
+    {
+        const delegate = new CountingDelegate()
+        const capturing = new CapturingBuildStorageProvider(delegate)
+        const first = await capturing.OpenOutput('npm-package', { OutputRootOverride: 'p1' })
+        const second = await capturing.OpenOutput('other-output', { OutputRootOverride: 'p1' })
+        expect(delegate.OpenCount).toBe(2)
+        expect(second.Storage).not.toBe(first.Storage)
+        expect(capturing.CapturedOutputs().get('p1')).toBe(first.Storage)
+    })
+
     it('passes CreateSandbox and DeleteSandbox straight through to the delegate', async () =>
     {
         const delegate = new CountingDelegate()

@@ -41,6 +41,7 @@ describe('GraphProfileStore', () =>
         const store = new GraphProfileStore(dir, new ReverseEncryptor())
         await expect(store.Save('', 't')).rejects.toThrow(/required/)
         await expect(store.Save('wss://x', '')).rejects.toThrow(/required/)
+        await expect(store.Save('wss://x', '   ')).rejects.toThrow(/required/)
     })
 
     it('reports unavailable secure storage on Save and on Load', async () =>

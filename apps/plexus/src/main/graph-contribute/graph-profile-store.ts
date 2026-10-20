@@ -62,7 +62,7 @@ export class GraphProfileStore implements IGraphProfileSource
 
     public async Save(serverUrl: string, token: string): Promise<void>
     {
-        if (serverUrl.trim() === '' || token === '') throw new Error(GraphProfileStore.EmptyProfile)
+        if (serverUrl.trim() === '' || token.trim() === '') throw new Error(GraphProfileStore.EmptyProfile)
         const validated = GraphServerUrl.Validate(serverUrl)
         if (!this.encryptor.IsAvailable()) throw new Error(GraphProfileStore.EncryptionUnavailable)
         const blob = this.encryptor.Encrypt(JSON.stringify({ ServerUrl: validated, Token: token }))
