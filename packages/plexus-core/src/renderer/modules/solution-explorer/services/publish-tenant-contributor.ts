@@ -5,7 +5,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition, type CommandContext } from '@pragmatic-tech-ai/mural/framework'
-import { BuildService, parseManifest, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { BuildService, RemoteBindMode, parseManifest, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
@@ -27,6 +27,7 @@ export class PublishTenantContributor implements IHierarchyContributor
 
     public static readonly PublishCommandId = 'tenant.publish'
     public static readonly ConfigureCommandId = 'tenant.configure'
+    public static readonly PublishEnvCommandId = 'tenant.publish-env'
 
     private static readonly SystemId = 'html-bundle'
     private static readonly FlavorId = 'html-bundle-remote'
@@ -34,6 +35,7 @@ export class PublishTenantContributor implements IHierarchyContributor
     // local Open/Serve HTML app output (and vice versa).
     public static readonly BuildDir = RemoteBuildDirName
     private static readonly PublishLabel = 'Publish to tenant'
+    private static readonly PublishEnvLabel = 'Publish to tenant (environment graph)'
     private static readonly ConfigureLabel = 'Configure tenant…'
     private static readonly TitlePrefix = 'Publishing to tenant '
     private static readonly BuildFailedPrefix = 'Build failed: '
@@ -57,6 +59,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         this.Actions = [
             PublishTenantContributor.command(PublishTenantContributor.PublishCommandId, PublishTenantContributor.PublishLabel, 54),
             PublishTenantContributor.command(PublishTenantContributor.ConfigureCommandId, PublishTenantContributor.ConfigureLabel, 55),
+            PublishTenantContributor.command(PublishTenantContributor.PublishEnvCommandId, PublishTenantContributor.PublishEnvLabel, 56),
         ]
     }
 
@@ -81,10 +84,11 @@ export class PublishTenantContributor implements IHierarchyContributor
         {
             return new RelayCommand(() => void this.configure(), () => this.publisher !== undefined && this.prompt !== undefined)
         }
-        if (commandId !== PublishTenantContributor.PublishCommandId) return undefined
+        if (commandId !== PublishTenantContributor.PublishCommandId && commandId !== PublishTenantContributor.PublishEnvCommandId) return undefined
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return undefined
-        return new RelayCommand(() => this.publish(member), () => this.work !== undefined && this.publisher !== undefined)
+        const bind = commandId === PublishTenantContributor.PublishEnvCommandId ? RemoteBindMode.Environment : RemoteBindMode.Application
+        return new RelayCommand(() => this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined)
     }
 
     // Collects URL + token and hands them to the main-side store. The token goes straight to
@@ -99,7 +103,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         await publisher.SetProfile(input.ServerUrl, input.Token)
     }
 
-    private publish(member: SolutionMember): void
+    private publish(member: SolutionMember, bind: RemoteBindMode): void
     {
         const work = this.work
         const storage = member.Storage
@@ -108,7 +112,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         void work.run(`${PublishTenantContributor.TitlePrefix}${member.Title}`, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
-            const outputPath = await this.buildRemote(storage, ctx)
+            const outputPath = await this.buildRemote(storage, ctx, bind)
             const result = await publisher.Publish(outputPath)
             return PublishTenantContributor.RequireApplied(result)
         })
@@ -116,13 +120,13 @@ export class PublishTenantContributor implements IHierarchyContributor
 
     // Builds the remote flavor into <project>/build-remote and returns its output dir. The remote
     // target AppName is the project manifest id (falling back to its name).
-    private async buildRemote(storage: IStorage, ctx: ITaskProgressSink): Promise<string>
+    private async buildRemote(storage: IStorage, ctx: ITaskProgressSink, bind: RemoteBindMode): Promise<string>
     {
         const manifest = parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
         const options =
         {
             OutputRootOverride: (storage as unknown as ILocalFileAccess).ResolveOsPath(PublishTenantContributor.BuildDir),
-            Remote: { AppName: manifest.id ?? manifest.name },
+            Remote: { AppName: manifest.id ?? manifest.name, Bind: bind },
         }
         const result = await this.buildService.Build(storage, PublishTenantContributor.SystemId, PublishTenantContributor.FlavorId, new BuildProgressReporter(ctx), options)
         if (!result.Result.Ok)

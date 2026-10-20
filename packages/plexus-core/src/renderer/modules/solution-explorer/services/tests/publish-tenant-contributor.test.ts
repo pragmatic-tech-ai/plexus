@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
-import { Solution } from '@pragmatic-tech-ai/todl'
+import { Solution, RemoteBindMode } from '@pragmatic-tech-ai/todl'
 import { PublishTenantContributor } from '../publish-tenant-contributor.js'
 import { BuildProgressReporter } from '../build-progress-reporter.js'
 import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.js'
@@ -157,5 +157,54 @@ describe('PublishTenantContributor', () =>
         const ctx = PublishTestHelper.CtxFor(PublishTestHelper.Member())
         expect(c.Resolve('tenant.publish', ctx)!.CanExecute()).toBe(false)
         expect(c.Resolve('html.open', ctx)).toBeUndefined()
+    })
+
+    it('env_command_builds_environment_bind_and_publishes', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const publisher = new FakePublisher(Applied)
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher)
+        c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
+        await expect(work.task).resolves.toEqual(Applied)
+        expect(svc.Calls).toHaveLength(1)
+        expect(svc.Calls[0].flavorId).toBe('html-bundle-remote')
+        expect(svc.Calls[0].options.Remote.Bind).toBe(RemoteBindMode.Environment)
+        expect(publisher.Published).toEqual(['/out'])
+    })
+
+    it('existing_publish_still_application_bind', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), new FakePublisher(Applied))
+        c.Resolve('tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
+        await work.task
+        expect(svc.Calls[0].options.Remote.Bind).not.toBe(RemoteBindMode.Environment)
+        expect(svc.Calls[0].options.Remote.Bind).toBe(RemoteBindMode.Application)
+    })
+
+    it('never hands a token to the publisher on publish (token stays main-side)', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const publisher = new FakePublisher(Applied)
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher)
+        c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.Execute()
+        await work.task
+        expect(publisher.Published).toEqual(['/out'])
+        expect(publisher.Profiles).toEqual([])
+        expect(JSON.stringify(svc.Calls[0].options)).not.toMatch(/token/i)
+    })
+
+    it('lists both publish commands with ids, labels and orders', () =>
+    {
+        const c = new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), undefined)
+        const byId = (id: string) => c.Actions.find((a) => a.Id === id)!
+        expect(byId('tenant.publish').Order).toBe(54)
+        expect(byId('tenant.publish').Title).toBe('Publish to tenant')
+        expect(byId('tenant.publish-env').Order).toBe(56)
+        expect(byId('tenant.publish-env').Title).toBe('Publish to tenant (environment graph)')
+        expect(c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))!.CanExecute()).toBe(false)
     })
 })
