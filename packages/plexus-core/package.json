@@ -37,6 +37,8 @@
     "./renderer/modules/solution-seams/*": "./dist/renderer/modules/solution-seams/*",
     "./renderer/modules/preview-server": "./dist/renderer/modules/preview-server/index.js",
     "./renderer/modules/preview-server/*": "./dist/renderer/modules/preview-server/*",
+    "./renderer/modules/graph-contribute": "./dist/renderer/modules/graph-contribute/index.js",
+    "./renderer/modules/graph-contribute/*": "./dist/renderer/modules/graph-contribute/*",
     "./renderer/modules/tenant-publish": "./dist/renderer/modules/tenant-publish/index.js",
     "./renderer/modules/tenant-publish/*": "./dist/renderer/modules/tenant-publish/*",
     "./renderer/modules/build/*": "./dist/renderer/modules/build/*",
