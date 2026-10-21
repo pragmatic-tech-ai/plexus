@@ -16,7 +16,6 @@ import { spawn } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { PLEXUS_ROOT } from '../plexus-app'
 
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
@@ -77,9 +76,8 @@ export class OrchestratorClient
     // pragmatic-server is a sibling of the Plexus repo: apps/plexus -> apps -> Plexus -> architecture-agent.
     private static readonly DefaultServerRepoRel = '../../../pragmatic-server'
     private static readonly OrchestratorRel = 'admin/control-plane/loop-orchestrator.ts'
-    private static readonly NpxWindows = 'npx.cmd'
-    private static readonly NpxPosix = 'npx'
     private static readonly TsxBin = 'tsx'
+    private static readonly ImportFlag = '--import'
     private static readonly CreateDevCommand = 'create-dev'
     private static readonly CreateRuntimeCommand = 'create-runtime'
     private static readonly PromoteCommand = 'promote'
@@ -87,7 +85,6 @@ export class OrchestratorClient
     private static readonly DataRootFlag = '--data-root'
     private static readonly GraphFlag = '--graph'
     private static readonly TmpPrefix = 'plexus-loop-'
-    private static readonly WindowsPlatform = 'win32'
     private static readonly SpawnTimeoutMs = 600_000
     private static readonly Utf8 = 'utf8'
     private static readonly CloseEvent = 'close'
@@ -153,16 +150,15 @@ export class OrchestratorClient
         return this.dataRoot
     }
 
-    // Spawns `npx tsx <orchestrator> <subcommand> ...` in the server repo and parses the single
+    // Spawns `node --import tsx <orchestrator> <subcommand> ...` in the server repo and parses the single
     // JSON object the subcommand prints to stdout. stdout is never logged (it carries secrets);
     // only the orchestrator's already-redacted stderr is surfaced on failure.
     private Run<T>(args: readonly string[]): Promise<T>
     {
         const orchestrator = path.join(this.serverRepo, OrchestratorClient.OrchestratorRel)
-        const npx = process.platform === OrchestratorClient.WindowsPlatform ? OrchestratorClient.NpxWindows : OrchestratorClient.NpxPosix
         const command = args[0]
         return new Promise<T>((resolve, reject) => {
-            const child = spawn(npx, [OrchestratorClient.TsxBin, orchestrator, ...args], {
+            const child = spawn(process.execPath, [OrchestratorClient.ImportFlag, OrchestratorClient.TsxBin, orchestrator, ...args], {
                 cwd: this.serverRepo,
                 timeout: OrchestratorClient.SpawnTimeoutMs,
             })
@@ -238,6 +234,7 @@ export class RuntimeEnvGraphReader
     public async ReadEnvGraph(appOriginBase: string, runtimeWsUrl: string, tenant: string, email: string, password: string, cypher: string): Promise<WireReadOutcome>
     {
         const token = await this.Login(appOriginBase, tenant, email, password)
+        const { PragmaticClient } = await import('@pragmatic-tech-ai/pragmatic-protocol')
         const client = await PragmaticClient.ConnectAsync(runtimeWsUrl, { bearerToken: token })
         try
         {

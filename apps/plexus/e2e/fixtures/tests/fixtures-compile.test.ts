@@ -56,8 +56,11 @@ class FixtureCase
     public FindEntrypointNode(outcome: CompileOutcome): ICompiledNode | undefined
     {
         const nodes = (outcome.package?.document.nodes ?? []) as unknown as ICompiledNode[]
-        const suffix = '.' + this.Descriptor.entrypointConcept
-        return nodes.find(n => n.metaKind === FixtureCase.ConceptKind && n.id.endsWith(suffix))
+        // entrypointConcept is a fully-qualified id (e.g. "contoso.Product"); match either the
+        // whole id or its local segment so the lookup is independent of how it is qualified.
+        const concept = this.Descriptor.entrypointConcept
+        const local = concept.substring(concept.lastIndexOf('.') + 1)
+        return nodes.find(n => n.metaKind === FixtureCase.ConceptKind && (n.id === concept || n.id.endsWith('.' + local)))
     }
 }
 

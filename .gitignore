@@ -35,3 +35,9 @@ graphify-out/
 
 # JetBrains IDE project files
 .idea/
+
+# e2e build-output + fixture scaffold churn (opening a fixture as a project / contributing
+# writes these into the worktree; they are generated, not source).
+/apps/plexus/contoso/
+/apps/plexus/e2e/fixtures/*/.gitignore
+/apps/plexus/e2e/fixtures/*/project.local.json

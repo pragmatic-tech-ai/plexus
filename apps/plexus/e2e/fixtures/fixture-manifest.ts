@@ -1,5 +1,4 @@
-import { fileURLToPath } from 'node:url'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 
 export interface IFixtureDescriptor
 {
@@ -42,18 +41,18 @@ class FixtureLocator
 
     private static Resolve(name: string): string
     {
-        return join(dirname(fileURLToPath(import.meta.url)), name)
+        return join(__dirname, name)
     }
 }
 
 class FixtureNames
 {
     public static readonly ContosoAppId = 'contoso'
-    public static readonly ContosoEntrypoint = 'Product'
+    public static readonly ContosoEntrypoint = 'contoso.Product'
     public static readonly ContosoField = 'name'
     public static readonly ContosoValue = 'Contoso Aurora Espresso Machine'
     public static readonly NorthwindAppId = 'northwind'
-    public static readonly NorthwindEntrypoint = 'Customer'
+    public static readonly NorthwindEntrypoint = 'northwind.Customer'
     public static readonly NorthwindField = 'company'
     public static readonly NorthwindValue = 'Fixture Trading Co. of Reykjavik'
 }
