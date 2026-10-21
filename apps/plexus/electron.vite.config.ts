@@ -1,6 +1,7 @@
 import { resolve, join } from 'node:path'
 import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
 import { builtinModules, createRequire } from 'node:module'
+import { fileURLToPath } from 'node:url'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import type { Plugin } from 'vite'
 import { MuralRendererConfig } from '@pragmatic-tech-ai/plexus-core/vite/mural-renderer'
@@ -178,7 +179,7 @@ class ThemeFontCopy
     // (hoisted or nested) and take the first that holds mural, following symlinks.
     private static PackageDir(): string
     {
-        const lookup = createRequire(resolve(ThemeFontCopy.ManifestFile)).resolve.paths(ThemeFontCopy.PackageName) ?? []
+        const lookup = createRequire(fileURLToPath(import.meta.url)).resolve.paths(ThemeFontCopy.PackageName) ?? []
         for (const base of lookup)
         {
             const candidate = join(base, ThemeFontCopy.PackageName)
