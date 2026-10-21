@@ -1,6 +1,6 @@
 import { resolve, join } from 'node:path'
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
-import { builtinModules } from 'node:module'
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs'
+import { builtinModules, createRequire } from 'node:module'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import type { Plugin } from 'vite'
 import { MuralRendererConfig } from '@pragmatic-tech-ai/plexus-core/vite/mural-renderer'
@@ -159,29 +159,51 @@ class RendererNodeBoundary
 class ThemeFontCopy
 {
     private static readonly PluginName = 'plexus:theme-font-copy'
-    private static readonly PackageDir = join('node_modules', '@pragmatic-tech-ai', 'mural')
+    private static readonly PackageName = '@pragmatic-tech-ai/mural'
+    private static readonly ManifestFile = 'package.json'
     private static readonly FontsDir = join('build', 'resources', 'pragmatic', 'fonts')
     private static readonly FontExtension = '.woff2'
     private static readonly OutputDir = 'assets/fonts/'
+    private static readonly RequiredFonts = [
+        'InterTight-Regular',
+        'InterTight-Medium',
+        'InterTight-SemiBold',
+        'JetBrainsMono-Regular',
+        'JetBrainsMono-Medium',
+        'SourceSerif4-Regular',
+    ]
 
-    // Walks up from the app dir to the node_modules that holds mural (workspace-hoisted).
-    private static FontsPath(): string
+    // mural's `exports` map does not expose package.json, so require.resolve of the package
+    // cannot be used; instead ask Node's own module lookup for the node_modules search paths
+    // (hoisted or nested) and take the first that holds mural, following symlinks.
+    private static PackageDir(): string
     {
-        let dir = resolve('.')
-        for (;;)
+        const lookup = createRequire(resolve(ThemeFontCopy.ManifestFile)).resolve.paths(ThemeFontCopy.PackageName) ?? []
+        for (const base of lookup)
         {
-            const candidate = join(dir, ThemeFontCopy.PackageDir, ThemeFontCopy.FontsDir)
-            if (existsSync(candidate))
+            const candidate = join(base, ThemeFontCopy.PackageName)
+            if (existsSync(join(candidate, ThemeFontCopy.ManifestFile)))
             {
-                return candidate
+                return realpathSync(candidate)
             }
-            const parent = resolve(dir, '..')
-            if (parent === dir)
-            {
-                throw new Error(`Pragmatic theme fonts not found under ${ThemeFontCopy.PackageDir}`)
-            }
-            dir = parent
         }
+        throw new Error(`${ThemeFontCopy.PackageName} not found on the module search path`)
+    }
+
+    // Resolves the fonts dir and returns its woff2 file names; throws if any required font
+    // is missing so the build can never silently ship without theme fonts.
+    private static Fonts(): { dir: string, files: string[] }
+    {
+        const dir = join(ThemeFontCopy.PackageDir(), ThemeFontCopy.FontsDir)
+        const files = existsSync(dir)
+            ? readdirSync(dir).filter((f) => f.endsWith(ThemeFontCopy.FontExtension))
+            : []
+        const missing = ThemeFontCopy.RequiredFonts.filter((f) => !files.includes(f + ThemeFontCopy.FontExtension))
+        if (files.length === 0 || missing.length > 0)
+        {
+            throw new Error(`Pragmatic theme fonts missing in ${dir}: ${files.length === 0 ? 'no woff2 files found' : missing.join(', ')}`)
+        }
+        return { dir, files }
     }
 
     public static Plugin(): Plugin
@@ -191,13 +213,13 @@ class ThemeFontCopy
             apply: 'build',
             generateBundle()
             {
-                const fontsPath = ThemeFontCopy.FontsPath()
-                for (const file of readdirSync(fontsPath).filter((f) => f.endsWith(ThemeFontCopy.FontExtension)))
+                const fonts = ThemeFontCopy.Fonts()
+                for (const file of fonts.files)
                 {
                     this.emitFile({
                         type: 'asset',
                         fileName: ThemeFontCopy.OutputDir + file,
-                        source: readFileSync(join(fontsPath, file)),
+                        source: readFileSync(join(fonts.dir, file)),
                     })
                 }
             },
