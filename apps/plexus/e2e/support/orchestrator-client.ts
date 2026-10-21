@@ -20,6 +20,11 @@ import { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { PLEXUS_ROOT } from '../plexus-app'
 
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
+//
+// SOURCE OF TRUTH: these interfaces hand-mirror the ones EXPORTED by
+// pragmatic-server/admin/control-plane/loop-orchestrator.ts — `CredentialDescriptor`,
+// `DevDescriptor`, `RuntimeDescriptor`, `PromoteDescriptor`, `TeardownDescriptor`. Keep them in
+// sync with that module (they are the only cross-process channel for these shapes).
 
 export interface CredentialDescriptor
 {

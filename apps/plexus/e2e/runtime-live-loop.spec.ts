@@ -15,10 +15,11 @@
 // Configure surfaces and the auth endpoints; they are NEVER passed to console/log/test output.
 import { test, expect, type Page, type JSHandle } from '@playwright/test'
 import { chromium, type Browser, type BrowserContext } from 'playwright'
-import { existsSync, readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, cpSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { RemoteBindMode } from '@pragmatic-tech-ai/todl'
+import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import { launchPlexus, seedSession, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ContosoFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
@@ -70,6 +71,7 @@ class RendererOps
     private static readonly StageResolve = 'resolve'
     private static readonly StageMutationsMissing = 'mutations-missing'
     private static readonly StageContributorMissing = 'contributor-missing'
+    private static readonly Quote = '"'
     private static readonly ResolveTimeoutMs = 60_000
     private static readonly PollMs = 500
     private static readonly PublishWaitMs = 180_000
@@ -196,6 +198,41 @@ class RendererOps
                 contributeContributorName: RendererOps.ContributeContributorName,
                 stageResolve: RendererOps.StageResolve, stageContributorMissing: RendererOps.StageContributorMissing,
                 resolveTimeoutMs: RendererOps.ResolveTimeoutMs, pollMs: RendererOps.PollMs,
+            },
+        )
+    }
+
+    // Rewrites one quoted literal in a project file THROUGH the opened member's own IStorage, so the
+    // v2 content is written to the exact storage the next solution build reads from. Returns whether
+    // the replacement actually changed the file (so the caller can assert the edit landed). This is
+    // what guarantees the re-promote recompiles v2: the write and the build's read share one IStorage.
+    public static async UpdateProjectValue(win: Page, projectMatch: string, fileName: string, original: string, updated: string): Promise<{ ok: boolean; changed?: boolean; stage?: string }>
+    {
+        return win.evaluate(
+            async (p) => {
+                const H = (window as any)[p.helpersKey]
+                const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+                let member: any
+                const deadline = Date.now() + p.resolveTimeoutMs
+                for (;;)
+                {
+                    const mgr = H.services(H.findRoot())[p.solutionManagerName]
+                    const members = mgr?.ActiveSolution?.Members?.ToArray?.() ?? []
+                    member = members.filter((m: any) => m.Storage !== undefined)
+                        .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(p.projectMatch))
+                    if (member) break
+                    if (Date.now() > deadline) return { ok: false, stage: p.stageResolve }
+                    await sleep(p.pollMs)
+                }
+                const text: string = await member.Storage.ReadText(p.fileName)
+                const next = text.split(p.quote + p.original + p.quote).join(p.quote + p.updated + p.quote)
+                await member.Storage.WriteText(p.fileName, next)
+                return { ok: true, changed: next !== text }
+            },
+            {
+                helpersKey: RendererOps.HelpersKey, projectMatch, fileName, original, updated,
+                solutionManagerName: RendererOps.SolutionManagerName, stageResolve: RendererOps.StageResolve,
+                quote: RendererOps.Quote, resolveTimeoutMs: RendererOps.ResolveTimeoutMs, pollMs: RendererOps.PollMs,
             },
         )
     }
@@ -338,14 +375,12 @@ class BrowserReader
 }
 
 // Clones the Contoso fixture into a throwaway temp dir so the re-promote step can mutate its seeded
-// data without ever touching the committed corpus. The same clone is the project Plexus opens, so
-// rewriting its .todl on disk and re-contributing produces a genuine v2 of the solution.
+// data without ever touching the committed corpus. The same clone is the project Plexus opens; the
+// v2 edit is written back THROUGH the opened member's IStorage (RendererOps.UpdateProjectValue),
+// not raw fs, so the second build is guaranteed to recompile the edited content.
 class ContosoClone
 {
     private static readonly ClonePrefix = 'plexus-contoso-'
-    private static readonly TodlFile = 'contoso.todl'
-    private static readonly Utf8 = 'utf8'
-    private static readonly Quote = '"'
 
     public readonly Folder: string
 
@@ -361,17 +396,6 @@ class ContosoClone
         return new ContosoClone(folder)
     }
 
-    // Rewrites the one seeded assert-value instance (`<original>` -> `<updated>`) so a re-contribute
-    // + re-promote surfaces the changed data on the next read. The value is matched quoted, so it
-    // binds exactly the seeded field literal; `updated` is chosen NOT to contain `original` so the
-    // re-promote step can prove the old value is genuinely gone.
-    public ReplaceSeededValue(original: string, updated: string): void
-    {
-        const file = path.join(this.Folder, ContosoClone.TodlFile)
-        const text = readFileSync(file, ContosoClone.Utf8)
-        writeFileSync(file, text.replace(ContosoClone.Quote + original + ContosoClone.Quote, ContosoClone.Quote + updated + ContosoClone.Quote))
-    }
-
     public Dispose(): void
     {
         try { rmSync(this.Folder, { recursive: true, force: true }) } catch { /* best-effort cleanup */ }
@@ -383,7 +407,8 @@ const GateValue = '1'
 const WindowOriginEnv = 'SP_E2E_WINDOW_ORIGIN'
 
 const ProjectMatch = 'contoso'
-const AppliedStatus = 'applied'
+// The .todl is named after the project id (Task 3 fixture convention).
+const TodlFileName = `${ContosoFixture.appId}.todl`
 const PrePromoteCypher = 'MATCH (n) RETURN n LIMIT 1'
 const NoEnvironmentGraphPattern = /no environment graph is loaded/i
 // The readTenant/RBAC gate's deny reason for a principal with no covering grant.
@@ -460,7 +485,7 @@ test.describe('runtime publishing live loop', () => {
                 expect(published.buildOk, 'html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
                 expect(published.publishError, published.publishError).toBeUndefined()
-                expect(published.publishStatus, `publish status: ${published.publishStatus ?? ''}`).toBe(AppliedStatus)
+                expect(published.publishStatus, `publish status: ${published.publishStatus ?? ''}`).toBe(TenantPublishStatus.Applied)
             })
 
             // Step 8: the milestone — a real browser on the second monitor reads the promoted value.
@@ -486,7 +511,10 @@ test.describe('runtime publishing live loop', () => {
             // dev graph, promote again (idempotent), then reload the already-served app and assert the
             // v2 value renders while the original no longer appears — reflected live, NO redeploy.
             await test.step('re-promote reflected on reload, no redeploy', async () => {
-                clone.ReplaceSeededValue(ContosoFixture.assertValue, V2Value)
+                // Write v2 through the opened member's IStorage (not raw fs): the next build reads the
+                // same storage, so it is guaranteed to recompile the edited content (see report P1).
+                const edited = await RendererOps.UpdateProjectValue(l!.win, ProjectMatch, TodlFileName, ContosoFixture.assertValue, V2Value)
+                expect(edited, `edit stage: ${edited.stage ?? ''}`).toMatchObject({ ok: true, changed: true })
                 const recontributed = await RendererOps.Contribute(l!.win, dev!.devWsUrl, dev!.makerToken, dev!.graphName)
                 expect(recontributed, `re-contribute stage: ${recontributed.stage ?? ''}`).toMatchObject({ ok: true })
                 await orchestrator.Promote(dev!.graphName)
@@ -507,8 +535,13 @@ test.describe('runtime publishing live loop', () => {
             await reader.Close().catch(() => {})
             if (l !== undefined)
             {
+                // Redact any descriptor secret that could, in principle, appear in a renderer error
+                // before logging the collected app errors.
+                const secrets = [dev?.makerToken, rt?.deployToken, rt?.reader.password, rt?.ungranted.password]
+                    .filter((s): s is string => typeof s === 'string' && s.length > 0)
+                const redact = (text: string): string => secrets.reduce((acc, s) => acc.split(s).join('***'), text)
                 const appErrs = l.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
-                if (appErrs.length) console.log('[runtime-loop] renderer errors:\n' + appErrs.slice(0, 20).join('\n'))
+                if (appErrs.length) console.log('[runtime-loop] renderer errors:\n' + appErrs.slice(0, 20).map(redact).join('\n'))
                 await l.app.close().catch(() => {})
             }
             try { restore() } catch { /* restore is best-effort; must not skip Teardown */ }
