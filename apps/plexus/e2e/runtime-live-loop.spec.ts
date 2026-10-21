@@ -422,7 +422,8 @@ const ReloadTimeoutMs = 60_000
 // Connector leg (live Postgres read-through): the catalog fixture binds `products` via the env's provisioned DB.
 const CatalogProjectMatch = 'catalog'
 const CatalogClonePrefix = 'plexus-catalog-'
-const CreateProductsSql = "CREATE TABLE products (id text primary key, name text, unit_price numeric); INSERT INTO products VALUES ('p1', 'Live Postgres Widget', 249);"
+// All five columns: the compiled populate FieldMap is total over the effective schema (label/description are prelude-inherited).
+const CreateProductsSql = "CREATE TABLE products (id text primary key, name text, unit_price numeric, label text, description text); INSERT INTO products VALUES ('p1', 'Live Postgres Widget', 249, 'Live Postgres Widget', 'A live Postgres-backed product');"
 const UpdateProductSql = "UPDATE products SET name = 'Updated Postgres Widget' WHERE id = 'p1';"
 const UpdatedProductName = 'Updated Postgres Widget'
 
