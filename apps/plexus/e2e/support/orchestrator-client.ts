@@ -57,13 +57,6 @@ export interface RuntimeDescriptor
 }
 
 /** Output of promote: relays the dev graph into the existing runtime; re-runnable. */
-/** Output of db-exec. */
-export interface DbExecDescriptor
-{
-    ok: true
-    rowCount: number
-}
-
 export interface PromoteDescriptor
 {
     graphName: string
@@ -75,6 +68,13 @@ export interface PromoteDescriptor
 export interface TeardownDescriptor
 {
     ok: true
+}
+
+/** Output of db-exec. */
+export interface DbExecDescriptor
+{
+    ok: true
+    rowCount: number
 }
 
 /** Spawns the Task 2 orchestrator CLI and parses its JSON descriptors. */

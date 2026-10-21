@@ -538,7 +538,7 @@ test.describe('runtime publishing live loop', () => {
                 await expect(page.getByText(ContosoFixture.assertValue, { exact: false })).toHaveCount(0)
             })
 
-            // Step 11: connector leg — the Catalog app reads LIVE from the env's provisioned Postgres.
+            // Step 11: connector leg - the Catalog app reads LIVE from the env's provisioned Postgres.
             // A row is inserted, the app is generated/contributed/promoted/published, a signed-in browser
             // sees the row, then the row is UPDATED in Postgres and the page merely reloaded (NO
             // re-promote): the new value rendering proves a read-through, not a baked-in snapshot.

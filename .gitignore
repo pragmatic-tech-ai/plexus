@@ -41,3 +41,4 @@ graphify-out/
 /apps/plexus/contoso/
 /apps/plexus/e2e/fixtures/*/.gitignore
 /apps/plexus/e2e/fixtures/*/project.local.json
+/apps/plexus/e2e/.artifacts/
