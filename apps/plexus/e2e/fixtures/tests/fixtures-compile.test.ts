@@ -2,12 +2,14 @@ import { describe, test, expect } from 'vitest'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { compilePackage, type CompileOutcome } from '@pragmatic-tech-ai/todl'
-import { ContosoFixture, NorthwindFixture, type IFixtureDescriptor, type IFixtureManifest } from '../fixture-manifest.js'
+import { CatalogFixture, ContosoFixture, NorthwindFixture, type IFixtureDescriptor, type IFixtureManifest } from '../fixture-manifest.js'
 
 interface ICompiledNode
 {
     id: string
     metaKind?: string
+    name?: string
+    attrs?: Record<string, unknown>
     fields?: { name: string }[]
 }
 
@@ -17,6 +19,14 @@ class FixtureCase
     private static readonly Utf8 = 'utf8'
     private static readonly TodlExtension = '.todl'
     private static readonly ConceptKind = 'concept'
+    private static readonly ConnectorKind = 'connector'
+    private static readonly PopulationKind = 'population'
+    public static readonly NameAttr = 'name'
+    public static readonly KindAttr = 'kind'
+    public static readonly ConceptAttr = 'concept'
+    public static readonly ConnectorAttr = 'connector'
+    public static readonly ConnectorName = 'appdb'
+    public static readonly SqlKind = 'sql'
     private static readonly RegexSpecials = /[.*+?^${}()|[\]\\]/g
     private static readonly RegexEscape = '\\$&'
 
@@ -53,6 +63,27 @@ class FixtureCase
         return new RegExp(`\\b${esc(this.Descriptor.assertField)}\\s*=\\s*"${esc(this.Descriptor.assertValue)}"`)
     }
 
+    public get HasConnectorPlan(): boolean
+    {
+        return this.Descriptor.appId === CatalogFixture.appId
+    }
+
+    public NodesOfKind(outcome: CompileOutcome, metaKind: string): ICompiledNode[]
+    {
+        const nodes = (outcome.package?.document.nodes ?? []) as unknown as ICompiledNode[]
+        return nodes.filter(n => n.metaKind === metaKind)
+    }
+
+    public Connectors(outcome: CompileOutcome): ICompiledNode[]
+    {
+        return this.NodesOfKind(outcome, FixtureCase.ConnectorKind)
+    }
+
+    public Populations(outcome: CompileOutcome): ICompiledNode[]
+    {
+        return this.NodesOfKind(outcome, FixtureCase.PopulationKind)
+    }
+
     public FindEntrypointNode(outcome: CompileOutcome): ICompiledNode | undefined
     {
         const nodes = (outcome.package?.document.nodes ?? []) as unknown as ICompiledNode[]
@@ -66,10 +97,11 @@ class FixtureCase
 
 class FixturesCompileSuite
 {
-    private static readonly Cases = [new FixtureCase(ContosoFixture), new FixtureCase(NorthwindFixture)]
+    private static readonly Cases = [new FixtureCase(ContosoFixture), new FixtureCase(NorthwindFixture), new FixtureCase(CatalogFixture)]
     private static readonly CompilesTitle = 'compiles with zero errors under its manifest id'
     private static readonly SeededTitle = 'assertValue is bound to assertField in the .todl'
     private static readonly AppIdTitle = 'descriptor appId matches manifest id'
+    private static readonly PlanTitle = 'compiled package contains one sql connector appdb and a catalog.Product binding'
     private static readonly ModelTitle = 'compiled package contains entrypointConcept and assertField'
 
     public static Register(): void
@@ -89,10 +121,29 @@ class FixturesCompileSuite
                 {
                     expect(c.Descriptor.appId).toBe(c.ReadManifest().id)
                 })
-                test(FixturesCompileSuite.SeededTitle, () =>
+                if (!c.HasConnectorPlan)
                 {
-                    expect(c.ReadTodl()).toMatch(c.AssertBinding)
-                })
+                    // Connector-backed fixtures keep the asserted row in Postgres, not in the .todl.
+                    test(FixturesCompileSuite.SeededTitle, () =>
+                    {
+                        expect(c.ReadTodl()).toMatch(c.AssertBinding)
+                    })
+                }
+                if (c.HasConnectorPlan)
+                {
+                    test(FixturesCompileSuite.PlanTitle, () =>
+                    {
+                        const outcome = c.Compile()
+                        const connectors = c.Connectors(outcome)
+                        expect(connectors).toHaveLength(1)
+                        expect(connectors[0]?.attrs?.[FixtureCase.NameAttr]).toBe(FixtureCase.ConnectorName)
+                        expect(connectors[0]?.attrs?.[FixtureCase.KindAttr]).toBe(FixtureCase.SqlKind)
+                        const populations = c.Populations(outcome)
+                        expect(populations).toHaveLength(1)
+                        expect(populations[0]?.attrs?.[FixtureCase.ConceptAttr]).toBe(c.Descriptor.entrypointConcept)
+                        expect(populations[0]?.attrs?.[FixtureCase.ConnectorAttr]).toBe(connectors[0]?.id)
+                    })
+                }
                 test(FixturesCompileSuite.ModelTitle, () =>
                 {
                     const node = c.FindEntrypointNode(c.Compile())

@@ -28,6 +28,7 @@ class FixtureLocator
 {
     private static readonly ContosoFolder = 'contoso'
     private static readonly NorthwindFolder = 'northwind'
+    private static readonly CatalogFolder = 'catalog'
 
     public static ContosoPath(): string
     {
@@ -37,6 +38,11 @@ class FixtureLocator
     public static NorthwindPath(): string
     {
         return FixtureLocator.Resolve(FixtureLocator.NorthwindFolder)
+    }
+
+    public static CatalogPath(): string
+    {
+        return FixtureLocator.Resolve(FixtureLocator.CatalogFolder)
     }
 
     private static Resolve(name: string): string
@@ -55,6 +61,10 @@ class FixtureNames
     public static readonly NorthwindEntrypoint = 'northwind.Customer'
     public static readonly NorthwindField = 'company'
     public static readonly NorthwindValue = 'Fixture Trading Co. of Reykjavik'
+    public static readonly CatalogAppId = 'catalog'
+    public static readonly CatalogEntrypoint = 'catalog.Product'
+    public static readonly CatalogField = 'name'
+    public static readonly CatalogValue = 'Live Postgres Widget'
 }
 
 export const ContosoFixture: IFixtureDescriptor = {
@@ -71,4 +81,12 @@ export const NorthwindFixture: IFixtureDescriptor = {
     entrypointConcept: FixtureNames.NorthwindEntrypoint,
     assertField: FixtureNames.NorthwindField,
     assertValue: FixtureNames.NorthwindValue,
+}
+
+export const CatalogFixture: IFixtureDescriptor = {
+    folder: FixtureLocator.CatalogPath(),
+    appId: FixtureNames.CatalogAppId,
+    entrypointConcept: FixtureNames.CatalogEntrypoint,
+    assertField: FixtureNames.CatalogField,
+    assertValue: FixtureNames.CatalogValue,
 }
