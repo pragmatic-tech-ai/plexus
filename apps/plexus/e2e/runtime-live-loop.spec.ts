@@ -21,7 +21,7 @@ import path from 'node:path'
 import { RemoteBindMode } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import { launchPlexus, seedSession, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
-import { ContosoFixture } from './fixtures/fixture-manifest'
+import { ContosoFixture, CatalogFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
 import { OrchestratorClient, RuntimeEnvGraphReader, type DevDescriptor, type RuntimeDescriptor } from './support/orchestrator-client'
 
@@ -389,9 +389,9 @@ class ContosoClone
         this.Folder = folder
     }
 
-    public static From(sourceFolder: string): ContosoClone
+    public static From(sourceFolder: string, prefix: string = ContosoClone.ClonePrefix): ContosoClone
     {
-        const folder = mkdtempSync(path.join(tmpdir(), ContosoClone.ClonePrefix))
+        const folder = mkdtempSync(path.join(tmpdir(), prefix))
         cpSync(sourceFolder, folder, { recursive: true })
         return new ContosoClone(folder)
     }
@@ -419,6 +419,14 @@ const GraphName = 'loop-graph'
 const V2Value = 'Fabrikam Quantum Kettle'
 const ReloadTimeoutMs = 60_000
 
+// Connector leg (live Postgres read-through): the catalog fixture binds `products` via the env's provisioned DB.
+const CatalogProjectMatch = 'catalog'
+const CatalogClonePrefix = 'plexus-catalog-'
+// All five columns: the compiled populate FieldMap is total over the effective schema (label/description are prelude-inherited).
+const CreateProductsSql = "CREATE TABLE products (id text primary key, name text, unit_price numeric, label text, description text); INSERT INTO products VALUES ('p1', 'Live Postgres Widget', 249, 'Live Postgres Widget', 'A live Postgres-backed product');"
+const UpdateProductSql = "UPDATE products SET name = 'Updated Postgres Widget' WHERE id = 'p1';"
+const UpdatedProductName = 'Updated Postgres Widget'
+
 test.describe('runtime publishing live loop', () => {
     test.skip(process.env[GateEnv] !== GateValue, `set ${GateEnv}=${GateValue} to run`)
     test.setTimeout(900_000)
@@ -429,7 +437,9 @@ test.describe('runtime publishing live loop', () => {
 
         const orchestrator = OrchestratorClient.Create()
         const clone = ContosoClone.From(ContosoFixture.folder)
-        const restore = seedSession([clone.Folder])
+        // Cloned too: Generate UI writes into the project, which must never touch the committed fixture.
+        const catalogClone = ContosoClone.From(CatalogFixture.folder, CatalogClonePrefix)
+        const restore = seedSession([clone.Folder, catalogClone.Folder])
         const reader = new BrowserReader()
         let l: Launched | undefined
         let dev: DevDescriptor | undefined
@@ -527,10 +537,39 @@ test.describe('runtime publishing live loop', () => {
                 // exact:false substring match — a stale render of the original inside any node fails this.
                 await expect(page.getByText(ContosoFixture.assertValue, { exact: false })).toHaveCount(0)
             })
+
+            // Step 11: connector leg - the Catalog app reads LIVE from the env's provisioned Postgres.
+            // A row is inserted, the app is generated/contributed/promoted/published, a signed-in browser
+            // sees the row, then the row is UPDATED in Postgres and the page merely reloaded (NO
+            // re-promote): the new value rendering proves a read-through, not a baked-in snapshot.
+            await test.step('live Postgres read, no re-promote', async () => {
+                await orchestrator.DbExec(CreateProductsSql)
+
+                const gen = await RendererOps.GenerateUi(l!.win, CatalogProjectMatch, CatalogFixture.entrypointConcept)
+                expect(gen, `catalog generate stage: ${gen.stage ?? ''}`).toMatchObject({ ok: true })
+                const contributed = await RendererOps.Contribute(l!.win, dev!.devWsUrl, dev!.makerToken, dev!.graphName)
+                expect(contributed, `catalog contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
+                await orchestrator.Promote(dev!.graphName)
+
+                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeWsUrl, rt!.deployToken, CatalogProjectMatch, RemoteBindMode.Environment)
+                expect(published.buildError, published.buildError).toBeUndefined()
+                expect(published.buildOk, 'catalog html-bundle-remote build failed').toBeTruthy()
+                expect(published.invokeError, published.invokeError).toBeUndefined()
+                expect(published.publishError, published.publishError).toBeUndefined()
+                expect(published.publishStatus, `catalog publish status: ${published.publishStatus ?? ''}`).toBe(TenantPublishStatus.Applied)
+
+                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
+                const page = await reader.AssertRenders(context, rt!.appOriginBase, rt!.tenant, CatalogFixture.appId, CatalogFixture.assertValue)
+
+                await orchestrator.DbExec(UpdateProductSql)
+                await page.reload()
+                await expect(page.getByText(UpdatedProductName, { exact: false })).toBeVisible({ timeout: ReloadTimeoutMs })
+                await expect(page.getByText(CatalogFixture.assertValue, { exact: false })).toHaveCount(0)
+            })
         }
         finally
         {
-            // Step 11: teardown — each step is independent so a throw in one never skips the costly
+            // Step 12: teardown — each step is independent so a throw in one never skips the costly
             // container/env cleanup (orchestrator.Teardown).
             await reader.Close().catch(() => {})
             if (l !== undefined)
@@ -547,6 +586,7 @@ test.describe('runtime publishing live loop', () => {
             try { restore() } catch { /* restore is best-effort; must not skip Teardown */ }
             await orchestrator.Teardown().catch(() => {})
             clone.Dispose()
+            catalogClone.Dispose()
         }
     })
 })

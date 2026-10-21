@@ -1,0 +1,11 @@
+namespace catalog
+{
+    datasource appdb { kind = sql; connection = "appdb"; }
+    concept Product { name : string; unitPrice : number; }
+    model Catalog : catalog
+    {
+        annotate entrypoint { }
+        connect appdb;
+        populate Product from appdb.products key id { name = "name"; unitPrice = "unit_price"; }
+    }
+}

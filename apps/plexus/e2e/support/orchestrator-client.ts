@@ -12,6 +12,7 @@
 //   create-runtime            -> RuntimeDescriptor   (creates + provisions; env graph still EMPTY)
 //   promote --graph <g>       -> PromoteDescriptor   (idempotent; relays dev graph into the runtime)
 //   teardown                  -> TeardownDescriptor
+//   db-exec --sql <sql>       -> DbExecDescriptor    (runs SQL against the runtime env's provisioned Postgres)
 import { spawn } from 'node:child_process'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -69,6 +70,13 @@ export interface TeardownDescriptor
     ok: true
 }
 
+/** Output of db-exec. */
+export interface DbExecDescriptor
+{
+    ok: true
+    rowCount: number
+}
+
 /** Spawns the Task 2 orchestrator CLI and parses its JSON descriptors. */
 export class OrchestratorClient
 {
@@ -82,6 +90,8 @@ export class OrchestratorClient
     private static readonly CreateRuntimeCommand = 'create-runtime'
     private static readonly PromoteCommand = 'promote'
     private static readonly TeardownCommand = 'teardown'
+    private static readonly DbExecCommand = 'db-exec'
+    private static readonly SqlFlag = '--sql'
     private static readonly DataRootFlag = '--data-root'
     private static readonly GraphFlag = '--graph'
     private static readonly TmpPrefix = 'plexus-loop-'
@@ -130,6 +140,12 @@ export class OrchestratorClient
     public async Promote(graph: string): Promise<PromoteDescriptor>
     {
         return this.Run<PromoteDescriptor>([OrchestratorClient.PromoteCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot(), OrchestratorClient.GraphFlag, graph])
+    }
+
+    /** Runs arbitrary SQL against the runtime env's provisioned Postgres (the SQL is never logged by the orchestrator). */
+    public async DbExec(sql: string): Promise<void>
+    {
+        await this.Run<DbExecDescriptor>([OrchestratorClient.DbExecCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot(), OrchestratorClient.SqlFlag, sql])
     }
 
     public async Teardown(): Promise<TeardownDescriptor>
