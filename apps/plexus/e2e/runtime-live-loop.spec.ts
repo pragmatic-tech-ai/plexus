@@ -15,7 +15,7 @@
 // Configure surfaces and the auth endpoints; they are NEVER passed to console/log/test output.
 import { test, expect, type Page, type JSHandle } from '@playwright/test'
 import { chromium, type Browser, type BrowserContext } from 'playwright'
-import { existsSync, mkdtempSync, cpSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, cpSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { RemoteBindMode } from '@pragmatic-tech-ai/todl/build-system-core'
@@ -323,9 +323,23 @@ class WindowPlacer
     }
 }
 
+// One captured served-app console/pageerror record: its kind (console type or 'pageerror'), the page
+// url it came from, and the message/stack text (redacted before it is ever written out).
+interface BrowserLogEntry
+{
+    kind: string
+    url: string
+    detail: string
+}
+
 // Drives a real chromium browser on the second monitor: authenticates via /auth/browser-login (the
 // session cookie is stored in the context's cookie jar via its request API, then shared with pages),
 // navigates to the served app, and asserts what the app renders.
+//
+// Smoke capture: every page opened in a context it creates is wired for `console` (error + warning)
+// and `pageerror`, collected into `log`. Those served-app exceptions were invisible before — nothing
+// attached a console listener to the chromium pages — so WriteReport dumps them (deduped, redacted)
+// to a gitignored artifact for triage.
 class BrowserReader
 {
     private static readonly BrowserLoginPath = '/auth/browser-login'
@@ -335,8 +349,38 @@ class BrowserReader
     private static readonly RenderTimeoutMs = 60_000
     private static readonly EmailKey = 'email'
     private static readonly PasswordKey = 'password'
+    private static readonly PageEvent = 'page'
+    private static readonly ConsoleEvent = 'console'
+    private static readonly PageErrorEvent = 'pageerror'
+    private static readonly RequestFailedEvent = 'requestfailed'
+    private static readonly ResponseEvent = 'response'
+    private static readonly ConsoleErrorType = 'error'
+    private static readonly ConsoleWarningType = 'warning'
+    private static readonly PageErrorKind = 'pageerror'
+    private static readonly RequestFailedKind = 'requestfailed'
+    private static readonly HttpErrorPrefix = 'http '
+    private static readonly HttpErrorThreshold = 400
+    private static readonly ProbeKindPrefix = 'font-probe '
+    private static readonly ProbeErrorKind = 'font-probe error'
+    private static readonly FontHeadDetail = 'HEAD font asset'
+    // The Pragmatic theme registers its font faces by the relative url `fonts/<name>.woff2`; these are
+    // exactly the woff2s the installed mural package ships. The server serves a path ONLY if the app
+    // manifest's ui.assets lists it, so a HEAD here returns 200 iff the font was emitted AND is served.
+    private static readonly FontProbePaths: readonly string[] = [
+        'fonts/InterTight-Regular.woff2',
+        'fonts/InterTight-Medium.woff2',
+        'fonts/InterTight-SemiBold.woff2',
+        'fonts/JetBrainsMono-Regular.woff2',
+        'fonts/JetBrainsMono-Medium.woff2',
+        'fonts/SourceSerif4-Regular.woff2',
+    ]
+    private static readonly KeySep = '\u0000'
+    private static readonly Utf8 = 'utf8'
+    private static readonly Indent = '    '
+    private static readonly Newline = '\n'
 
     private browser: Browser | undefined
+    private readonly log: BrowserLogEntry[] = []
 
     public async Launch(origin: { x: number; y: number }): Promise<void>
     {
@@ -347,6 +391,9 @@ class BrowserReader
     {
         if (this.browser === undefined) throw new Error('BrowserReader.Launch must run first')
         const context = await this.browser.newContext()
+        // Fires for every page created in this context (including the spec's own context.newPage()),
+        // synchronously before navigation — so load-time exceptions are caught too.
+        context.on(BrowserReader.PageEvent, (page) => this.WirePage(page))
         const loginUrl = `${appOriginBase}${BrowserReader.BrowserLoginPath}${BrowserReader.TenantQuery}${encodeURIComponent(tenant)}`
         const response = await context.request.post(loginUrl, { data: { [BrowserReader.EmailKey]: email, [BrowserReader.PasswordKey]: password } })
         expect(response.ok(), `browser-login failed (HTTP ${response.status()})`).toBeTruthy()
@@ -371,6 +418,87 @@ class BrowserReader
     {
         await this.browser?.close().catch(() => {})
         this.browser = undefined
+    }
+
+    // Attaches console (error + warning only) and pageerror listeners to one served-app page; every
+    // record lands in `log` with the page url captured at emit time.
+    private WirePage(page: Page): void
+    {
+        page.on(BrowserReader.ConsoleEvent, (m) => {
+            const type = m.type()
+            if (type === BrowserReader.ConsoleErrorType || type === BrowserReader.ConsoleWarningType)
+            {
+                this.log.push({ kind: type, url: page.url(), detail: m.text() })
+            }
+        })
+        page.on(BrowserReader.PageErrorEvent, (e) => {
+            this.log.push({ kind: BrowserReader.PageErrorKind, url: page.url(), detail: e.stack ?? e.message })
+        })
+        // Exact failing-resource URLs: a bare "404 Failed to load resource" console line never names
+        // the URL, so capture it here — the font woff2s the served app needs show up as either an
+        // outright request failure or a 4xx/5xx response, with their real URL and resource type.
+        page.on(BrowserReader.RequestFailedEvent, (req) => {
+            this.log.push({ kind: BrowserReader.RequestFailedKind, url: req.url(), detail: `${req.resourceType()}: ${req.failure()?.errorText ?? ''}` })
+        })
+        page.on(BrowserReader.ResponseEvent, (resp) => {
+            if (resp.status() >= BrowserReader.HttpErrorThreshold)
+            {
+                this.log.push({ kind: BrowserReader.HttpErrorPrefix + resp.status(), url: resp.url(), detail: resp.request().resourceType() })
+            }
+        })
+    }
+
+    // HEADs each theme font asset at the served app route and records its HTTP status. This is the
+    // decisive check for "are the fonts actually served": the AppServingEndpoint serves a path only if
+    // the app manifest lists it in ui.assets, so 404 here means the woff2 was never emitted/listed
+    // (which collapses mural's glyph-geometry text measurement to NaN), while 200 means it is served.
+    public async ProbeFonts(context: BrowserContext, appOriginBase: string, tenant: string, appId: string): Promise<void>
+    {
+        const base = appOriginBase + BrowserReader.AppPathPrefix + tenant + BrowserReader.PathSep + appId + BrowserReader.PathSep
+        for (const rel of BrowserReader.FontProbePaths)
+        {
+            const url = base + rel
+            try
+            {
+                const resp = await context.request.head(url)
+                this.log.push({ kind: BrowserReader.ProbeKindPrefix + resp.status(), url, detail: BrowserReader.FontHeadDetail })
+            }
+            catch (e)
+            {
+                this.log.push({ kind: BrowserReader.ProbeErrorKind, url, detail: e instanceof Error ? e.message : String(e) })
+            }
+        }
+    }
+
+    // Writes the captured served-app console/pageerror records to `filePath`, deduped by kind+detail
+    // with an occurrence count (first-seen order) and every field passed through `redact`. Returns the
+    // raw and unique counts for the one-line run summary. Creates the artifact directory if needed.
+    public WriteReport(filePath: string, redact: (text: string) => string): { total: number; unique: number }
+    {
+        const groups = new Map<string, { kind: string; url: string; detail: string; count: number }>()
+        for (const entry of this.log)
+        {
+            const key = entry.kind + BrowserReader.KeySep + entry.detail
+            const existing = groups.get(key)
+            if (existing !== undefined)
+            {
+                existing.count++
+            }
+            else
+            {
+                groups.set(key, { kind: entry.kind, url: entry.url, detail: entry.detail, count: 1 })
+            }
+        }
+        const lines: string[] = [`served-app console capture — ${this.log.length} records, ${groups.size} unique`, '']
+        for (const g of groups.values())
+        {
+            lines.push(`[${g.kind} x${g.count}] ${redact(g.url)}`)
+            lines.push(redact(g.detail).split(BrowserReader.Newline).map((l) => BrowserReader.Indent + l).join(BrowserReader.Newline))
+            lines.push('')
+        }
+        mkdirSync(path.dirname(filePath), { recursive: true })
+        writeFileSync(filePath, lines.join(BrowserReader.Newline), BrowserReader.Utf8)
+        return { total: this.log.length, unique: groups.size }
     }
 }
 
@@ -405,6 +533,11 @@ class ContosoClone
 const GateEnv = 'SP_RUNTIME_LOOP_E2E'
 const GateValue = '1'
 const WindowOriginEnv = 'SP_E2E_WINDOW_ORIGIN'
+// Smoke capture artifacts (gitignored under e2e/.artifacts/): the served-app chromium console and the
+// Plexus Electron renderer console, both dumped unconditionally in teardown for error triage.
+const ArtifactDir = path.resolve(__dirname, '.artifacts')
+const BrowserConsoleArtifact = path.join(ArtifactDir, 'smoke-browser-console.log')
+const RendererConsoleArtifact = path.join(ArtifactDir, 'smoke-renderer-console.log')
 
 const ProjectMatch = 'contoso'
 // The .todl is named after the project id (Task 3 fixture convention).
@@ -503,6 +636,8 @@ test.describe('runtime publishing live loop', () => {
                 await reader.Launch(origin)
                 const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
                 await reader.AssertRenders(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId, ContosoFixture.assertValue)
+                // Decisive "are the fonts served?" check (smoke): HEAD the theme woff2s at the app route.
+                await reader.ProbeFonts(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId)
             })
 
             // Step 9: ungranted-denied assertion (Review focus) — a REAL denial proof. A graph IS
@@ -570,17 +705,24 @@ test.describe('runtime publishing live loop', () => {
         finally
         {
             // Step 12: teardown — each step is independent so a throw in one never skips the costly
-            // container/env cleanup (orchestrator.Teardown).
+            // container/env cleanup (orchestrator.Teardown). Any descriptor secret that could, in
+            // principle, appear in a captured error is redacted before anything is written out.
+            const secrets = [dev?.makerToken, rt?.deployToken, rt?.reader.password, rt?.ungranted.password]
+                .filter((s): s is string => typeof s === 'string' && s.length > 0)
+            const redact = (text: string): string => secrets.reduce((acc, s) => acc.split(s).join('***'), text)
+
+            // Served-app console/pageerror dump — written BEFORE Close so a mid-test failure still
+            // flushes whatever the browser captured up to that point.
+            const browser = reader.WriteReport(BrowserConsoleArtifact, redact)
+            console.log(`[runtime-loop] served-app console: ${browser.total} records (${browser.unique} unique) -> ${BrowserConsoleArtifact}`)
+
             await reader.Close().catch(() => {})
             if (l !== undefined)
             {
-                // Redact any descriptor secret that could, in principle, appear in a renderer error
-                // before logging the collected app errors.
-                const secrets = [dev?.makerToken, rt?.deployToken, rt?.reader.password, rt?.ungranted.password]
-                    .filter((s): s is string => typeof s === 'string' && s.length > 0)
-                const redact = (text: string): string => secrets.reduce((acc, s) => acc.split(s).join('***'), text)
+                mkdirSync(ArtifactDir, { recursive: true })
+                writeFileSync(RendererConsoleArtifact, [...l.errors.map((e) => 'ERROR ' + e), ...l.warnings.map((w) => 'WARN  ' + w)].map(redact).join('\n'), 'utf8')
                 const appErrs = l.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
-                if (appErrs.length) console.log('[runtime-loop] renderer errors:\n' + appErrs.slice(0, 20).map(redact).join('\n'))
+                console.log(`[runtime-loop] renderer console: ${l.errors.length} errors, ${l.warnings.length} warnings (${appErrs.length} non-ignorable) -> ${RendererConsoleArtifact}`)
                 await l.app.close().catch(() => {})
             }
             try { restore() } catch { /* restore is best-effort; must not skip Teardown */ }
