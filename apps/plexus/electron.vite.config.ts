@@ -1,4 +1,5 @@
-import { resolve } from 'node:path'
+import { resolve, join } from 'node:path'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { builtinModules } from 'node:module'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import type { Plugin } from 'vite'
@@ -150,6 +151,60 @@ class RendererNodeBoundary
     }
 }
 
+// The Pragmatic theme requests its woff2s from `assets/fonts/` next to the renderer bundle
+// (file://.../out/renderer/assets/fonts/<name>.woff2). They ship inside the mural package
+// (build/resources/pragmatic/fonts) but nothing copies them into the renderer output, so every
+// font 404s (net::ERR_FILE_NOT_FOUND). Emit them as build assets under the exact requested
+// name (no content hash). Renderer build only.
+class ThemeFontCopy
+{
+    private static readonly PluginName = 'plexus:theme-font-copy'
+    private static readonly PackageDir = join('node_modules', '@pragmatic-tech-ai', 'mural')
+    private static readonly FontsDir = join('build', 'resources', 'pragmatic', 'fonts')
+    private static readonly FontExtension = '.woff2'
+    private static readonly OutputDir = 'assets/fonts/'
+
+    // Walks up from the app dir to the node_modules that holds mural (workspace-hoisted).
+    private static FontsPath(): string
+    {
+        let dir = resolve('.')
+        for (;;)
+        {
+            const candidate = join(dir, ThemeFontCopy.PackageDir, ThemeFontCopy.FontsDir)
+            if (existsSync(candidate))
+            {
+                return candidate
+            }
+            const parent = resolve(dir, '..')
+            if (parent === dir)
+            {
+                throw new Error(`Pragmatic theme fonts not found under ${ThemeFontCopy.PackageDir}`)
+            }
+            dir = parent
+        }
+    }
+
+    public static Plugin(): Plugin
+    {
+        return {
+            name: ThemeFontCopy.PluginName,
+            apply: 'build',
+            generateBundle()
+            {
+                const fontsPath = ThemeFontCopy.FontsPath()
+                for (const file of readdirSync(fontsPath).filter((f) => f.endsWith(ThemeFontCopy.FontExtension)))
+                {
+                    this.emitFile({
+                        type: 'asset',
+                        fileName: ThemeFontCopy.OutputDir + file,
+                        source: readFileSync(join(fontsPath, file)),
+                    })
+                }
+            },
+        }
+    }
+}
+
 // plexus-core is first-party workspace code, not a third-party runtime dep — it
 // must be BUNDLED into the app's (CJS) main + preload, not externalized. Left
 // external, its ESM dist runs natively in Electron's main and its CommonJS deps
@@ -201,7 +256,7 @@ export default defineConfig({
     // Keep Node builtins out of the browser bundle (dead fs/registry code from the
     // shared todl barrels) while giving node:path a real browser impl. See
     // RendererNodeBoundary above.
-    plugins: [RendererNodeBoundary.Plugin()],
+    plugins: [RendererNodeBoundary.Plugin(), ThemeFontCopy.Plugin()],
     resolve: {
       // Shared mural handling (dist-pinning conditions + single-copy dedupe)
       // comes from plexus-core so every app resolves mural identically. mural
