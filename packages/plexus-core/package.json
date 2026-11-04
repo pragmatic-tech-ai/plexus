@@ -39,6 +39,8 @@
     "./renderer/modules/preview-server/*": "./dist/renderer/modules/preview-server/*",
     "./renderer/modules/graph-contribute": "./dist/renderer/modules/graph-contribute/index.js",
     "./renderer/modules/graph-contribute/*": "./dist/renderer/modules/graph-contribute/*",
+    "./renderer/modules/account": "./dist/renderer/modules/account/index.js",
+    "./renderer/modules/account/*": "./dist/renderer/modules/account/*",
     "./renderer/modules/tenant-publish": "./dist/renderer/modules/tenant-publish/index.js",
     "./renderer/modules/tenant-publish/*": "./dist/renderer/modules/tenant-publish/*",
     "./renderer/modules/build/*": "./dist/renderer/modules/build/*",

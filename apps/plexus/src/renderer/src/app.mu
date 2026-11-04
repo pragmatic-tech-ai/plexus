@@ -124,6 +124,9 @@ import IpcTenantPublisher from "./services/tenant-publish/ipc-tenant-publisher.j
 // Graph contribute — the concrete IGraphContributor (plexus-core capability) over the
 // window.api.graphContribute preload bridge. Registered under GraphContributorKey.
 import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contributor.js"
+// Account — the concrete IAccountService (plexus-core capability) over the window.api.account
+// preload bridge. Registered under AccountServiceKey.
+import IpcAccountService from "./services/account/ipc-account-service.js"
 
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
@@ -326,6 +329,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Graph contribute over the preload bridge (GraphContributorKey): ContributeToGraphContributor
         // resolves it to contribute a built solution to a dev graph via the main process.
         IpcGraphContributor
+        // Account over the preload bridge (AccountServiceKey): signed-in state, email sign-in and
+        // the environments the account may contribute or publish to.
+        IpcAccountService
         // TitleService is registered by the PragmaticWindowChrome module (below);
         // Plexus supplies its title source here (bound to the shared TitleSourceKey)
         // so it is registered during app compose — before the header ControlTemplate
