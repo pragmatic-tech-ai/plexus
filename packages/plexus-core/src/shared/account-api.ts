@@ -76,6 +76,7 @@ export class PlatformAddress
 export enum AccountErrorKind
 {
     NoAccount = 'no-account',
+    InvalidEmail = 'invalid-email',
     Unreachable = 'unreachable',
     SignInFailed = 'sign-in-failed',
     TimedOut = 'timed-out',
@@ -91,6 +92,7 @@ export class AccountError extends Error
     private static readonly ErrorName = 'AccountError'
     private static readonly Messages: Readonly<Record<AccountErrorKind, string>> = {
         [AccountErrorKind.NoAccount]: 'No account was found for this email.',
+        [AccountErrorKind.InvalidEmail]: "That doesn't look like an email address.",
         [AccountErrorKind.Unreachable]: 'The platform could not be reached. Check the Platform address in Settings.',
         [AccountErrorKind.SignInFailed]: 'Sign-in did not finish. Try again.',
         [AccountErrorKind.TimedOut]: 'Sign-in was not finished in the browser. Try again.',
@@ -109,31 +111,22 @@ export class AccountError extends Error
     {
         return Object.values(AccountErrorKind).includes(value as AccountErrorKind)
     }
-
-    // Recovers an AccountError after a hop that keeps only an Error's message (Electron's context
-    // bridge drops the class and custom fields of a thrown error). Each kind's sentence is unique, so
-    // the message names the kind. Anything else answers undefined.
-    public static From(error: unknown): AccountError | undefined
-    {
-        if (error instanceof AccountError) return error
-        if (!(error instanceof Error)) return undefined
-        const kind = Object.values(AccountErrorKind).find(k => error.message.endsWith(AccountError.Messages[k]))
-        return kind === undefined ? undefined : new AccountError(kind)
-    }
 }
 
 // How an account error crosses IPC: only its kind.
 export type AccountWireError = { Kind: AccountErrorKind }
 
-// The envelope every account IPC handler answers with, so an AccountError survives the hop (Electron
-// only carries an Error's message across ipc.handle, prefixed and unparseable).
+// The envelope every account IPC handler answers with and the preload bridge resolves to, so an
+// AccountError survives both hops (ipc.handle and Electron's context bridge carry only an Error's
+// message, dropping its class and Kind; a plain object crosses intact).
 export type AccountReply<T> = { Ok: true; Value: T } | { Ok: false; Error: AccountWireError }
 
 export class AccountWire
 {
-    // Runs the work and wraps its outcome. Anything that is not an AccountError becomes Unavailable,
-    // so no other error text (which could name a path or address) reaches the renderer.
-    public static async Capture<T>(work: () => Promise<T>): Promise<AccountReply<T>>
+    // Main side: runs the work and wraps its outcome. Anything that is not an AccountError becomes
+    // Unavailable, so no other error text (which could name a path or address) reaches the renderer;
+    // such an error is first handed to onUnexpected (for a main-process log).
+    public static async Capture<T>(work: () => Promise<T>, onUnexpected?: (error: unknown) => void): Promise<AccountReply<T>>
     {
         try
         {
@@ -141,16 +134,34 @@ export class AccountWire
         }
         catch (e)
         {
-            return { Ok: false, Error: { Kind: e instanceof AccountError ? e.Kind : AccountErrorKind.Unavailable } }
+            if (e instanceof AccountError) return { Ok: false, Error: { Kind: e.Kind } }
+            onUnexpected?.(e)
+            return { Ok: false, Error: { Kind: AccountErrorKind.Unavailable } }
         }
     }
 
-    // Unwraps a reply on the renderer side, rebuilding the AccountError.
+    // Renderer side (behind IAccountBridge): unwraps a reply, rebuilding a failure into an AccountError.
     public static Unwrap<T>(reply: AccountReply<T>): T
     {
         if (reply.Ok) return reply.Value
         throw new AccountError(AccountError.IsKind(reply.Error.Kind) ? reply.Error.Kind : AccountErrorKind.Unavailable)
     }
+}
+
+// What the preload exposes on window.api.account: every call resolves to its AccountReply envelope
+// (never rejects with an account failure), so the renderer seam can rebuild the AccountError with
+// AccountWire.Unwrap and present IAccountApi.
+export interface IAccountBridge
+{
+    State(): Promise<AccountReply<AccountState>>;
+    Discover(platformUrl: string, email: string): Promise<AccountReply<DiscoveredTenant[]>>;
+    SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountReply<AccountState>>;
+    CancelSignIn(): Promise<AccountReply<void>>;
+    SignOut(): Promise<AccountReply<AccountState>>;
+    Targets(): Promise<AccountReply<AccountTargets>>;
+    LastChoice(kind: TargetKind): Promise<AccountReply<TargetChoice | undefined>>;
+    RememberChoice(kind: TargetKind, choice: TargetChoice): Promise<AccountReply<void>>;
+    OnChanged(cb: (s: AccountState) => void): () => void;
 }
 
 export interface IAccountApi

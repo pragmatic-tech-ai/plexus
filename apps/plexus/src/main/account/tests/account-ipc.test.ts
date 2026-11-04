@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { IpcMain } from 'electron'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
@@ -47,11 +47,15 @@ class FakeSink implements IAccountChangeSink
 {
     public readonly Sent: unknown[][] = []
 
-    public constructor(private readonly destroyed = false)
+    public constructor(private readonly destroyed = false, private readonly throws = false)
     {
     }
 
-    public send(channel: string, ...args: unknown[]): void { this.Sent.push([channel, ...args]) }
+    public send(channel: string, ...args: unknown[]): void
+    {
+        if (this.throws) throw new Error('Render frame was disposed')
+        this.Sent.push([channel, ...args])
+    }
     public isDestroyed(): boolean { return this.destroyed }
 }
 
@@ -59,7 +63,7 @@ class Harness
 {
     public readonly Ipc = new FakeIpc()
     public readonly Service = new FakeService()
-    public readonly Sinks = [new FakeSink(), new FakeSink(true)]
+    public readonly Sinks = [new FakeSink(false, true), new FakeSink(), new FakeSink(true)]
 
     public constructor()
     {
@@ -74,6 +78,8 @@ class Harness
 
 describe('AccountIpc', () =>
 {
+    afterEach(() => vi.restoreAllMocks())
+
     it('binds every invoke channel (Changed is a push channel)', () =>
     {
         const h = new Harness()
@@ -111,8 +117,12 @@ describe('AccountIpc', () =>
         const h = new Harness()
         h.Service.Failure = new AccountError(AccountErrorKind.SignedOut)
         expect(await h.Invoke(AccountChannel.Targets)).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.SignedOut } })
-        h.Service.Failure = new Error('ENOENT C:\\Users\\x\\desktop-session.bin')
+        const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        h.Service.Failure = Object.assign(new Error('ENOENT C:\\Users\\x\\desktop-session.bin'), { code: 'ENOENT' })
         expect(await h.Invoke(AccountChannel.State)).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
+        expect(log).toHaveBeenCalledTimes(1)
+        expect(JSON.stringify(log.mock.calls)).toContain('ENOENT')
+        expect(JSON.stringify(log.mock.calls)).not.toContain('desktop-session.bin')
     })
 
     it('refuses malformed renderer arguments without calling the service', async () =>
@@ -124,11 +134,14 @@ describe('AccountIpc', () =>
         expect(h.Service.Calls).toEqual([])
     })
 
-    it('pushes Changed to every live renderer', () =>
+    it('pushes Changed to every live renderer; a throwing window neither stops the others nor throws', () =>
     {
+        const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
         const h = new Harness()
-        h.Service.Changed.emit({ SignedIn: false })
-        expect(h.Sinks[0].Sent).toEqual([[AccountChannel.Changed, { SignedIn: false }]])
-        expect(h.Sinks[1].Sent).toEqual([])
+        expect(() => h.Service.Changed.emit({ SignedIn: false })).not.toThrow()
+        expect(h.Sinks[1].Sent).toEqual([[AccountChannel.Changed, { SignedIn: false }]])
+        expect(h.Sinks[2].Sent).toEqual([])
+        expect(log).toHaveBeenCalledTimes(1)
+        expect(JSON.stringify(log.mock.calls)).not.toContain('disposed')
     })
 })

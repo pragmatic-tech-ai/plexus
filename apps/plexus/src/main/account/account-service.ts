@@ -10,6 +10,29 @@ import type { DesktopApiClient } from './desktop-api-client.js'
 import type { DesktopSession, DesktopSessionStore } from './desktop-session-store.js'
 import type { IRedirectReceiver } from './loopback-redirect-receiver.js'
 
+// One sign-in attempt, tracked from its first step so a cancel at any point (discovery, Begin, the
+// browser wait, Complete) stops it: Cancel marks it and cancels the receiver; the attempt checks the
+// mark after every await and before opening the browser.
+class SignInAttempt
+{
+    private cancelled = false
+
+    public constructor(public readonly Receiver: IRedirectReceiver)
+    {
+    }
+
+    public Cancel(): void
+    {
+        this.cancelled = true
+        this.Receiver.Cancel()
+    }
+
+    public Check(): void
+    {
+        if (this.cancelled) throw new AccountError(AccountErrorKind.Cancelled)
+    }
+}
+
 // Last environment picked per action, per tenant: { [tenantId]: { contribute?, publish? } }.
 type ChoiceFile = Record<string, Partial<Record<TargetKind, TargetChoice>>>
 
@@ -36,7 +59,10 @@ export class AccountService
 
     public readonly Changed = new Signal<AccountState>()
     private discovered: { PlatformUrl: string; Email: string; TenantPlaneUrl: string } | undefined
-    private pending: IRedirectReceiver | undefined
+    private attempt: SignInAttempt | undefined
+    // RememberChoice read-modify-writes run one at a time, so concurrent calls neither share a temp
+    // file nor lose each other's update.
+    private choiceWrites: Promise<void> = Promise.resolve()
 
     public constructor(
         private readonly store: DesktopSessionStore,
@@ -71,20 +97,28 @@ export class AccountService
 
     public async SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
     {
-        this.pending?.Cancel()
-        const address = email.trim()
-        const plane = await this.TenantPlaneFor(AccountService.Platform(platformUrl), address)
-        const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
-        const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
-        const receiver = this.receivers()
-        this.pending = receiver
+        this.attempt?.Cancel()
+        const attempt = new SignInAttempt(this.receivers())
+        this.attempt = attempt
+        const receiver = attempt.Receiver
         try
         {
+            const address = email.trim()
+            const plane = await this.TenantPlaneFor(AccountService.Platform(platformUrl), address)
+            attempt.Check()
+            const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
+            const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
             const { RedirectUri } = await receiver.Start()
+            attempt.Check()
             const authorizeUrl = await this.client.Begin(plane, tenantId, RedirectUri, challenge)
+            attempt.Check()
             const state = AccountService.StateIn(authorizeUrl)
-            const [, code] = await Promise.all([this.openExternal(authorizeUrl), receiver.WaitForCode(state)])
-            const done = await this.client.Complete(plane, state, code, verifier)
+            const code = receiver.WaitForCode(state)
+            attempt.Check()
+            const [, received] = await Promise.all([this.openExternal(authorizeUrl), code])
+            attempt.Check()
+            const done = await this.client.Complete(plane, state, received, verifier)
+            attempt.Check()
             const previous = await this.store.Load()
             const session: DesktopSession = {
                 TenantPlaneUrl: plane, Token: done.Token, Email: done.Email ?? address, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
@@ -95,16 +129,21 @@ export class AccountService
             this.Changed.emit(signedIn)
             return signedIn
         }
+        catch (e)
+        {
+            attempt.Check()
+            throw e
+        }
         finally
         {
-            if (this.pending === receiver) this.pending = undefined
+            if (this.attempt === attempt) this.attempt = undefined
             await receiver.Close()
         }
     }
 
     public async CancelSignIn(): Promise<void>
     {
-        this.pending?.Cancel()
+        this.attempt?.Cancel()
     }
 
     // Ends the session on the tenant plane when it can be reached; clears locally either way.
@@ -146,7 +185,14 @@ export class AccountService
         return AccountService.ValidChoice(choice) ? AccountService.CopyChoice(choice) : undefined
     }
 
-    public async RememberChoice(kind: TargetKind, choice: TargetChoice): Promise<void>
+    public RememberChoice(kind: TargetKind, choice: TargetChoice): Promise<void>
+    {
+        const write = this.choiceWrites.then(() => this.WriteChoice(kind, choice))
+        this.choiceWrites = write.catch(() => undefined)
+        return write
+    }
+
+    private async WriteChoice(kind: TargetKind, choice: TargetChoice): Promise<void>
     {
         const session = await this.store.Load()
         if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)

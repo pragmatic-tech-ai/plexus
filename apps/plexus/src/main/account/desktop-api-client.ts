@@ -37,7 +37,8 @@ export class DesktopApiClient
     public async Discover(platformUrl: string, email: string): Promise<Discovery>
     {
         const res = await this.Send(platformUrl, DesktopApiClient.DiscoverPath, DesktopApiClient.MethodPost, { email })
-        if (res.status === DesktopApiClient.StatusNotFound || res.status === DesktopApiClient.StatusBadRequest) throw new AccountError(AccountErrorKind.NoAccount)
+        if (res.status === DesktopApiClient.StatusNotFound) throw new AccountError(AccountErrorKind.NoAccount)
+        if (res.status === DesktopApiClient.StatusBadRequest) throw new AccountError(AccountErrorKind.InvalidEmail)
         const { tenants, tenantPlaneUrl: plane } = await DesktopApiClient.Body(res)
         if (!Array.isArray(tenants) || typeof plane !== 'string') throw new AccountError(AccountErrorKind.Unavailable)
         const parsed = tenants.map(t => DesktopApiClient.Tenant(t)).filter((t): t is DiscoveredTenant => t !== undefined)
@@ -60,11 +61,12 @@ export class DesktopApiClient
         const res = await this.Send(tenantPlaneUrl, DesktopApiClient.CompletePath, DesktopApiClient.MethodPost, { state, code, bindingVerifier: verifier })
         if (res.status === DesktopApiClient.StatusUnauthorized) throw new AccountError(AccountErrorKind.SignInFailed)
         const { token, expiresAt, tenantId, tenantName, email } = await DesktopApiClient.Body(res)
-        if (typeof token !== 'string' || token === '' || typeof expiresAt !== 'string' || typeof tenantId !== 'string' || typeof tenantName !== 'string')
+        // The same rule the session store applies on Load: a session missing any of these is unusable.
+        if (!DesktopApiClient.Filled(token) || !DesktopApiClient.Filled(expiresAt) || !DesktopApiClient.Filled(tenantId) || !DesktopApiClient.Filled(tenantName))
         {
-            throw new AccountError(AccountErrorKind.Unavailable)
+            throw new AccountError(AccountErrorKind.SignInFailed)
         }
-        return { Token: token, ExpiresAt: expiresAt, TenantId: tenantId, TenantName: tenantName, Email: typeof email === 'string' && email !== '' ? email : undefined }
+        return { Token: token, ExpiresAt: expiresAt, TenantId: tenantId, TenantName: tenantName, Email: DesktopApiClient.Filled(email) ? email : undefined }
     }
 
     public async Targets(session: DesktopSession): Promise<AccountTargets>
@@ -118,6 +120,11 @@ export class DesktopApiClient
         }
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new AccountError(AccountErrorKind.Unavailable)
         return parsed as Record<string, unknown>
+    }
+
+    private static Filled(value: unknown): value is string
+    {
+        return typeof value === 'string' && value !== ''
     }
 
     private static Tenant(raw: unknown): DiscoveredTenant | undefined

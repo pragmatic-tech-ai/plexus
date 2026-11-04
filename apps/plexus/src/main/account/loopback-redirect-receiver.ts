@@ -42,18 +42,22 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
     private static readonly NotFoundText = 'Not found.'
     private static readonly BadRequestText = 'This sign-in link is not the one Plexus is waiting for.'
     private static readonly NotStarted = 'The loopback receiver was not started.'
+    private static readonly ResponseCloseEvent = 'close'
 
     private server: Server | undefined
     // Every open socket, so Close also drops browser pre-connects that never sent a request (the
     // http server only tracks connections that did).
     private readonly sockets = new Set<Socket>()
     private closing: Promise<void> | undefined
+    // Set by Close (and so by Cancel and time-out): the receiver is single-use, nothing restarts it.
+    private finished = false
     private expectedState: string | undefined
     private settle: { resolve: (code: string) => void; reject: (e: AccountError) => void } | undefined
     private timer: ReturnType<typeof setTimeout> | undefined
 
     public async Start(): Promise<{ RedirectUri: string }>
     {
+        if (this.finished) throw new AccountError(AccountErrorKind.Cancelled)
         const server = createServer((req, res) => this.Answer(req, res))
         this.server = server
         server.on(LoopbackRedirectReceiver.ConnectionEvent, socket =>
@@ -66,13 +70,19 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
             server.once(LoopbackRedirectReceiver.ErrorEvent, reject)
             server.listen(0, LoopbackRedirectReceiver.Host, () => { server.off(LoopbackRedirectReceiver.ErrorEvent, reject); resolve() })
         })
+        if (this.finished)
+        {
+            await this.CloseServer(server)
+            throw new AccountError(AccountErrorKind.Cancelled)
+        }
         const { port } = server.address() as AddressInfo
         return { RedirectUri: `${LoopbackRedirectReceiver.Scheme}${LoopbackRedirectReceiver.Host}:${port}${LoopbackRedirectReceiver.CallbackPath}` }
     }
 
     public WaitForCode(expectedState: string, timeoutMs = LoopbackRedirectReceiver.DefaultTimeoutMs): Promise<string>
     {
-        if (this.server === undefined || this.closing !== undefined) return Promise.reject(new Error(LoopbackRedirectReceiver.NotStarted))
+        if (this.finished) return Promise.reject(new AccountError(AccountErrorKind.Cancelled))
+        if (this.server === undefined) return Promise.reject(new Error(LoopbackRedirectReceiver.NotStarted))
         this.expectedState = expectedState
         return new Promise<string>((resolve, reject) =>
         {
@@ -88,6 +98,7 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
 
     public Close(): Promise<void>
     {
+        this.finished = true
         this.ClearTimer()
         const pending = this.settle
         this.settle = undefined
@@ -95,13 +106,18 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
         if (this.closing !== undefined) return this.closing
         const server = this.server
         if (server === undefined) return Promise.resolve()
-        this.closing = new Promise<void>(resolve =>
+        this.closing = this.CloseServer(server)
+        return this.closing
+    }
+
+    private CloseServer(server: Server): Promise<void>
+    {
+        return new Promise<void>(resolve =>
         {
             server.close(() => resolve())
             server.closeAllConnections()
             for (const socket of this.sockets) socket.destroy()
         })
-        return this.closing
     }
 
     private Answer(req: IncomingMessage, res: ServerResponse): void
@@ -119,19 +135,23 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
             return
         }
         const code = url.searchParams.get(LoopbackRedirectReceiver.CodeParam)
+        // Detach the wait so no second request can settle it, but settle only once the page has been
+        // written (or the connection is gone), so closing the listener never cuts the page off.
         const pending = this.settle
         this.settle = undefined
         this.ClearTimer()
-        // The wait settles at once (the code is good whether or not the page reaches the browser);
-        // the listener closes when the page has been written.
-        if (url.searchParams.has(LoopbackRedirectReceiver.ErrorParam) || code === null || code === '')
+        const failed = url.searchParams.has(LoopbackRedirectReceiver.ErrorParam) || code === null || code === ''
+        let settled = false
+        const settle = (): void =>
         {
-            pending.reject(new AccountError(AccountErrorKind.SignInFailed))
-            this.Reply(res, LoopbackRedirectReceiver.StatusOk, LoopbackRedirectReceiver.HtmlType, LoopbackRedirectReceiver.FailedPage, () => void this.Close())
-            return
+            if (settled) return
+            settled = true
+            if (failed) pending.reject(new AccountError(AccountErrorKind.SignInFailed))
+            else pending.resolve(code as string)
+            void this.Close()
         }
-        pending.resolve(code)
-        this.Reply(res, LoopbackRedirectReceiver.StatusOk, LoopbackRedirectReceiver.HtmlType, LoopbackRedirectReceiver.DonePage, () => void this.Close())
+        res.once(LoopbackRedirectReceiver.ResponseCloseEvent, settle)
+        this.Reply(res, LoopbackRedirectReceiver.StatusOk, LoopbackRedirectReceiver.HtmlType, failed ? LoopbackRedirectReceiver.FailedPage : LoopbackRedirectReceiver.DonePage, settle)
     }
 
     // Time-out and cancel: rejects the pending wait (if any) only once the listener is closed, so a

@@ -28,32 +28,11 @@ describe('AccountError', () =>
         expect(new AccountError(AccountErrorKind.Unreachable).message).toBe('The platform could not be reached. Check the Platform address in Settings.')
         expect(new AccountError(AccountErrorKind.TimedOut).message).toBe('Sign-in was not finished in the browser. Try again.')
         expect(new AccountError(AccountErrorKind.SignedOut).message).toBe("You're signed out. Sign in and try again.")
+        expect(new AccountError(AccountErrorKind.InvalidEmail).message).toBe("That doesn't look like an email address.")
         for (const kind of Object.values(AccountErrorKind))
         {
             expect(new AccountError(kind).message.length).toBeGreaterThan(0)
         }
-    })
-})
-
-describe('AccountError.From', () =>
-{
-    it('recovers the kind from an error that kept only the message', () =>
-    {
-        for (const kind of Object.values(AccountErrorKind))
-        {
-            const copied = new Error(new AccountError(kind).message)
-            expect(AccountError.From(copied)?.Kind).toBe(kind)
-        }
-        const prefixed = new Error(`Error invoking remote method 'x': ${new AccountError(AccountErrorKind.SignedOut).message}`)
-        expect(AccountError.From(prefixed)?.Kind).toBe(AccountErrorKind.SignedOut)
-    })
-
-    it('answers the same instance for an AccountError and undefined for anything else', () =>
-    {
-        const e = new AccountError(AccountErrorKind.NoAccount)
-        expect(AccountError.From(e)).toBe(e)
-        expect(AccountError.From(new Error('boom'))).toBeUndefined()
-        expect(AccountError.From('nope')).toBeUndefined()
     })
 })
 
@@ -83,10 +62,51 @@ describe('AccountWire', () =>
         expect((caught as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
     })
 
-    it('turns any other error into Unavailable without its message', async () =>
+    it('turns any other error into Unavailable without its message, handing it to onUnexpected first', async () =>
     {
-        const reply = await AccountWire.Capture(async () => { throw new Error('C:\\secret\\path token=abc') })
+        const unexpected: unknown[] = []
+        const failure = new Error('C:\secret\path token=abc')
+        const reply = await AccountWire.Capture(async () => { throw failure }, e => unexpected.push(e))
         expect(reply).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
         expect(JSON.stringify(reply)).not.toContain('abc')
+        expect(unexpected).toEqual([failure])
+        await AccountWire.Capture(async () => { throw new AccountError(AccountErrorKind.NoAccount) }, e => unexpected.push(e))
+        expect(unexpected).toHaveLength(1)
+    })
+
+    it('round-trips through a structured clone (the IPC and context-bridge copy) for every kind', async () =>
+    {
+        const ok = structuredClone(await AccountWire.Capture(async () => ({ SignedIn: true, Email: 'a@b.c' })))
+        expect(AccountWire.Unwrap(ok)).toEqual({ SignedIn: true, Email: 'a@b.c' })
+        for (const kind of Object.values(AccountErrorKind))
+        {
+            const reply = structuredClone(await AccountWire.Capture(async () => { throw new AccountError(kind) }))
+            expect(reply).toEqual({ Ok: false, Error: { Kind: kind } })
+            let caught: unknown
+            try
+            {
+                AccountWire.Unwrap(reply)
+            }
+            catch (e)
+            {
+                caught = e
+            }
+            expect(caught).toBeInstanceOf(AccountError)
+            expect((caught as AccountError).Kind).toBe(kind)
+        }
+    })
+
+    it('rebuilds an unknown wire kind as Unavailable', () =>
+    {
+        let caught: unknown
+        try
+        {
+            AccountWire.Unwrap({ Ok: false, Error: { Kind: 'bogus' as AccountErrorKind } })
+        }
+        catch (e)
+        {
+            caught = e
+        }
+        expect((caught as AccountError).Kind).toBe(AccountErrorKind.Unavailable)
     })
 })

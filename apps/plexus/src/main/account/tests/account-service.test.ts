@@ -17,7 +17,7 @@ class ReverseEncryptor implements ITokenEncryptor
 }
 
 type Recorded = { Url: string; Method: string; Headers: Record<string, string>; Body: Record<string, unknown> | undefined }
-type Route = () => Response
+type Route = () => Response | Promise<Response>
 
 // A fetch double keyed by path. A route that is missing answers a network failure, like an
 // unreachable host.
@@ -34,7 +34,7 @@ class FakeFetch
         this.Requests.push({ Url: url, Method: init?.method ?? 'GET', Headers: headers, Body: body })
         const route = this.Routes.get(new URL(url).pathname)
         if (route === undefined) throw new TypeError('fetch failed')
-        return route()
+        return await route()
     }
 
     public static Json(status: number, body: unknown): Response
@@ -76,6 +76,13 @@ class FakeReceiver implements IRedirectReceiver
     }
 
     public async Close(): Promise<void> { this.Closed++ }
+}
+
+// A promise the test releases by hand, to hold a request in flight.
+class Gate
+{
+    public Release: () => void = () => undefined
+    public readonly Opened = new Promise<void>(resolve => { this.Release = resolve })
 }
 
 class Harness
@@ -160,6 +167,12 @@ describe('AccountService', () =>
         expect(await Caught.Kind(h.Service.Discover(Harness.Platform, 'x@y.z'))).toBe(AccountErrorKind.Unavailable)
     })
 
+    it('maps a malformed email (400) to InvalidEmail', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(400, { error: 'invalid-email' }))
+        expect(await Caught.Kind(h.Service.Discover(Harness.Platform, 'nope'))).toBe(AccountErrorKind.InvalidEmail)
+    })
+
     it('refuses a cleartext non-loopback Platform address without dialing it', async () =>
     {
         expect(await Caught.Kind(h.Service.Discover('http://p.example', 'x@y.z'))).toBe(AccountErrorKind.Unreachable)
@@ -231,6 +244,69 @@ describe('AccountService', () =>
         expect(await signIn).toBe(AccountErrorKind.Cancelled)
         expect(h.Receiver.Cancelled).toBe(true)
         expect(h.Receiver.Closed).toBe(1)
+    })
+
+    it('cancel during discovery: no browser, no Begin, kind Cancelled', async () =>
+    {
+        const gate = new Gate()
+        h.Fetch.Routes.set('/api/desktop/discover', async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(200, { tenants: [{ id: 't1', displayName: 'Acme' }], tenantPlaneUrl: Harness.Plane })
+        })
+        const signIn = Caught.Kind(h.SignIn())
+        while (h.Fetch.To('/api/desktop/discover').length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.CancelSignIn()
+        gate.Release()
+        expect(await signIn).toBe(AccountErrorKind.Cancelled)
+        expect(h.Opened).toEqual([])
+        expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
+        expect(h.Receiver.Closed).toBe(1)
+    })
+
+    it('cancel during an in-flight Begin (also the will-quit path): no browser, kind Cancelled', async () =>
+    {
+        const gate = new Gate()
+        h.Fetch.Routes.set('/desktop/sign-in/begin', async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(200, { authorizeUrl: Harness.Authorize })
+        })
+        const signIn = Caught.Kind(h.SignIn())
+        while (h.Fetch.To('/desktop/sign-in/begin').length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.CancelSignIn()
+        gate.Release()
+        expect(await signIn).toBe(AccountErrorKind.Cancelled)
+        expect(h.Opened).toEqual([])
+        expect(h.Receiver.ExpectedState).toBeUndefined()
+        expect(h.Receiver.Closed).toBe(1)
+        expect(await h.Service.State()).toEqual({ SignedIn: false })
+    })
+
+    it('cancel reports Cancelled even when the in-flight step then fails', async () =>
+    {
+        const gate = new Gate()
+        h.Fetch.Routes.set('/desktop/sign-in/begin', async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(503, { error: 'unavailable' })
+        })
+        const signIn = Caught.Kind(h.SignIn())
+        while (h.Fetch.To('/desktop/sign-in/begin').length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.CancelSignIn()
+        gate.Release()
+        expect(await signIn).toBe(AccountErrorKind.Cancelled)
+    })
+
+    it('treats a complete answer missing tenant fields as SignInFailed', async () =>
+    {
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'secret-token-x', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: '' }))
+        expect(await Caught.Kind(h.SignIn())).toBe(AccountErrorKind.SignInFailed)
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'secret-token-x', expiresAt: '', tenantId: 't1', tenantName: 'Acme' }))
+        expect(await Caught.Kind(h.SignIn())).toBe(AccountErrorKind.SignInFailed)
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'secret-token-x', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: '', tenantName: 'Acme' }))
+        expect(await Caught.Kind(h.SignIn())).toBe(AccountErrorKind.SignInFailed)
+        expect(await h.Service.State()).toEqual({ SignedIn: false })
     })
 
     it('maps a refused complete to SignInFailed', async () =>
@@ -332,6 +408,18 @@ describe('AccountService', () =>
             t1: { contribute: { Environment: 'dev', GraphName: 'main' }, publish: { Environment: 'prod' } },
             t2: { publish: { Environment: 'g-prod' } },
         })
+    })
+
+    it('concurrent RememberChoice calls both land', async () =>
+    {
+        await h.SignIn()
+        await Promise.all([
+            h.Service.RememberChoice(TargetKind.Publish, { Environment: 'prod' }),
+            h.Service.RememberChoice(TargetKind.Contribute, { Environment: 'dev', GraphName: 'g' }),
+            h.Service.RememberChoice(TargetKind.Publish, { Environment: 'prod-2' }),
+        ])
+        expect(await h.Service.LastChoice(TargetKind.Publish)).toEqual({ Environment: 'prod-2' })
+        expect(await h.Service.LastChoice(TargetKind.Contribute)).toEqual({ Environment: 'dev', GraphName: 'g' })
     })
 
     it('LastChoice is undefined and RememberChoice is SignedOut when signed out', async () =>

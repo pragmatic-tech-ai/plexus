@@ -84,6 +84,7 @@ describe('LoopbackRedirectReceiver', () =>
         const outcome = code.catch(e => e)
         const res = await fetch(`${RedirectUri}?state=s&error=access_denied`)
         expect(res.status).toBe(200)
+        expect(await res.text()).toContain('Sign-in did not finish.')
         const e = await outcome
         expect(e).toBeInstanceOf(AccountError)
         expect((e as AccountError).Kind).toBe(AccountErrorKind.SignInFailed)
@@ -117,13 +118,31 @@ describe('LoopbackRedirectReceiver', () =>
         expect(await Probe.Accepts(Probe.PortOf(RedirectUri))).toBe(false)
     })
 
-    it('Close is safe to call repeatedly and before Start', async () =>
+    it('Cancel before Start: Start and WaitForCode reject Cancelled and nothing listens', async () =>
     {
         receiver = new LoopbackRedirectReceiver()
+        receiver.Cancel()
+        await expect(receiver.Start()).rejects.toMatchObject({ Kind: AccountErrorKind.Cancelled })
+        await expect(receiver.WaitForCode('s')).rejects.toMatchObject({ Kind: AccountErrorKind.Cancelled })
+    })
+
+    it('WaitForCode on a closed receiver rejects Cancelled', async () =>
+    {
+        receiver = new LoopbackRedirectReceiver()
+        await receiver.Start()
         await receiver.Close()
+        const e = await receiver.WaitForCode('s').catch(x => x)
+        expect(e).toBeInstanceOf(AccountError)
+        expect((e as AccountError).Kind).toBe(AccountErrorKind.Cancelled)
+    })
+
+    it('Close is safe to call repeatedly, and on a receiver never started', async () =>
+    {
+        receiver = new LoopbackRedirectReceiver()
         const { RedirectUri } = await receiver.Start()
         await receiver.Close()
         await receiver.Close()
+        await new LoopbackRedirectReceiver().Close()
         expect(await Probe.Accepts(Probe.PortOf(RedirectUri))).toBe(false)
     })
 })
