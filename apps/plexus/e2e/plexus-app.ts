@@ -153,8 +153,11 @@ export interface Launched
 // renderer console.error + uncaught page errors into `errors`.
 export async function launchPlexus(): Promise<Launched>
 {
-    const env = { ...process.env }
-    delete env.ELECTRON_RUN_AS_NODE
+    const env: Record<string, string> = {}
+    for (const [name, value] of Object.entries(process.env))
+    {
+        if (value !== undefined && name !== 'ELECTRON_RUN_AS_NODE') env[name] = value
+    }
     const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN], cwd: PLEXUS_ROOT, env })
     const win = await app.firstWindow()
     const errors: string[] = []

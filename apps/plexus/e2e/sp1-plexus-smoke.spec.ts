@@ -8,10 +8,21 @@
 // selection prompt and the completion dialog are stubbed on the real command instance so
 // the run is non-interactive; everything else (scaffold, concept UI generation, the
 // html-bundle-remote build, the IPC deploy over PragmaticClient.DeployApplication) is real.
+//
+// Desktop sign-in: publish goes through the tenant-plane relay with the app's account session, so
+// after launch the spec signs Plexus in with ScriptedDesktopSignIn (no real browser; see
+// scripted-desktop-sign-in.ts). The account must own SP1_ENVIRONMENT. Without these the spec skips,
+// naming them:
+//   PLEXUS_E2E_OWNER_EMAIL          the account's email
+//   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding its password (read, never printed)
+// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the app's account.platformAddress setting,
+// http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several),
+// PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
 import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import { launchPlexus, seedSession, MAIN, ELECTRON_EXE } from './plexus-app'
+import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
 
 const GATE = process.env.SP1_SMOKE === '1'
 const PROJECT_DIR = process.env.SP1_PROJECT_DIR ?? 'C:/tmp/sp1-smoke/project'
@@ -22,7 +33,7 @@ const CONCEPT = 'sp1.task'
 test.describe('SP1 Plexus smoke', () =>
 {
     test.skip(!GATE, 'set SP1_SMOKE=1 to run')
-    test.skip(true, 'needs a desktop sign-in (contribute/publish go through the tenant-plane relay with the account session; no scripted browser sign-in yet)')
+    test.skip(!ScriptedDesktopSignIn.IsConfigured(), ScriptedDesktopSignIn.SkipMessage)
     test.setTimeout(300_000)
 
     test('author -> generate UI -> publish to tenant', async () =>
@@ -33,6 +44,10 @@ test.describe('SP1 Plexus smoke', () =>
         const l = await launchPlexus()
         try
         {
+            // 0) Sign the app in to the account (scripted: no browser) so publish runs through the
+            //    relay with a real desktop session.
+            await ScriptedDesktopSignIn.FromEnvironment().SignIn(l.app, l.win)
+
             // 1) Wait for the restored project to resolve into the active solution, then run
             //    scaffold -> Generate UI on the real service objects.
             const gen = await l.win.evaluate(
@@ -145,8 +160,9 @@ test.describe('SP1 Plexus smoke', () =>
                     catch (e) { state.publishError = String((e as any)?.stack ?? e); state.log.push('publish:error'); throw e }
                 }
                 // The environment picker (ITargetPicker) is stubbed to choose `environment` at once
-                // ('chosen' is TargetPickOutcome.Chosen) and never ask to sign in; publish(member, bind)
-                // is TS-private, reachable at runtime.
+                // ('chosen' is TargetPickOutcome.Chosen); the account is really signed in (step 0), so
+                // it never needs to ask for a sign-in. publish(member, bind) is TS-private, reachable
+                // at runtime.
                 pub.picker = { Show: async () => ({ Outcome: 'chosen', Choice: { Environment: environment } }), RequestSignIn: async () => false }
                 pub.publish(member, 'application').catch((e: unknown) => { state.invokeError = String(e) })
             }, ENVIRONMENT)

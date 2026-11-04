@@ -13,6 +13,16 @@
 //
 // Secret hygiene: maker/admin/deploy tokens and account passwords flow only into the real app's
 // Configure surfaces and the auth endpoints; they are NEVER passed to console/log/test output.
+//
+// Desktop sign-in: contribute and publish go through the tenant-plane relay with the app's account
+// session, so after launch the spec signs Plexus in with ScriptedDesktopSignIn (no real browser; see
+// scripted-desktop-sign-in.ts). The account must own the dev and runtime environments the
+// orchestrator creates. Without these the spec skips, naming them:
+//   PLEXUS_E2E_OWNER_EMAIL          the account's email
+//   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding its password (read, never printed)
+// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the app's account.platformAddress setting,
+// http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several),
+// PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
 import { test, expect, type Page, type JSHandle } from '@playwright/test'
 import { chromium, type Browser, type BrowserContext } from 'playwright'
 import { existsSync, mkdtempSync, cpSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -24,6 +34,7 @@ import { launchPlexus, seedSession, MAIN, ELECTRON_EXE, type Launched } from './
 import { ContosoFixture, CatalogFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
 import { OrchestratorClient, RuntimeEnvGraphReader, type DevDescriptor, type RuntimeDescriptor } from './support/orchestrator-client'
+import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
 
 // Result of resolving + driving the real Generate-UI command on the Contoso project row.
 interface GenerateOutcome
@@ -237,7 +248,7 @@ class RendererOps
     }
 
     // Drives the real Publish-env command (html-bundle-remote build with RemoteBindMode.Environment ->
-    // IPC deploy through the tenant-plane relay) with the environment picker stubbed to choose `environment`. Mirrors sp1-plexus-smoke: wrap the build
+    // IPC deploy through the tenant-plane relay, with the real signed-in session) with the environment picker stubbed to choose `environment`. Mirrors sp1-plexus-smoke: wrap the build
     // service + publisher to capture outcomes into a window state object, invoke, then wait for a
     // terminal signal. `bind` is RemoteBindMode.Environment (the `tenant.publish-env` path).
     public static async PublishEnv(win: Page, environment: string, projectMatch: string, bind: RemoteBindMode): Promise<PublishOutcome>
@@ -252,7 +263,8 @@ class RendererOps
                 const pub = H.byCtor(svc[p.registryName].For(p.projectFamily) ?? [], p.publishContributorName)
                 const state: any = (window as any)[p.stateKey] = {}
                 // The environment picker (ITargetPicker) is stubbed: it chooses the environment at
-                // once ('chosen' is TargetPickOutcome.Chosen) and never asks to sign in.
+                // once ('chosen' is TargetPickOutcome.Chosen). The account is really signed in (the
+                // spec's scripted desktop sign-in), so the picker never needs to ask for a sign-in.
                 pub.picker = { Show: async () => ({ Outcome: 'chosen', Choice: { Environment: p.environment } }), RequestSignIn: async () => false }
 
                 const origBuild = pub.buildService.Build.bind(pub.buildService)
@@ -563,7 +575,7 @@ const UpdatedProductName = 'Updated Postgres Widget'
 
 test.describe('runtime publishing live loop', () => {
     test.skip(process.env[GateEnv] !== GateValue, `set ${GateEnv}=${GateValue} to run`)
-    test.skip(true, 'needs a desktop sign-in (contribute/publish go through the tenant-plane relay with the account session; no scripted browser sign-in yet)')
+    test.skip(!ScriptedDesktopSignIn.IsConfigured(), ScriptedDesktopSignIn.SkipMessage)
     test.setTimeout(900_000)
 
     test('real app contribute -> promote -> publish-env -> browser read', async () => {
@@ -586,6 +598,12 @@ test.describe('runtime publishing live loop', () => {
             l = await launchPlexus()
             const origin = await WindowPlacer.PlaceOnSecondMonitor(l, process.env[WindowOriginEnv])
             await RendererOps.InstallHelpers(l.win)
+
+            // Step 2b: sign the app in to the account (scripted: no browser) so contribute/publish
+            // run through the relay with a real desktop session.
+            await test.step('desktop sign-in', async () => {
+                await ScriptedDesktopSignIn.FromEnvironment().SignIn(l!.app, l!.win)
+            })
 
             // Step 3: open Contoso (seeded above) + Generate UI for the entrypoint concept.
             await test.step('Generate UI', async () => {
