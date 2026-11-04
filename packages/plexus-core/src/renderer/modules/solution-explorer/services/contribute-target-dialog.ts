@@ -12,7 +12,6 @@ enum ContributeTargetProperty
     Graphs = 'Graphs',
     HasGraphs = 'HasGraphs',
     SelectedGraph = 'SelectedGraph',
-    CanContribute = 'CanContribute',
 }
 
 // "Contribute to graph": one of the account's Development environments and one of its graphs. The
@@ -54,18 +53,10 @@ export class ContributeTargetDialog extends TargetDialog
         this.RefreshCanConfirm()
     }
 
-    // Signed in, a running environment and one of its graphs chosen.
-    public get CanContribute(): boolean { return this.IsReady() }
-
+    // Signed in, a running environment and one of its graphs chosen (ConfirmCommand's CanExecute).
     protected override IsReady(): boolean
     {
         return super.IsReady() && this.selectedGraph !== undefined
-    }
-
-    protected override RefreshCanConfirm(): void
-    {
-        super.RefreshCanConfirm()
-        this.RaisePropertyChanged(ContributeTargetProperty.CanContribute, undefined, this.CanContribute)
     }
 
     protected TargetsFor(targets: AccountTargets): readonly EnvironmentTarget[]

@@ -34,7 +34,7 @@ describe('ContributeTargetDialog', () =>
         await h.Open()
         expect(h.Dialog.Message).toBe('Sign in to contribute to an environment.')
         expect(h.Dialog.NeedsSignIn).toBe(true)
-        expect(h.Dialog.CanContribute).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
         expect(h.Account.TargetsCalls).toBe(0)
         h.Dialog.SignInCommand.Execute()
         await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.SignIn })
@@ -70,7 +70,7 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.NeedsSignIn).toBe(false)
         expect(h.Dialog.Environments.map((e) => e.Name)).toEqual(['dev'])
         expect(h.Dialog.SelectedGraph).toBe('main')
-        expect(h.Dialog.CanContribute).toBe(true)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
     })
 
     it('says when the account has no development environments', async () =>
@@ -79,7 +79,7 @@ describe('ContributeTargetDialog', () =>
         await h.Open()
         expect(h.Dialog.Message).toBe('Your account has no development environments to contribute to.')
         expect(h.Dialog.NeedsSignIn).toBe(false)
-        expect(h.Dialog.CanContribute).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
     })
 
     it('says a selected stopped environment cannot take a contribution', async () =>
@@ -89,7 +89,7 @@ describe('ContributeTargetDialog', () =>
         h.Graphs.Graphs = { dev: ['main'] }
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment is stopped. Start it from the tenant console.')
-        expect(h.Dialog.CanContribute).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
         expect(h.Graphs.Listed).toEqual([])
     })
 
@@ -101,7 +101,7 @@ describe('ContributeTargetDialog', () =>
             h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: status }], Publish: [] }
             await h.Open()
             expect(h.Dialog.Message).toBe('This environment is not running. Check it in the tenant console.')
-            expect(h.Dialog.CanContribute).toBe(false)
+            expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
         }
     })
 
@@ -127,7 +127,7 @@ describe('ContributeTargetDialog', () =>
         h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment has no graphs yet. Create one in the tenant console.')
-        expect(h.Dialog.CanContribute).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
     })
 
     it('pre-selects the last choice and reloads the graphs when the environment changes', async () =>
@@ -143,7 +143,7 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.SelectedEnvironment?.Name).toBe('dev')
         expect(h.Dialog.Graphs).toEqual(['main', 'second'])
         expect(h.Dialog.SelectedGraph).toBe('second')
-        expect(h.Dialog.CanContribute).toBe(true)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         h.Dialog.SelectedEnvironment = h.Dialog.Environments[0]
         await FakePickerDialogs.Flush()
         expect(h.Graphs.Listed).toEqual(['dev', 'alpha'])
@@ -199,7 +199,7 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.Environments.map((e) => e.Name)).toEqual(['dev'])
         expect(h.Dialog.SelectedGraph).toBe('main')
         expect(h.Dialog.IsBusy).toBe(false)
-        expect(h.Dialog.CanContribute).toBe(true)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         h.Dialog.ConfirmCommand.Execute()
         await expect(second).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', GraphName: 'main' } })
     })
@@ -246,5 +246,22 @@ describe('ContributeTargetDialog', () =>
         h.Account.SetState({ SignedIn: true })
         await FakePickerDialogs.Flush()
         expect(h.Account.TargetsCalls).toBe(0)
+    })
+    it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Contribute button follows it', async () =>
+    {
+        const h = new ContributeDialogHarness(false)
+        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Graphs.Graphs = { dev: ['main'] }
+        const seen: boolean[] = []
+        h.Dialog.ConfirmCommand.AddCanExecuteChangedListener(() => seen.push(h.Dialog.ConfirmCommand.CanExecute(undefined)))
+        await h.Open()
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
+        h.Account.SetState({ SignedIn: true, Email: 'ann@acme.test' })
+        await FakePickerDialogs.Flush()
+        expect(seen.at(-1)).toBe(true)
+        h.Dialog.SelectedGraph = undefined
+        expect(seen.at(-1)).toBe(false)
+        h.Dialog.SelectedGraph = 'main'
+        expect(seen.at(-1)).toBe(true)
     })
 })

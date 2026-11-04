@@ -5,13 +5,8 @@ import {
 } from '../../../../shared/account-api.js'
 import { TargetDialog, type EnvironmentChoice } from './target-dialog.js'
 
-// The bindable property name the publish picker adds.
-enum PublishTargetProperty
-{
-    CanPublish = 'CanPublish',
-}
-
-// "Publish to tenant": one of the account's Runtime environments.
+// "Publish to tenant": one of the account's Runtime environments. ConfirmCommand can execute once
+// signed in with a running environment chosen (TargetDialog.IsReady).
 export class PublishTargetDialog extends TargetDialog
 {
     private static readonly DialogTitle = 'Publish to tenant'
@@ -27,15 +22,6 @@ export class PublishTargetDialog extends TargetDialog
     protected get Kind(): TargetKind { return TargetKind.Publish }
     protected get SignInSentence(): string { return PublishTargetDialog.SignIn }
     protected get NoEnvironmentsSentence(): string { return PublishTargetDialog.NoEnvironments }
-
-    // Signed in and a running environment chosen.
-    public get CanPublish(): boolean { return this.IsReady() }
-
-    protected override RefreshCanConfirm(): void
-    {
-        super.RefreshCanConfirm()
-        this.RaisePropertyChanged(PublishTargetProperty.CanPublish, undefined, this.CanPublish)
-    }
 
     protected TargetsFor(targets: AccountTargets): readonly EnvironmentTarget[]
     {

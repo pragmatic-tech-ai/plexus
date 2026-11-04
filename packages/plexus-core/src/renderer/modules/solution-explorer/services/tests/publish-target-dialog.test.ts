@@ -33,7 +33,7 @@ describe('PublishTargetDialog', () =>
         await h.Open()
         expect(h.Dialog.Message).toBe('Sign in to publish to an environment.')
         expect(h.Dialog.NeedsSignIn).toBe(true)
-        expect(h.Dialog.CanPublish).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
         h.Dialog.SignInCommand.Execute()
         await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.SignIn })
     })
@@ -53,7 +53,7 @@ describe('PublishTargetDialog', () =>
         h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
         await h.Open()
         expect(h.Dialog.Message).toBe('Your account has no runtime environments to publish to.')
-        expect(h.Dialog.CanPublish).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
     })
 
     it('says a selected stopped environment cannot be published to', async () =>
@@ -62,7 +62,7 @@ describe('PublishTargetDialog', () =>
         h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: TargetStatus.Stopped }] }
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment is stopped. Start it from the tenant console.')
-        expect(h.Dialog.CanPublish).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
         expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['prod (stopped)'])
     })
 
@@ -74,7 +74,7 @@ describe('PublishTargetDialog', () =>
             h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: status }] }
             await h.Open()
             expect(h.Dialog.Message).toBe('This environment is not running. Check it in the tenant console.')
-            expect(h.Dialog.CanPublish).toBe(false)
+            expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
         }
     })
 
@@ -90,10 +90,24 @@ describe('PublishTargetDialog', () =>
         const shown = h.Shown
         expect(h.Dialogs.Shown.map((s) => s.Title)).toEqual(['Publish to tenant'])
         expect(h.Dialog.SelectedEnvironment?.Name).toBe('stage')
-        expect(h.Dialog.CanPublish).toBe(true)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         expect(h.Dialog.Message).toBe('')
         h.Dialog.ConfirmCommand.Execute()
         await expect(shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'stage' } })
         expect(h.Account.Remembered).toEqual([[TargetKind.Publish, { Environment: 'stage' }]])
+    })
+    it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Publish button follows it', async () =>
+    {
+        const h = new PublishDialogHarness(false)
+        h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: TargetStatus.Running }] }
+        const seen: boolean[] = []
+        h.Dialog.ConfirmCommand.AddCanExecuteChangedListener(() => seen.push(h.Dialog.ConfirmCommand.CanExecute(undefined)))
+        await h.Open()
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
+        h.Account.SetState({ SignedIn: true, Email: 'ann@acme.test' })
+        await FakePickerDialogs.Flush()
+        expect(seen.at(-1)).toBe(true)
+        h.Dialog.SelectedEnvironment = undefined
+        expect(seen.at(-1)).toBe(false)
     })
 })

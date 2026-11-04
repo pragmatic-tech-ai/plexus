@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@pragmatic-tech-ai/mural": "^0.66.0",
+    "@pragmatic-tech-ai/mural": "^0.66.2",
     "@pragmatic-tech-ai/plexus-core": "*",
     "@pragmatic-tech-ai/pragmatic-protocol": "file:../../../pragmatic-protocol",
     "@pragmatic-tech-ai/todl": "^0.51.2",
@@ -52,7 +52,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@playwright/test": "^1.62.1",
     "@pragmatic-tech-ai/fresco": "^0.4.6",
-    "@pragmatic-tech-ai/mural": "^0.66.0",
+    "@pragmatic-tech-ai/mural": "^0.66.2",
     "electron": "43.7.5",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
