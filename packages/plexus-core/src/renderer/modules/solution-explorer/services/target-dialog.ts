@@ -7,10 +7,72 @@ import {
     type AccountTargets, type EnvironmentTarget, type TargetChoice, type TargetKind,
 } from '../../../../shared/account-api.js'
 
-// Asks the maker where a contribute or publish goes. Resolves the choice, or undefined on cancel.
+// How a picker closed.
+export enum TargetPickOutcome
+{
+    Chosen = 'chosen',
+    Cancelled = 'cancelled',
+    // The maker pressed Sign in: the picker closed so the account dialog can open in its place.
+    SignIn = 'sign-in',
+}
+
+export type TargetPick =
+    | { Outcome: TargetPickOutcome.Chosen; Choice: TargetChoice }
+    | { Outcome: TargetPickOutcome.Cancelled | TargetPickOutcome.SignIn }
+
+// Asks the maker where a contribute or publish goes.
 export interface ITargetPicker
 {
-    Show(): Promise<TargetChoice | undefined>;
+    Show(): Promise<TargetPick>;
+    // Opens the account dialog; resolves once it closes, true when the account is then signed in.
+    RequestSignIn(): Promise<boolean>;
+}
+
+// The contributors' use of a picker: show it; when the maker asks to sign in, wait for the account
+// dialog and show the picker again if they are now signed in (else stop quietly).
+export class TargetPickerFlow
+{
+    public static async Choose(picker: ITargetPicker): Promise<TargetChoice | undefined>
+    {
+        for (;;)
+        {
+            const pick = await picker.Show()
+            if (pick.Outcome === TargetPickOutcome.Chosen) return pick.Choice
+            if (pick.Outcome === TargetPickOutcome.Cancelled) return undefined
+            if (!await picker.RequestSignIn()) return undefined
+        }
+    }
+}
+
+// One environment offered in the picker. Label is the ComboBox display text (mural's ComboBox shows
+// an item's Label): the name, with the status when it is not running.
+export class EnvironmentChoice extends Observable
+{
+    private static readonly StatusSuffixes: Readonly<Record<TargetStatus, string>> = {
+        [TargetStatus.Running]: '',
+        [TargetStatus.Stopped]: ' (stopped)',
+        [TargetStatus.Failed]: ' (failed)',
+        [TargetStatus.Unknown]: ' (status unknown)',
+    }
+
+    public constructor(public readonly Target: EnvironmentTarget)
+    {
+        super()
+    }
+
+    public get Name(): string { return this.Target.Name }
+    public get Status(): TargetStatus { return this.Target.Status }
+    public get IsRunning(): boolean { return this.Target.Status === TargetStatus.Running }
+
+    public get Label(): string
+    {
+        return `${this.Target.Name}${EnvironmentChoice.StatusSuffixes[this.Target.Status] ?? ''}`
+    }
+
+    public toString(): string
+    {
+        return this.Label
+    }
 }
 
 // The bindable property names a target picker raises PropertyChanged for.
@@ -28,15 +90,21 @@ export enum TargetDialogProperty
 
 // The environment picker both actions share: the signed-in account's environments for one action
 // (TargetKind), the last choice pre-selected, and one plain sentence for whatever stops the action.
-// Signed out, it offers a Sign in button that asks the account module to open its dialog
-// (IAccountService.RequestSignIn); while open it reloads whenever the account changes. Only an
-// AccountError or RelayError sentence (or one fixed sentence) is ever shown as Message.
+// Signed out, it offers a Sign in button that closes the picker with the SignIn outcome (DialogService
+// shows one dialog at a time; TargetPickerFlow opens the account dialog and re-shows the picker).
+// While open it reloads whenever the account changes. Only an AccountError or RelayError sentence
+// (or one fixed sentence) is ever shown as Message.
 export abstract class TargetDialog extends Observable implements ITargetPicker
 {
     private static readonly Unexpected = 'Something went wrong. Try again.'
     private static readonly Stopped = 'This environment is stopped. Start it from the tenant console.'
     private static readonly NotRunning = 'This environment is not running. Check it in the tenant console.'
     private static readonly RememberFailedLog = 'TargetDialog: remembering the chosen environment failed:'
+    private static readonly CancelledPick: TargetPick = { Outcome: TargetPickOutcome.Cancelled }
+    private static readonly SignInPick: TargetPick = { Outcome: TargetPickOutcome.SignIn }
+    // The ComboBoxes stretch, so without a width the dialog would take the whole window (as
+    // InfoDialog and the connection editor, the width is set here, never in .mu).
+    private static readonly DialogWidth = 420
 
     protected readonly account: IAccountService
     private readonly dialogs: DialogService
@@ -44,8 +112,8 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
     private readonly cancelCommand: RelayCommand
     private readonly confirmCommand: RelayCommand
 
-    private environments: EnvironmentTarget[] = []
-    private selectedEnvironment: EnvironmentTarget | undefined = undefined
+    private environments: EnvironmentChoice[] = []
+    private selectedEnvironment: EnvironmentChoice | undefined = undefined
     private message = ''
     private needsSignIn = false
     private isBusy = false
@@ -53,14 +121,16 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
     // Bumped by every load and on close, so an answer arriving after a newer load (or after the
     // picker closed) is dropped.
     private generation = 0
+    // Bumped by every Show, so a superseded Show's cleanup leaves the newer one's load alone.
+    private showSerial = 0
 
     protected constructor(account: IAccountService, dialogs: DialogService)
     {
         super()
         this.account = account
         this.dialogs = dialogs
-        this.signInCommand = new RelayCommand(() => this.account.RequestSignIn())
-        this.cancelCommand = new RelayCommand(() => this.dialogs.Close(undefined))
+        this.signInCommand = new RelayCommand(() => this.dialogs.Close(TargetDialog.SignInPick))
+        this.cancelCommand = new RelayCommand(() => this.dialogs.Close(TargetDialog.CancelledPick))
         this.confirmCommand = new RelayCommand(() => this.Confirm(), () => this.IsReady())
     }
 
@@ -72,11 +142,11 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
     protected abstract get SignInSentence(): string
     protected abstract get NoEnvironmentsSentence(): string
 
-    public get Environments(): readonly EnvironmentTarget[] { return this.environments }
+    public get Environments(): readonly EnvironmentChoice[] { return this.environments }
     public get HasEnvironments(): boolean { return this.environments.length > 0 }
 
-    public get SelectedEnvironment(): EnvironmentTarget | undefined { return this.selectedEnvironment }
-    public set SelectedEnvironment(value: EnvironmentTarget | undefined)
+    public get SelectedEnvironment(): EnvironmentChoice | undefined { return this.selectedEnvironment }
+    public set SelectedEnvironment(value: EnvironmentChoice | undefined)
     {
         if (value === this.selectedEnvironment) return
         const old = this.selectedEnvironment
@@ -97,37 +167,48 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
     public get CancelCommand(): ICommand { return this.cancelCommand }
     public get ConfirmCommand(): ICommand { return this.confirmCommand }
 
-    // Opens the picker on DialogService and loads the targets; resolves the confirmed choice.
-    public async Show(): Promise<TargetChoice | undefined>
+    // Opens the picker on DialogService and loads the targets; resolves how it closed (a close by
+    // the dialog's X, the scrim or a newer dialog reads as Cancelled).
+    public async Show(): Promise<TargetPick>
     {
+        const show = ++this.showSerial
         const changed: IDisposable = this.account.Changed.subscribe(() => { void this.Load() })
-        const shown = this.dialogs.Show<TargetChoice>({ Title: this.Title, Content: this })
+        const shown = this.dialogs.Show<TargetPick>({ Title: this.Title, Content: this, Width: TargetDialog.DialogWidth })
         void this.Load()
         try
         {
-            return await shown
+            return (await shown) ?? TargetDialog.CancelledPick
         }
         finally
         {
             changed.dispose()
-            this.generation++
+            if (show === this.showSerial)
+            {
+                this.generation++
+                this.SetBusy(false)
+            }
         }
+    }
+
+    public RequestSignIn(): Promise<boolean>
+    {
+        return this.account.RequestSignIn()
     }
 
     // A signed-in, running environment is chosen (and whatever else the action needs).
     protected IsReady(): boolean
     {
-        return !this.needsSignIn && !this.isBusy && this.selectedEnvironment?.Status === TargetStatus.Running
+        return !this.needsSignIn && !this.isBusy && this.selectedEnvironment?.IsRunning === true
     }
 
     // The account's environments for this action.
     protected abstract TargetsFor(targets: AccountTargets): readonly EnvironmentTarget[]
 
     // The choice the confirm button resolves; undefined while not ready.
-    protected abstract ChoiceFor(environment: EnvironmentTarget): TargetChoice | undefined
+    protected abstract ChoiceFor(environment: EnvironmentChoice): TargetChoice | undefined
 
     // A new environment was selected (load is the generation it belongs to).
-    protected OnEnvironmentSelected(_environment: EnvironmentTarget | undefined, _load: number): void
+    protected OnEnvironmentSelected(_environment: EnvironmentChoice | undefined, _load: number): void
     {
     }
 
@@ -180,9 +261,9 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
         return error instanceof AccountError || error instanceof RelayError ? error.message : TargetDialog.Unexpected
     }
 
-    private static StatusSentence(environment: EnvironmentTarget | undefined): string
+    private static StatusSentence(environment: EnvironmentChoice | undefined): string
     {
-        if (environment === undefined || environment.Status === TargetStatus.Running) return ''
+        if (environment === undefined || environment.IsRunning) return ''
         return environment.Status === TargetStatus.Stopped ? TargetDialog.Stopped : TargetDialog.NotRunning
     }
 
@@ -194,6 +275,8 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
     private async Load(): Promise<void>
     {
         const load = ++this.generation
+        // A load still in flight was just superseded: its busy flag is this load's to set.
+        this.SetBusy(false)
         this.SetEnvironments([])
         this.SelectedEnvironment = undefined
         if (!this.account.State.SignedIn)
@@ -222,7 +305,7 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
         }
         if (!this.IsCurrent(load)) return
         this.SetBusy(false)
-        const environments = [...this.TargetsFor(targets)]
+        const environments = this.TargetsFor(targets).map((t) => new EnvironmentChoice(t))
         this.SetEnvironments(environments)
         if (environments.length === 0)
         {
@@ -235,6 +318,7 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
 
     private ShowSignedOut(): void
     {
+        this.SetBusy(false)
         this.SetEnvironments([])
         this.SelectedEnvironment = undefined
         this.SetNeedsSignIn(true)
@@ -248,10 +332,10 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
         const choice = this.ChoiceFor(environment)
         if (choice === undefined) return
         this.account.RememberChoice(this.Kind, choice).catch((e: unknown) => console.warn(TargetDialog.RememberFailedLog, TargetDialog.ErrorName(e)))
-        this.dialogs.Close(choice)
+        this.dialogs.Close({ Outcome: TargetPickOutcome.Chosen, Choice: choice } satisfies TargetPick)
     }
 
-    private SetEnvironments(value: EnvironmentTarget[]): void
+    private SetEnvironments(value: EnvironmentChoice[]): void
     {
         if (value.length === 0 && this.environments.length === 0) return
         const old = this.environments

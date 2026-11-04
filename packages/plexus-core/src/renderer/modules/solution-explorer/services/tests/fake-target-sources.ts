@@ -1,17 +1,33 @@
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
-import type { IAccountService } from '../../../account/account-service.js'
+import { SignInRequest, type IAccountService } from '../../../account/account-service.js'
 import type { IGraphContributor } from '../../../graph-contribute/graph-contributor.js'
 import type {
     AccountState, AccountTargets, DiscoveredTenant, TargetChoice, TargetKind,
 } from '../../../../../shared/account-api.js'
 import type { ContributedPackage, GraphContributeResult } from '../../../../../shared/graph-contribute-api.js'
+import { TargetPickOutcome, type ITargetPicker, type TargetPick } from '../target-dialog.js'
+
+// A pending promise the test settles by hand.
+export class Gate<T>
+{
+    public readonly Promise: Promise<T>
+    public Resolve!: (value: T) => void
+
+    public constructor()
+    {
+        this.Promise = new Promise<T>((resolve) => { this.Resolve = resolve })
+    }
+}
 
 // An in-memory IAccountService for the target pickers: answers Targets / LastChoice from fields
-// (or throws TargetsError) and records RememberChoice / RequestSignIn.
+// (or throws TargetsError, or waits on TargetsGate) and records RememberChoice / RequestSignIn.
+// RequestSignIn resolves SignInResult (the account dialog closing).
 export class FakeTargetAccount implements IAccountService
 {
     public readonly Changed = new Signal<void>()
-    public readonly SignInRequested = new Signal<void>()
+    public readonly SignInRequested = new Signal<SignInRequest>()
+    public SignInResult = false
+    public TargetsGate: Gate<void> | undefined = undefined
     public TargetList: AccountTargets = { Contribute: [], Publish: [] }
     public TargetsError: unknown = undefined
     public Last: Partial<Record<TargetKind, TargetChoice>> = {}
@@ -42,9 +58,10 @@ export class FakeTargetAccount implements IAccountService
     {
     }
 
-    public RequestSignIn(): void
+    public async RequestSignIn(): Promise<boolean>
     {
-        this.SignInRequested.emit()
+        this.SignInRequested.emit(new SignInRequest())
+        return this.SignInResult
     }
 
     public async Discover(_platformUrl: string, _email: string): Promise<DiscoveredTenant[]>
@@ -67,6 +84,7 @@ export class FakeTargetAccount implements IAccountService
     public async Targets(): Promise<AccountTargets>
     {
         this.TargetsCalls++
+        if (this.TargetsGate !== undefined) await this.TargetsGate.Promise
         if (this.TargetsError !== undefined) throw this.TargetsError
         return this.TargetList
     }
@@ -87,6 +105,7 @@ export class FakeGraphSource implements IGraphContributor
 {
     public Graphs: Record<string, string[]> = {}
     public ListError: unknown = undefined
+    public ListGate: Gate<void> | undefined = undefined
     public readonly Listed: string[] = []
 
     public async Contribute(_environment: string, graphName: string, _solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
@@ -97,12 +116,14 @@ export class FakeGraphSource implements IGraphContributor
     public async ListGraphs(environment: string): Promise<string[]>
     {
         this.Listed.push(environment)
+        if (this.ListGate !== undefined) await this.ListGate.Promise
         if (this.ListError !== undefined) throw this.ListError
         return this.Graphs[environment] ?? []
     }
 }
 
-// A DialogService stand-in: Show stays open until Close, which settles it with the value.
+// A DialogService stand-in: Show stays open until Close, which settles it with the value. Like
+// DialogService, a newer Show first closes the open one with undefined.
 export class FakePickerDialogs
 {
     public readonly Shown: Array<{ Title: string | undefined; Content: unknown }> = []
@@ -116,6 +137,7 @@ export class FakePickerDialogs
     public Show<T>(options: { Title?: string; Content: unknown }): Promise<T | undefined>
     {
         this.Shown.push({ Title: options.Title, Content: options.Content })
+        this.Close(undefined)
         return new Promise<T | undefined>((resolve) => { this.settle = resolve as (value: unknown) => void })
     }
 
@@ -130,5 +152,38 @@ export class FakePickerDialogs
     public static Flush(): Promise<void>
     {
         return new Promise((res) => setTimeout(res, 0))
+    }
+}
+
+// An ITargetPicker that answers Show from a script of picks (an Error rejects), in order, and
+// RequestSignIn from SignInResult. Counts both calls.
+export class ScriptedPicker implements ITargetPicker
+{
+    public Shows = 0
+    public SignInRequests = 0
+    public SignInResult = false
+
+    public constructor(private readonly picks: Array<TargetPick | Error>)
+    {
+    }
+
+    // A pick for a plain answer: a choice is Chosen, undefined is Cancelled.
+    public static PickOf(input: TargetChoice | undefined | Error): TargetPick | Error
+    {
+        if (input instanceof Error) return input
+        return input === undefined ? { Outcome: TargetPickOutcome.Cancelled } : { Outcome: TargetPickOutcome.Chosen, Choice: input }
+    }
+
+    public Show(): Promise<TargetPick>
+    {
+        const pick = this.picks[Math.min(this.Shows, this.picks.length - 1)]!
+        this.Shows++
+        return pick instanceof Error ? Promise.reject(pick) : Promise.resolve(pick)
+    }
+
+    public async RequestSignIn(): Promise<boolean>
+    {
+        this.SignInRequests++
+        return this.SignInResult
     }
 }

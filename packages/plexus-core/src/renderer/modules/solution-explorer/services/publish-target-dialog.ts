@@ -3,7 +3,7 @@ import type { IAccountService } from '../../account/account-service.js'
 import {
     TargetKind, type AccountTargets, type EnvironmentTarget, type TargetChoice,
 } from '../../../../shared/account-api.js'
-import { TargetDialog } from './target-dialog.js'
+import { TargetDialog, type EnvironmentChoice } from './target-dialog.js'
 
 // The bindable property name the publish picker adds.
 enum PublishTargetProperty
@@ -42,7 +42,7 @@ export class PublishTargetDialog extends TargetDialog
         return targets.Publish
     }
 
-    protected ChoiceFor(environment: EnvironmentTarget): TargetChoice | undefined
+    protected ChoiceFor(environment: EnvironmentChoice): TargetChoice | undefined
     {
         return { Environment: environment.Name }
     }

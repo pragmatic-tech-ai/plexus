@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ContributeTargetDialog } from '../contribute-target-dialog.js'
-import { FakeGraphSource, FakePickerDialogs, FakeTargetAccount } from './fake-target-sources.js'
+import { TargetPickOutcome } from '../target-dialog.js'
+import { FakeGraphSource, FakePickerDialogs, FakeTargetAccount, Gate } from './fake-target-sources.js'
 import { AccountError, AccountErrorKind, RelayError, TargetKind, TargetStatus } from '../../../../../shared/account-api.js'
 
 class ContributeDialogHarness
@@ -9,6 +10,7 @@ class ContributeDialogHarness
     public readonly Graphs = new FakeGraphSource()
     public readonly Dialogs = new FakePickerDialogs()
     public readonly Dialog: ContributeTargetDialog
+    public Shown: Promise<unknown> = Promise.resolve(undefined)
 
     public constructor(signedIn = true)
     {
@@ -17,8 +19,6 @@ class ContributeDialogHarness
     }
 
     // Opens the picker and waits for its targets (and the first environment's graphs) to load.
-    public Shown: Promise<unknown> = Promise.resolve(undefined)
-
     public async Open(): Promise<void>
     {
         this.Shown = this.Dialog.Show()
@@ -28,7 +28,7 @@ class ContributeDialogHarness
 
 describe('ContributeTargetDialog', () =>
 {
-    it('asks a signed-out user to sign in and the Sign in button requests the account dialog', async () =>
+    it('asks a signed-out user to sign in; Sign in closes the picker with the SignIn outcome', async () =>
     {
         const h = new ContributeDialogHarness(false)
         await h.Open()
@@ -37,6 +37,15 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.CanContribute).toBe(false)
         expect(h.Account.TargetsCalls).toBe(0)
         h.Dialog.SignInCommand.Execute()
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.SignIn })
+        expect(h.Account.SignInRequests).toBe(0)
+    })
+
+    it('RequestSignIn asks the account and answers whether it is then signed in', async () =>
+    {
+        const h = new ContributeDialogHarness(false)
+        h.Account.SignInResult = true
+        await expect(h.Dialog.RequestSignIn()).resolves.toBe(true)
         expect(h.Account.SignInRequests).toBe(1)
     })
 
@@ -84,6 +93,34 @@ describe('ContributeTargetDialog', () =>
         expect(h.Graphs.Listed).toEqual([])
     })
 
+    it('says a failed or unknown environment is not running', async () =>
+    {
+        for (const status of [TargetStatus.Failed, TargetStatus.Unknown])
+        {
+            const h = new ContributeDialogHarness()
+            h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: status }], Publish: [] }
+            await h.Open()
+            expect(h.Dialog.Message).toBe('This environment is not running. Check it in the tenant console.')
+            expect(h.Dialog.CanContribute).toBe(false)
+        }
+    })
+
+    it('labels each environment with its name and, when not running, its status', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetList = {
+            Contribute: [
+                { Name: 'dev', Status: TargetStatus.Running },
+                { Name: 'qa', Status: TargetStatus.Stopped },
+                { Name: 'old', Status: TargetStatus.Failed },
+                { Name: 'odd', Status: TargetStatus.Unknown },
+            ],
+            Publish: [],
+        }
+        await h.Open()
+        expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['dev', 'qa (stopped)', 'old (failed)', 'odd (status unknown)'])
+    })
+
     it('says when the running environment has no graphs yet', async () =>
     {
         const h = new ContributeDialogHarness()
@@ -115,6 +152,58 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.Message).toBe('')
     })
 
+    it('is not left busy when a pending load is superseded by a sign-out', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetsGate = new Gate<void>()
+        await h.Open()
+        expect(h.Dialog.IsBusy).toBe(true)
+        h.Account.SetState({ SignedIn: false })
+        await FakePickerDialogs.Flush()
+        expect(h.Dialog.IsBusy).toBe(false)
+        expect(h.Dialog.NeedsSignIn).toBe(true)
+        h.Account.TargetsGate.Resolve()
+        await FakePickerDialogs.Flush()
+        expect(h.Dialog.IsBusy).toBe(false)
+        expect(h.Dialog.NeedsSignIn).toBe(true)
+    })
+
+    it('is not left busy when a pending graph list is superseded by a stopped environment', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetList = {
+            Contribute: [{ Name: 'dev', Status: TargetStatus.Running }, { Name: 'qa', Status: TargetStatus.Stopped }],
+            Publish: [],
+        }
+        h.Graphs.ListGate = new Gate<void>()
+        await h.Open()
+        expect(h.Dialog.IsBusy).toBe(true)
+        h.Dialog.SelectedEnvironment = h.Dialog.Environments[1]
+        expect(h.Dialog.IsBusy).toBe(false)
+        h.Graphs.ListGate.Resolve()
+        await FakePickerDialogs.Flush()
+        expect(h.Dialog.IsBusy).toBe(false)
+        expect(h.Dialog.Graphs).toEqual([])
+        expect(h.Dialog.Message).toBe('This environment is stopped. Start it from the tenant console.')
+    })
+
+    it('a newer Show keeps its own load when the superseded Show finishes', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Graphs.Graphs = { dev: ['main'] }
+        const first = h.Dialog.Show()
+        const second = h.Dialog.Show()
+        await expect(first).resolves.toEqual({ Outcome: TargetPickOutcome.Cancelled })
+        await FakePickerDialogs.Flush()
+        expect(h.Dialog.Environments.map((e) => e.Name)).toEqual(['dev'])
+        expect(h.Dialog.SelectedGraph).toBe('main')
+        expect(h.Dialog.IsBusy).toBe(false)
+        expect(h.Dialog.CanContribute).toBe(true)
+        h.Dialog.ConfirmCommand.Execute()
+        await expect(second).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', GraphName: 'main' } })
+    })
+
     it('shows a relay sentence, and a fixed sentence for anything else', async () =>
     {
         const h = new ContributeDialogHarness()
@@ -128,22 +217,23 @@ describe('ContributeTargetDialog', () =>
         expect(other.Dialog.Message).toBe('Something went wrong. Try again.')
     })
 
-    it('resolves the chosen target on Contribute and remembers it; Cancel resolves nothing', async () =>
+    it('resolves the chosen target on Contribute and remembers it; Cancel and a dismiss resolve Cancelled', async () =>
     {
         const h = new ContributeDialogHarness()
         h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
         h.Graphs.Graphs = { dev: ['main'] }
         await h.Open()
-        const shown = h.Shown
         expect(h.Dialogs.Shown.map((s) => s.Title)).toEqual(['Contribute to graph'])
         expect(h.Dialogs.Shown[0]!.Content).toBe(h.Dialog)
         h.Dialog.ConfirmCommand.Execute()
-        await expect(shown).resolves.toEqual({ Environment: 'dev', GraphName: 'main' })
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', GraphName: 'main' } })
         expect(h.Account.Remembered).toEqual([[TargetKind.Contribute, { Environment: 'dev', GraphName: 'main' }]])
         await h.Open()
-        const again = h.Shown
         h.Dialog.CancelCommand.Execute()
-        await expect(again).resolves.toBeUndefined()
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Cancelled })
+        await h.Open()
+        h.Dialogs.Close(undefined)
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Cancelled })
         expect(h.Account.Remembered).toHaveLength(1)
     })
 
@@ -151,9 +241,8 @@ describe('ContributeTargetDialog', () =>
     {
         const h = new ContributeDialogHarness(false)
         await h.Open()
-        const shown = h.Shown
         h.Dialog.CancelCommand.Execute()
-        await shown
+        await h.Shown
         h.Account.SetState({ SignedIn: true })
         await FakePickerDialogs.Flush()
         expect(h.Account.TargetsCalls).toBe(0)

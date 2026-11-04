@@ -1,7 +1,7 @@
 import { Observable, RelayCommand, ServiceKey, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ApplicationSettings, DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { CompositeDisposable, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
-import { AccountServiceKey, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
+import { AccountServiceKey, type IAccountService, type SignInRequest } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import { PlatformAddress } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog } from './account-dialog.js'
 import { AccountLabel } from './account-label.js'
@@ -11,7 +11,9 @@ import { AccountLabel } from './account-label.js'
 export const AccountStatusItemKey = new ServiceKey<AccountStatusItem>('AccountStatusItem')
 
 // The account cell in the status bar: "Sign in", or the signed-in email and tenant. Clicking it
-// opens the account dialog, as does any UI that calls IAccountService.RequestSignIn().
+// opens the account dialog, as does any UI that calls IAccountService.RequestSignIn(); such a
+// request completes when the dialog closes (true when then signed in), or with false at once when
+// the dialog cannot open or is already open.
 export class AccountStatusItem extends Observable implements IDisposable
 {
     public static readonly Key = AccountStatusItemKey
@@ -37,7 +39,7 @@ export class AccountStatusItem extends Observable implements IDisposable
         this.text = this.TextFor()
         this.openCommand = new RelayCommand(() => { void this.OpenDialog() })
         this.subscriptions.add(this.account.Changed.subscribe(() => this.OnAccountChanged()))
-        this.subscriptions.add(this.account.SignInRequested.subscribe(() => { void this.OpenDialog() }))
+        this.subscriptions.add(this.account.SignInRequested.subscribe((request) => { void this.OpenDialog(request) }))
         // The account state lives in main; load it once so the cell is right from launch. A failure
         // leaves the cell on "Sign in" and logs only the error's name (never its message).
         this.account.Refresh().catch((e: unknown) => console.warn(AccountStatusItem.RefreshFailedLog, AccountDialog.ErrorName(e)))
@@ -46,8 +48,10 @@ export class AccountStatusItem extends Observable implements IDisposable
     public get Text(): string { return this.text }
     public get OpenCommand(): ICommand { return this.openCommand }
 
-    // Shows the account dialog; a request while it is already open leaves that one in place.
-    public async OpenDialog(): Promise<void>
+    // Shows the account dialog; a request while it is already open leaves that one in place. A
+    // sign-in request is accepted (synchronously, while its signal is handled) only when this call
+    // opens the dialog, and completed when the dialog closes.
+    public async OpenDialog(request?: SignInRequest): Promise<void>
     {
         if (this.openDialog !== undefined) return
         const dialogs = this.provider.get(DialogService.Key)
@@ -56,6 +60,7 @@ export class AccountStatusItem extends Observable implements IDisposable
             console.warn(AccountStatusItem.NoDialogServiceLog)
             return
         }
+        request?.Accept()
         // DialogService keeps one dialog at a time and Close() takes no handle: it closes whichever
         // dialog is current. A newer Show supersedes (and resolves) this one, which disposes this VM,
         // so in practice its close callback only runs while it is the current dialog.
@@ -69,6 +74,7 @@ export class AccountStatusItem extends Observable implements IDisposable
         {
             dialog.dispose()
             this.openDialog = undefined
+            request?.Complete(this.account.State.SignedIn)
         }
     }
 

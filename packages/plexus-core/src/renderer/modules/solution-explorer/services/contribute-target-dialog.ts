@@ -2,9 +2,9 @@ import type { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import type { IAccountService } from '../../account/account-service.js'
 import type { IGraphContributor } from '../../graph-contribute/graph-contributor.js'
 import {
-    TargetKind, TargetStatus, type AccountTargets, type EnvironmentTarget, type TargetChoice,
+    TargetKind, type AccountTargets, type EnvironmentTarget, type TargetChoice,
 } from '../../../../shared/account-api.js'
-import { TargetDialog } from './target-dialog.js'
+import { TargetDialog, type EnvironmentChoice } from './target-dialog.js'
 
 // The bindable property names the contribute picker adds.
 enum ContributeTargetProperty
@@ -73,22 +73,24 @@ export class ContributeTargetDialog extends TargetDialog
         return targets.Contribute
     }
 
-    protected ChoiceFor(environment: EnvironmentTarget): TargetChoice | undefined
+    protected ChoiceFor(environment: EnvironmentChoice): TargetChoice | undefined
     {
         const graph = this.selectedGraph
         return graph === undefined ? undefined : { Environment: environment.Name, GraphName: graph }
     }
 
-    protected override OnEnvironmentSelected(environment: EnvironmentTarget | undefined, load: number): void
+    protected override OnEnvironmentSelected(environment: EnvironmentChoice | undefined, load: number): void
     {
         const graphLoad = ++this.graphLoad
+        // A graph list still in flight was just superseded: its busy flag is this selection's to set.
+        this.SetBusy(false)
         this.SetGraphs([])
         this.SelectedGraph = undefined
-        if (environment === undefined || environment.Status !== TargetStatus.Running) return
+        if (environment === undefined || !environment.IsRunning) return
         void this.LoadGraphs(environment, load, graphLoad)
     }
 
-    private async LoadGraphs(environment: EnvironmentTarget, load: number, graphLoad: number): Promise<void>
+    private async LoadGraphs(environment: EnvironmentChoice, load: number, graphLoad: number): Promise<void>
     {
         this.SetBusy(true)
         let graphs: string[]

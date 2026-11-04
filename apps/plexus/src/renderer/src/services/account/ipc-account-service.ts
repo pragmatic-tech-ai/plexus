@@ -1,5 +1,5 @@
 import { Signal, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
-import { AccountServiceKey, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
+import { AccountServiceKey, SignInRequest, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import { AccountWire } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type {
     AccountState, AccountTargets, DiscoveredTenant, IAccountBridge, TargetChoice, TargetKind,
@@ -17,7 +17,7 @@ export class IpcAccountService implements IAccountService, IDisposable
         + 'bridge did not load. This service requires a desktop host.'
 
     public readonly Changed = new Signal<void>()
-    public readonly SignInRequested = new Signal<void>()
+    public readonly SignInRequested = new Signal<SignInRequest>()
 
     private state: AccountState = { SignedIn: false }
     private readonly api: IAccountBridge
@@ -44,9 +44,10 @@ export class IpcAccountService implements IAccountService, IDisposable
         this.Apply(AccountWire.Unwrap(await this.api.State()))
     }
 
-    public RequestSignIn(): void
+    // The account module accepts the request and completes it when its dialog closes.
+    public RequestSignIn(): Promise<boolean>
     {
-        this.SignInRequested.emit()
+        return SignInRequest.Raise(this.SignInRequested)
     }
 
     public async Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>

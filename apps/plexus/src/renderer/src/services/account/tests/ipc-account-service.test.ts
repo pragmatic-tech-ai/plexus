@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { SignInRequest } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import IpcAccountService from '../ipc-account-service.js'
 
 class FakeAccountBridge
@@ -116,12 +117,20 @@ describe('IpcAccountService', () =>
         expect(Bridge.Disposed).toBe(true)
     })
 
-    it('RequestSignIn raises SignInRequested', () =>
+    it('RequestSignIn raises SignInRequested and resolves when the accepted request completes', async () =>
     {
         const { Service } = Make()
-        let count = 0
-        Service.SignInRequested.subscribe(() => { count++ })
-        Service.RequestSignIn()
-        expect(count).toBe(1)
+        let held: SignInRequest | undefined
+        Service.SignInRequested.subscribe((r) => { r.Accept(); held = r })
+        const done = Service.RequestSignIn()
+        expect(held).toBeDefined()
+        held!.Complete(true)
+        await expect(done).resolves.toBe(true)
+    })
+
+    it('RequestSignIn resolves false at once when nothing opens the dialog', async () =>
+    {
+        const { Service } = Make()
+        await expect(Service.RequestSignIn()).resolves.toBe(false)
     })
 })

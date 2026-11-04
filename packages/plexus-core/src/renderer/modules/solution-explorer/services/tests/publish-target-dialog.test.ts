@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { PublishTargetDialog } from '../publish-target-dialog.js'
+import { TargetPickOutcome } from '../target-dialog.js'
 import { FakePickerDialogs, FakeTargetAccount } from './fake-target-sources.js'
 import { AccountError, AccountErrorKind, TargetKind, TargetStatus } from '../../../../../shared/account-api.js'
 
@@ -34,7 +35,7 @@ describe('PublishTargetDialog', () =>
         expect(h.Dialog.NeedsSignIn).toBe(true)
         expect(h.Dialog.CanPublish).toBe(false)
         h.Dialog.SignInCommand.Execute()
-        expect(h.Account.SignInRequests).toBe(1)
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.SignIn })
     })
 
     it('shows the signed-out sentence when the session ends while loading', async () =>
@@ -62,6 +63,19 @@ describe('PublishTargetDialog', () =>
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment is stopped. Start it from the tenant console.')
         expect(h.Dialog.CanPublish).toBe(false)
+        expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['prod (stopped)'])
+    })
+
+    it('says a failed or unknown environment is not running', async () =>
+    {
+        for (const status of [TargetStatus.Failed, TargetStatus.Unknown])
+        {
+            const h = new PublishDialogHarness()
+            h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: status }] }
+            await h.Open()
+            expect(h.Dialog.Message).toBe('This environment is not running. Check it in the tenant console.')
+            expect(h.Dialog.CanPublish).toBe(false)
+        }
     })
 
     it('pre-selects the last choice, resolves it on Publish and remembers it', async () =>
@@ -79,7 +93,7 @@ describe('PublishTargetDialog', () =>
         expect(h.Dialog.CanPublish).toBe(true)
         expect(h.Dialog.Message).toBe('')
         h.Dialog.ConfirmCommand.Execute()
-        await expect(shown).resolves.toEqual({ Environment: 'stage' })
+        await expect(shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'stage' } })
         expect(h.Account.Remembered).toEqual([[TargetKind.Publish, { Environment: 'stage' }]])
     })
 })

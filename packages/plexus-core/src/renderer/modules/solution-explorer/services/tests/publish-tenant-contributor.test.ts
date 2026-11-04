@@ -5,7 +5,8 @@ import { PublishTenantContributor } from '../publish-tenant-contributor.js'
 import { BuildProgressReporter } from '../build-progress-reporter.js'
 import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.js'
 import { TenantPublishStatus, type TenantPublishResult } from '../../../../../shared/tenant-publish-api.js'
-import type { ITargetPicker } from '../target-dialog.js'
+import { TargetPickOutcome } from '../target-dialog.js'
+import { ScriptedPicker } from './fake-target-sources.js'
 import type { TargetChoice } from '../../../../../shared/account-api.js'
 
 class FakeItem
@@ -92,16 +93,11 @@ class FakePublisher implements ITenantPublisher
     }
 }
 
-class FakePrompt implements ITargetPicker
+class FakePrompt extends ScriptedPicker
 {
-    constructor(private readonly environment: string | undefined | Error)
+    constructor(environment: string | undefined | Error)
     {
-    }
-
-    public Show(): Promise<TargetChoice | undefined>
-    {
-        if (this.environment instanceof Error) return Promise.reject(this.environment)
-        return Promise.resolve(this.environment === undefined ? undefined : { Environment: this.environment })
+        super([ScriptedPicker.PickOf(typeof environment === 'string' ? { Environment: environment } : environment)])
     }
 }
 
@@ -124,6 +120,28 @@ describe('PublishTenantContributor', () =>
         expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build-remote', Remote: { AppName: 'orders', Bind: RemoteBindMode.Application } })
         expect(publisher.Published).toEqual([['prod', '/out']])
         expect(work.Title).toBe('Publishing ./p to prod')
+    })
+
+    it('shows the picker again after a sign-in, and stops quietly when none happened', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const publisher = new FakePublisher(Applied)
+        const work = PublishTestHelper.Work()
+        const picker = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf({ Environment: 'prod' })])
+        picker.SignInResult = true
+        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, picker)
+        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        await expect(work.task).resolves.toEqual(Applied)
+        expect(picker.Shows).toBe(2)
+        expect(publisher.Published).toEqual([['prod', '/out']])
+
+        const quietWork = PublishTestHelper.Work()
+        const quiet = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf({ Environment: 'prod' })])
+        const q = new PublishTenantContributor(svc as any, quietWork, PublishTestHelper.Mutations(), publisher, quiet)
+        await PublishTestHelper.Execute(q, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        expect(quiet.SignInRequests).toBe(1)
+        expect(quiet.Shows).toBe(1)
+        expect(quietWork.task).toBeUndefined()
     })
 
     it('does not publish when the build fails', async () =>

@@ -149,6 +149,46 @@ describe('AccountStatusItem', () =>
         expect(h.Dialogs.Shown).toHaveLength(2)
     })
 
+    it('a sign-in request resolves true when the dialog closes signed in', async () =>
+    {
+        const h = new Harness()
+        h.Make()
+        const done = h.Account.RequestSignIn()
+        expect(h.Dialogs.Shown).toHaveLength(1)
+        h.Account.SetState({ SignedIn: true, Email: 'ada@acme.test', TenantName: 'Acme' })
+        h.Dialogs.Pending.Resolve(undefined)
+        await expect(done).resolves.toBe(true)
+    })
+
+    it('a sign-in request resolves false when the dialog closes signed out', async () =>
+    {
+        const h = new Harness()
+        h.Make()
+        const done = h.Account.RequestSignIn()
+        h.Dialogs.Pending.Resolve(undefined)
+        await expect(done).resolves.toBe(false)
+    })
+
+    it('a sign-in request while the dialog is already open resolves false at once', async () =>
+    {
+        const h = new Harness()
+        const item = h.Make()
+        item.OpenCommand.Execute()
+        await expect(h.Account.RequestSignIn()).resolves.toBe(false)
+        expect(h.Dialogs.Shown).toHaveLength(1)
+    })
+
+    it('a sign-in request with no DialogService resolves false', async () =>
+    {
+        const h = new Harness()
+        const provider = new ServiceProvider()
+        provider.registerInstance(AccountServiceKey, h.Account)
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        new AccountStatusItem(provider)
+        await expect(h.Account.RequestSignIn()).resolves.toBe(false)
+        warn.mockRestore()
+    })
+
     it('the dialog closes through DialogService', async () =>
     {
         const h = new Harness()

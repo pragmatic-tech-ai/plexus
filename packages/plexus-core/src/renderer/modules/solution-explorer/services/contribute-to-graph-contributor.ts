@@ -11,7 +11,7 @@ import type { IGraphContributor } from '../../graph-contribute/graph-contributor
 import type { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import type { GraphContributeResult } from '../../../../shared/graph-contribute-api.js'
 import { InfoDialog } from './info-dialog.js'
-import type { ITargetPicker } from './target-dialog.js'
+import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 
 // Contributes the "Contribute to graph…" command to the Solution root row. Contribute asks the
 // environment picker (ContributeTargetDialog) for the target environment + graph, builds the whole active solution's packages via
@@ -72,7 +72,8 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         return new RelayCommand(() => void this.contribute(), () => this.builder !== undefined && this.contributor !== undefined && this.work !== undefined && this.picker !== undefined)
     }
 
-    // Asks the picker for the target environment + graph, then runs the build+contribute under a
+    // Asks the picker for the target environment + graph (signing in first when the maker asks to,
+    // see TargetPickerFlow), then runs the build+contribute under a
     // background task so a build / sign-in / refusal / conflict failure fails that row with its
     // sentence. A picker failure blocks early via InfoDialog.
     private async contribute(): Promise<void>
@@ -86,7 +87,7 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         let graphName: string
         try
         {
-            const choice = await picker.Show()
+            const choice = await TargetPickerFlow.Choose(picker)
             if (choice === undefined || choice.GraphName === undefined) return
             environment = choice.Environment
             graphName = choice.GraphName

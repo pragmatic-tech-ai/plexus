@@ -1,5 +1,5 @@
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
-import type { IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
+import { SignInRequest, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import type {
     AccountState, AccountTargets, DiscoveredTenant, TargetChoice, TargetKind,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
@@ -26,7 +26,7 @@ export class Deferred<T>
 export class FakeAccountService implements IAccountService
 {
     public readonly Changed = new Signal<void>()
-    public readonly SignInRequested = new Signal<void>()
+    public readonly SignInRequested = new Signal<SignInRequest>()
     public readonly Calls: unknown[][] = []
     public Tenants: DiscoveredTenant[] = []
     public DiscoverError: unknown = undefined
@@ -51,9 +51,9 @@ export class FakeAccountService implements IAccountService
         this.RefreshCount++
     }
 
-    public RequestSignIn(): void
+    public RequestSignIn(): Promise<boolean>
     {
-        this.SignInRequested.emit()
+        return SignInRequest.Raise(this.SignInRequested)
     }
 
     public async Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>

@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Solution } from '@pragmatic-tech-ai/todl'
 import { ContributeToGraphContributor } from '../contribute-to-graph-contributor.js'
-import type { ITargetPicker } from '../target-dialog.js'
+import { TargetPickOutcome } from '../target-dialog.js'
+import { ScriptedPicker } from './fake-target-sources.js'
 import type { TargetChoice } from '../../../../../shared/account-api.js'
 import type { IGraphContributor } from '../../../graph-contribute/graph-contributor.js'
 import type { ContributedPackage, GraphContributeResult } from '../../../../../shared/graph-contribute-api.js'
@@ -46,19 +47,11 @@ class FakeBuilder
     }
 }
 
-class FakePrompt implements ITargetPicker
+class FakePrompt extends ScriptedPicker
 {
-    public Calls = 0
-
-    constructor(private readonly input: TargetChoice | undefined | Error)
+    constructor(input: TargetChoice | undefined | Error)
     {
-    }
-
-    public Show(): Promise<TargetChoice | undefined>
-    {
-        this.Calls++
-        if (this.input instanceof Error) return Promise.reject(this.input)
-        return Promise.resolve(this.input)
+        super([ScriptedPicker.PickOf(input)])
     }
 }
 
@@ -161,6 +154,34 @@ describe('ContributeToGraphContributor', () =>
         expect(work.task).toBeUndefined()
         expect(dialogs.Shown).toHaveLength(1)
         expect(dialogs.Shown[0]!.Content.Message).toBe('prompt broke')
+    })
+
+    it('opens the account dialog on Sign in, then shows the picker again once signed in', async () =>
+    {
+        const contributor = new FakeContributor(Result)
+        const work = GraphTestHelper.Work()
+        const picker = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf(Input)])
+        picker.SignInResult = true
+        const c = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, work, contributor, undefined, picker)
+        c.Resolve('graph.contribute', {} as any)!.Execute()
+        await GraphTestHelper.Flush()
+        expect(picker.SignInRequests).toBe(1)
+        expect(picker.Shows).toBe(2)
+        await expect(work.task).resolves.toEqual(Result)
+        expect(contributor.Contributions.map((x) => [x.environment, x.graphName])).toEqual([['dev', 'main']])
+    })
+
+    it('stops quietly when the account dialog closes without a sign-in', async () =>
+    {
+        const contributor = new FakeContributor(Result)
+        const work = GraphTestHelper.Work()
+        const picker = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf(Input)])
+        const c = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, work, contributor, undefined, picker)
+        c.Resolve('graph.contribute', {} as any)!.Execute()
+        await GraphTestHelper.Flush()
+        expect(picker.SignInRequests).toBe(1)
+        expect(picker.Shows).toBe(1)
+        expect(work.task).toBeUndefined()
     })
 
     it('contributes nothing when the picker resolves without a graph', async () =>

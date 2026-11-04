@@ -1,1 +1,1 @@
-export { AccountServiceKey, type IAccountService } from './account-service.js';
+export { AccountServiceKey, SignInRequest, type IAccountService } from './account-service.js';

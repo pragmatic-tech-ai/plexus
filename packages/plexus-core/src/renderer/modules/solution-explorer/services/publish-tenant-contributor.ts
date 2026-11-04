@@ -14,7 +14,7 @@ import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
 import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
-import type { ITargetPicker } from './target-dialog.js'
+import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 
 // Contributes the Publish to tenant commands to a project row: asks the environment picker
 // (PublishTargetDialog) for the target Runtime environment,
@@ -87,7 +87,8 @@ export class PublishTenantContributor implements IHierarchyContributor
         return new RelayCommand(() => void this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined && this.picker !== undefined)
     }
 
-    // Asks the picker for the environment first (a cancel publishes nothing), then builds and
+    // Asks the picker for the environment first (signing in first when the maker asks to, see
+    // TargetPickerFlow; a cancel publishes nothing), then builds and
     // uploads under a background task so a build / sign-in / refusal failure fails that row with its
     // sentence. A picker failure fails a task row too (this contributor has no dialog surface), so
     // it is never an unhandled rejection.
@@ -101,7 +102,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         let environment: string | undefined
         try
         {
-            environment = (await picker.Show())?.Environment
+            environment = (await TargetPickerFlow.Choose(picker))?.Environment
         }
         catch (e)
         {
