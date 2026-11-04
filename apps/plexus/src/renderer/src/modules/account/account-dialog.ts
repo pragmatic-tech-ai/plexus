@@ -4,6 +4,7 @@ import type { IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/mo
 import {
     AccountError, AccountErrorKind, PlatformAddress, type DiscoveredTenant,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountLabel } from './account-label.js'
 
 // Where the account dialog is in the sign-in flow.
 export enum AccountDialogStep
@@ -64,6 +65,7 @@ export class AccountDialog extends Observable implements IDisposable
 {
     private static readonly Unexpected = 'Something went wrong. Try again.'
     private static readonly SignedInPrefix = 'Signed in as '
+    private static readonly CancelFailedLog = 'AccountDialog: cancelling the pending sign-in on close failed:'
 
     private readonly account: IAccountService
     private readonly platformAddress: string
@@ -134,9 +136,7 @@ export class AccountDialog extends Observable implements IDisposable
 
     public get SignedInText(): string
     {
-        const state = this.account.State
-        const tenant = state.TenantName === undefined || state.TenantName === '' ? '' : ` (${state.TenantName})`
-        return `${AccountDialog.SignedInPrefix}${state.Email ?? ''}${tenant}`
+        return `${AccountDialog.SignedInPrefix}${AccountLabel.Of(this.account.State)}`
     }
 
     public get ContinueCommand(): ICommand { return this.continueCommand }
@@ -214,13 +214,20 @@ export class AccountDialog extends Observable implements IDisposable
         this.changed.dispose()
         if (this.step !== AccountDialogStep.Waiting) return
         this.signInGeneration++
-        this.account.CancelSignIn().catch(() => undefined)
+        // Only the error's name is logged: never its message, which could carry an address.
+        this.account.CancelSignIn().catch((e: unknown) => console.warn(AccountDialog.CancelFailedLog, AccountDialog.ErrorName(e)))
     }
 
     // The only text a failure may put on screen: an AccountError's fixed sentence, else one fixed sentence.
     public static SentenceFor(error: unknown): string
     {
         return error instanceof AccountError ? error.message : AccountDialog.Unexpected
+    }
+
+    // A loggable name for a failure: the Error's name, never its message.
+    public static ErrorName(error: unknown): string
+    {
+        return error instanceof Error ? error.name : typeof error
     }
 
     private async DiscoverTenants(): Promise<void>
@@ -300,6 +307,7 @@ export class AccountDialog extends Observable implements IDisposable
         if (this.step === AccountDialogStep.Waiting) return
         if (this.account.State.SignedIn)
         {
+            this.SetMessage('')
             this.SetStep(AccountDialogStep.SignedIn)
         }
         else if (this.step === AccountDialogStep.SignedIn)

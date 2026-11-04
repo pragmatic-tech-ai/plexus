@@ -181,7 +181,53 @@ describe('AccountDialog', () =>
         expect(vm.Step).toBe(AccountDialogStep.Email)
     })
 
-    it('raises PropertyChanged for Step and its flags', async () =>
+    it('raises PropertyChanged for Step and its flags across a single-tenant flow', async () =>
+    {
+        const h = new Harness()
+        h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+        const vm = h.Make()
+        const seen: Array<[string, unknown]> = []
+        for (const name of ['Step', 'IsEmailStep', 'IsWaitingStep', 'IsSignedInStep', 'IsChooseTenantStep'])
+        {
+            vm.PropertyChanged(name).subscribe((e) => { seen.push([name, e.newValue]) })
+        }
+        vm.Email = 'ada@acme.test'
+        const continued = vm.Continue()
+        await Harness.Flush()
+        expect(seen).toEqual([
+            ['Step', AccountDialogStep.Waiting],
+            ['IsEmailStep', false],
+            ['IsChooseTenantStep', false],
+            ['IsWaitingStep', true],
+            ['IsSignedInStep', false],
+        ])
+        seen.length = 0
+        h.Account.SignInGate.Resolve()
+        await continued
+        expect(seen).toEqual([
+            ['Step', AccountDialogStep.SignedIn],
+            ['IsEmailStep', false],
+            ['IsChooseTenantStep', false],
+            ['IsWaitingStep', false],
+            ['IsSignedInStep', true],
+        ])
+    })
+
+    it('a sign-in from elsewhere moves to SignedIn and clears the message', async () =>
+    {
+        const h = new Harness()
+        h.Account.DiscoverError = new AccountError(AccountErrorKind.NoAccount)
+        const vm = h.Make()
+        vm.Email = 'ada@acme.test'
+        await vm.Continue()
+        expect(vm.HasMessage).toBe(true)
+        h.Account.SetState({ SignedIn: true, Email: 'ada@acme.test', TenantName: 'Acme' })
+        expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+        expect(vm.Message).toBe('')
+        expect(vm.HasMessage).toBe(false)
+    })
+
+    it('raises PropertyChanged for Message, HasMessage and IsBusy', async () =>
     {
         const h = new Harness()
         h.Account.DiscoverError = new AccountError(AccountErrorKind.InvalidEmail)

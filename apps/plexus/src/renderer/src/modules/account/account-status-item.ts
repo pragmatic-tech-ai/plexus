@@ -4,6 +4,7 @@ import { CompositeDisposable, type IDisposable } from '@pragmatic-tech-ai/todl-r
 import { AccountServiceKey, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import { PlatformAddress } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog } from './account-dialog.js'
+import { AccountLabel } from './account-label.js'
 
 // The StatusBar ShellControlDefinition's DataContext: the shell resolves it with provider.get and
 // does no class -> Key normalization, so the module hands it this ServiceKey instance.
@@ -18,7 +19,8 @@ export class AccountStatusItem extends Observable implements IDisposable
     private static readonly SignInText = 'Sign in'
     private static readonly TextProperty = 'Text'
     private static readonly DialogTitle = 'Account'
-    private static readonly DialogWidth = 420
+    private static readonly RefreshFailedLog = 'AccountStatusItem: loading the account state failed:'
+    private static readonly NoDialogServiceLog = 'AccountStatusItem: no DialogService is registered; the account dialog cannot open.'
 
     private readonly provider: IServiceProvider
     private readonly account: IAccountService
@@ -37,8 +39,8 @@ export class AccountStatusItem extends Observable implements IDisposable
         this.subscriptions.add(this.account.Changed.subscribe(() => this.OnAccountChanged()))
         this.subscriptions.add(this.account.SignInRequested.subscribe(() => { void this.OpenDialog() }))
         // The account state lives in main; load it once so the cell is right from launch. A failure
-        // leaves the cell on "Sign in".
-        this.account.Refresh().catch(() => undefined)
+        // leaves the cell on "Sign in" and logs only the error's name (never its message).
+        this.account.Refresh().catch((e: unknown) => console.warn(AccountStatusItem.RefreshFailedLog, AccountDialog.ErrorName(e)))
     }
 
     public get Text(): string { return this.text }
@@ -49,12 +51,19 @@ export class AccountStatusItem extends Observable implements IDisposable
     {
         if (this.openDialog !== undefined) return
         const dialogs = this.provider.get(DialogService.Key)
-        if (dialogs === undefined) return
+        if (dialogs === undefined)
+        {
+            console.warn(AccountStatusItem.NoDialogServiceLog)
+            return
+        }
+        // DialogService keeps one dialog at a time and Close() takes no handle: it closes whichever
+        // dialog is current. A newer Show supersedes (and resolves) this one, which disposes this VM,
+        // so in practice its close callback only runs while it is the current dialog.
         const dialog = new AccountDialog(this.account, this.PlatformAddress(), () => dialogs.Close(undefined))
         this.openDialog = dialog
         try
         {
-            await dialogs.Show({ Title: AccountStatusItem.DialogTitle, Content: dialog, Width: AccountStatusItem.DialogWidth })
+            await dialogs.Show({ Title: AccountStatusItem.DialogTitle, Content: dialog })
         }
         finally
         {
@@ -78,9 +87,7 @@ export class AccountStatusItem extends Observable implements IDisposable
     private TextFor(): string
     {
         const state = this.account.State
-        if (!state.SignedIn) return AccountStatusItem.SignInText
-        const email = state.Email ?? ''
-        return state.TenantName === undefined || state.TenantName === '' ? email : `${email} (${state.TenantName})`
+        return state.SignedIn ? AccountLabel.Of(state) : AccountStatusItem.SignInText
     }
 
     private OnAccountChanged(): void

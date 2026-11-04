@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ApplicationSettings, DialogService, type DialogOptions } from '@pragmatic-tech-ai/mural/framework'
 import { AccountServiceKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
@@ -69,6 +69,27 @@ describe('AccountStatusItem', () =>
         const item = h.Make()
         expect(item.Text).toBe('Sign in')
         expect(h.Account.RefreshCount).toBe(1)
+    })
+
+    it('a failed launch refresh logs only the error name', async () =>
+    {
+        const h = new Harness()
+        h.Account.Refresh = async () => { throw new TypeError('secret http://10.0.0.5 token=abc') }
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        try
+        {
+            h.Make()
+            await Harness.Flush()
+            expect(warn).toHaveBeenCalledTimes(1)
+            const logged = warn.mock.calls[0].map(String).join(' ')
+            expect(logged).toContain('TypeError')
+            expect(logged).not.toContain('secret')
+        }
+        finally
+        {
+            warn.mockRestore()
+        }
+        expect(h.Make().Text).toBe('Sign in')
     })
 
     it('Text follows Changed', () =>

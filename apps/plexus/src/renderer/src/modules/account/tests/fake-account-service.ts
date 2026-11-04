@@ -31,7 +31,6 @@ export class FakeAccountService implements IAccountService
     public Tenants: DiscoveredTenant[] = []
     public DiscoverError: unknown = undefined
     public SignInGate = new Deferred<void>()
-    public SignedInTenantName = ''
     public RefreshCount = 0
 
     private state: AccountState = { SignedIn: false }
@@ -69,7 +68,7 @@ export class FakeAccountService implements IAccountService
         this.Calls.push(['SignIn', platformUrl, email, tenantId])
         await this.SignInGate.Promise
         const tenant = this.Tenants.find((t) => t.Id === tenantId)
-        this.SetState({ SignedIn: true, Email: email, TenantName: tenant?.DisplayName ?? this.SignedInTenantName })
+        this.SetState({ SignedIn: true, Email: email, TenantName: tenant?.DisplayName })
     }
 
     public async CancelSignIn(): Promise<void>

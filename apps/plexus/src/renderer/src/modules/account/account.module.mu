@@ -9,6 +9,10 @@
 import AccountStatusItem from "./account-status-item.js"
 import AccountStatusItemKey from "./account-status-item.js"
 
+// The setting Key mirrors AccountStatusItem.PlatformAddressSetting (account-status-item.ts) and
+// the Default mirrors PlatformAddress.Default (plexus-core shared/account-api.ts); change them
+// together.
+
 shell module AccountModule [ Name = "Account" ] {
     .services: {
         AccountStatusItem
