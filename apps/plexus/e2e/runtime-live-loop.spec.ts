@@ -163,10 +163,10 @@ class RendererOps
         )
     }
 
-    // Configures the graph-server profile on the real IGraphContributor then builds the whole active
-    // solution's packages and contributes them to the dev graph — the exact path the Solution row's
-    // "Contribute to graph" command runs (minus the dialog prompts).
-    public static async Contribute(win: Page, serverUrl: string, token: string, graphName: string): Promise<ContributeOutcome>
+    // Builds the whole active solution's packages and contributes them to the dev environment's graph
+    // through the real IGraphContributor (the tenant-plane relay, with the app's signed-in session) —
+    // the exact path the Solution row's "Contribute to graph" command runs (minus the target prompt).
+    public static async Contribute(win: Page, environment: string, graphName: string): Promise<ContributeOutcome>
     {
         return win.evaluate(
             async (p) => {
@@ -187,13 +187,12 @@ class RendererOps
                 const builder = contrib.builder
                 const solution = contrib.solution
                 if (contributor === undefined || builder === undefined || solution === undefined) return { ok: false, stage: p.stageContributorMissing }
-                await contributor.SetProfile(p.serverUrl, p.token)
                 const packages = [...await builder.Build()]
-                const result = await contributor.Contribute(p.graphName, solution.Name, packages)
+                const result = await contributor.Contribute(p.environment, p.graphName, solution.Name, packages)
                 return { ok: true, packageCount: result?.PackageCount }
             },
             {
-                helpersKey: RendererOps.HelpersKey, serverUrl, token, graphName,
+                helpersKey: RendererOps.HelpersKey, environment, graphName,
                 registryName: RendererOps.RegistryName, solutionFamily: RendererOps.SolutionFamily,
                 contributeContributorName: RendererOps.ContributeContributorName,
                 stageResolve: RendererOps.StageResolve, stageContributorMissing: RendererOps.StageContributorMissing,
@@ -237,11 +236,11 @@ class RendererOps
         )
     }
 
-    // Configures the tenant publisher then drives the real Publish-env command (html-bundle-remote
-    // build with RemoteBindMode.Environment -> IPC deploy). Mirrors sp1-plexus-smoke: wrap the build
+    // Drives the real Publish-env command (html-bundle-remote build with RemoteBindMode.Environment ->
+    // IPC deploy through the tenant-plane relay) with the environment prompt stubbed to `environment`. Mirrors sp1-plexus-smoke: wrap the build
     // service + publisher to capture outcomes into a window state object, invoke, then wait for a
     // terminal signal. `bind` is RemoteBindMode.Environment (the `tenant.publish-env` path).
-    public static async PublishEnv(win: Page, serverUrl: string, token: string, projectMatch: string, bind: RemoteBindMode): Promise<PublishOutcome>
+    public static async PublishEnv(win: Page, environment: string, projectMatch: string, bind: RemoteBindMode): Promise<PublishOutcome>
     {
         await win.evaluate(
             async (p) => {
@@ -252,7 +251,7 @@ class RendererOps
                     .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(p.projectMatch))
                 const pub = H.byCtor(svc[p.registryName].For(p.projectFamily) ?? [], p.publishContributorName)
                 const state: any = (window as any)[p.stateKey] = {}
-                await pub.publisher.SetProfile(p.serverUrl, p.token)
+                pub.prompt = { Prompt: async () => p.environment }
 
                 const origBuild = pub.buildService.Build.bind(pub.buildService)
                 pub.buildService.Build = async (...a: any[]) => {
@@ -270,10 +269,10 @@ class RendererOps
                     }
                 }
                 const origPub = pub.publisher.Publish.bind(pub.publisher)
-                pub.publisher.Publish = async (dir: string) => {
+                pub.publisher.Publish = async (env: string, dir: string) => {
                     try
                     {
-                        const r = await origPub(dir)
+                        const r = await origPub(env, dir)
                         state.publishStatus = r?.Status
                         return r
                     }
@@ -285,10 +284,10 @@ class RendererOps
                 }
                 // Drive the private publish(member, bind) directly (TS-private; reachable at runtime),
                 // the same call the resolved `tenant.publish-env` RelayCommand makes.
-                try { pub.publish(member, p.bind) } catch (e) { state.invokeError = String((e as any)?.message ?? e) }
+                pub.publish(member, p.bind).catch((e: unknown) => { state.invokeError = String((e as any)?.message ?? e) })
             },
             {
-                helpersKey: RendererOps.HelpersKey, serverUrl, token, projectMatch, bind,
+                helpersKey: RendererOps.HelpersKey, environment, projectMatch, bind,
                 solutionManagerName: RendererOps.SolutionManagerName, registryName: RendererOps.RegistryName,
                 projectFamily: RendererOps.ProjectFamily, publishContributorName: RendererOps.PublishContributorName,
                 stateKey: RendererOps.PublishStateKey,
@@ -562,6 +561,7 @@ const UpdatedProductName = 'Updated Postgres Widget'
 
 test.describe('runtime publishing live loop', () => {
     test.skip(process.env[GateEnv] !== GateValue, `set ${GateEnv}=${GateValue} to run`)
+    test.skip(true, 'needs a desktop sign-in (contribute/publish go through the tenant-plane relay with the account session; no scripted browser sign-in yet)')
     test.setTimeout(900_000)
 
     test('real app contribute -> promote -> publish-env -> browser read', async () => {
@@ -594,7 +594,7 @@ test.describe('runtime publishing live loop', () => {
             // Step 4a: Phase 1 (create-dev) + Contribute the solution packages to the dev graph.
             await test.step('create-dev + Contribute', async () => {
                 dev = await orchestrator.CreateDev(GraphName)
-                const contributed = await RendererOps.Contribute(l!.win, dev.devWsUrl, dev.makerToken, dev.graphName)
+                const contributed = await RendererOps.Contribute(l!.win, dev.devEnv, dev.graphName)
                 expect(contributed, `contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
             })
 
@@ -621,9 +621,9 @@ test.describe('runtime publishing live loop', () => {
                 expect(promoted.packageCount, 'promote contributed zero packages').toBeGreaterThan(0)
             })
 
-            // Step 7: configure tenant + Publish-env the Contoso app (RemoteBindMode.Environment).
+            // Step 7: Publish-env the Contoso app (RemoteBindMode.Environment).
             await test.step('Publish-env', async () => {
-                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeWsUrl, rt!.deployToken, ProjectMatch, RemoteBindMode.Environment)
+                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeEnv, ProjectMatch, RemoteBindMode.Environment)
                 expect(published.buildError, published.buildError).toBeUndefined()
                 expect(published.buildOk, 'html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
@@ -660,7 +660,7 @@ test.describe('runtime publishing live loop', () => {
                 // same storage, so it is guaranteed to recompile the edited content (see report P1).
                 const edited = await RendererOps.UpdateProjectValue(l!.win, ProjectMatch, TodlFileName, ContosoFixture.assertValue, V2Value)
                 expect(edited, `edit stage: ${edited.stage ?? ''}`).toMatchObject({ ok: true, changed: true })
-                const recontributed = await RendererOps.Contribute(l!.win, dev!.devWsUrl, dev!.makerToken, dev!.graphName)
+                const recontributed = await RendererOps.Contribute(l!.win, dev!.devEnv, dev!.graphName)
                 expect(recontributed, `re-contribute stage: ${recontributed.stage ?? ''}`).toMatchObject({ ok: true })
                 await orchestrator.Promote(dev!.graphName)
 
@@ -682,11 +682,11 @@ test.describe('runtime publishing live loop', () => {
 
                 const gen = await RendererOps.GenerateUi(l!.win, CatalogProjectMatch, CatalogFixture.entrypointConcept)
                 expect(gen, `catalog generate stage: ${gen.stage ?? ''}`).toMatchObject({ ok: true })
-                const contributed = await RendererOps.Contribute(l!.win, dev!.devWsUrl, dev!.makerToken, dev!.graphName)
+                const contributed = await RendererOps.Contribute(l!.win, dev!.devEnv, dev!.graphName)
                 expect(contributed, `catalog contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
                 await orchestrator.Promote(dev!.graphName)
 
-                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeWsUrl, rt!.deployToken, CatalogProjectMatch, RemoteBindMode.Environment)
+                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeEnv, CatalogProjectMatch, RemoteBindMode.Environment)
                 expect(published.buildError, published.buildError).toBeUndefined()
                 expect(published.buildOk, 'catalog html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()

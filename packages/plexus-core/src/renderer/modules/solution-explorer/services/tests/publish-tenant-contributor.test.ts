@@ -93,12 +93,13 @@ class FakePublisher implements ITenantPublisher
 
 class FakePrompt implements ITenantTargetPrompt
 {
-    constructor(private readonly environment: string | undefined)
+    constructor(private readonly environment: string | undefined | Error)
     {
     }
 
     public Prompt(): Promise<string | undefined>
     {
+        if (this.environment instanceof Error) return Promise.reject(this.environment)
         return Promise.resolve(this.environment)
     }
 }
@@ -152,6 +153,18 @@ describe('PublishTenantContributor', () =>
         const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt(undefined))
         await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         expect(work.task).toBeUndefined()
+        expect(svc.Calls).toHaveLength(0)
+        expect(publisher.Published).toEqual([])
+    })
+
+    it('fails a task row, never an unhandled rejection, when the environment prompt fails', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const publisher = new FakePublisher(Applied)
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt(new Error('prompt broke')))
+        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        await expect(work.task).rejects.toThrow('prompt broke')
         expect(svc.Calls).toHaveLength(0)
         expect(publisher.Published).toEqual([])
     })

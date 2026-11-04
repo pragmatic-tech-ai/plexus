@@ -3,8 +3,8 @@ import { join, resolve, sep } from 'node:path'
 import { RemoteBuildDirName, TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import type { TenantPublishResult } from '../../shared/tenant-publish-api.js'
-import type { IRelayConnector, RelayClient } from '../account/relay-connector.js'
+import type { ITenantPublishApi, TenantPublishResult } from '../../shared/tenant-publish-api.js'
+import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
 // Main-process deploy: takes the output directory of a finished html-bundle-remote build
 // (index.html, servable-manifest.json, packages/<id>/<version>/model.json for the full
@@ -15,7 +15,7 @@ import type { IRelayConnector, RelayClient } from '../account/relay-connector.js
 // arrives from the renderer, so it must be a remote-build dir (a path segment named build-remote,
 // the dir PublishTenantContributor builds into) and every file read stays confined inside it. The
 // build output is read before the relay is opened, so a bad output never connects.
-export class TenantDeployService
+export class TenantDeployService implements ITenantPublishApi
 {
     private static readonly ManifestFile = 'servable-manifest.json'
     private static readonly PackagesDir = 'packages'
@@ -40,7 +40,7 @@ export class TenantDeployService
         const client = await this.relay.Connect(environment, TargetKind.Publish)
         try
         {
-            const result = await client.DeployApplication(params)
+            const result = await RelayConnector.Call(environment, () => client.DeployApplication(params))
             return { Status: result.status as string as TenantPublishStatus, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
         }
         finally

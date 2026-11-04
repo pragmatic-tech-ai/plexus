@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { ConnectionLostError, ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { AppDeployResultDto, CypherAppDeployParamsDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TenantDeployService } from '../tenant-deploy-service.js'
@@ -101,6 +102,22 @@ describe('TenantDeployService', () =>
         const client = new FakeClient(new Error('This method is not available through the desktop relay.'))
         await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow(/not available through the desktop relay/)
         expect(client.Closed).toBe(1)
+    })
+
+    it('maps a relay that drops mid-deploy to the unreachable sentence and closes', async () =>
+    {
+        for (const drop of [new ConnectionLostError(), new ResponseError(ErrorCodes.PendingResponseRejected, 'Pending response rejected since connection got disposed')])
+        {
+            const client = new FakeClient(drop)
+            await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow('The environment prod could not be reached.')
+            expect(client.Closed).toBe(1)
+        }
+    })
+
+    it('keeps a server JSON-RPC error message as it is', async () =>
+    {
+        const client = new FakeClient(new ResponseError(-32601, 'This method is not available through the desktop relay.'))
+        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow('This method is not available through the desktop relay.')
     })
 
     it('a failing close does not hide the deploy result', async () =>

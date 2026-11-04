@@ -1,4 +1,4 @@
-import type { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { ConnectionLostError, ErrorCodes, ResponseError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { AccountError, AccountErrorKind, type TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { DesktopSession } from './desktop-session-store.js'
 
@@ -47,6 +47,30 @@ export class RelayRefusal
     }
 }
 
+// Tells a relay that went away mid-call (signed out elsewhere, environment stopped, a 1008 close)
+// from an answer the environment's server gave. A drop surfaces as the protocol client's
+// ConnectionLostError, a vscode-jsonrpc ResponseError with a transport code (pending response
+// rejected, write/read failure, inactive), or a vscode-jsonrpc ConnectionError (an Error, not a
+// ResponseError, whose numeric code is Closed = 1 or Disposed = 2). Server JSON-RPC errors (conflict,
+// not found, -32601) are ResponseErrors with other codes and are not drops.
+export class RelayDrop
+{
+    private static readonly TransportCodes: readonly number[] = [
+        ErrorCodes.PendingResponseRejected, ErrorCodes.MessageWriteError, ErrorCodes.MessageReadError, ErrorCodes.ConnectionInactive,
+    ]
+    // vscode-jsonrpc ConnectionErrors.Closed and ConnectionErrors.Disposed.
+    private static readonly ConnectionErrorCodes: readonly number[] = [1, 2]
+
+    public static Is(error: unknown): boolean
+    {
+        if (error instanceof ConnectionLostError) return true
+        if (error instanceof ResponseError) return RelayDrop.TransportCodes.includes(error.code)
+        if (!(error instanceof Error)) return false
+        const { code } = error as { code?: unknown }
+        return typeof code === 'number' && RelayDrop.ConnectionErrorCodes.includes(code)
+    }
+}
+
 // Opens a JSON-RPC connection to an environment through the tenant plane's desktop relay, which mints
 // and keeps the environment credential server-side. Plexus presents only the desktop session token.
 // Every failure becomes a fixed sentence (naming at most the environment): never a URL, a token or
@@ -62,6 +86,7 @@ export class RelayConnector implements IRelayConnector
     private static readonly EnvironmentPrefix = 'The environment '
     private static readonly NotRunningSuffix = ' is not running. Start it from the tenant console.'
     private static readonly UnreachableSuffix = ' could not be reached.'
+    private static readonly TrailingSlashes = /\/+$/
 
     public constructor(private readonly sessions: IRelaySessionSource, private readonly dial: RelayDial)
     {
@@ -78,7 +103,7 @@ export class RelayConnector implements IRelayConnector
         }
         catch
         {
-            throw new Error(RelayConnector.Unreachable(environment))
+            throw RelayConnector.Unreachable(environment)
         }
         try
         {
@@ -97,7 +122,7 @@ export class RelayConnector implements IRelayConnector
         const plane = new URL(tenantPlaneUrl)
         const scheme = RelayConnector.SocketSchemes[plane.protocol]
         if (scheme === undefined) throw new Error(RelayConnector.BadPlane)
-        const base = plane.pathname.replace(/\/+$/, '')
+        const base = plane.pathname.replace(RelayConnector.TrailingSlashes, '')
         const query = `${RelayConnector.EnvironmentParam}=${encodeURIComponent(environment)}&${RelayConnector.ActionParam}=${encodeURIComponent(kind)}`
         return `${scheme}//${plane.host}${base}${RelayConnector.RelayPath}?${query}`
     }
@@ -114,7 +139,7 @@ export class RelayConnector implements IRelayConnector
             case RelayStatus.Conflict:
                 return new Error(`${RelayConnector.EnvironmentPrefix}${environment}${RelayConnector.NotRunningSuffix}`)
             default:
-                return new Error(RelayConnector.Unreachable(environment))
+                return RelayConnector.Unreachable(environment)
         }
     }
 
@@ -131,8 +156,23 @@ export class RelayConnector implements IRelayConnector
         }
     }
 
-    private static Unreachable(environment: string): string
+    // Runs a call on an open relay: a relay that went away mid-call becomes the unreachable sentence;
+    // anything else (the server's own answer) is rethrown as is.
+    public static async Call<T>(environment: string, work: () => Promise<T>): Promise<T>
     {
-        return `${RelayConnector.EnvironmentPrefix}${environment}${RelayConnector.UnreachableSuffix}`
+        try
+        {
+            return await work()
+        }
+        catch (e)
+        {
+            if (RelayDrop.Is(e)) throw RelayConnector.Unreachable(environment)
+            throw e
+        }
+    }
+
+    private static Unreachable(environment: string): Error
+    {
+        return new Error(`${RelayConnector.EnvironmentPrefix}${environment}${RelayConnector.UnreachableSuffix}`)
     }
 }

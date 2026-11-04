@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { AccountError, AccountErrorKind, TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import { RelayConnector, RelayRefusal, type IRelaySessionSource, type RelayClient } from '../relay-connector.js'
+import { ConnectionLostError, ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { RelayConnector, RelayDrop, RelayRefusal, type IRelaySessionSource, type RelayClient } from '../relay-connector.js'
 import type { DesktopSession } from '../desktop-session-store.js'
 
 const Token = 'DESKTOP-SECRET-token-123'
@@ -178,5 +179,36 @@ describe('RelayRefusal.StatusOf', () =>
         expect(RelayRefusal.StatusOf(new Error('Unexpected server response: abc'))).toBeUndefined()
         expect(RelayRefusal.StatusOf('Unexpected server response: 401')).toBeUndefined()
         expect(RelayRefusal.StatusOf(undefined)).toBeUndefined()
+    })
+})
+
+describe('RelayDrop.Is', () =>
+{
+    it('recognises a relay that went away mid-call', () =>
+    {
+        expect(RelayDrop.Is(new ConnectionLostError())).toBe(true)
+        expect(RelayDrop.Is(new ResponseError(ErrorCodes.PendingResponseRejected, 'Pending response rejected since connection got disposed'))).toBe(true)
+        expect(RelayDrop.Is(new ResponseError(ErrorCodes.MessageWriteError, 'write failed'))).toBe(true)
+        expect(RelayDrop.Is(Object.assign(new Error('Connection is closed.'), { code: 1 }))).toBe(true)
+        expect(RelayDrop.Is(Object.assign(new Error('Connection is disposed.'), { code: 2 }))).toBe(true)
+    })
+
+    it('leaves server answers and other failures alone', () =>
+    {
+        expect(RelayDrop.Is(new ResponseError(-32601, 'This method is not available through the desktop relay.'))).toBe(false)
+        expect(RelayDrop.Is(new ResponseError(-32004, 'Graph g1 conflicts with existing contribution'))).toBe(false)
+        expect(RelayDrop.Is(new Error('Solution s1 not found'))).toBe(false)
+        expect(RelayDrop.Is('connection lost')).toBe(false)
+    })
+})
+
+describe('RelayConnector.Call', () =>
+{
+    it('turns a mid-call drop into the unreachable sentence and keeps server answers', async () =>
+    {
+        await expect(RelayConnector.Call('dev', () => Promise.reject(new ConnectionLostError()))).rejects.toThrow('The environment dev could not be reached.')
+        const conflict = new ResponseError(-32004, 'Graph g1 conflicts with existing contribution')
+        await expect(RelayConnector.Call('dev', () => Promise.reject(conflict))).rejects.toBe(conflict)
+        expect(await RelayConnector.Call('dev', async () => 7)).toBe(7)
     })
 })

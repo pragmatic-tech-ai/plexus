@@ -86,7 +86,9 @@ export class PublishTenantContributor implements IHierarchyContributor
     }
 
     // Asks for the environment first (a cancel publishes nothing), then builds and uploads under a
-    // background task so a build / sign-in / refusal failure fails that row with its sentence.
+    // background task so a build / sign-in / refusal failure fails that row with its sentence. A
+    // prompt failure fails a task row too (this contributor has no dialog surface), so it is never
+    // an unhandled rejection.
     private async publish(member: SolutionMember, bind: RemoteBindMode): Promise<void>
     {
         const work = this.work
@@ -94,13 +96,24 @@ export class PublishTenantContributor implements IHierarchyContributor
         const publisher = this.publisher
         const prompt = this.prompt
         if (work === undefined || storage === undefined || publisher === undefined || prompt === undefined) return
-        const environment = await prompt.Prompt()
+        const title = `${PublishTenantContributor.TitlePrefix}${member.Title}`
+        let environment: string | undefined
+        try
+        {
+            environment = await prompt.Prompt()
+        }
+        catch (e)
+        {
+            void work.run(title, () => Promise.reject(e))
+            return
+        }
         if (environment === undefined) return
-        void work.run(`${PublishTenantContributor.TitlePrefix}${member.Title}`, async (ctx) =>
+        const target = environment
+        void work.run(title, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
             const outputPath = await this.buildRemote(storage, ctx, bind)
-            const result = await publisher.Publish(environment, outputPath)
+            const result = await publisher.Publish(target, outputPath)
             return PublishTenantContributor.RequireApplied(result)
         })
     }

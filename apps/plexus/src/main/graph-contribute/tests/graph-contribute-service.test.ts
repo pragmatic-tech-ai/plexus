@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { ConnectionLostError, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { ContributedPackageDto, GraphContributeParamsDto, GraphDetailDto, GraphSummaryDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { GraphContributeService } from '../graph-contribute-service.js'
@@ -91,6 +92,22 @@ describe('GraphContributeService', () =>
         const msg = await Fixture.Message(new GraphContributeService(new FakeRelay(client)).Contribute('dev', 'g1', 's1', Fixture.Packages))
         expect(msg).toContain('conflicts')
         expect(client.Closed).toBe(1)
+    })
+
+    it('maps a relay that drops mid-call to the unreachable sentence and closes', async () =>
+    {
+        const lost = new FakeClient(new ConnectionLostError())
+        const disposed = new FakeClient(Object.assign(new Error('Connection is disposed.'), { code: 2 }))
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(lost)).Contribute('dev', 'g1', 's1', Fixture.Packages))).toBe('The environment dev could not be reached.')
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(disposed)).ListGraphs('dev'))).toBe('The environment dev could not be reached.')
+        expect(lost.Closed).toBe(1)
+        expect(disposed.Closed).toBe(1)
+    })
+
+    it('keeps a server JSON-RPC error message as it is', async () =>
+    {
+        const client = new FakeClient(new ResponseError(-32004, 'Solution s1 not found'))
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(client)).Contribute('dev', 'g1', 's1', Fixture.Packages))).toBe('Solution s1 not found')
     })
 
     it('propagates the relay refusal sentence unchanged', async () =>
