@@ -437,6 +437,41 @@ describe('AccountService', () =>
         expect(h.Changes.at(-1)).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
     })
 
+    it('a stale 401 already clearing cannot remove the session a concurrent sign-in saves (writes are serialised)', async () =>
+    {
+        await h.SignIn()
+        const targetsGate = new Gate()
+        h.Fetch.Routes.set('/desktop/targets', async () =>
+        {
+            await targetsGate.Opened
+            return FakeFetch.Json(401, { error: 'signed-out' })
+        })
+        const targets = Caught.Kind(h.Service.Targets())
+        while (h.Fetch.To('/desktop/targets').length === 0) await new Promise(r => setTimeout(r, 1))
+        // Hold the 401's Clear after it has loaded and matched the old session.
+        const clearEntered = new Gate()
+        const clearGate = new Gate()
+        const clear = h.Store.Clear.bind(h.Store)
+        h.Store.Clear = async () =>
+        {
+            clearEntered.Release()
+            await clearGate.Opened
+            await clear()
+        }
+        targetsGate.Release()
+        await clearEntered.Opened
+        h.Tenant('t2', 'Globex', 'ada@acme.example')
+        const signIn = h.SignIn('t2')
+        // Give the sign-in every chance to reach its Save while the clear is held.
+        while (h.Fetch.To('/desktop/sign-in/complete').length < 2) await new Promise(r => setTimeout(r, 1))
+        for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 1))
+        clearGate.Release()
+        expect(await targets).toBe(AccountErrorKind.SignedOut)
+        expect(await signIn).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
+        expect((await h.Service.Session())?.Token).toBe('secret-token-t2')
+        expect(h.Changes.at(-1)).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
+    })
+
     it('without secure storage, sign-in fails SecureStorageUnavailable before discovery or the browser', async () =>
     {
         h.Encryptor.Available = false

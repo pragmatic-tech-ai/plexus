@@ -6,6 +6,19 @@ import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmati
 import type { ITenantPublishApi, TenantPublishResult } from '../../shared/tenant-publish-api.js'
 import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
+// A failure reading the build output that this service wrote the sentence for (no manifest, a
+// missing file, an unsafe path, a bad manifest): shown to the maker as is.
+class BuildOutputError extends Error
+{
+    private static readonly ErrorName = 'BuildOutputError'
+
+    public constructor(message: string)
+    {
+        super(message)
+        this.name = BuildOutputError.ErrorName
+    }
+}
+
 // Main-process deploy: takes the output directory of a finished html-bundle-remote build
 // (index.html, servable-manifest.json, packages/<id>/<version>/model.json for the full
 // closure), assembles the protocol's CypherAppDeployParamsDto from it and uploads it to a Runtime
@@ -28,6 +41,8 @@ export class TenantDeployService implements ITenantPublishApi
     private static readonly MissingFile = 'Remote build output is missing: '
     private static readonly UnsafePath = 'Manifest references a path outside the build output: '
     private static readonly NotABuildDir = 'Refusing to publish a directory that is not a remote build output: '
+    private static readonly Unreadable = 'The build output could not be read.'
+    private static readonly UnreadableLog = 'TenantDeployService: reading the build output failed:'
 
     constructor(private readonly relay: IRelayConnector)
     {
@@ -36,7 +51,7 @@ export class TenantDeployService implements ITenantPublishApi
     public async Deploy(environment: string, outputDir: string): Promise<TenantPublishResult>
     {
         TenantDeployService.RequireBuildDir(outputDir)
-        const params = await TenantDeployService.Assemble(outputDir)
+        const params = await TenantDeployService.AssembleOrSentence(outputDir)
         const client = await this.relay.Connect(environment, TargetKind.Publish)
         try
         {
@@ -72,6 +87,24 @@ export class TenantDeployService implements ITenantPublishApi
         }
     }
 
+    // Any failure other than the service's own sentences (an unexpected fs error naming a local path,
+    // a TypeError from a malformed manifest entry) becomes one fixed sentence; only its name and code
+    // are logged, never its message.
+    private static async AssembleOrSentence(outputDir: string): Promise<CypherAppDeployParamsDto>
+    {
+        try
+        {
+            return await TenantDeployService.Assemble(outputDir)
+        }
+        catch (e)
+        {
+            if (e instanceof BuildOutputError) throw e
+            const { name, code } = (e ?? {}) as { name?: unknown; code?: unknown }
+            console.warn(TenantDeployService.UnreadableLog, String(name ?? typeof e), String(code ?? ''))
+            throw new Error(TenantDeployService.Unreadable)
+        }
+    }
+
     private static async Assemble(outputDir: string): Promise<CypherAppDeployParamsDto>
     {
         const manifest = await TenantDeployService.ReadManifest(outputDir)
@@ -101,7 +134,7 @@ export class TenantDeployService implements ITenantPublishApi
         }
         catch
         {
-            throw new Error(`${TenantDeployService.NoManifest}${outputDir}`)
+            throw new BuildOutputError(`${TenantDeployService.NoManifest}${outputDir}`)
         }
         let m: Partial<ServableAppManifestDto>
         try
@@ -110,12 +143,12 @@ export class TenantDeployService implements ITenantPublishApi
         }
         catch
         {
-            throw new Error(TenantDeployService.ManifestNotJson)
+            throw new BuildOutputError(TenantDeployService.ManifestNotJson)
         }
         if (m === null || typeof m !== 'object' || typeof m.name !== 'string' || typeof m.version !== 'string' || !Array.isArray(m.packages)
             || m.ui === undefined || typeof m.ui.entry !== 'string' || !Array.isArray(m.ui.assets))
         {
-            throw new Error(TenantDeployService.BadManifest)
+            throw new BuildOutputError(TenantDeployService.BadManifest)
         }
         return m as ServableAppManifestDto
     }
@@ -123,14 +156,14 @@ export class TenantDeployService implements ITenantPublishApi
     private static async ReadFile(root: string, relative: string): Promise<Buffer>
     {
         const full = resolve(root, relative)
-        if (!full.startsWith(resolve(root) + sep)) throw new Error(`${TenantDeployService.UnsafePath}${relative}`)
+        if (!full.startsWith(resolve(root) + sep)) throw new BuildOutputError(`${TenantDeployService.UnsafePath}${relative}`)
         try
         {
             return await fs.readFile(full)
         }
         catch
         {
-            throw new Error(`${TenantDeployService.MissingFile}${relative}`)
+            throw new BuildOutputError(`${TenantDeployService.MissingFile}${relative}`)
         }
     }
 }

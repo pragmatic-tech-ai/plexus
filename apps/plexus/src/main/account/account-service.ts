@@ -69,6 +69,10 @@ export class AccountService
     // RememberChoice read-modify-writes run one at a time, so concurrent calls neither share a temp
     // file nor lose each other's update.
     private choiceWrites: Promise<void> = Promise.resolve()
+    // Every read-compare-write of the stored session (a sign-in storing its session, a 401 clearing
+    // the one it was for, a sign-out clearing) runs one at a time, so a stale 401 can never load the
+    // old session, then clear the one a concurrent sign-in has just saved.
+    private sessionWrites: Promise<void> = Promise.resolve()
 
     public constructor(
         private readonly store: DesktopSessionStore,
@@ -163,18 +167,21 @@ export class AccountService
     {
         const session = await this.store.Load()
         if (session !== undefined) await this.EndQuietly(session)
-        await this.Forget()
+        await this.Serialised(() => this.Forget())
         return AccountService.StateOf(undefined)
     }
 
     // The tenant plane said the session holding `token` is over (expired, revoked, signed out
     // elsewhere). Cleared only while that session is still the stored one: a 401 that arrives after
     // a sign-out and a new sign-in belongs to the old session and must not end the new one.
-    public async HandleSignedOut(token: string): Promise<void>
+    public HandleSignedOut(token: string): Promise<void>
     {
-        const current = await this.store.Load()
-        if (current === undefined || current.Token !== token) return
-        await this.Forget()
+        return this.Serialised(async () =>
+        {
+            const current = await this.store.Load()
+            if (current === undefined || current.Token !== token) return
+            await this.Forget()
+        })
     }
 
     public async Targets(): Promise<AccountTargets>
@@ -234,15 +241,26 @@ export class AccountService
     {
         try
         {
-            const previous = await this.store.Load()
-            await this.store.Save(session)
-            return previous
+            return await this.Serialised(async () =>
+            {
+                const previous = await this.store.Load()
+                await this.store.Save(session)
+                return previous
+            })
         }
         catch (e)
         {
             await this.EndQuietly(session)
             throw e
         }
+    }
+
+    // Runs `work` after every earlier session write has settled; a failure reaches only its caller.
+    private Serialised<T>(work: () => Promise<T>): Promise<T>
+    {
+        const run = this.sessionWrites.then(work)
+        this.sessionWrites = run.then(() => undefined, () => undefined)
+        return run
     }
 
     private async Forget(): Promise<void>

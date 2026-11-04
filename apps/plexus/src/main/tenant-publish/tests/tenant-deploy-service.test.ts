@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionLostError, ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { AppDeployResultDto, CypherAppDeployParamsDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
@@ -155,6 +155,37 @@ describe('TenantDeployService', () =>
         {
             rmSync(dirname(empty), { recursive: true, force: true })
         }
+    })
+
+    it('an unexpected failure reading the build output becomes a fixed sentence, logs only name and code, and never connects', async () =>
+    {
+        // A package entry whose id is not a string makes path.join throw a raw TypeError.
+        writeFileSync(join(dir, 'servable-manifest.json'), JSON.stringify({
+            name: 'orders', version: '0.2.0', packages: [{ id: 42, version: '0.2.0' }], ui: { entry: 'index.html', assets: [] },
+        }))
+        const relay = new FakeRelay(new FakeClient())
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        try
+        {
+            const failure = await new TenantDeployService(relay).Deploy('prod', dir).then(() => undefined, (e: unknown) => e as Error)
+            expect(failure?.message).toBe('The build output could not be read.')
+            expect(relay.Connects).toEqual([])
+            expect(warn).toHaveBeenCalledTimes(1)
+            const logged = warn.mock.calls[0].map(String).join(' ')
+            expect(logged).toContain('TypeError')
+            expect(logged).not.toContain('Received')
+            expect(logged).not.toContain(dir)
+        }
+        finally
+        {
+            warn.mockRestore()
+        }
+    })
+
+    it('keeps its own sentence for a missing build file', async () =>
+    {
+        rmSync(join(dir, 'packages', 'prelude'), { recursive: true, force: true })
+        await expect(new TenantDeployService(new FakeRelay(new FakeClient())).Deploy('prod', dir)).rejects.toThrow('Remote build output is missing: ')
     })
 
     it('reports a malformed manifest clearly', async () =>
