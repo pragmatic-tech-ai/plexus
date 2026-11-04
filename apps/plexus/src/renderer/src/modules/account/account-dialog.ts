@@ -5,15 +5,9 @@ import {
     AccountError, AccountErrorKind, PlatformAddress, type DiscoveredTenant,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountLabel } from './account-label.js'
+import { AccountDialogStep } from './account-dialog-step.js'
 
-// Where the account dialog is in the sign-in flow.
-export enum AccountDialogStep
-{
-    Email = 'email',
-    ChooseTenant = 'choose-tenant',
-    Waiting = 'waiting',
-    SignedIn = 'signed-in',
-}
+export { AccountDialogStep }
 
 // The bindable property names the dialog raises PropertyChanged for.
 enum AccountDialogProperty

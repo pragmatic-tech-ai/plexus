@@ -20,9 +20,12 @@
 // orchestrator creates. Without these the spec skips, naming them:
 //   PLEXUS_E2E_OWNER_EMAIL          the account's email
 //   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding its password (read, never printed)
-// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the app's account.platformAddress setting,
-// http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several),
-// PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
+// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the account.platformAddress setting's default,
+// http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several; a value
+// matching none fails), PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
+// The app runs on an isolated temporary profile (E2eProfile, removed afterwards), so the developer's
+// own Plexus profile and session are never read, signed out or replaced; the session the run creates
+// is signed out before the app closes.
 import { test, expect, type Page, type JSHandle } from '@playwright/test'
 import { chromium, type Browser, type BrowserContext } from 'playwright'
 import { existsSync, mkdtempSync, cpSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -30,11 +33,12 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { RemoteBindMode } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
-import { launchPlexus, seedSession, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
+import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ContosoFixture, CatalogFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
 import { OrchestratorClient, RuntimeEnvGraphReader, type DevDescriptor, type RuntimeDescriptor } from './support/orchestrator-client'
 import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
+import { E2eProfile } from './support/e2e-profile'
 
 // Result of resolving + driving the real Generate-UI command on the Contoso project row.
 interface GenerateOutcome
@@ -586,7 +590,9 @@ test.describe('runtime publishing live loop', () => {
         const clone = ContosoClone.From(ContosoFixture.folder)
         // Cloned too: Generate UI writes into the project, which must never touch the committed fixture.
         const catalogClone = ContosoClone.From(CatalogFixture.folder, CatalogClonePrefix)
-        const restore = seedSession([clone.Folder, catalogClone.Folder])
+        const profile = E2eProfile.Create()
+        profile.SeedSession([clone.Folder, catalogClone.Folder])
+        const signIn = ScriptedDesktopSignIn.FromEnvironment()
         const reader = new BrowserReader()
         let l: Launched | undefined
         let dev: DevDescriptor | undefined
@@ -595,14 +601,14 @@ test.describe('runtime publishing live loop', () => {
         try
         {
             // Step 2: launch Plexus, place it on the second monitor, install shared renderer helpers.
-            l = await launchPlexus()
+            l = await launchPlexus(profile)
             const origin = await WindowPlacer.PlaceOnSecondMonitor(l, process.env[WindowOriginEnv])
             await RendererOps.InstallHelpers(l.win)
 
             // Step 2b: sign the app in to the account (scripted: no browser) so contribute/publish
             // run through the relay with a real desktop session.
             await test.step('desktop sign-in', async () => {
-                await ScriptedDesktopSignIn.FromEnvironment().SignIn(l!.app, l!.win)
+                await signIn.SignIn(l!.app, l!.win, profile)
             })
 
             // Step 3: open Contoso (seeded above) + Generate UI for the entrypoint concept.
@@ -743,9 +749,10 @@ test.describe('runtime publishing live loop', () => {
                 writeFileSync(RendererConsoleArtifact, [...l.errors.map((e) => 'ERROR ' + e), ...l.warnings.map((w) => 'WARN  ' + w)].map(redact).join('\n'), 'utf8')
                 const appErrs = l.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
                 console.log(`[runtime-loop] renderer console: ${l.errors.length} errors, ${l.warnings.length} warnings (${appErrs.length} non-ignorable) -> ${RendererConsoleArtifact}`)
+                await signIn.SignOut(l.win).catch(() => {})
                 await l.app.close().catch(() => {})
             }
-            try { restore() } catch { /* restore is best-effort; must not skip Teardown */ }
+            try { profile.Dispose() } catch { /* best-effort; must not skip Teardown */ }
             await orchestrator.Teardown().catch(() => {})
             clone.Dispose()
             catalogClone.Dispose()

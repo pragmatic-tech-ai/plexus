@@ -73,6 +73,13 @@ export class AccountDialogHost implements IDisposable
         }
     }
 
+    // The account dialog while it is shown, else undefined. Read by the e2e scripted sign-in, which
+    // drives the dialog's view model instead of clicking its SVG.
+    public get CurrentDialog(): AccountDialog | undefined
+    {
+        return this.openDialog
+    }
+
     public dispose(): void
     {
         this.requests.dispose()

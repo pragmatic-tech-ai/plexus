@@ -43,6 +43,18 @@ describe('AccountSignInModule', () =>
 
 describe('AccountDialogHost', () =>
 {
+    it('exposes the open dialog as CurrentDialog while it is shown, and clears it on close', async () =>
+    {
+        const h = new AccountShellHarness()
+        const host = new AccountDialogHost(h.Provider)
+        expect(host.CurrentDialog).toBeUndefined()
+        h.Account.RequestSignIn()
+        expect(host.CurrentDialog).toBe(h.Dialogs.Shown[0].Content)
+        h.Dialogs.Pending.Resolve(undefined)
+        await AccountShellHarness.Flush()
+        expect(host.CurrentDialog).toBeUndefined()
+    })
+
     it('opens the dialog when some UI requests sign-in, once while it is open', async () =>
     {
         const h = new AccountShellHarness()

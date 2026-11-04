@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { rootCertificates as tlsRootCertificates } from 'node:tls'
 import { IdpLoginError, IdpPasswordLogin } from '../idp-password-login'
 
 // A local HTTP server for one test; Close() shuts it.
@@ -160,5 +161,69 @@ describe('IdpPasswordLogin.Run against a fake IdP and loopback', () => {
         })
         await expect(new IdpPasswordLogin().Run(`http://127.0.0.1:${idp.Port}/authorize`, EMAIL, PASSWORD))
             .rejects.toThrow(/status 400/)
+    })
+})
+
+describe('IdpPasswordLogin transport policy', () => {
+    const servers = new FakeServers()
+    afterEach(() => servers.CloseAll())
+
+    it('refuses an http authorize URL on a non-loopback host before sending anything', async () => {
+        await expect(new IdpPasswordLogin().Run('http://idp.example.test/authorize?state=s', EMAIL, PASSWORD))
+            .rejects.toThrow(/must be https/)
+    })
+
+    it('accepts http only on a loopback host', () => {
+        expect(IdpPasswordLogin.IsSecureEnough(new URL('http://127.0.0.1:7000/authorize'))).toBe(true)
+        expect(IdpPasswordLogin.IsSecureEnough(new URL('http://localhost/authorize'))).toBe(true)
+        expect(IdpPasswordLogin.IsSecureEnough(new URL('https://idp.example.test/authorize'))).toBe(true)
+        expect(IdpPasswordLogin.IsSecureEnough(new URL('http://idp.example.test/authorize'))).toBe(false)
+    })
+
+    it('adds the dev CA to the default trust instead of replacing it', () => {
+        const ca = Buffer.from('-----BEGIN CERTIFICATE-----\nDEV\n-----END CERTIFICATE-----\n')
+        const trust = IdpPasswordLogin.TrustFor(ca)!
+        expect(trust).toContain(ca.toString())
+        for (const root of tlsRootCertificates) expect(trust).toContain(root)
+        expect(IdpPasswordLogin.TrustFor(undefined)).toBeUndefined()
+    })
+
+    it('follows one same-origin redirect from the authorize URL to the login page and posts the form there', async () => {
+        const loopback = await servers.Serve((_req, _body, res) => { res.writeHead(200); res.end() })
+        const posted: { path?: string; cookie?: string } = {}
+        const idp = await servers.Serve((req, _body, res) =>
+        {
+            if (req.method === 'GET' && req.url?.startsWith('/authorize'))
+            {
+                res.writeHead(302, { location: '/login?flow=1', 'set-cookie': ['first=1; Path=/'] })
+                res.end()
+                return
+            }
+            if (req.method === 'GET')
+            {
+                res.writeHead(200, { 'set-cookie': [`${COOKIE}; Path=/`] })
+                res.end('<form/>')
+                return
+            }
+            posted.path = req.url
+            posted.cookie = req.headers.cookie
+            res.writeHead(302, { location: `http://127.0.0.1:${loopback.Port}/pragmatic-desktop/callback?code=c&state=s` })
+            res.end()
+        })
+
+        await new IdpPasswordLogin().Run(`http://127.0.0.1:${idp.Port}/authorize?state=s`, EMAIL, PASSWORD)
+
+        expect(posted.path).toBe('/login?flow=1')
+        expect(posted.cookie).toBe(`first=1; ${COOKIE}`)
+    })
+
+    it('does not follow a redirect to another origin', async () => {
+        const idp = await servers.Serve((_req, _body, res) =>
+        {
+            res.writeHead(302, { location: 'http://127.0.0.2:1/login' })
+            res.end()
+        })
+        await expect(new IdpPasswordLogin().Run(`http://127.0.0.1:${idp.Port}/authorize`, EMAIL, PASSWORD))
+            .rejects.toThrow(/did not load, status 302/)
     })
 })

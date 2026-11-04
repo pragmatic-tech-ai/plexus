@@ -10,6 +10,7 @@ import { _electron as electron, type ElectronApplication, type Page } from 'play
 import path from 'node:path'
 import fs from 'node:fs'
 import os from 'node:os'
+import type { E2eProfile } from './support/e2e-profile'
 
 export const PLEXUS_ROOT = path.resolve(__dirname, '..')
 export const MAIN = path.join(PLEXUS_ROOT, 'out/main/index.js')
@@ -150,15 +151,17 @@ export interface Launched
 
 // Launch the built app as a GUI (ELECTRON_RUN_AS_NODE must be stripped, or
 // Electron runs as a plain node process and never opens a window). Collects
-// renderer console.error + uncaught page errors into `errors`.
-export async function launchPlexus(): Promise<Launched>
+// renderer console.error + uncaught page errors into `errors`. With a profile,
+// the app's userData is that isolated temp dir instead of the developer's
+// default profile (seed its session with profile.SeedSession, not seedSession).
+export async function launchPlexus(profile?: E2eProfile): Promise<Launched>
 {
     const env: Record<string, string> = {}
     for (const [name, value] of Object.entries(process.env))
     {
         if (value !== undefined && name !== 'ELECTRON_RUN_AS_NODE') env[name] = value
     }
-    const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN], cwd: PLEXUS_ROOT, env })
+    const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN, ...(profile?.LaunchArgs ?? [])], cwd: PLEXUS_ROOT, env })
     const win = await app.firstWindow()
     const errors: string[] = []
     const warnings: string[] = []

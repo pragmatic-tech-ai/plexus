@@ -1,33 +1,48 @@
 // Scripted desktop sign-in for the live e2e specs: signs the launched Plexus in to its account
 // WITHOUT a real browser, through the app's real sign-in path.
 //
+//   0. The app must run on an isolated E2eProfile (launchPlexus(profile)): the helper checks the
+//      launched app's userData IS that temp dir, and refuses a profile that already holds a session.
+//      It never touches the developer's own profile and never signs out a session it did not create.
 //   1. The main process's browser opener is intercepted: AccountService opens the authorize URL
 //      through `shell.openExternal` (src/main/index.ts), so the helper replaces that function in the
 //      Electron main process (electronApp.evaluate) with one that records the URL instead of opening
-//      a browser. The original is put back afterwards.
+//      a browser. The original is put back afterwards. Of the recorded URLs only an http(s) URL with
+//      state and code_challenge is taken as the authorize URL (an external link opened meanwhile is
+//      skipped).
 //   2. The sign-in starts exactly as a picker's "Sign in" does: IAccountService.RequestSignIn() opens
-//      the account dialog (AccountDialogHost), and the helper drives the dialog view model: Email,
-//      then its ContinueCommand (discover -> tenant chooser -> sign in -> waiting on the browser).
+//      the account dialog (AccountDialogHost.CurrentDialog), and the helper drives the dialog view
+//      model: Email, then its ContinueCommand (discover -> tenant chooser -> sign in -> waiting on the
+//      browser).
 //   3. The recorded authorize URL is driven over HTTP by IdpPasswordLogin (the server smoke's
 //      RunLogin: GET, keep the cookie, POST the password form, follow the redirect to the loopback
 //      callback), so Plexus's own loopback receiver completes the sign-in and stores the session.
 //   4. It waits until the account reports signed in and the dialog's request resolved true.
-// A session left by an earlier run is signed out first, so the configured account is the one used.
+// SignOut() ends the session this helper created (call it before closing the app); the profile's
+// Dispose() then deletes what is left on disk.
+//
+// Services are found in the renderer's service-provider cache by their ServiceKey description (a
+// stable string, unlike a constructor name under minification) - the same cache walk plexus-app.ts
+// uses; ServiceProvider has no public enumeration.
 //
 // Inputs (environment variables):
 //   PLEXUS_E2E_OWNER_EMAIL          account email to sign in with (required)
 //   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding that account's password (required; read,
 //                                   never printed)
-//   PLEXUS_E2E_PLATFORM_ADDRESS     platform address for this sign-in (optional; default: the app's
-//                                   account.platformAddress setting, itself defaulting to
-//                                   http://localhost:7000)
+//   PLEXUS_E2E_PLATFORM_ADDRESS     platform address for this sign-in (optional; written to the
+//                                   isolated profile's account.platformAddress setting; default: that
+//                                   setting's default, http://localhost:7000)
 //   PLEXUS_E2E_TENANT               tenant id or display name to pick when the email belongs to
-//                                   several tenants (optional; default: the first one listed)
+//                                   several tenants (optional; default: the first one listed; a value
+//                                   matching no listed tenant fails the sign-in)
 //   PLEXUS_E2E_IDP_CA_FILE          the IdP's dev CA certificate (optional; for an https IdP with a
-//                                   private CA; else Node's default trust incl. NODE_EXTRA_CA_CERTS)
+//                                   private CA, added to Node's default trust)
 import { readFileSync } from 'node:fs'
 import type { ElectronApplication, Page } from 'playwright'
+import { AccountDialogStep } from '../src/renderer/src/modules/account/account-dialog-step'
 import { IdpPasswordLogin } from './support/idp-password-login'
+import type { E2eProfile } from './support/e2e-profile'
+import { SignInChecks, type TenantRow } from './support/sign-in-checks'
 
 // The dialog's progress as the renderer reports it to the node side.
 interface DialogProbe
@@ -36,6 +51,14 @@ interface DialogProbe
     Step?: string
     Message?: string
     Done?: boolean
+    SignedIn?: boolean
+    Tenants?: TenantRow[]
+}
+
+// What locating the services found: a fault sentence, or whether the profile is signed in.
+interface LocateResult
+{
+    Fault?: string
     SignedIn?: boolean
 }
 
@@ -53,20 +76,30 @@ export class ScriptedDesktopSignIn
     private static readonly OpenerKey = '__plexusE2eOpener'
     private static readonly StateKey = '__plexusE2eSignIn'
     private static readonly VisualBackref = 'mural:visual-backref'
-    private static readonly DialogHostName = 'AccountDialogHost'
-    private static readonly StepEmail = 'email'
-    private static readonly StepChooseTenant = 'choose-tenant'
+    // ServiceKey descriptions (AccountDialogHost.Key, AccountServiceKey, ApplicationSettings.Key).
+    private static readonly DialogHostKey = 'AccountDialogHost'
+    private static readonly AccountKey = 'AccountService'
+    private static readonly SettingsKey = 'ApplicationSettings'
+    // AccountDialogHost.PlatformAddressSetting.
+    private static readonly PlatformAddressSetting = 'account.platformAddress'
     private static readonly Utf8 = 'utf8'
     private static readonly PollMs = 250
     private static readonly OpenTimeoutMs = 60_000
     private static readonly SignedInTimeoutMs = 60_000
+    private static readonly NotIsolated =
+        'the app is not running on the e2e profile: launch it with launchPlexus(profile) so the developer profile is never touched'
     private static readonly NotIntercepted = 'could not replace shell.openExternal in the Electron main process'
+    private static readonly NoServices = 'the account services were not found in the renderer within the timeout'
     private static readonly NoDialog = 'the account dialog did not open (no AccountDialogHost, or a dialog was already open)'
+    private static readonly NoAddressSetting = 'the platform address setting could not be set in the e2e profile'
     private static readonly CannotContinue = 'the account dialog cannot continue: Continue is disabled'
     private static readonly NoAuthorizeUrl = 'the app never opened an authorize URL within the timeout'
     private static readonly DialogFailedPrefix = 'the account dialog reported: '
     private static readonly NotSignedIn = 'the account did not report signed in after the loopback callback'
     private static readonly EmptyPassword = 'the password file is empty'
+
+    // Whether this instance signed the app in (and so may sign it out).
+    private createdSession = false
 
     private constructor(
         private readonly email: string,
@@ -99,21 +132,41 @@ export class ScriptedDesktopSignIn
         return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login)
     }
 
-    // Signs the launched app in; resolves once the account reports signed in.
-    public async SignIn(app: ElectronApplication, win: Page): Promise<void>
+    // Signs the app (launched on `profile`) in; resolves once the account reports signed in.
+    public async SignIn(app: ElectronApplication, win: Page, profile: E2eProfile): Promise<void>
     {
+        const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
+        if (!profile.Owns(userData)) throw new Error(ScriptedDesktopSignIn.NotIsolated)
         await this.InterceptOpener(app)
         try
         {
+            const located = await this.LocateServices(win)
+            if (located.Fault !== undefined) throw new Error(located.Fault)
+            const existing = SignInChecks.ExistingSessionFault(located.SignedIn === true)
+            if (existing !== undefined) throw new Error(existing)
             await this.OpenDialogAndContinue(win)
             const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
             await this.login.Run(authorizeUrl, this.email, this.password)
             await this.AwaitSignedIn(win)
+            this.createdSession = true
         }
         finally
         {
             await this.RestoreOpener(app)
         }
+    }
+
+    // Ends the session this helper created (no-op otherwise), so the owner token does not stay live
+    // on the tenant plane after the run.
+    public async SignOut(win: Page): Promise<void>
+    {
+        if (!this.createdSession) return
+        this.createdSession = false
+        await win.evaluate(async (stateKey) =>
+        {
+            const account = (window as any)[stateKey]?.account
+            if (account?.State?.SignedIn) await account.SignOut()
+        }, ScriptedDesktopSignIn.StateKey)
     }
 
     private async InterceptOpener(app: ElectronApplication): Promise<void>
@@ -146,58 +199,74 @@ export class ScriptedDesktopSignIn
         }, ScriptedDesktopSignIn.OpenerKey).catch(() => undefined)
     }
 
-    // Raises the sign-in request (the account dialog opens), enters the email and presses Continue.
-    private async OpenDialogAndContinue(win: Page): Promise<void>
+    // Finds the dialog host, the account service and the settings (by ServiceKey description), keeps
+    // them on a window-side state object, and loads the account state.
+    private LocateServices(win: Page): Promise<LocateResult>
     {
         const S = ScriptedDesktopSignIn
-        const fault = await win.evaluate(async (p) =>
+        return win.evaluate(async (p) =>
         {
             const backref = Symbol.for(p.backref)
             const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
-            let host: any
+            const found: Record<string, any> = {}
             const deadline = Date.now() + p.timeoutMs
-            while (host === undefined)
+            while (found[p.hostKey] === undefined || found[p.accountKey] === undefined || found[p.settingsKey] === undefined)
             {
                 for (const el of document.querySelectorAll('*'))
                 {
                     const root = (el as any)[backref]
                     if (root?.Services === undefined) continue
-                    for (let scope = root.Services; scope !== undefined && host === undefined; scope = scope._parent)
+                    for (let scope = root.Services; scope !== undefined; scope = scope._parent)
                     {
-                        for (const [, entry] of (scope._cache ?? new Map()))
+                        for (const [key, entry] of (scope._cache ?? new Map()))
                         {
-                            if ((entry as any)?.constructor?.name === p.hostName) host = entry
+                            const name = (key as any)?.description
+                            if (typeof name === 'string' && found[name] === undefined) found[name] = entry
                         }
                     }
                     break
                 }
-                if (host === undefined)
-                {
-                    if (Date.now() > deadline) return p.noDialog
-                    await sleep(p.pollMs)
-                }
+                if (found[p.hostKey] !== undefined && found[p.accountKey] !== undefined && found[p.settingsKey] !== undefined) break
+                if (Date.now() > deadline) return { Fault: p.noServices }
+                await sleep(p.pollMs)
             }
-            // A session stored by an earlier run would put the dialog straight on "Signed in as":
-            // load the account state and sign out first, so this run signs in the configured account.
-            await host.account.Refresh()
-            if (host.account.State.SignedIn) await host.account.SignOut()
-            const state: any = (window as any)[p.stateKey] = { host }
+            const account = found[p.accountKey]
+            ;(window as any)[p.stateKey] = { host: found[p.hostKey], account, settings: found[p.settingsKey] }
+            await account.Refresh()
+            return { SignedIn: account.State?.SignedIn === true }
+        }, {
+            backref: S.VisualBackref, hostKey: S.DialogHostKey, accountKey: S.AccountKey, settingsKey: S.SettingsKey,
+            stateKey: S.StateKey, noServices: S.NoServices, timeoutMs: S.OpenTimeoutMs, pollMs: S.PollMs,
+        })
+    }
+
+    // Raises the sign-in request (the account dialog opens), enters the email and presses Continue.
+    private async OpenDialogAndContinue(win: Page): Promise<void>
+    {
+        const S = ScriptedDesktopSignIn
+        const fault = await win.evaluate((p) =>
+        {
+            const state: any = (window as any)[p.stateKey]
+            // The dialog reads its address from the setting when it opens. The setting lives in the
+            // isolated e2e profile, so writing it touches nothing of the developer's.
+            if (p.platformAddress !== undefined)
+            {
+                state.settings.Set(p.addressSetting, p.platformAddress)
+                if (state.settings.Get(p.addressSetting) !== p.platformAddress) return p.noAddressSetting
+            }
             // The real path: IAccountService.RequestSignIn opens the dialog for this request.
-            host.account.RequestSignIn().then((signedIn: boolean) => { state.done = signedIn }, () => { state.done = false })
-            if (host.openDialog === undefined) return p.noDialog
-            const dialog = host.openDialog
+            state.account.RequestSignIn().then((signedIn: boolean) => { state.done = signedIn }, () => { state.done = false })
+            const dialog = state.host.CurrentDialog
+            if (dialog === undefined) return p.noDialog
             state.dialog = dialog
-            // The dialog reads its address from Settings when it opens; an override replaces it for
-            // this dialog only (TS-private, reachable at runtime), so no setting is persisted.
-            if (p.platformAddress !== undefined) dialog.platformAddress = p.platformAddress
             dialog.Email = p.email
             if (!dialog.ContinueCommand.CanExecute(undefined)) return p.cannotContinue
             dialog.ContinueCommand.Execute(undefined)
             return undefined
         }, {
-            backref: S.VisualBackref, hostName: S.DialogHostName, stateKey: S.StateKey, email: this.email,
-            platformAddress: this.platformAddress, noDialog: S.NoDialog, cannotContinue: S.CannotContinue,
-            timeoutMs: S.OpenTimeoutMs, pollMs: S.PollMs,
+            stateKey: S.StateKey, email: this.email, platformAddress: this.platformAddress,
+            addressSetting: S.PlatformAddressSetting, noAddressSetting: S.NoAddressSetting,
+            noDialog: S.NoDialog, cannotContinue: S.CannotContinue,
         })
         if (fault !== undefined) throw new Error(fault)
     }
@@ -210,35 +279,35 @@ export class ScriptedDesktopSignIn
         const deadline = Date.now() + S.OpenTimeoutMs
         for (;;)
         {
-            const url = await app.evaluate((_electron, key) =>
+            const urls = await app.evaluate((_electron, key) =>
             {
                 const record = (globalThis as unknown as Record<string, { Urls: string[] } | undefined>)[key]
-                return record?.Urls[0]
+                return record === undefined ? [] : [...record.Urls]
             }, S.OpenerKey)
+            const url = SignInChecks.FirstAuthorizeUrl(urls)
             if (url !== undefined) return url
             const probe = await this.Probe(win)
-            if (probe.Open && probe.Step === S.StepChooseTenant) await this.ChooseTenant(win)
-            if (probe.Step === S.StepEmail && probe.Message) throw new Error(S.DialogFailedPrefix + probe.Message)
+            if (probe.Open && probe.Step === AccountDialogStep.ChooseTenant) await this.ChooseTenant(win, probe.Tenants ?? [])
+            if (probe.Step === AccountDialogStep.Email && probe.Message) throw new Error(S.DialogFailedPrefix + probe.Message)
             if (probe.Done === false) throw new Error(S.DialogFailedPrefix + (probe.Message ?? ''))
             if (Date.now() > deadline) throw new Error(S.NoAuthorizeUrl)
             await win.waitForTimeout(S.PollMs)
         }
     }
 
-    // Picks PLEXUS_E2E_TENANT (id or display name) or keeps the first, then presses Continue.
-    private async ChooseTenant(win: Page): Promise<void>
+    // Picks PLEXUS_E2E_TENANT (id or display name; failing when it matches none) or keeps the first,
+    // then presses Continue.
+    private async ChooseTenant(win: Page, tenants: readonly TenantRow[]): Promise<void>
     {
-        const S = ScriptedDesktopSignIn
+        const index = SignInChecks.PickTenant(tenants, this.tenant)
         await win.evaluate((p) =>
         {
             const dialog = (window as any)[p.stateKey]?.dialog
             if (dialog === undefined) return
-            const wanted = p.tenant === undefined
-                ? undefined
-                : dialog.Tenants.find((t: any) => t.Id === p.tenant || t.DisplayName === p.tenant)
+            const wanted = dialog.Tenants[p.index]
             if (wanted !== undefined) dialog.SelectedTenant = wanted
             if (dialog.ContinueCommand.CanExecute(undefined)) dialog.ContinueCommand.Execute(undefined)
-        }, { stateKey: S.StateKey, tenant: this.tenant })
+        }, { stateKey: ScriptedDesktopSignIn.StateKey, index })
     }
 
     private async AwaitSignedIn(win: Page): Promise<void>
@@ -255,20 +324,22 @@ export class ScriptedDesktopSignIn
         }
     }
 
-    // The dialog's step + message (AccountError sentences only: safe to print), the request outcome
-    // and the account's signed-in state.
+    // The dialog's step + message (AccountError sentences only: safe to print), its tenant list, the
+    // request outcome and the account's signed-in state.
     private Probe(win: Page): Promise<DialogProbe>
     {
         return win.evaluate((stateKey) =>
         {
             const state = (window as any)[stateKey]
             if (state === undefined) return { Open: false }
+            const dialog = state.host.CurrentDialog
             return {
-                Open: state.host.openDialog !== undefined,
+                Open: dialog !== undefined,
                 Step: state.dialog?.Step,
                 Message: state.dialog?.Message || undefined,
                 Done: state.done,
-                SignedIn: state.host.account.State?.SignedIn === true,
+                SignedIn: state.account.State?.SignedIn === true,
+                Tenants: (state.dialog?.Tenants ?? []).map((t: any) => ({ Id: t.Id, DisplayName: t.DisplayName })),
             }
         }, ScriptedDesktopSignIn.StateKey)
     }

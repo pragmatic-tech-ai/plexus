@@ -15,14 +15,18 @@
 // naming them:
 //   PLEXUS_E2E_OWNER_EMAIL          the account's email
 //   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding its password (read, never printed)
-// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the app's account.platformAddress setting,
-// http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several),
-// PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
+// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the account.platformAddress setting's default,
+// http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several; a value
+// matching none fails), PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
+// The app runs on an isolated temporary profile (E2eProfile, removed afterwards), so the developer's
+// own Plexus profile and session are never read, signed out or replaced; the session the run creates
+// is signed out before the app closes.
 import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { launchPlexus, seedSession, MAIN, ELECTRON_EXE } from './plexus-app'
+import { launchPlexus, MAIN, ELECTRON_EXE } from './plexus-app'
 import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
+import { E2eProfile } from './support/e2e-profile'
 
 const GATE = process.env.SP1_SMOKE === '1'
 const PROJECT_DIR = process.env.SP1_PROJECT_DIR ?? 'C:/tmp/sp1-smoke/project'
@@ -40,13 +44,15 @@ test.describe('SP1 Plexus smoke', () =>
     {
         expect(existsSync(MAIN), `built app missing at ${MAIN} — run npm run build`).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), 'electron binary missing').toBeTruthy()
-        const restore = seedSession([path.resolve(PROJECT_DIR)])
-        const l = await launchPlexus()
+        const profile = E2eProfile.Create()
+        profile.SeedSession([path.resolve(PROJECT_DIR)])
+        const signIn = ScriptedDesktopSignIn.FromEnvironment()
+        const l = await launchPlexus(profile)
         try
         {
             // 0) Sign the app in to the account (scripted: no browser) so publish runs through the
             //    relay with a real desktop session.
-            await ScriptedDesktopSignIn.FromEnvironment().SignIn(l.app, l.win)
+            await signIn.SignIn(l.app, l.win, profile)
 
             // 1) Wait for the restored project to resolve into the active solution, then run
             //    scaffold -> Generate UI on the real service objects.
@@ -194,8 +200,9 @@ test.describe('SP1 Plexus smoke', () =>
         {
             const appErrs = l.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
             if (appErrs.length) console.log('[sp1-smoke] renderer errors:\n' + appErrs.slice(0, 20).join('\n'))
+            await signIn.SignOut(l.win).catch(() => {})
             await l.app.close().catch(() => {})
-            restore()
+            profile.Dispose()
         }
     })
 })
