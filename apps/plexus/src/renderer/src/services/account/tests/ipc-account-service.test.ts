@@ -97,6 +97,25 @@ describe('IpcAccountService', () =>
         expect(error.Kind).toBe(AccountErrorKind.TimedOut)
     })
 
+    it('raises Changed once for a sign-in reply plus its push', async () =>
+    {
+        const bridge = new FakeAccountBridge()
+        bridge.Reply = { Ok: true, Value: { SignedIn: true, Email: 'a@b.c', TenantName: 'T' } }
+        const { Service } = Make(bridge)
+        let count = 0
+        Service.Changed.subscribe(() => { count++ })
+        await Service.SignIn('p', 'e', 't')
+        bridge.Listener!({ SignedIn: true, Email: 'a@b.c', TenantName: 'T' })
+        expect(count).toBe(1)
+    })
+
+    it('dispose releases the account:changed subscription', () =>
+    {
+        const { Bridge, Service } = Make()
+        Service.dispose()
+        expect(Bridge.Disposed).toBe(true)
+    })
+
     it('RequestSignIn raises SignInRequested', () =>
     {
         const { Service } = Make()

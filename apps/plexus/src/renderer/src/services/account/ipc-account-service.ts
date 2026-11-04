@@ -1,4 +1,4 @@
-import { Signal } from '@pragmatic-tech-ai/todl-runtime'
+import { Signal, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import { AccountServiceKey, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import { AccountWire } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type {
@@ -8,12 +8,12 @@ import type {
 // The renderer-side account service: the concrete IAccountService resolved through AccountServiceKey.
 // A thin wrapper over the preload bridge (window.api.account) that unwraps each AccountReply, so a
 // failure rejects with an AccountError carrying its Kind. State follows the account:changed pushes.
-export class IpcAccountService implements IAccountService
+export class IpcAccountService implements IAccountService, IDisposable
 {
     public static readonly Key = AccountServiceKey
 
     private static readonly BridgeUnavailable =
-        'IpcAccountService: window.api.account is unavailable — the Electron preload '
+        'IpcAccountService: window.api.account is unavailable - the Electron preload '
         + 'bridge did not load. This service requires a desktop host.'
 
     public readonly Changed = new Signal<void>()
@@ -21,6 +21,7 @@ export class IpcAccountService implements IAccountService
 
     private state: AccountState = { SignedIn: false }
     private readonly api: IAccountBridge
+    private readonly releaseChanged: () => void
 
     constructor()
     {
@@ -30,7 +31,7 @@ export class IpcAccountService implements IAccountService
             throw new Error(IpcAccountService.BridgeUnavailable)
         }
         this.api = bridge.account
-        this.api.OnChanged((s) => this.Apply(s))
+        this.releaseChanged = this.api.OnChanged((s) => this.Apply(s))
     }
 
     public get State(): AccountState
@@ -83,8 +84,20 @@ export class IpcAccountService implements IAccountService
         AccountWire.Unwrap(await this.api.RememberChoice(kind, choice))
     }
 
+    public dispose(): void
+    {
+        this.releaseChanged()
+    }
+
+    // The sign-in reply and main's account:changed push both carry the new state; Changed fires only
+    // when the state actually differs, so one operation raises it once.
     private Apply(state: AccountState): void
     {
+        const current = this.state
+        if (current.SignedIn === state.SignedIn && current.Email === state.Email && current.TenantName === state.TenantName)
+        {
+            return
+        }
         this.state = state
         this.Changed.emit()
     }

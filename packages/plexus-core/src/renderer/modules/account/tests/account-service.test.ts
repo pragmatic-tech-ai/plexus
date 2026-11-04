@@ -5,7 +5,6 @@ describe('AccountServiceKey', () =>
 {
     it('is a service key named AccountService', () =>
     {
-        expect(AccountServiceKey).toBeDefined()
-        expect(String(AccountServiceKey.Name ?? AccountServiceKey)).toContain('AccountService')
+        expect(AccountServiceKey.description).toBe('AccountService')
     })
 })
