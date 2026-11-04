@@ -178,7 +178,10 @@ export class QuestionCard extends MuralBase
         const questions = new ObservableCollection<QuestionVM>(request.questions.map((q) => new QuestionVM(q)))
         for (const q of questions) q.onChanged = () => this.recompute()
         this.set_property_value(QuestionCard.QuestionsKey, questions)
-        this.set_property_value(QuestionCard.SubmitCommandKey, new RelayCommand(() => this.submit(onSubmit)))
+        // CanExecute carries "pending and every question answered", so the Submit
+        // button (bound to the command only) disables itself.
+        this.set_property_value(QuestionCard.SubmitCommandKey,
+            new RelayCommand(() => this.submit(onSubmit), () => this.IsPending && this.IsSubmittable))
         this.recompute()
     }
 
@@ -199,7 +202,15 @@ export class QuestionCard extends MuralBase
 
     private recompute(): void
     {
-        this.set_property_value(QuestionCard.IsSubmittableKey, [...this.Questions].every((q) => q.HasSelection))
+        const submittable = [...this.Questions].every((q) => q.HasSelection)
+        if (submittable === this.IsSubmittable) return
+        this.set_property_value(QuestionCard.IsSubmittableKey, submittable)
+        this.RaiseSubmitCanExecuteChanged()
+    }
+
+    private RaiseSubmitCanExecuteChanged(): void
+    {
+        ;(this.SubmitCommand as RelayCommand | undefined)?.RaiseCanExecuteChanged()
     }
 
     private submit(onSubmit: (answer: QuestionAnswer) => void): void
@@ -209,6 +220,7 @@ export class QuestionCard extends MuralBase
         this.set_property_value(QuestionCard.AnswerSummaryKey, summarize(this.Questions))
         this.set_property_value(QuestionCard.IsAnsweredKey, true)
         this.set_property_value(QuestionCard.IsPendingKey, false)
+        this.RaiseSubmitCanExecuteChanged()
         onSubmit(answer)
     }
 }

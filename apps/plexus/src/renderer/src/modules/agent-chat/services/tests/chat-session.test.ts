@@ -4,6 +4,7 @@ import { AgentEventKind, type AgentEvent } from '../../../../../../shared/agent-
 import { ChatSession, type ChatSessionCallbacks } from '../chat-session.js'
 import { UserMessage, AssistantMessage } from '../transcript.js'
 import { SessionRecoveryCard } from '../session-recovery-card.js'
+import { QuestionCard } from '../question-card.js'
 import { AgentModel } from '../agent-model.js'
 
 function fakeCallbacks()
@@ -230,4 +231,25 @@ test('StopCommand aborts the run and returns to idle', () => {
     expect(calls.stopped).toEqual(['sess-1'])
     expect(s.IsBusy).toBe(false)
     expect(s.IsIdle).toBe(true)
+})
+
+// The Send button binds Command only (mural >= 0.66.2 disables a button whose command cannot run):
+// SendCommand's CanExecute is CanInput, and it raises CanExecuteChanged when a pending question
+// blocks or releases the input.
+test('SendCommand.CanExecute follows CanInput and raises CanExecuteChanged when it flips', () => {
+    const { cb } = fakeCallbacks()
+    const s = new ChatSession('sess-1', 'Chat 1', cb)
+    let raised = 0
+    s.SendCommand.AddCanExecuteChangedListener(() => { raised++ })
+    expect(s.SendCommand.CanExecute(undefined)).toBe(true)
+    s.apply({ Kind: AgentEventKind.Question, Request: { id: 'q1', questions: [{ question: 'x?', header: 'h', multiSelect: false, options: [{ label: 'a' }] }] } })
+    expect(s.SendCommand.CanExecute(undefined)).toBe(false)
+    expect(raised).toBe(1)
+    const card = s.Transcript.ToArray().find((m) => m instanceof QuestionCard) as QuestionCard
+    const q = card.Questions.ToArray()[0]!
+    q.SelectedOption = q.Options.ToArray()[0]!
+    card.SubmitCommand.Execute(undefined)
+    expect(s.CanInput).toBe(true)
+    expect(s.SendCommand.CanExecute(undefined)).toBe(true)
+    expect(raised).toBe(2)
 })

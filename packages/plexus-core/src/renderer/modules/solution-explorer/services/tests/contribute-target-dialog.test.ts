@@ -247,6 +247,7 @@ describe('ContributeTargetDialog', () =>
         await FakePickerDialogs.Flush()
         expect(h.Account.TargetsCalls).toBe(0)
     })
+
     it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Contribute button follows it', async () =>
     {
         const h = new ContributeDialogHarness(false)

@@ -19,7 +19,8 @@ resources ViewpointPickerResources {
     }
 
     // The dialog body: the checklist + Cancel / Confirm. Confirm stays disabled
-    // until at least one viewpoint is checked (CanConfirm enforces the ≥1 rule).
+    // until at least one viewpoint is checked: ConfirmCommand's CanExecute carries
+    // the ≥1 rule (mural >= 0.66.2 disables a button whose command cannot run).
     DataTemplate [ DataType = ViewpointPickerModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
             TextBlock [ Style = @BodySm, TextWrapping = Wrap, Foreground = @Fg2, Margin = (0,0,0,10),
@@ -27,7 +28,7 @@ resources ViewpointPickerResources {
             ItemsControl [ ItemsSource = $Rows, ItemsPanel = @VerticalStackPanel ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Confirm" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Confirm" ] }
             }
         }
     }

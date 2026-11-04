@@ -26,7 +26,9 @@ export class PickerRow extends MuralBase
 // host shows it through DialogService and awaits the chosen ids: ConfirmCommand
 // closes with the checked labels, CancelCommand closes with `undefined` (as does
 // a scrim/Escape dismiss). Confirm is blocked while nothing is checked (the ≥1
-// constraint), surfaced as CanConfirm for the button's IsEnabled.
+// constraint): CanConfirm is ConfirmCommand's CanExecute, and the command raises
+// CanExecuteChanged when it flips, so the Confirm button (bound to the command
+// only) disables itself.
 export class ViewpointPickerModel extends MuralBase
 {
     public static readonly RowsKey = MuralBase.RegisterProperty<ObservableCollection<PickerRow>>(
@@ -54,7 +56,7 @@ export class ViewpointPickerModel extends MuralBase
             rows.Add(row)
         }
         this.set_property_value(ViewpointPickerModel.RowsKey, rows)
-        this.set_property_value(ViewpointPickerModel.ConfirmCommandKey, new RelayCommand(() => this.confirm()))
+        this.set_property_value(ViewpointPickerModel.ConfirmCommandKey, new RelayCommand(() => this.confirm(), () => this.CanConfirm))
         this.set_property_value(ViewpointPickerModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
         this.recompute()
     }
@@ -66,7 +68,10 @@ export class ViewpointPickerModel extends MuralBase
 
     private recompute(): void
     {
-        this.set_property_value(ViewpointPickerModel.CanConfirmKey, this.Rows.ToArray().some((r) => r.IsSelected))
+        const can = this.Rows.ToArray().some((r) => r.IsSelected)
+        if (can === this.CanConfirm) return
+        this.set_property_value(ViewpointPickerModel.CanConfirmKey, can)
+        ;(this.ConfirmCommand as RelayCommand | undefined)?.RaiseCanExecuteChanged()
     }
 
     private confirm(): void

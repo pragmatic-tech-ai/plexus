@@ -52,8 +52,9 @@ export class ChatSession extends MuralBase implements IDockPanel, IDocument
         ChatSession, 'Transcript', undefined as unknown as ObservableCollection<MuralBase>, MetaData.None)
     public static readonly DraftKey = MuralBase.RegisterProperty<string>(ChatSession, 'Draft', '', MetaData.None)
     public static readonly StatusKey = MuralBase.RegisterProperty<string>(ChatSession, 'Status', 'idle', MetaData.None)
-    // False while the agent is blocked on a pending card — the input row binds
-    // IsEnabled = $CanInput so a turn can't be sent mid-question.
+    // False while the agent is blocked on a pending card. It is SendCommand's
+    // CanExecute (the Send button binds the command only) and the input TextBox
+    // binds IsEnabled = $CanInput, so a turn can't be typed or sent mid-question.
     public static readonly CanInputKey = MuralBase.RegisterProperty<boolean>(ChatSession, 'CanInput', true, MetaData.None)
     // True while a turn is in flight; IsIdle is its inverse. The composer shows
     // the stop button when IsBusy and the send button when IsIdle.
@@ -115,7 +116,7 @@ export class ChatSession extends MuralBase implements IDockPanel, IDocument
         this.set_property_value(ChatSession.TranscriptKey, this.reducer.Transcript)
         if (approvals !== undefined) this.set_property_value(ChatSession.ApprovalsKey, approvals)
 
-        this.set_property_value(ChatSession.SendCommandKey, new RelayCommand(() => this.send()))
+        this.set_property_value(ChatSession.SendCommandKey, new RelayCommand(() => this.send(), () => this.CanInput))
         this.set_property_value(ChatSession.SubmitCommandKey, new RelayCommand((arg) => {
             if ((arg as { Key?: unknown } | undefined)?.Key === Key.Return) this.send()
         }))
@@ -134,10 +135,19 @@ export class ChatSession extends MuralBase implements IDockPanel, IDocument
 
         this.reducer.onAnswerSubmitted = (answer) => this.callbacks.answerQuestion(this.sessionId, answer)
         this.reducer.onToolApprovalSubmitted = (answer) => this.callbacks.answerToolApproval(this.sessionId, answer)
-        this.reducer.onPendingChange = () =>
-            this.set_property_value(ChatSession.CanInputKey, !this.reducer.HasPendingQuestion)
+        this.reducer.onPendingChange = () => this.applyCanInput()
         this.reducer.onBusyChange = () => this.applyBusy()
         this.reducer.onSessionRecovery = (mode) => this.recover(mode)
+    }
+
+    // Mirror the reducer's pending-question state onto CanInput, and tell the Send
+    // button its command's CanExecute moved.
+    private applyCanInput(): void
+    {
+        const can = !this.reducer.HasPendingQuestion
+        if (can === this.CanInput) return
+        this.set_property_value(ChatSession.CanInputKey, can)
+        ;(this.SendCommand as RelayCommand).RaiseCanExecuteChanged()
     }
 
     // Mirror the reducer's busy flag onto the IsBusy / IsIdle DPs the composer binds.

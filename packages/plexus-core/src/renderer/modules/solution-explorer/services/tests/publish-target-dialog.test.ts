@@ -96,6 +96,7 @@ describe('PublishTargetDialog', () =>
         await expect(shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'stage' } })
         expect(h.Account.Remembered).toEqual([[TargetKind.Publish, { Environment: 'stage' }]])
     })
+
     it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Publish button follows it', async () =>
     {
         const h = new PublishDialogHarness(false)

@@ -89,3 +89,19 @@ test('an unselected Other does not count as a selection', () => {
     expect(q.HasSelection).toBe(false)
     expect(c.IsSubmittable).toBe(false)
 })
+
+// The Submit button binds Command only: SubmitCommand's CanExecute is "pending and every question
+// answered", raised on each change, so the button disables itself before and after submitting.
+test('SubmitCommand.CanExecute follows IsSubmittable and goes false once answered', () => {
+    const c = card(SINGLE)
+    let raised = 0
+    c.SubmitCommand.AddCanExecuteChangedListener(() => { raised++ })
+    expect(c.SubmitCommand.CanExecute(undefined)).toBe(false)
+    const q = c.Questions.ToArray()[0]!
+    q.SelectedOption = q.Options.ToArray()[0]!
+    expect(c.SubmitCommand.CanExecute(undefined)).toBe(true)
+    expect(raised).toBe(1)
+    c.SubmitCommand.Execute(undefined)
+    expect(c.SubmitCommand.CanExecute(undefined)).toBe(false)
+    expect(raised).toBe(2)
+})

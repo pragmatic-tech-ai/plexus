@@ -43,4 +43,21 @@ describe('ViewpointPickerModel', () => {
         m.ConfirmCommand.Execute(undefined)
         assert.equal(called, false)
     })
+    // The Confirm button binds Command only: its enabled state is the command's CanExecute, so the
+    // command must report the >=1 rule and raise CanExecuteChanged when it flips.
+    test('ConfirmCommand.CanExecute carries the >=1 rule and raises CanExecuteChanged on each flip', () => {
+        const m = new ViewpointPickerModel(['a', 'b'], new Set(), () => {})
+        let raised = 0
+        m.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
+        assert.equal(m.ConfirmCommand.CanExecute(undefined), false)
+        m.Rows.Get(0)!.IsSelected = true
+        assert.equal(m.ConfirmCommand.CanExecute(undefined), true)
+        assert.equal(raised, 1)
+        m.Rows.Get(1)!.IsSelected = true
+        assert.equal(raised, 1, 'no change, no notification')
+        m.Rows.Get(0)!.IsSelected = false
+        m.Rows.Get(1)!.IsSelected = false
+        assert.equal(m.ConfirmCommand.CanExecute(undefined), false)
+        assert.equal(raised, 2)
+    })
 })

@@ -61,7 +61,7 @@ resources AgentChatResources {
                         // Send when idle; the same slot becomes Stop (interrupt the
                         // running turn) while a turn is in flight — one shows, the
                         // other collapses out of layout.
-                        PanelButton [ DockPanel.Dock = Right, Command = $SendCommand, IsEnabled = $CanInput,
+                        PanelButton [ DockPanel.Dock = Right, Command = $SendCommand,
                                       Template = @ComposerIconButton, VerticalAlignment = Center,
                                       Visibility = $IsIdle << ToVisibility, Margin = (6,0,0,0) ] {
                             Shape [ Geometry = @ArrowUpward, Fill = @Fg2, Width = 16, Height = 16 ]
@@ -293,7 +293,7 @@ resources AgentChatResources {
             StackPanel [ Orientation = Vertical ] {
                 StackPanel [ Orientation = Vertical, Visibility = $IsPending << ToVisibility ] {
                     ItemsControl [ ItemsSource = $Questions, ItemsPanel = @VerticalStackPanel ]
-                    PanelButton [ Command = $SubmitCommand, IsEnabled = $IsSubmittable,
+                    PanelButton [ Command = $SubmitCommand,
                              HorizontalAlignment = Right, Margin = (0,10,0,0), Template = @CompactButton ] {
                         TextBlock [ Text = "Submit", TextWrapping = Wrap ]
                     }
