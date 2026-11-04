@@ -178,6 +178,21 @@ describe('AccountStatusItem', () =>
         expect(h.Dialogs.Shown).toHaveLength(1)
     })
 
+    it('a sign-in request completes (false) and the failure logs only its name when the dialog cannot be built', async () =>
+    {
+        const h = new Harness()
+        h.Make()
+        // The AccountDialog subscribes to Changed in its constructor; make that throw.
+        h.Account.Changed.subscribe = () => { throw new TypeError('secret http://x token=abc') }
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        await expect(h.Account.RequestSignIn()).resolves.toBe(false)
+        await Harness.Flush()
+        expect(h.Dialogs.Shown).toHaveLength(0)
+        expect(warn.mock.calls.map((c) => c.join(' ')).join('\n')).toContain('TypeError')
+        expect(warn.mock.calls.map((c) => c.join(' ')).join('\n')).not.toContain('secret')
+        warn.mockRestore()
+    })
+
     it('a sign-in request with no DialogService resolves false', async () =>
     {
         const h = new Harness()

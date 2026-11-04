@@ -21,7 +21,8 @@ export class Gate<T>
 
 // An in-memory IAccountService for the target pickers: answers Targets / LastChoice from fields
 // (or throws TargetsError, or waits on TargetsGate) and records RememberChoice / RequestSignIn.
-// RequestSignIn resolves SignInResult (the account dialog closing).
+// RequestSignIn goes through SignInRequest.Raise; the fake's own listener plays the account module:
+// it accepts each request and completes it with SignInResult (the account dialog closing).
 export class FakeTargetAccount implements IAccountService
 {
     public readonly Changed = new Signal<void>()
@@ -40,7 +41,12 @@ export class FakeTargetAccount implements IAccountService
     public constructor(signedIn: boolean)
     {
         this.state = signedIn ? { SignedIn: true, Email: 'ann@acme.test', TenantName: 'Acme' } : { SignedIn: false }
-        this.SignInRequested.subscribe(() => { this.SignInRequests++ })
+        this.SignInRequested.subscribe((request) =>
+        {
+            this.SignInRequests++
+            request.Accept()
+            request.Complete(this.SignInResult)
+        })
     }
 
     public get State(): AccountState
@@ -58,10 +64,9 @@ export class FakeTargetAccount implements IAccountService
     {
     }
 
-    public async RequestSignIn(): Promise<boolean>
+    public RequestSignIn(): Promise<boolean>
     {
-        this.SignInRequested.emit(new SignInRequest())
-        return this.SignInResult
+        return SignInRequest.Raise(this.SignInRequested)
     }
 
     public async Discover(_platformUrl: string, _email: string): Promise<DiscoveredTenant[]>

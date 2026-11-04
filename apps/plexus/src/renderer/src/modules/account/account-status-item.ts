@@ -22,6 +22,7 @@ export class AccountStatusItem extends Observable implements IDisposable
     private static readonly TextProperty = 'Text'
     private static readonly DialogTitle = 'Account'
     private static readonly RefreshFailedLog = 'AccountStatusItem: loading the account state failed:'
+    private static readonly OpenFailedLog = 'AccountStatusItem: opening the account dialog failed:'
     private static readonly NoDialogServiceLog = 'AccountStatusItem: no DialogService is registered; the account dialog cannot open.'
 
     private readonly provider: IServiceProvider
@@ -60,20 +61,27 @@ export class AccountStatusItem extends Observable implements IDisposable
             console.warn(AccountStatusItem.NoDialogServiceLog)
             return
         }
-        request?.Accept()
-        // DialogService keeps one dialog at a time and Close() takes no handle: it closes whichever
-        // dialog is current. A newer Show supersedes (and resolves) this one, which disposes this VM,
-        // so in practice its close callback only runs while it is the current dialog.
-        const dialog = new AccountDialog(this.account, this.PlatformAddress(), () => dialogs.Close(undefined))
-        this.openDialog = dialog
+        let dialog: AccountDialog | undefined
         try
         {
+            request?.Accept()
+            // DialogService keeps one dialog at a time and Close() takes no handle: it closes whichever
+            // dialog is current. A newer Show supersedes (and resolves) this one, which disposes this
+            // VM, so in practice its close callback only runs while it is the current dialog.
+            dialog = new AccountDialog(this.account, this.PlatformAddress(), () => dialogs.Close(undefined))
+            this.openDialog = dialog
             await dialogs.Show({ Title: AccountStatusItem.DialogTitle, Content: dialog })
+        }
+        catch (e)
+        {
+            // Only the error's name is logged: never its message, which could carry an address.
+            console.warn(AccountStatusItem.OpenFailedLog, AccountDialog.ErrorName(e))
         }
         finally
         {
-            dialog.dispose()
+            dialog?.dispose()
             this.openDialog = undefined
+            // An accepted request always completes, even when the dialog could not be built.
             request?.Complete(this.account.State.SignedIn)
         }
     }
