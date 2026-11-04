@@ -65,7 +65,7 @@ describe('AccountWire', () =>
     it('turns any other error into Unavailable without its message, handing it to onUnexpected first', async () =>
     {
         const unexpected: unknown[] = []
-        const failure = new Error('C:\secret\path token=abc')
+        const failure = new Error('C:\\secret\\path token=abc')
         const reply = await AccountWire.Capture(async () => { throw failure }, e => unexpected.push(e))
         expect(reply).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
         expect(JSON.stringify(reply)).not.toContain('abc')

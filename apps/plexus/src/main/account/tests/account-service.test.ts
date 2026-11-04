@@ -298,6 +298,28 @@ describe('AccountService', () =>
         expect(await signIn).toBe(AccountErrorKind.Cancelled)
     })
 
+    it('cancel during an in-flight Complete that then succeeds ends the fresh session and reports Cancelled', async () =>
+    {
+        const gate = new Gate()
+        h.Fetch.Routes.set('/desktop/sign-in/complete', async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(200, { token: 'secret-token-late', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: 'Acme', email: 'ada@acme.example' })
+        })
+        h.Fetch.Routes.set('/desktop/sign-out', () => new Response(null, { status: 204 }))
+        const signIn = Caught.Kind(h.SignIn())
+        while (h.Fetch.To('/desktop/sign-in/complete').length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.CancelSignIn()
+        gate.Release()
+        expect(await signIn).toBe(AccountErrorKind.Cancelled)
+        const signOuts = h.Fetch.To('/desktop/sign-out')
+        expect(signOuts).toHaveLength(1)
+        expect(signOuts[0].Url).toBe('http://127.0.0.1:7002/desktop/sign-out')
+        expect(signOuts[0].Headers['authorization']).toBe('Bearer secret-token-late')
+        expect(await h.Store.Load()).toBeUndefined()
+        expect(h.Changes).toEqual([])
+    })
+
     it('treats a complete answer missing tenant fields as SignInFailed', async () =>
     {
         h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'secret-token-x', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: '' }))

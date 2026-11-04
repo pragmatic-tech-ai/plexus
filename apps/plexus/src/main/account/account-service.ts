@@ -27,6 +27,11 @@ class SignInAttempt
         this.Receiver.Cancel()
     }
 
+    public get Cancelled(): boolean
+    {
+        return this.cancelled
+    }
+
     public Check(): void
     {
         if (this.cancelled) throw new AccountError(AccountErrorKind.Cancelled)
@@ -114,15 +119,20 @@ export class AccountService
             attempt.Check()
             const state = AccountService.StateIn(authorizeUrl)
             const code = receiver.WaitForCode(state)
-            attempt.Check()
             const [, received] = await Promise.all([this.openExternal(authorizeUrl), code])
             attempt.Check()
             const done = await this.client.Complete(plane, state, received, verifier)
-            attempt.Check()
-            const previous = await this.store.Load()
             const session: DesktopSession = {
                 TenantPlaneUrl: plane, Token: done.Token, Email: done.Email ?? address, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
             }
+            // Cancelled while Complete was in flight: the tenant plane already issued a session; end it
+            // rather than leave a live token nobody holds. Past this point the sign-in is committed.
+            if (attempt.Cancelled)
+            {
+                await this.EndQuietly(session)
+                attempt.Check()
+            }
+            const previous = await this.store.Load()
             await this.store.Save(session)
             if (previous !== undefined && previous.Token !== session.Token) await this.EndQuietly(previous)
             const signedIn = AccountService.StateOf(session)
