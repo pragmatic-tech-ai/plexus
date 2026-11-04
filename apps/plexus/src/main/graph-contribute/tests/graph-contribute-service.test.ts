@@ -1,30 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import type { ContributedPackageDto, GraphContributeParamsDto, GraphDetailDto } from '@pragmatic-tech-ai/pragmatic-protocol'
+import type { ContributedPackageDto, GraphContributeParamsDto, GraphDetailDto, GraphSummaryDto } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { GraphContributeService } from '../graph-contribute-service.js'
-import type { IGraphClientFactory, IGraphContributeClient } from '../graph-client.js'
-import type { GraphProfile, IGraphProfileSource } from '../graph-profile.js'
+import type { IRelayConnector, RelayClient } from '../../account/relay-connector.js'
 
-const Token = 'SECRET-TOKEN-xyz'
-const Url = 'https://graph.example.com'
-
-class FakeProfiles implements IGraphProfileSource
-{
-    constructor(private readonly profile: GraphProfile | undefined)
-    {
-    }
-
-    public async Load(): Promise<GraphProfile | undefined>
-    {
-        return this.profile
-    }
-}
-
-class FakeClient implements IGraphContributeClient
+class FakeClient
 {
     public Calls: GraphContributeParamsDto[] = []
     public Closed = 0
 
-    constructor(private readonly outcome: GraphDetailDto | Error)
+    constructor(private readonly outcome: GraphDetailDto | Error, private readonly graphs: GraphSummaryDto[] = [])
     {
     }
 
@@ -35,33 +20,43 @@ class FakeClient implements IGraphContributeClient
         return this.outcome
     }
 
-    public async Close(): Promise<void>
+    public async ListGraphs(): Promise<GraphSummaryDto[]>
+    {
+        if (this.outcome instanceof Error) throw this.outcome
+        return this.graphs
+    }
+
+    public async DisposeAsync(): Promise<void>
     {
         this.Closed++
     }
 }
 
-class FakeFactory implements IGraphClientFactory
+class FakeRelay implements IRelayConnector
 {
-    public Connects: { url: string; token: string }[] = []
+    public Connects: Array<{ environment: string; kind: TargetKind }> = []
 
     constructor(private readonly client: FakeClient | Error)
     {
     }
 
-    public async Connect(serverUrl: string, token: string): Promise<IGraphContributeClient>
+    public async Connect(environment: string, kind: TargetKind): Promise<RelayClient>
     {
-        this.Connects.push({ url: serverUrl, token })
+        this.Connects.push({ environment, kind })
         if (this.client instanceof Error) throw this.client
-        return this.client
+        return this.client as unknown as RelayClient
     }
 }
 
 class Fixture
 {
-    public static readonly Profile: GraphProfile = { ServerUrl: Url, Token: Token }
     public static readonly Packages: ContributedPackageDto[] = [{ id: 'a', version: '1.0.0', modelJson: '{}' }]
     public static readonly Detail: GraphDetailDto = { name: 'g1', description: '', packages: [{ id: 'a', version: '1.0.0' }, { id: 'b', version: '2.0.0' }], createdAt: '' }
+
+    public static Summary(name: string): GraphSummaryDto
+    {
+        return { name, description: '', packageCount: 0, createdAt: '' }
+    }
 
     public static async Message(promise: Promise<unknown>): Promise<string>
     {
@@ -79,56 +74,45 @@ class Fixture
 
 describe('GraphContributeService', () =>
 {
-    it('throws NoProfile and never connects when no profile is stored', async () =>
-    {
-        const factory = new FakeFactory(new FakeClient(Fixture.Detail))
-        const svc = new GraphContributeService(new FakeProfiles(undefined), factory)
-        const msg = await Fixture.Message(svc.Contribute('g1', 's1', Fixture.Packages))
-        expect(msg).toContain('No graph server is configured')
-        expect(factory.Connects).toHaveLength(0)
-    })
-
-    it('connects once, contributes, maps the result and closes', async () =>
+    it('contributes through a contribute relay to the environment, maps the result and closes', async () =>
     {
         const client = new FakeClient(Fixture.Detail)
-        const factory = new FakeFactory(client)
-        const svc = new GraphContributeService(new FakeProfiles(Fixture.Profile), factory)
-        const result = await svc.Contribute('g1', 's1', Fixture.Packages)
+        const relay = new FakeRelay(client)
+        const result = await new GraphContributeService(relay).Contribute('dev', 'g1', 's1', Fixture.Packages)
         expect(result).toEqual({ GraphName: 'g1', PackageCount: 2 })
-        expect(factory.Connects).toEqual([{ url: Url, token: Token }])
+        expect(relay.Connects).toEqual([{ environment: 'dev', kind: TargetKind.Contribute }])
         expect(client.Calls).toEqual([{ graphName: 'g1', solutionId: 's1', packages: Fixture.Packages }])
         expect(client.Closed).toBe(1)
     })
 
-    it('closes the client when ContributeGraph rejects', async () =>
+    it('closes the client when ContributeGraph rejects and propagates the server message', async () =>
     {
-        const client = new FakeClient(new Error('boom'))
-        const svc = new GraphContributeService(new FakeProfiles(Fixture.Profile), new FakeFactory(client))
-        await Fixture.Message(svc.Contribute('g1', 's1', Fixture.Packages))
+        const client = new FakeClient(new Error('Graph g1 conflicts with existing contribution'))
+        const msg = await Fixture.Message(new GraphContributeService(new FakeRelay(client)).Contribute('dev', 'g1', 's1', Fixture.Packages))
+        expect(msg).toContain('conflicts')
         expect(client.Closed).toBe(1)
     })
 
-    it('wraps a connect failure with the URL only, never the token or detail', async () =>
+    it('propagates the relay refusal sentence unchanged', async () =>
     {
-        const svc = new GraphContributeService(new FakeProfiles(Fixture.Profile), new FakeFactory(new Error(`auth failed for ${Token}`)))
-        const msg = await Fixture.Message(svc.Contribute('g1', 's1', Fixture.Packages))
-        expect(msg).toContain(Url)
-        expect(msg).not.toContain(Token)
-        expect(msg).not.toContain('auth failed')
+        const msg = await Fixture.Message(new GraphContributeService(new FakeRelay(new Error("Your account can't use this environment."))).Contribute('dev', 'g1', 's1', Fixture.Packages))
+        expect(msg).toBe("Your account can't use this environment.")
     })
 
-    it('propagates distinct server rejections unchanged and closes', async () =>
+    it('ListGraphs returns the graph names sorted and closes the client', async () =>
     {
-        const conflict = new FakeClient(new Error('Graph g1 conflicts with existing contribution'))
-        const missing = new FakeClient(new Error('Solution s1 not found'))
-        const m1 = await Fixture.Message(new GraphContributeService(new FakeProfiles(Fixture.Profile), new FakeFactory(conflict)).Contribute('g1', 's1', Fixture.Packages))
-        const m2 = await Fixture.Message(new GraphContributeService(new FakeProfiles(Fixture.Profile), new FakeFactory(missing)).Contribute('g1', 's1', Fixture.Packages))
-        expect(m1).toContain('conflicts')
-        expect(m2).toContain('not found')
-        expect(m1).not.toBe(m2)
-        expect(conflict.Closed).toBe(1)
-        expect(missing.Closed).toBe(1)
-        expect(m1).not.toContain(Token)
-        expect(m2).not.toContain(Token)
+        const client = new FakeClient(Fixture.Detail, [Fixture.Summary('zeta'), Fixture.Summary('alpha'), Fixture.Summary('main')])
+        const relay = new FakeRelay(client)
+        const names = await new GraphContributeService(relay).ListGraphs('dev')
+        expect(names).toEqual(['alpha', 'main', 'zeta'])
+        expect(relay.Connects).toEqual([{ environment: 'dev', kind: TargetKind.Contribute }])
+        expect(client.Closed).toBe(1)
+    })
+
+    it('ListGraphs closes the client on failure', async () =>
+    {
+        const client = new FakeClient(new Error('boom'))
+        await Fixture.Message(new GraphContributeService(new FakeRelay(client)).ListGraphs('dev'))
+        expect(client.Closed).toBe(1)
     })
 })

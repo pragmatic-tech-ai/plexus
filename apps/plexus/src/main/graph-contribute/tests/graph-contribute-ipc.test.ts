@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
 import type { IpcMain } from 'electron'
+import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { GraphContributeIpc } from '../graph-contribute-ipc.js'
 import { GraphContributeChannel, type ContributedPackage, type GraphContributeResult } from '../../../shared/graph-contribute-api.js'
 import type { GraphContributeService } from '../graph-contribute-service.js'
-import type { GraphProfileStore } from '../graph-profile-store.js'
 
 type Handler = (event: unknown, ...args: any[]) => unknown
 
@@ -19,24 +19,20 @@ class FakeIpc
 class FakeService
 {
     public Calls: unknown[][] = []
-    public async Contribute(graphName: string, solutionId: string, packages: readonly ContributedPackage[]): Promise<GraphContributeResult>
+    public Failure: Error | undefined
+
+    public async Contribute(environment: string, graphName: string, solutionId: string, packages: readonly ContributedPackage[]): Promise<GraphContributeResult>
     {
-        this.Calls.push([graphName, solutionId, packages])
+        this.Calls.push([environment, graphName, solutionId, packages])
+        if (this.Failure !== undefined) throw this.Failure
         return { GraphName: graphName, PackageCount: packages.length }
     }
-}
 
-class FakeProfiles
-{
-    public Saved: unknown[][] = []
-    public Stored: { ServerUrl: string; Token: string } | undefined
-    public async Save(serverUrl: string, token: string): Promise<void>
+    public async ListGraphs(environment: string): Promise<string[]>
     {
-        this.Saved.push([serverUrl, token])
-    }
-    public async Load(): Promise<{ ServerUrl: string; Token: string } | undefined>
-    {
-        return this.Stored
+        this.Calls.push([environment])
+        if (this.Failure !== undefined) throw this.Failure
+        return ['main']
     }
 }
 
@@ -44,53 +40,63 @@ class Harness
 {
     public readonly Ipc = new FakeIpc()
     public readonly Service = new FakeService()
-    public readonly Profiles = new FakeProfiles()
 
     public constructor()
     {
-        GraphContributeIpc.Register(this.Ipc as unknown as IpcMain, this.Service as unknown as GraphContributeService, this.Profiles as unknown as GraphProfileStore)
+        GraphContributeIpc.Register(this.Ipc as unknown as IpcMain, this.Service as unknown as GraphContributeService)
     }
 
-    public Invoke(channel: GraphContributeChannel, ...args: unknown[]): unknown
+    public Invoke(channel: GraphContributeChannel, ...args: unknown[]): Promise<any>
     {
-        return this.Ipc.Handlers.get(channel)!({}, ...args)
+        return Promise.resolve(this.Ipc.Handlers.get(channel)!({}, ...args))
     }
 }
 
 describe('GraphContributeIpc', () =>
 {
-    it('binds all three channels', () =>
+    const Packages: ContributedPackage[] = [{ id: 'p', version: '1.0.0', modelJson: '{}' }]
+
+    it('binds exactly the contribute and list-graphs channels', () =>
     {
         const h = new Harness()
-        for (const channel of Object.values(GraphContributeChannel))
-        {
-            expect(h.Ipc.Handlers.has(channel)).toBe(true)
-        }
+        expect(Object.values(GraphContributeChannel).sort()).toEqual(['graph-contribute:contribute', 'graph-contribute:list-graphs'])
+        expect([...h.Ipc.Handlers.keys()].sort()).toEqual(Object.values(GraphContributeChannel).sort())
     })
 
-    it('Contribute delegates to the service and returns its result', async () =>
+    it('Contribute delegates with the environment and answers an Ok envelope', async () =>
     {
         const h = new Harness()
-        const packages: ContributedPackage[] = [{ id: 'p', version: '1.0.0', modelJson: '{}' }]
-        const result = await h.Invoke(GraphContributeChannel.Contribute, 'g', 's', packages)
-        expect(h.Service.Calls).toEqual([['g', 's', packages]])
-        expect(result).toEqual({ GraphName: 'g', PackageCount: 1 })
+        const reply = await h.Invoke(GraphContributeChannel.Contribute, 'dev', 'g', 's', Packages)
+        expect(h.Service.Calls).toEqual([['dev', 'g', 's', Packages]])
+        expect(reply).toEqual({ Ok: true, Value: { GraphName: 'g', PackageCount: 1 } })
     })
 
-    it('SetProfile delegates to profiles.Save', async () =>
+    it('ListGraphs delegates with the environment', async () =>
     {
         const h = new Harness()
-        await h.Invoke(GraphContributeChannel.SetProfile, 'wss://x', 'tok')
-        expect(h.Profiles.Saved).toEqual([['wss://x', 'tok']])
+        expect(await h.Invoke(GraphContributeChannel.ListGraphs, 'dev')).toEqual({ Ok: true, Value: ['main'] })
+        expect(h.Service.Calls).toEqual([['dev']])
     })
 
-    it('HasProfile returns only a boolean, never the token', async () =>
+    it('answers a failure as its sentence, keeping the account kind', async () =>
     {
         const h = new Harness()
-        expect(await h.Invoke(GraphContributeChannel.HasProfile)).toBe(false)
-        h.Profiles.Stored = { ServerUrl: 'wss://x', Token: 'secret' }
-        const has = await h.Invoke(GraphContributeChannel.HasProfile)
-        expect(has).toBe(true)
-        expect(typeof has).toBe('boolean')
+        h.Service.Failure = new Error('The environment dev is not running. Start it from the tenant console.')
+        expect(await h.Invoke(GraphContributeChannel.ListGraphs, 'dev')).toEqual({ Ok: false, Error: { Message: 'The environment dev is not running. Start it from the tenant console.' } })
+        h.Service.Failure = new AccountError(AccountErrorKind.SignedOut)
+        expect(await h.Invoke(GraphContributeChannel.Contribute, 'dev', 'g', 's', Packages)).toEqual({ Ok: false, Error: { Message: "You're signed out. Sign in and try again.", Kind: AccountErrorKind.SignedOut } })
+    })
+
+    it('refuses malformed arguments before the service', async () =>
+    {
+        const h = new Harness()
+        const bad = [
+            await h.Invoke(GraphContributeChannel.Contribute, '', 'g', 's', Packages),
+            await h.Invoke(GraphContributeChannel.Contribute, 'dev', 7, 's', Packages),
+            await h.Invoke(GraphContributeChannel.Contribute, 'dev', 'g', 's', 'nope'),
+            await h.Invoke(GraphContributeChannel.ListGraphs, undefined),
+        ]
+        for (const reply of bad) expect(reply.Ok).toBe(false)
+        expect(h.Service.Calls).toEqual([])
     })
 })

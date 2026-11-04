@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, AccountWire, PlatformAddress } from '../account-api.js'
+import { AccountError, AccountErrorKind, AccountWire, PlatformAddress, RelayWire } from '../account-api.js'
 
 describe('PlatformAddress.Validate', () =>
 {
@@ -108,5 +108,41 @@ describe('AccountWire', () =>
             caught = e
         }
         expect((caught as AccountError).Kind).toBe(AccountErrorKind.Unavailable)
+    })
+})
+
+describe('RelayWire', () =>
+{
+    it('wraps a value and unwraps it', async () =>
+    {
+        const reply = await RelayWire.Capture(async () => ['main'])
+        expect(reply).toEqual({ Ok: true, Value: ['main'] })
+        expect(RelayWire.Unwrap(reply)).toEqual(['main'])
+    })
+
+    it('carries an error as its sentence and rebuilds a plain Error', async () =>
+    {
+        const reply = await RelayWire.Capture(async () => { throw new Error('The environment dev could not be reached.') })
+        expect(reply).toEqual({ Ok: false, Error: { Message: 'The environment dev could not be reached.' } })
+        const error = (() => { try { RelayWire.Unwrap(reply) } catch (e) { return e as Error } })()
+        expect(error).toBeInstanceOf(Error)
+        expect(error).not.toBeInstanceOf(AccountError)
+        expect(error!.message).toBe('The environment dev could not be reached.')
+    })
+
+    it('keeps an account error kind across the wire', async () =>
+    {
+        const reply = await RelayWire.Capture(async () => { throw new AccountError(AccountErrorKind.SignedOut) })
+        expect(reply).toEqual({ Ok: false, Error: { Message: "You're signed out. Sign in and try again.", Kind: AccountErrorKind.SignedOut } })
+        const error = (() => { try { RelayWire.Unwrap(reply) } catch (e) { return e as AccountError } })()
+        expect(error).toBeInstanceOf(AccountError)
+        expect(error!.Kind).toBe(AccountErrorKind.SignedOut)
+    })
+
+    it('answers a non-Error failure with a fixed sentence', async () =>
+    {
+        const reply = await RelayWire.Capture(async () => { throw 'secret text' })
+        expect(reply.Ok).toBe(false)
+        expect(JSON.stringify(reply)).not.toContain('secret text')
     })
 })

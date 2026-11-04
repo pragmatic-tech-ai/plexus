@@ -1,23 +1,27 @@
-// Wire contract for the "Publish to tenant" feature: the renderer<->main IPC channel names and
-// the renderer-facing bridge shape (exposed on window.api.tenantPublish by the preload). The
-// admin bearer token is write-only across this bridge: SetProfile accepts it, nothing returns it.
-// The status enum and result shape are shared with plexus-core (renderer) and live there.
+// Wire contract for the "Publish to tenant" feature: the renderer<->main IPC channel name, the
+// main-process API and the renderer-facing bridge shape (exposed on window.api.tenantPublish by the
+// preload). The upload goes through the tenant plane relay with the account session; no credential
+// crosses this bridge. The status enum and result shape are shared with plexus-core (renderer).
 import type { TenantPublishResult } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import type { RelayReply } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
 export type { TenantPublishResult }
 
 export enum TenantPublishChannel
 {
     Deploy = 'tenant-publish:deploy',
-    SetProfile = 'tenant-publish:set-profile',
-    HasProfile = 'tenant-publish:has-profile',
 }
 
+// What the main process does for the channel.
 export interface ITenantPublishApi
 {
-    // Uploads the already-built remote-flavor output directory to the configured tenant.
-    Deploy(outputDir: string): Promise<TenantPublishResult>;
-    // Stores the tenant server URL and the admin bearer token (token encrypted main-side).
-    SetProfile(serverUrl: string, token: string): Promise<void>;
-    HasProfile(): Promise<boolean>;
+    // Uploads the already-built remote-flavor output directory to a Runtime environment.
+    Deploy(environment: string, outputDir: string): Promise<TenantPublishResult>;
+}
+
+// What the preload exposes: the call resolves to its RelayReply envelope (unwrap with
+// RelayWire.Unwrap), so the failure sentence and an account kind survive IPC.
+export interface ITenantPublishBridge
+{
+    Deploy(environment: string, outputDir: string): Promise<RelayReply<TenantPublishResult>>;
 }

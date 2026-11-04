@@ -140,6 +140,9 @@ const todlShimPlugin: Plugin = {
             `export { BuildService } from ${p('solution-services/todl-build-system/build-service.js')}`,
             `export { BuildSystemRegistryKey } from ${p('solution-services/project-services/composition/build-system-registry-key.js')}`,
             `export { parseManifest } from ${p('solution-services/package-manager/manifest.js')}`,
+            // PublishTenantContributor picks the remote build's bind mode. build-options.js is a
+            // pure enum module (no imports) — mural-free.
+            `export { RemoteBindMode } from ${p('solution-services/build-system-core/build-options.js')}`,
             // Task 9 (SolutionWorkspaceService): the member-keyed mutation UI over the engine ops
             // (todl 0.40.1 exports all of these from its index; the service imports them bare, so the
             // shim must mirror them). MemberProjectOps imports only project-factory.js (already

@@ -1,52 +1,56 @@
 import type { ContributedPackageDto } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { GraphContributeResult } from '../../shared/graph-contribute-api.js'
-import type { IGraphProfileSource } from './graph-profile.js'
-import type { IGraphClientFactory } from './graph-client.js'
-import { GraphServerUrl } from './graph-profile-store.js'
+import type { IRelayConnector, RelayClient } from '../account/relay-connector.js'
 
-// Main-process contribute: loads the stored maker profile, connects to the graph server with the
-// bearer token and contributes a solution's compiled packages to a named graph. The maker bearer
-// token is handed to the client factory and nowhere else: never logged, never put in an
-// error/result. Server rejections (conflict / not-found / non-dev) propagate their own message;
-// only a connect/auth failure is wrapped, with a fixed prefix and the server URL.
+// Main-process contribute: opens a contribute relay to a Development environment through the tenant
+// plane (RelayConnector holds the session; the environment credential never leaves the server),
+// lists its graphs or contributes a solution's compiled packages to one, and always closes the
+// connection. Relay refusals arrive as sentences; server rejections (conflict, not found) keep the
+// server's own message.
 export class GraphContributeService
 {
-    private static readonly NoProfile = 'No graph server is configured: set the graph server URL and maker token before contributing.'
-    private static readonly ConnectFailed = 'Could not connect to the graph server: '
-
-    constructor(private readonly profiles: IGraphProfileSource, private readonly clients: IGraphClientFactory)
+    constructor(private readonly relay: IRelayConnector)
     {
     }
 
-    public async Contribute(graphName: string, solutionId: string, packages: readonly ContributedPackageDto[]): Promise<GraphContributeResult>
+    public Contribute(environment: string, graphName: string, solutionId: string, packages: readonly ContributedPackageDto[]): Promise<GraphContributeResult>
     {
-        // Profile first: a missing profile fails before any network call.
-        const profile = await this.profiles.Load()
-        if (profile === undefined) throw new Error(GraphContributeService.NoProfile)
-        const serverUrl = GraphServerUrl.Validate(profile.ServerUrl)
-        const client = await this.connect(serverUrl, profile.Token)
-        try
+        return this.With(environment, async (client) =>
         {
             const detail = await client.ContributeGraph({ graphName, solutionId, packages: [...packages] })
             return { GraphName: detail.name, PackageCount: detail.packages.length }
+        })
+    }
+
+    public ListGraphs(environment: string): Promise<string[]>
+    {
+        return this.With(environment, async (client) => (await client.ListGraphs()).map(g => g.name).sort((a, b) => a.localeCompare(b)))
+    }
+
+    private async With<T>(environment: string, work: (client: RelayClient) => Promise<T>): Promise<T>
+    {
+        const client = await this.relay.Connect(environment, TargetKind.Contribute)
+        try
+        {
+            return await work(client)
         }
         finally
         {
-            await client.Close()
+            await GraphContributeService.Close(client)
         }
     }
 
-    private async connect(serverUrl: string, token: string): ReturnType<IGraphClientFactory['Connect']>
+    // A failing close must not hide the call's own outcome.
+    private static async Close(client: RelayClient): Promise<void>
     {
         try
         {
-            return await this.clients.Connect(serverUrl, token)
+            await client.DisposeAsync()
         }
         catch
         {
-            // Only the fixed prefix and the server URL: the underlying client error detail (which could
-            // echo connection material) never reaches the renderer, and the token is never interpolated.
-            throw new Error(`${GraphContributeService.ConnectFailed}${serverUrl}`)
+            // the connection is gone either way
         }
     }
 }

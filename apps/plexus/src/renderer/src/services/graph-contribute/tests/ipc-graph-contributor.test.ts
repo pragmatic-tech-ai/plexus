@@ -1,26 +1,22 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import IpcGraphContributor from '../ipc-graph-contributor.js'
 
 class FakeGraphContribute
 {
     public readonly Calls: unknown[][] = []
+    public Reply: unknown = { Ok: true, Value: { GraphName: 'g', PackageCount: 1 } }
 
-    public Contribute(g: string, s: string, p: unknown[]): Promise<unknown>
+    public Contribute(e: string, g: string, s: string, p: unknown[]): Promise<unknown>
     {
-        this.Calls.push(['Contribute', g, s, p])
-        return Promise.resolve({ Status: 'ok' })
+        this.Calls.push(['Contribute', e, g, s, p])
+        return Promise.resolve(this.Reply)
     }
 
-    public SetProfile(u: string, t: string): Promise<void>
+    public ListGraphs(e: string): Promise<unknown>
     {
-        this.Calls.push(['SetProfile', u, t])
-        return Promise.resolve()
-    }
-
-    public HasProfile(): Promise<boolean>
-    {
-        this.Calls.push(['HasProfile'])
-        return Promise.resolve(true)
+        this.Calls.push(['ListGraphs', e])
+        return Promise.resolve({ Ok: true, Value: ['main'] })
     }
 }
 
@@ -43,30 +39,33 @@ describe('IpcGraphContributor', () =>
         expect(() => new IpcGraphContributor()).toThrow(/graphContribute is unavailable/)
     })
 
-    it('forwards Contribute and returns the result', async () =>
+    it('forwards Contribute with the environment and unwraps the result', async () =>
     {
         const fake = new FakeGraphContribute();
         (globalThis as any).api = { graphContribute: fake }
-        const pkgs = [{ Name: 'p' }] as any
-        const result = await new IpcGraphContributor().Contribute('g', 's', pkgs)
-        expect(result).toEqual({ Status: 'ok' })
-        expect(fake.Calls[0]).toEqual(['Contribute', 'g', 's', pkgs])
+        const pkgs = [{ id: 'p' }] as any
+        const result = await new IpcGraphContributor().Contribute('dev', 'g', 's', pkgs)
+        expect(result).toEqual({ GraphName: 'g', PackageCount: 1 })
+        expect(fake.Calls[0]).toEqual(['Contribute', 'dev', 'g', 's', pkgs])
     })
 
-    it('forwards SetProfile', async () =>
+    it('forwards ListGraphs with the environment', async () =>
     {
         const fake = new FakeGraphContribute();
         (globalThis as any).api = { graphContribute: fake }
-        await new IpcGraphContributor().SetProfile('http://x', 'tok')
-        expect(fake.Calls[0]).toEqual(['SetProfile', 'http://x', 'tok'])
+        expect(await new IpcGraphContributor().ListGraphs('dev')).toEqual(['main'])
+        expect(fake.Calls[0]).toEqual(['ListGraphs', 'dev'])
     })
 
-    it('HasProfile returns only a boolean', async () =>
+    it('rejects with the failure sentence, rebuilding an account error', async () =>
     {
         const fake = new FakeGraphContribute();
         (globalThis as any).api = { graphContribute: fake }
-        const value = await new IpcGraphContributor().HasProfile()
-        expect(typeof value).toBe('boolean')
-        expect(value).toBe(true)
+        fake.Reply = { Ok: false, Error: { Message: 'The environment dev could not be reached.' } }
+        await expect(new IpcGraphContributor().Contribute('dev', 'g', 's', [])).rejects.toThrow('The environment dev could not be reached.')
+        fake.Reply = { Ok: false, Error: { Message: "You're signed out. Sign in and try again.", Kind: AccountErrorKind.SignedOut } }
+        const error = await new IpcGraphContributor().Contribute('dev', 'g', 's', []).catch((e: unknown) => e)
+        expect(error).toBeInstanceOf(AccountError)
+        expect((error as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
     })
 })

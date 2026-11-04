@@ -148,6 +148,44 @@ export class AccountWire
     }
 }
 
+// How a contribute or publish failure crosses IPC: its sentence (relay refusals and server answers
+// are plain sentences that never carry a URL or token), plus the account kind when it is one.
+export type RelayWireError = { Message: string; Kind?: AccountErrorKind }
+
+// The envelope the graph-contribute and tenant-publish handlers answer with and their preload bridges
+// resolve to: ipc.handle would otherwise reject with "Error invoking remote method ..." around the
+// sentence, and the context bridge would drop an AccountError's class and Kind.
+export type RelayReply<T> = { Ok: true; Value: T } | { Ok: false; Error: RelayWireError }
+
+export class RelayWire
+{
+    private static readonly Failed = 'The request did not finish. Try again.'
+
+    // Main side. An Error's message is carried as is: the relay connector and the services raise
+    // sentences, and the server's own answers (conflict, not found) are kept so the user sees why.
+    public static async Capture<T>(work: () => Promise<T>): Promise<RelayReply<T>>
+    {
+        try
+        {
+            return { Ok: true, Value: await work() }
+        }
+        catch (e)
+        {
+            if (e instanceof AccountError) return { Ok: false, Error: { Message: e.message, Kind: e.Kind } }
+            return { Ok: false, Error: { Message: e instanceof Error ? e.message : RelayWire.Failed } }
+        }
+    }
+
+    // Renderer side: unwraps a reply, rebuilding an account failure into an AccountError and any
+    // other failure into an Error whose message is the sentence.
+    public static Unwrap<T>(reply: RelayReply<T>): T
+    {
+        if (reply.Ok) return reply.Value
+        if (AccountError.IsKind(reply.Error.Kind)) throw new AccountError(reply.Error.Kind)
+        throw new Error(typeof reply.Error.Message === 'string' ? reply.Error.Message : RelayWire.Failed)
+    }
+}
+
 // What the preload exposes on window.api.account: every call resolves to its AccountReply envelope
 // (never rejects with an account failure), so the renderer seam can rebuild the AccountError with
 // AccountWire.Unwrap and present IAccountApi.

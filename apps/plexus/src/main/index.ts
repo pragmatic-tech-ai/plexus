@@ -25,12 +25,8 @@ import { PreviewServerManager } from './preview-server/preview-server-manager.js
 import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
 import { BundleIpc } from './build/bundle-ipc.js'
 import { TenantDeployService } from './tenant-publish/tenant-deploy-service.js'
-import { TenantProfileStore } from './tenant-publish/tenant-profile-store.js'
-import { PragmaticTenantClientFactory } from './tenant-publish/tenant-client.js'
 import { TenantPublishIpc } from './tenant-publish/tenant-publish-ipc.js'
-import { GraphProfileStore } from './graph-contribute/graph-profile-store.js'
 import { GraphContributeService } from './graph-contribute/graph-contribute-service.js'
-import { PragmaticGraphClientFactory } from './graph-contribute/graph-client.js'
 import { GraphContributeIpc } from './graph-contribute/graph-contribute-ipc.js'
 import { TypeCheckIpc } from './build/type-check-ipc.js'
 import { AccountService } from './account/account-service.js'
@@ -39,6 +35,8 @@ import { DesktopApiClient } from './account/desktop-api-client.js'
 import { DesktopSessionStore } from './account/desktop-session-store.js'
 import { LegacyProfileCleanup } from './account/legacy-profile-cleanup.js'
 import { LoopbackRedirectReceiver } from './account/loopback-redirect-receiver.js'
+import { RelayConnector } from './account/relay-connector.js'
+import { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-system'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
@@ -198,17 +196,12 @@ app.whenReady().then(async () => {
   AccountIpc.Register(ipcMain, account, () => BrowserWindow.getAllWindows().map((w) => w.webContents))
   app.on('will-quit', () => void account.CancelSignIn())
 
-  // Tenant publish capability: the renderer builds the remote flavor, then invokes
-  // tenant-publish:deploy; the upload (Node PragmaticClient + admin bearer token) runs here.
-  // The token is stored encrypted via safeStorage and never crosses back to the renderer.
-  const tenantProfiles = new TenantProfileStore(userData, new SafeStorageEncryptor())
-  TenantPublishIpc.Register(ipcMain, new TenantDeployService(tenantProfiles, new PragmaticTenantClientFactory()), tenantProfiles)
-
-  // Graph contribute capability: the renderer invokes graph-contribute:contribute; the upload
-  // (Node protocol client + bearer token) runs here. The token is stored encrypted via
-  // safeStorage and never crosses back to the renderer.
-  const graphProfiles = new GraphProfileStore(userData, new SafeStorageEncryptor())
-  GraphContributeIpc.Register(ipcMain, new GraphContributeService(graphProfiles, new PragmaticGraphClientFactory()), graphProfiles)
+  // Contribute and publish go through the tenant plane's desktop relay: main dials it with the
+  // desktop session token (RelayConnector), and the tenant plane holds the environment credential.
+  // Nothing secret crosses to the renderer; the handlers answer sentences in a RelayReply envelope.
+  const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
+  TenantPublishIpc.Register(ipcMain, new TenantDeployService(relay))
+  GraphContributeIpc.Register(ipcMain, new GraphContributeService(relay))
 
   // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.
   BundleIpc.Register(ipcMain, new EsbuildBundler())

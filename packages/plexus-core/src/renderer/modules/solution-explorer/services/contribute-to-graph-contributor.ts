@@ -11,30 +11,26 @@ import type { IGraphContributor } from '../../graph-contribute/graph-contributor
 import type { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import type { GraphContributeResult } from '../../../../shared/graph-contribute-api.js'
 import { InfoDialog } from './info-dialog.js'
-import type { IGraphProfilePrompt } from './graph-profile-dialog.js'
+import type { GraphTargetInput, IGraphTargetPrompt } from './graph-profile-dialog.js'
 
-// Contributes the "Contribute to graph…" / "Configure graph server…" commands to the Solution
-// root row. Contribute builds the whole active solution's packages via SolutionPackageBuilder,
-// then hands them to IGraphContributor.Contribute (whose main-process side posts them to the
-// configured dev graph over the protocol with a maker bearer token). A build/auth/conflict/
-// non-dev failure throws inside the background task and fails that row with the reason. The
-// maker token flows only to SetProfile — it is never logged, retained, or surfaced in any
-// dialog or task reason. Action-only (Contribute yields no nodes); closes over the solution.
+// Contributes the "Contribute to graph…" command to the Solution root row. Contribute asks for the
+// target environment + graph, builds the whole active solution's packages via
+// SolutionPackageBuilder, then hands them to IGraphContributor.Contribute (whose main-process side
+// posts them through the tenant plane relay; no credential ever reaches the renderer). A build /
+// sign-in / refusal / conflict failure throws inside the background task and fails that row with
+// its sentence. Action-only (Contribute yields no nodes); closes over the solution.
 export class ContributeToGraphContributor implements IHierarchyContributor
 {
     public static readonly Key = new ServiceKey<ContributeToGraphContributor>('ContributeToGraphContributor')
 
     public static readonly ContributeCommandId = 'graph.contribute'
-    public static readonly ConfigureCommandId = 'graph.configure'
 
     private static readonly ContributeLabel = 'Contribute to graph…'
-    private static readonly ConfigureLabel = 'Configure graph server…'
     private static readonly TitlePrefix = 'Contributing '
     private static readonly ToGraph = ' to graph '
     private static readonly ContributeFailedTitle = 'Contribute to graph failed'
     private static readonly ContributedTitle = 'Contributed to graph'
     private static readonly CountSeparator = ' - packages contributed: '
-    private static readonly ConfigureFailedTitle = 'Configure graph server failed'
 
     public readonly ParentKeys = [NodeKey.Solution]
     public readonly Order = 23
@@ -47,11 +43,10 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         private readonly work: BackgroundWorkService | undefined,
         private readonly contributor: IGraphContributor | undefined,
         private readonly dialogs: DialogService | undefined,
-        private readonly prompt: IGraphProfilePrompt | undefined = undefined)
+        private readonly prompt: IGraphTargetPrompt | undefined = undefined)
     {
         this.Actions = [
             ContributeToGraphContributor.command(ContributeToGraphContributor.ContributeCommandId, ContributeToGraphContributor.ContributeLabel, 56),
-            ContributeToGraphContributor.command(ContributeToGraphContributor.ConfigureCommandId, ContributeToGraphContributor.ConfigureLabel, 57),
         ]
     }
 
@@ -72,37 +67,13 @@ export class ContributeToGraphContributor implements IHierarchyContributor
 
     public Resolve(commandId: string, _context: CommandContext): ICommand | undefined
     {
-        if (commandId === ContributeToGraphContributor.ConfigureCommandId)
-        {
-            return new RelayCommand(() => void this.configure(), () => this.contributor !== undefined && this.prompt !== undefined)
-        }
         if (commandId !== ContributeToGraphContributor.ContributeCommandId) return undefined
         return new RelayCommand(() => void this.contribute(), () => this.builder !== undefined && this.contributor !== undefined && this.work !== undefined && this.prompt !== undefined)
     }
 
-    // Collects URL + token and hands them to the main-side store. The token goes straight to
-    // SetProfile and is neither logged nor retained here; a failure surfaces via InfoDialog.
-    private async configure(): Promise<void>
-    {
-        const contributor = this.contributor
-        const prompt = this.prompt
-        if (contributor === undefined || prompt === undefined) return
-        const input = await prompt.Prompt()
-        if (input === undefined) return
-        try
-        {
-            await contributor.SetProfile(input.ServerUrl, input.Token)
-        }
-        catch (e)
-        {
-            this.surface(ContributeToGraphContributor.ConfigureFailedTitle, e)
-        }
-    }
-
-    // Prompts for the target graph name only when a profile is stored (else the full URL + token +
-    // graph prompt, persisting URL + token first), then runs the build+contribute under a background task so a build /
-    // auth / conflict / non-dev failure fails that row with the reason. The prompt + SetProfile
-    // run before the task so a cancel / bad-profile error blocks early via InfoDialog.
+    // Asks for the target environment + graph, then runs the build+contribute under a background
+    // task so a build / sign-in / refusal / conflict failure fails that row with its sentence. A
+    // prompt failure blocks early via InfoDialog.
     private async contribute(): Promise<void>
     {
         const builder = this.builder
@@ -110,33 +81,24 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         const work = this.work
         const prompt = this.prompt
         if (builder === undefined || contributor === undefined || work === undefined || prompt === undefined) return
-        let graphName: string
+        let target: GraphTargetInput
         try
         {
-            if (await contributor.HasProfile())
-            {
-                const name = await prompt.PromptGraphName()
-                if (name === undefined) return
-                graphName = name
-            }
-            else
-            {
-                const input = await prompt.Prompt()
-                if (input === undefined) return
-                await contributor.SetProfile(input.ServerUrl, input.Token)
-                graphName = input.GraphName
-            }
+            const input = await prompt.Prompt()
+            if (input === undefined) return
+            target = input
         }
         catch (e)
         {
             this.surface(ContributeToGraphContributor.ContributeFailedTitle, e)
             return
         }
+        const graphName = target.GraphName
         const solution = this.solution
         void work.run(`${ContributeToGraphContributor.TitlePrefix}${solution.Name}${ContributeToGraphContributor.ToGraph}${graphName}`, async (_ctx): Promise<GraphContributeResult> =>
         {
             const packages = [...await builder.Build()]
-            return contributor.Contribute(graphName, solution.Name, packages)
+            return contributor.Contribute(target.Environment, graphName, solution.Name, packages)
         }).done.then(
             (result) =>
             {
@@ -150,7 +112,7 @@ export class ContributeToGraphContributor implements IHierarchyContributor
     }
 
     // Blocking error surface: the Solution Explorer has no toast/status channel, so failures
-    // in the pre-task steps show through InfoDialog. The token never appears in a message.
+    // in the pre-task steps show through InfoDialog.
     private surface(title: string, error: unknown): void
     {
         const dialogs = this.dialogs

@@ -3,61 +3,52 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { AppDeployResultDto, CypherAppDeployParamsDto } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TenantDeployService } from '../tenant-deploy-service.js'
-import type { ITenantClientFactory, ITenantDeployClient } from '../tenant-client.js'
 import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
-import type { ITenantProfileSource, TenantProfile } from '../tenant-profile.js'
+import type { IRelayConnector, RelayClient } from '../../account/relay-connector.js'
 
-class FakeProfiles implements ITenantProfileSource
-{
-    constructor(private readonly profile: TenantProfile | undefined)
-    {
-    }
-
-    public Load(): Promise<TenantProfile | undefined>
-    {
-        return Promise.resolve(this.profile)
-    }
-}
-
-class FakeClient implements ITenantDeployClient
+class FakeClient
 {
     public Deployed: CypherAppDeployParamsDto[] = []
-    public Closed = false
+    public Closed = 0
+
+    constructor(private readonly failWith?: Error, private readonly closeFails = false)
+    {
+    }
 
     public DeployApplication(params: CypherAppDeployParamsDto): Promise<AppDeployResultDto>
     {
         this.Deployed.push(params)
+        if (this.failWith !== undefined) return Promise.reject(this.failWith)
         return Promise.resolve({ status: 'applied', appName: params.appName, appVersion: params.appVersion } as AppDeployResultDto)
     }
 
-    public Close(): Promise<void>
+    public DisposeAsync(): Promise<void>
     {
-        this.Closed = true
-        return Promise.resolve()
+        this.Closed++
+        return this.closeFails ? Promise.reject(new Error('close failed')) : Promise.resolve()
     }
 }
 
-class FakeFactory implements ITenantClientFactory
+class FakeRelay implements IRelayConnector
 {
-    public Connects: Array<{ url: string; token: string }> = []
+    public Connects: Array<{ environment: string; kind: TargetKind }> = []
 
     constructor(public readonly Client: FakeClient, private readonly failWith?: Error)
     {
     }
 
-    public Connect(url: string, token: string): Promise<ITenantDeployClient>
+    public Connect(environment: string, kind: TargetKind): Promise<RelayClient>
     {
-        this.Connects.push({ url, token })
+        this.Connects.push({ environment, kind })
         if (this.failWith !== undefined) return Promise.reject(this.failWith)
-        return Promise.resolve(this.Client)
+        return Promise.resolve(this.Client as unknown as RelayClient)
     }
 }
 
 class Fixture
 {
-    public static readonly Secret = 'sekrit-admin-token'
-
     public static Output(): string
     {
         const dir = join(mkdtempSync(join(tmpdir(), 'tenant-deploy-')), 'build-remote')
@@ -76,11 +67,6 @@ class Fixture
         }
         return dir
     }
-
-    public static Profile(): TenantProfile
-    {
-        return { ServerUrl: 'wss://srv.example.com', Token: Fixture.Secret }
-    }
 }
 
 describe('TenantDeployService', () =>
@@ -90,12 +76,12 @@ describe('TenantDeployService', () =>
     beforeEach(() => { dir = Fixture.Output() })
     afterEach(() => { rmSync(dirname(dir), { recursive: true, force: true }) })
 
-    it('assembles the deploy payload from the remote build output and calls DeployApplication once', async () =>
+    it('assembles the deploy payload and deploys once through a publish relay to the environment', async () =>
     {
         const client = new FakeClient()
-        const factory = new FakeFactory(client)
-        const result = await new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(dir)
-        expect(factory.Connects).toEqual([{ url: 'wss://srv.example.com', token: Fixture.Secret }])
+        const relay = new FakeRelay(client)
+        const result = await new TenantDeployService(relay).Deploy('prod', dir)
+        expect(relay.Connects).toEqual([{ environment: 'prod', kind: TargetKind.Publish }])
         expect(client.Deployed).toHaveLength(1)
         const sent = client.Deployed[0]
         expect(sent.appName).toBe('orders')
@@ -107,27 +93,39 @@ describe('TenantDeployService', () =>
         ])
         expect(sent.uiBundle).toEqual([{ path: 'index.html', contentBase64: Buffer.from('<html>app</html>').toString('base64') }])
         expect(result).toEqual({ Status: TenantPublishStatus.Applied, Reason: undefined, AppName: 'orders', AppVersion: '0.2.0' })
-        expect(client.Closed).toBe(true)
+        expect(client.Closed).toBe(1)
     })
 
-    it('errors clearly and makes no client call when no tenant profile is configured', async () =>
+    it('closes the client when the deploy rejects and propagates the server message', async () =>
     {
-        const client = new FakeClient()
-        const factory = new FakeFactory(client)
-        await expect(new TenantDeployService(new FakeProfiles(undefined), factory).Deploy(dir)).rejects.toThrow(/No tenant is configured/)
-        expect(factory.Connects).toHaveLength(0)
-        expect(client.Deployed).toHaveLength(0)
+        const client = new FakeClient(new Error('This method is not available through the desktop relay.'))
+        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow(/not available through the desktop relay/)
+        expect(client.Closed).toBe(1)
     })
 
-    it('errors when the output has no servable manifest (not a remote build)', async () =>
+    it('a failing close does not hide the deploy result', async () =>
     {
-        const factory = new FakeFactory(new FakeClient())
+        const client = new FakeClient(undefined, true)
+        const result = await new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)
+        expect(result.Status).toBe(TenantPublishStatus.Applied)
+        expect(client.Closed).toBe(1)
+    })
+
+    it('propagates the relay refusal sentence unchanged', async () =>
+    {
+        const relay = new FakeRelay(new FakeClient(), new Error('The environment prod is not running. Start it from the tenant console.'))
+        await expect(new TenantDeployService(relay).Deploy('prod', dir)).rejects.toThrow('The environment prod is not running. Start it from the tenant console.')
+    })
+
+    it('errors when the output has no servable manifest (not a remote build), before any relay', async () =>
+    {
+        const relay = new FakeRelay(new FakeClient())
         const empty = join(mkdtempSync(join(tmpdir(), 'tenant-empty-')), 'build-remote')
         mkdirSync(empty, { recursive: true })
         try
         {
-            await expect(new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(empty)).rejects.toThrow(/servable-manifest\.json/)
-            expect(factory.Connects).toHaveLength(0)
+            await expect(new TenantDeployService(relay).Deploy('prod', empty)).rejects.toThrow(/servable-manifest\.json/)
+            expect(relay.Connects).toHaveLength(0)
         }
         finally
         {
@@ -135,37 +133,19 @@ describe('TenantDeployService', () =>
         }
     })
 
-    it('never puts the token in a connect failure message', async () =>
-    {
-        const factory = new FakeFactory(new FakeClient(), new Error('ECONNREFUSED'))
-        const err = await new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(dir).catch((e: Error) => e)
-        expect((err as Error).message).not.toMatch(/ECONNREFUSED/)
-        expect((err as Error).message).not.toContain(Fixture.Secret)
-    })
-
     it('reports a malformed manifest clearly', async () =>
     {
         writeFileSync(join(dir, 'servable-manifest.json'), '{ not json')
-        const factory = new FakeFactory(new FakeClient())
-        await expect(new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(dir)).rejects.toThrow(/not valid JSON/)
-        expect(factory.Connects).toHaveLength(0)
+        const relay = new FakeRelay(new FakeClient())
+        await expect(new TenantDeployService(relay).Deploy('prod', dir)).rejects.toThrow(/not valid JSON/)
+        expect(relay.Connects).toHaveLength(0)
     })
 
     it('refuses a directory that is not a remote build output', async () =>
     {
-        const factory = new FakeFactory(new FakeClient())
-        await expect(new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(tmpdir())).rejects.toThrow(/not a remote build output/)
-        expect(factory.Connects).toHaveLength(0)
-    })
-
-    it('refuses a cleartext non-loopback server URL before connecting', async () =>
-    {
-        const factory = new FakeFactory(new FakeClient())
-        const profile = { ServerUrl: 'ws://srv.example.com', Token: Fixture.Secret }
-        const err = await new TenantDeployService(new FakeProfiles(profile), factory).Deploy(dir).catch((e: Error) => e)
-        expect((err as Error).message).toMatch(/cleartext/)
-        expect((err as Error).message).not.toContain(Fixture.Secret)
-        expect(factory.Connects).toHaveLength(0)
+        const relay = new FakeRelay(new FakeClient())
+        await expect(new TenantDeployService(relay).Deploy('prod', tmpdir())).rejects.toThrow(/not a remote build output/)
+        expect(relay.Connects).toHaveLength(0)
     })
 
     it('rejects a manifest path escaping the build output', async () =>
@@ -173,7 +153,8 @@ describe('TenantDeployService', () =>
         writeFileSync(join(dir, 'servable-manifest.json'), JSON.stringify({
             name: 'x', version: '1', packages: [], ui: { entry: '../evil', assets: ['../evil'] },
         }))
-        const factory = new FakeFactory(new FakeClient())
-        await expect(new TenantDeployService(new FakeProfiles(Fixture.Profile()), factory).Deploy(dir)).rejects.toThrow(/outside the build output/)
+        const relay = new FakeRelay(new FakeClient())
+        await expect(new TenantDeployService(relay).Deploy('prod', dir)).rejects.toThrow(/outside the build output/)
+        expect(relay.Connects).toHaveLength(0)
     })
 })

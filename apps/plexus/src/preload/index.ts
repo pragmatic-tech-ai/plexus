@@ -12,10 +12,10 @@ import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-t
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
-import { TenantPublishChannel, type ITenantPublishApi } from '../shared/tenant-publish-api.js'
-import { GraphContributeChannel, type IGraphContributeApi, type ContributedPackage } from '../shared/graph-contribute-api.js'
+import { TenantPublishChannel, type ITenantPublishBridge } from '../shared/tenant-publish-api.js'
+import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
-import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge, type RelayReply } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TypeCheckChannel } from '@pragmatic-tech-ai/plexus-core/shared/type-check-api.js'
 import type { TypeCheckRequest, TypeCheckResult } from '@pragmatic-tech-ai/todl/build-system-core'
@@ -144,20 +144,25 @@ const previewServer: IPreviewServerApi = {
   Stop: (root: string) => ipcRenderer.invoke(PreviewServerChannel.Stop, root),
 }
 
-// Tenant-publish bridge — uploads a built remote-flavor output dir to the configured tenant;
-// the admin token is write-only (SetProfile) and is never returned.
-const tenantPublish: ITenantPublishApi = {
-  Deploy: (outputDir: string) => ipcRenderer.invoke(TenantPublishChannel.Deploy, outputDir),
-  SetProfile: (serverUrl: string, token: string) => ipcRenderer.invoke(TenantPublishChannel.SetProfile, serverUrl, token),
-  HasProfile: () => ipcRenderer.invoke(TenantPublishChannel.HasProfile),
+// Tenant-publish and graph-contribute bridges: the main process reaches the environment through the
+// tenant plane relay with the account session, so no credential is ever passed or returned here.
+// Each call resolves to the handler's RelayReply envelope (the context bridge would reduce a
+// rejection to "Error invoking remote method ..." around the sentence); the renderer services
+// unwrap it with RelayWire.Unwrap.
+class RelayBridge
+{
+  public static Call<T>(channel: string, ...args: unknown[]): Promise<RelayReply<T>>
+  {
+    return ipcRenderer.invoke(channel, ...args) as Promise<RelayReply<T>>
+  }
 }
-
-// Graph-contribute bridge — contributes a solution's compiled packages to a graph on the
-// configured server; the token is write-only (SetProfile) and is never returned.
-const graphContribute: IGraphContributeApi = {
-  Contribute: (graphName: string, solutionId: string, packages: ContributedPackage[]) => ipcRenderer.invoke(GraphContributeChannel.Contribute, graphName, solutionId, packages),
-  SetProfile: (serverUrl: string, token: string) => ipcRenderer.invoke(GraphContributeChannel.SetProfile, serverUrl, token),
-  HasProfile: () => ipcRenderer.invoke(GraphContributeChannel.HasProfile),
+const tenantPublish: ITenantPublishBridge = {
+  Deploy: (environment: string, outputDir: string) => RelayBridge.Call(TenantPublishChannel.Deploy, environment, outputDir),
+}
+const graphContribute: IGraphContributeBridge = {
+  Contribute: (environment: string, graphName: string, solutionId: string, packages: ContributedPackage[]) =>
+    RelayBridge.Call(GraphContributeChannel.Contribute, environment, graphName, solutionId, packages),
+  ListGraphs: (environment: string) => RelayBridge.Call(GraphContributeChannel.ListGraphs, environment),
 }
 
 // Account bridge: sign in by email through the system browser. Every call resolves to the main

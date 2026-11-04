@@ -1,9 +1,11 @@
 import { TenantPublisherKey, type ITenantPublisher, type TenantPublishResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/tenant-publish'
-import type { ITenantPublishApi } from '../../../../shared/tenant-publish-api.js'
+import { RelayWire } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { ITenantPublishBridge } from '../../../../shared/tenant-publish-api.js'
 
 // The renderer-side tenant publisher: the concrete ITenantPublisher plexus-core's
 // PublishTenantContributor resolves (through TenantPublisherKey). A thin wrapper over the
-// preload bridge (window.api.tenantPublish); the Node upload and the admin token stay in main.
+// preload bridge (window.api.tenantPublish) that unwraps the RelayReply, so a failure rejects with
+// its sentence (an AccountError for SignedOut). The upload and the account session stay in main.
 export class IpcTenantPublisher implements ITenantPublisher
 {
     public static readonly Key = TenantPublisherKey
@@ -12,11 +14,11 @@ export class IpcTenantPublisher implements ITenantPublisher
         'IpcTenantPublisher: window.api.tenantPublish is unavailable — the Electron preload '
         + 'bridge did not load. This service requires a desktop host.'
 
-    private readonly api: ITenantPublishApi
+    private readonly api: ITenantPublishBridge
 
     constructor()
     {
-        const bridge = (globalThis as unknown as { api?: { tenantPublish?: ITenantPublishApi } }).api
+        const bridge = (globalThis as unknown as { api?: { tenantPublish?: ITenantPublishBridge } }).api
         if (bridge?.tenantPublish === undefined)
         {
             throw new Error(IpcTenantPublisher.BridgeUnavailable)
@@ -24,14 +26,9 @@ export class IpcTenantPublisher implements ITenantPublisher
         this.api = bridge.tenantPublish
     }
 
-    public Publish(outputDir: string): Promise<TenantPublishResult>
+    public async Publish(environment: string, outputDir: string): Promise<TenantPublishResult>
     {
-        return this.api.Deploy(outputDir)
-    }
-
-    public SetProfile(serverUrl: string, token: string): Promise<void>
-    {
-        return this.api.SetProfile(serverUrl, token)
+        return RelayWire.Unwrap(await this.api.Deploy(environment, outputDir))
     }
 }
 

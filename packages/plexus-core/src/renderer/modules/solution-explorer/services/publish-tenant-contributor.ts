@@ -14,19 +14,19 @@ import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
 import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
-import type { ITenantProfilePrompt } from './tenant-profile-dialog.js'
+import type { ITenantTargetPrompt } from './tenant-profile-dialog.js'
 
-// Contributes the Publish to tenant command to a project row: builds the html-bundle-remote
-// flavor to <project>/build-remote/ (renderer BuildService, like Open/Serve HTML app), then hands the
-// output dir to the ITenantPublisher, whose main-process side uploads it via the protocol
-// deploy method. A non-applied server status fails the task row with the server reason.
+// Contributes the Publish to tenant commands to a project row: asks for the target environment,
+// builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
+// Open/Serve HTML app), then hands the environment + output dir to the ITenantPublisher, whose
+// main-process side uploads it through the tenant plane relay via the protocol deploy method. A
+// non-applied server status fails the task row with the server reason.
 // Action-only (Contribute yields no nodes).
 export class PublishTenantContributor implements IHierarchyContributor
 {
     public static readonly Key = new ServiceKey<PublishTenantContributor>('PublishTenantContributor')
 
     public static readonly PublishCommandId = 'tenant.publish'
-    public static readonly ConfigureCommandId = 'tenant.configure'
     public static readonly PublishEnvCommandId = 'tenant.publish-env'
 
     private static readonly SystemId = 'html-bundle'
@@ -36,7 +36,6 @@ export class PublishTenantContributor implements IHierarchyContributor
     public static readonly BuildDir = RemoteBuildDirName
     private static readonly PublishLabel = 'Publish to tenant'
     private static readonly PublishEnvLabel = 'Publish to tenant (environment graph)'
-    private static readonly ConfigureLabel = 'Configure tenant…'
     private static readonly TitlePrefix = 'Publishing to tenant '
     private static readonly BuildFailedPrefix = 'Build failed: '
     private static readonly NoOutputPathError = 'Build produced no output path to publish'
@@ -54,11 +53,10 @@ export class PublishTenantContributor implements IHierarchyContributor
         private readonly work: BackgroundWorkService | undefined,
         private readonly mutations: IContentMutations,
         private readonly publisher: ITenantPublisher | undefined,
-        private readonly prompt: ITenantProfilePrompt | undefined = undefined)
+        private readonly prompt: ITenantTargetPrompt | undefined = undefined)
     {
         this.Actions = [
             PublishTenantContributor.command(PublishTenantContributor.PublishCommandId, PublishTenantContributor.PublishLabel, 54),
-            PublishTenantContributor.command(PublishTenantContributor.ConfigureCommandId, PublishTenantContributor.ConfigureLabel, 55),
             PublishTenantContributor.command(PublishTenantContributor.PublishEnvCommandId, PublishTenantContributor.PublishEnvLabel, 56),
         ]
     }
@@ -80,40 +78,29 @@ export class PublishTenantContributor implements IHierarchyContributor
 
     public Resolve(commandId: string, context: CommandContext): ICommand | undefined
     {
-        if (commandId === PublishTenantContributor.ConfigureCommandId)
-        {
-            return new RelayCommand(() => void this.configure(), () => this.publisher !== undefined && this.prompt !== undefined)
-        }
         if (commandId !== PublishTenantContributor.PublishCommandId && commandId !== PublishTenantContributor.PublishEnvCommandId) return undefined
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return undefined
         const bind = commandId === PublishTenantContributor.PublishEnvCommandId ? RemoteBindMode.Environment : RemoteBindMode.Application
-        return new RelayCommand(() => this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined)
+        return new RelayCommand(() => void this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined && this.prompt !== undefined)
     }
 
-    // Collects URL + token and hands them to the main-side store. The token goes straight to
-    // SetProfile and is neither logged nor retained here.
-    private async configure(): Promise<void>
-    {
-        const publisher = this.publisher
-        const prompt = this.prompt
-        if (publisher === undefined || prompt === undefined) return
-        const input = await prompt.Prompt()
-        if (input === undefined) return
-        await publisher.SetProfile(input.ServerUrl, input.Token)
-    }
-
-    private publish(member: SolutionMember, bind: RemoteBindMode): void
+    // Asks for the environment first (a cancel publishes nothing), then builds and uploads under a
+    // background task so a build / sign-in / refusal failure fails that row with its sentence.
+    private async publish(member: SolutionMember, bind: RemoteBindMode): Promise<void>
     {
         const work = this.work
         const storage = member.Storage
         const publisher = this.publisher
-        if (work === undefined || storage === undefined || publisher === undefined) return
+        const prompt = this.prompt
+        if (work === undefined || storage === undefined || publisher === undefined || prompt === undefined) return
+        const environment = await prompt.Prompt()
+        if (environment === undefined) return
         void work.run(`${PublishTenantContributor.TitlePrefix}${member.Title}`, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
             const outputPath = await this.buildRemote(storage, ctx, bind)
-            const result = await publisher.Publish(outputPath)
+            const result = await publisher.Publish(environment, outputPath)
             return PublishTenantContributor.RequireApplied(result)
         })
     }

@@ -1,19 +1,20 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { RemoteBuildDirName, TenantPublishStatus, TenantServerUrl } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { RemoteBuildDirName, TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { TenantPublishResult } from '../../shared/tenant-publish-api.js'
-import type { ITenantProfileSource } from './tenant-profile.js'
-import type { ITenantClientFactory } from './tenant-client.js'
+import type { IRelayConnector, RelayClient } from '../account/relay-connector.js'
 
 // Main-process deploy: takes the output directory of a finished html-bundle-remote build
 // (index.html, servable-manifest.json, packages/<id>/<version>/model.json for the full
-// closure), assembles the protocol's CypherAppDeployParamsDto from it and uploads it to the
-// configured tenant over the Node PragmaticClient. The renderer does the build; this class
-// only reads its output, so no closure resolution happens here. Trust boundary: outputDir
+// closure), assembles the protocol's CypherAppDeployParamsDto from it and uploads it to a Runtime
+// environment through the tenant plane's publish relay (the environment credential stays
+// server-side). The renderer does the build; this class only reads its output, so no closure
+// resolution happens here. Trust boundary: outputDir
 // arrives from the renderer, so it must be a remote-build dir (a path segment named build-remote,
-// the dir PublishTenantContributor builds into) and every file read stays confined inside it. The admin bearer token is
-// handed to the client factory and nowhere else: never logged, never put in an error/result.
+// the dir PublishTenantContributor builds into) and every file read stays confined inside it. The
+// build output is read before the relay is opened, so a bad output never connects.
 export class TenantDeployService
 {
     private static readonly ManifestFile = 'servable-manifest.json'
@@ -21,28 +22,22 @@ export class TenantDeployService
     private static readonly ModelFile = 'model.json'
     private static readonly Utf8 = 'utf8'
     private static readonly Base64 = 'base64'
-    private static readonly NoProfile = 'No tenant is configured: set the tenant server URL and admin token before publishing.'
     private static readonly NoManifest = 'Remote build output has no servable-manifest.json: build the HTML app (remote) flavor first. Looked in: '
     private static readonly BadManifest = 'servable-manifest.json is not a valid servable app manifest.'
     private static readonly ManifestNotJson = 'servable-manifest.json is not valid JSON.'
     private static readonly MissingFile = 'Remote build output is missing: '
     private static readonly UnsafePath = 'Manifest references a path outside the build output: '
     private static readonly NotABuildDir = 'Refusing to publish a directory that is not a remote build output: '
-    private static readonly ConnectFailed = 'Could not connect to the tenant server: '
 
-    constructor(private readonly profiles: ITenantProfileSource, private readonly clients: ITenantClientFactory)
+    constructor(private readonly relay: IRelayConnector)
     {
     }
 
-    public async Deploy(outputDir: string): Promise<TenantPublishResult>
+    public async Deploy(environment: string, outputDir: string): Promise<TenantPublishResult>
     {
-        // Profile first: a missing tenant fails before any disk read or network call.
-        const profile = await this.profiles.Load()
-        if (profile === undefined) throw new Error(TenantDeployService.NoProfile)
         TenantDeployService.RequireBuildDir(outputDir)
-        const serverUrl = TenantServerUrl.Validate(profile.ServerUrl)
         const params = await TenantDeployService.Assemble(outputDir)
-        const client = await this.connect(serverUrl, profile.Token)
+        const client = await this.relay.Connect(environment, TargetKind.Publish)
         try
         {
             const result = await client.DeployApplication(params)
@@ -50,21 +45,20 @@ export class TenantDeployService
         }
         finally
         {
-            await client.Close()
+            await TenantDeployService.Close(client)
         }
     }
 
-    private async connect(serverUrl: string, token: string): ReturnType<ITenantClientFactory['Connect']>
+    // A failing close must not hide the deploy's own outcome.
+    private static async Close(client: RelayClient): Promise<void>
     {
         try
         {
-            return await this.clients.Connect(serverUrl, token)
+            await client.DisposeAsync()
         }
         catch
         {
-            // Only the fixed prefix and the server URL: the underlying client error detail (which could
-            // echo connection material) never reaches the renderer, and the token is never interpolated.
-            throw new Error(`${TenantDeployService.ConnectFailed}${serverUrl}`)
+            // the connection is gone either way
         }
     }
 
