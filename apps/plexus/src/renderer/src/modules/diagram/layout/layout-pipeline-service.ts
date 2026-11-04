@@ -131,7 +131,7 @@ export class LayoutPipelineService extends ServiceBase
     private _applyPreviewCommand!: ICommand
     private _cancelPreviewCommand!: ICommand
     private _saveCommand!: ICommand
-    private _deleteCommand!: ICommand
+    private _deleteCommand!: RelayCommand
 
     // Plain fields — used only from TS (not bound in markup).
     public readonly Catalog: CatalogSlot[] = GetPipelineCatalog()
@@ -214,7 +214,8 @@ export class LayoutPipelineService extends ServiceBase
         this._applyPreviewCommand = new RelayCommand(() => this.ApplyPreview())
         this._cancelPreviewCommand = new RelayCommand(() => this.CancelPreview())
         this._saveCommand = new RelayCommand(() => { void this.save() })
-        this._deleteCommand = new RelayCommand(() => { void this.deleteSelected() })
+        // The Delete button binds the command only: CanDelete is its CanExecute (raised in setCanDelete).
+        this._deleteCommand = new RelayCommand(() => { void this.deleteSelected() }, () => this.CanDelete)
 
         // Selecting a preset loads it (scope-aware); whatever is selected also
         // drives whether Delete is enabled.
@@ -249,7 +250,14 @@ export class LayoutPipelineService extends ServiceBase
     public get SelectedPreset(): LayoutPresetRef | undefined { return this._selectedPreset }
     public set SelectedPreset(v: LayoutPresetRef | undefined) { const old = this._selectedPreset; this._selectedPreset = v; this.RaisePropertyChanged('SelectedPreset', old, v) }
     public get CanDelete(): boolean { return this._canDelete }
-    private setCanDelete(v: boolean): void { const old = this._canDelete; this._canDelete = v; this.RaisePropertyChanged('CanDelete', old, v) }
+    private setCanDelete(v: boolean): void
+    {
+        if (v === this._canDelete) return
+        const old = this._canDelete
+        this._canDelete = v
+        this.RaisePropertyChanged('CanDelete', old, v)
+        this._deleteCommand.RaiseCanExecuteChanged()
+    }
     public get RunCommand(): ICommand { return this._runCommand }
     public get PreviewActive(): boolean { return this._previewActive }
     private set PreviewActive(v: boolean)

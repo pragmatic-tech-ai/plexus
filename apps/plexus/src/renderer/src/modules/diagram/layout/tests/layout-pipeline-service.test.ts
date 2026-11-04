@@ -11,7 +11,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework'
 import { Point } from '@pragmatic-tech-ai/mural/runtime'
 import { LayoutPipelineService } from '../layout-pipeline-service.js'
-import { PresetScope } from '../preset-scope.js'
+import { LayoutPresetRef, PresetScope } from '../preset-scope.js'
 import { GetPipelineCatalog, type PipelineConfiguration } from '@pragmatic-tech-ai/fresco'
 import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { FileSystemService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
@@ -381,4 +381,19 @@ describe('scoped save / delete', () => {
         expect(getDiagramPreset(doc, 'gone')).toBeUndefined()
         expect(svc.Presets.ToArray().some((r) => r.Name === 'gone')).toBe(false)
     })
+})
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+test('DeleteCommand.CanExecute follows the selected preset and raises CanExecuteChanged', () => {
+    const svc = new LayoutPipelineService(providerWithPresets(undefined, {}))
+    let raised = 0
+    svc.DeleteCommand.AddCanExecuteChangedListener(() => { raised++ })
+    expect(svc.DeleteCommand.CanExecute(undefined)).toBe(false)
+    svc.SelectedPreset = new LayoutPresetRef('p1', PresetScope.Global)
+    expect(svc.DeleteCommand.CanExecute(undefined)).toBe(true)
+    expect(raised).toBe(1)
+    svc.SelectedPreset = undefined
+    expect(svc.DeleteCommand.CanExecute(undefined)).toBe(false)
+    expect(raised).toBe(2)
 })

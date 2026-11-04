@@ -90,3 +90,23 @@ describe('ConnectionEditorDialogModel', () =>
         expect(cap.result).toBeUndefined()
     })
 })
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+describe('ConnectionEditorDialogModel ConfirmCommand', () =>
+{
+    it('CanExecute follows CanConfirm and raises CanExecuteChanged on each flip', () =>
+    {
+        const vm = new ConnectionEditorDialogModel(undefined, () => {})
+        let raised = 0
+        vm.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
+        expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
+        vm.DisplayName = 'GitHub'
+        vm.Registry = 'https://npm.pkg.github.com'
+        expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(true)
+        expect(raised).toBe(1)
+        vm.Registry = ''
+        expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
+        expect(raised).toBe(2)
+    })
+})

@@ -74,9 +74,15 @@ export class ConnectionEditorDialogModel extends MuralBase
             this.set_property_value(ConnectionEditorDialogModel.EnvVarKey, existing.TokenEnvVar ?? '')
         }
         this.set_property_value(ConnectionEditorDialogModel.ConfirmCommandKey,
-            new RelayCommand(() => { if (this.CanConfirm) this.close(this.Result) }))
+            new RelayCommand(() => { if (this.CanConfirm) this.close(this.Result) }, () => this.CanConfirm))
         this.set_property_value(ConnectionEditorDialogModel.CancelCommandKey,
             new RelayCommand(() => this.close(undefined)))
+        // The Confirm button binds the command only: CanConfirm is its CanExecute, so a change of
+        // CanConfirm (recompute re-writes it on every input change) is a CanExecuteChanged.
+        this.PropertyChanged(ConnectionEditorDialogModel.CanConfirmKey).subscribe(({ oldValue, newValue }) =>
+        {
+            if (oldValue !== newValue) (this.ConfirmCommand as RelayCommand).RaiseCanExecuteChanged()
+        })
         for (const key of [ConnectionEditorDialogModel.DisplayNameKey, ConnectionEditorDialogModel.RegistryKeyProp, ConnectionEditorDialogModel.UseEnvTokenKey, ConnectionEditorDialogModel.EnvVarKey])
         {
             this.PropertyChanged(key).subscribe(() => this.recompute())

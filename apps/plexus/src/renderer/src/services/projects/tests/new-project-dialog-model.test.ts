@@ -269,3 +269,19 @@ test('a non-offering type omits libraries from the result', async () => {
     await flush()
     expect('libraries' in (closed() as NewProjectResult)).toBe(false)
 })
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+test('ConfirmCommand.CanExecute follows CanConfirm and raises CanExecuteChanged on each flip', () => {
+    const { vm } = build()
+    let raised = 0
+    vm.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
+    vm.Name = 'Acme'
+    vm.Location = '/work/acme'
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(true)
+    expect(raised).toBe(1)
+    vm.Name = ''
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
+    expect(raised).toBe(2)
+})

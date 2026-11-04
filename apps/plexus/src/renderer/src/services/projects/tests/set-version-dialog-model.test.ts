@@ -30,3 +30,18 @@ test('Confirm closes with a trimmed version + the publish flag; Cancel closes un
     vm.CancelCommand.Execute(undefined)
     expect(result).toBeUndefined()
 })
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+test('ConfirmCommand.CanExecute follows CanConfirm and raises CanExecuteChanged on each flip', () => {
+    const vm = new SetVersionDialogModel('0.1.0', () => {})
+    let raised = 0
+    vm.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(true)
+    vm.NewVersion = 'a/b'
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
+    expect(raised).toBe(1)
+    vm.NewVersion = '0.2.0'
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(true)
+    expect(raised).toBe(2)
+})

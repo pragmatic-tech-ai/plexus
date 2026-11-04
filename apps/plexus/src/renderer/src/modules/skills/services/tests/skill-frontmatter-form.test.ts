@@ -37,3 +37,19 @@ describe('SkillFrontmatterFormVm', () => {
         expect(vm.Inputs.Count).toBe(0)
     })
 })
+
+// The Add buttons bind Command only: the read-only gate lives in the commands' CanExecute (fixed for
+// the form's lifetime, so there is no CanExecuteChanged to raise).
+describe('SkillFrontmatterFormVm add commands', () => {
+    it('CanExecute is false on a read-only form and true on an editable one', () => {
+        const ro = new SkillFrontmatterFormVm(XPlexuses.empty(), true, () => {})
+        const rw = new SkillFrontmatterFormVm(XPlexuses.empty(), false, () => {})
+        for (const vm of [ro, rw])
+        {
+            for (const cmd of [vm.AddInputCommand, vm.AddBindingCommand, vm.AddOutputCommand])
+            {
+                expect(cmd.CanExecute(undefined)).toBe(vm === rw)
+            }
+        }
+    })
+})

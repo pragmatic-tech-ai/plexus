@@ -49,3 +49,20 @@ describe('SavePresetPromptModel', () => {
         assert.equal(called, false)
     })
 })
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+describe('SavePresetPromptModel ConfirmCommand', () => {
+    test('CanExecute follows a non-blank name and raises CanExecuteChanged on each flip', () => {
+        const m = new SavePresetPromptModel('Wide', ALL, PresetScope.Global, () => {})
+        let raised = 0
+        m.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
+        assert.equal(m.ConfirmCommand.CanExecute(undefined), true)
+        m.Name = '  '
+        assert.equal(m.ConfirmCommand.CanExecute(undefined), false)
+        assert.equal(raised, 1)
+        m.Name = 'Tall'
+        assert.equal(m.ConfirmCommand.CanExecute(undefined), true)
+        assert.equal(raised, 2)
+    })
+})

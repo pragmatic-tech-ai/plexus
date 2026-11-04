@@ -87,19 +87,19 @@ resources SkillsAuthoringResources {
 
             TextBlock [ Text = "Inputs", Style = @Body, Foreground = @Fg1, Margin = (0,4,0,4) ]
             ItemsControl [ ItemsSource = $Inputs, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillInputRowTemplate ]
-            Button [ Variant = Text, Command = $AddInputCommand, IsEnabled = $IsEditable, HorizontalAlignment = Left, Margin = (0,0,0,10) ] {
+            Button [ Variant = Text, Command = $AddInputCommand, HorizontalAlignment = Left, Margin = (0,0,0,10) ] {
                 TextBlock [ Text = "+ Add input", Style = @BodySm ]
             }
 
             TextBlock [ Text = "Bindings", Style = @Body, Foreground = @Fg1, Margin = (0,4,0,4) ]
             ItemsControl [ ItemsSource = $Bindings, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillBindingRowTemplate ]
-            Button [ Variant = Text, Command = $AddBindingCommand, IsEnabled = $IsEditable, HorizontalAlignment = Left, Margin = (0,0,0,10) ] {
+            Button [ Variant = Text, Command = $AddBindingCommand, HorizontalAlignment = Left, Margin = (0,0,0,10) ] {
                 TextBlock [ Text = "+ Add binding", Style = @BodySm ]
             }
 
             TextBlock [ Text = "Outputs", Style = @Body, Foreground = @Fg1, Margin = (0,4,0,4) ]
             ItemsControl [ ItemsSource = $Outputs, ItemsPanel = @VerticalStackPanel, ItemTemplate = @SkillOutputRowTemplate ]
-            Button [ Variant = Text, Command = $AddOutputCommand, IsEnabled = $IsEditable, HorizontalAlignment = Left ] {
+            Button [ Variant = Text, Command = $AddOutputCommand, HorizontalAlignment = Left ] {
                 TextBlock [ Text = "+ Add output", Style = @BodySm ]
             }
         }

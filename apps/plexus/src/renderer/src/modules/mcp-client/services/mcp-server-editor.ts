@@ -22,7 +22,7 @@ export class McpServerEditor extends Observable
     public readonly AddHeaderCommand: ICommand
     public readonly DiscoverToolsCommand: ICommand
     public readonly TestCommand: ICommand
-    public readonly SaveCommand: ICommand
+    public readonly SaveCommand: RelayCommand
     public readonly CancelCommand: ICommand
 
     // Set by the host service; invoked by Save / Cancel.
@@ -47,7 +47,8 @@ export class McpServerEditor extends Observable
         this.AddHeaderCommand = new RelayCommand(() => this.HeaderRows.Add(new KeyValueRow((r) => this.HeaderRows.Remove(r))))
         this.DiscoverToolsCommand = new RelayCommand(() => void this.discoverTools())
         this.TestCommand = new RelayCommand(() => void this.test())
-        this.SaveCommand = new RelayCommand(() => { if (this._isValid) this.OnSave(this.toEntry()) })
+        // The Save button binds the command only: IsValid is its CanExecute (raised in recomputeValid).
+        this.SaveCommand = new RelayCommand(() => { if (this._isValid) this.OnSave(this.toEntry()) }, () => this._isValid)
         this.CancelCommand = new RelayCommand(() => this.OnCancel())
     }
 
@@ -100,6 +101,7 @@ export class McpServerEditor extends Observable
         const ok = this._key.trim().length > 0 && (this.IsStdio ? this._command.trim().length > 0 : this.isParsableUrl())
         if (ok === this._isValid) return
         const o = this._isValid; this._isValid = ok; this.RaisePropertyChanged('IsValid', o, ok)
+        this.SaveCommand?.RaiseCanExecuteChanged()
     }
 
     private isParsableUrl(): boolean { try { return new URL(this._url).protocol.length > 0 }

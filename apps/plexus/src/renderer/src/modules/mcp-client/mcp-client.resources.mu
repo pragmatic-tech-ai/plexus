@@ -118,7 +118,7 @@ resources McpClientResources {
 
                 StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,10,0,0) ] {
                     Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel", Style = @BodySm ] }
-                    Button [ Variant = Tonal, Command = $SaveCommand, IsEnabled = $IsValid ] { TextBlock [ Text = "Save", Style = @BodySm ] }
+                    Button [ Variant = Tonal, Command = $SaveCommand ] { TextBlock [ Text = "Save", Style = @BodySm ] }
                 }
             }
         }

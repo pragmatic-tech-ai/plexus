@@ -17,7 +17,7 @@ export interface SavePresetChoice
 // and Cancel / Save). The host shows it through DialogService and awaits the
 // SavePresetChoice: ConfirmCommand closes with { name, scope }, CancelCommand
 // closes with undefined (as does a scrim/Escape dismiss). Confirm is blocked
-// while the name is blank (CanConfirm drives the button's IsEnabled).
+// while the name is blank (CanConfirm is ConfirmCommand's CanExecute, which the Save button follows).
 //
 // The offered scopes are passed in (Global always; Project only when a project
 // is active; Diagram only when a diagram is active), so the picker never lists a
@@ -51,7 +51,13 @@ export class SavePresetPromptModel extends MuralBase
         const selected = options.ToArray().find((o) => o.Scope === initialScope) ?? options.ToArray()[0]
         this.set_property_value(SavePresetPromptModel.SelectedScopeKey, selected)
 
-        this.set_property_value(SavePresetPromptModel.ConfirmCommandKey, new RelayCommand(() => this.confirm()))
+        this.set_property_value(SavePresetPromptModel.ConfirmCommandKey, new RelayCommand(() => this.confirm(), () => this.CanConfirm))
+        // The Confirm button binds the command only: CanConfirm is its CanExecute, so a change of
+        // CanConfirm (recompute re-writes it on every input change) is a CanExecuteChanged.
+        this.PropertyChanged(SavePresetPromptModel.CanConfirmKey).subscribe(({ oldValue, newValue }) =>
+        {
+            if (oldValue !== newValue) (this.ConfirmCommand as RelayCommand).RaiseCanExecuteChanged()
+        })
         this.set_property_value(SavePresetPromptModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
         this.PropertyChanged(SavePresetPromptModel.NameKey).subscribe(() => this.recompute())
         this.recompute()

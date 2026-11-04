@@ -42,3 +42,20 @@ describe('McpServerEditor', () => {
         expect(back).toEqual(entry)
     })
 })
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+describe('McpServerEditor SaveCommand', () => {
+    test('CanExecute follows IsValid and raises CanExecuteChanged on each flip', () => {
+        const e = new McpServerEditor()
+        let raised = 0
+        e.SaveCommand.AddCanExecuteChangedListener(() => { raised++ })
+        expect(e.SaveCommand.CanExecute(undefined)).toBe(false)
+        e.Key = 'srv'; e.SelectedTransportKind = McpTransportKind.Stdio; e.Command = 'npx'
+        expect(e.SaveCommand.CanExecute(undefined)).toBe(true)
+        expect(raised).toBe(1)
+        e.Command = ''
+        expect(e.SaveCommand.CanExecute(undefined)).toBe(false)
+        expect(raised).toBe(2)
+    })
+})

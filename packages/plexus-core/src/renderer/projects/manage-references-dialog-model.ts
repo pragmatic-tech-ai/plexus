@@ -91,7 +91,13 @@ export class ManageReferencesDialogModel extends MuralBase
         this.set_property_value(ManageReferencesDialogModel.RootsKey, roots)
 
         this.set_property_value(ManageReferencesDialogModel.ConfirmCommandKey,
-            new RelayCommand(() => { if (this.CanConfirm) this.close(this.Result) }))
+            new RelayCommand(() => { if (this.CanConfirm) this.close(this.Result) }, () => this.CanConfirm))
+        // The Confirm button binds the command only: CanConfirm is its CanExecute, so a change of
+        // CanConfirm (recompute re-writes it on every input change) is a CanExecuteChanged.
+        this.PropertyChanged(ManageReferencesDialogModel.CanConfirmKey).subscribe(({ oldValue, newValue }) =>
+        {
+            if (oldValue !== newValue) (this.ConfirmCommand as RelayCommand).RaiseCanExecuteChanged()
+        })
         this.set_property_value(ManageReferencesDialogModel.CancelCommandKey,
             new RelayCommand(() => this.close(undefined)))
 

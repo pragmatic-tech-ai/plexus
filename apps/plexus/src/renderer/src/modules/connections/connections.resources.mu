@@ -38,7 +38,7 @@ resources ConnectionsResources {
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,6,0,0) ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Save" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Save" ] }
             }
         }
     }

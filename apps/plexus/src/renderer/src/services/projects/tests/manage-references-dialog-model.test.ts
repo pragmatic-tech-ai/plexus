@@ -110,3 +110,18 @@ test('dedupes a ref offered by both the published store and an open workspace pr
     const { vm } = make({ metaModels: [ea5], libraries: [] }, [ea5], [aws1, aws1, ms1], true)
     expect(libLeaves(vm).map((l) => l.Label)).toEqual(['aws @ 0.1.0', 'microsoft @ 0.1.0'])
 })
+
+// The button binds Command only (mural >= 0.66.2 disables a button whose command cannot run), so
+// the command's CanExecute carries the rule and raises CanExecuteChanged when it flips.
+test('ConfirmCommand.CanExecute follows CanConfirm and raises CanExecuteChanged on each flip', () => {
+    const { vm } = make({ metaModels: [ea5], libraries: [] }, [ea5, ea6], [], true)
+    let raised = 0
+    vm.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(true)
+    for (const m of metaLeaves(vm)) m.IsSelected = false
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
+    expect(raised).toBe(1)
+    metaLeaves(vm)[1].IsSelected = true
+    expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(true)
+    expect(raised).toBe(2)
+})

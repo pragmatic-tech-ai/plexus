@@ -126,7 +126,13 @@ export class NewProjectDialogModel extends MuralBase
         this.set_property_value(NewProjectDialogModel.TypesKey, types)
         this.set_property_value(NewProjectDialogModel.RootsKey, new ObservableCollection<ReferenceNode>())
         this.set_property_value(NewProjectDialogModel.BrowseCommandKey, new RelayCommand(() => void this.browse()))
-        this.set_property_value(NewProjectDialogModel.ConfirmCommandKey, new RelayCommand(() => void this.confirm()))
+        this.set_property_value(NewProjectDialogModel.ConfirmCommandKey, new RelayCommand(() => void this.confirm(), () => this.CanConfirm))
+        // The Confirm button binds the command only: CanConfirm is its CanExecute, so a change of
+        // CanConfirm (recompute re-writes it on every input change) is a CanExecuteChanged.
+        this.PropertyChanged(NewProjectDialogModel.CanConfirmKey).subscribe(({ oldValue, newValue }) =>
+        {
+            if (oldValue !== newValue) (this.ConfirmCommand as RelayCommand).RaiseCanExecuteChanged()
+        })
         this.set_property_value(NewProjectDialogModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
 
         this.PropertyChanged(NewProjectDialogModel.NameKey).subscribe(() => this.recompute())

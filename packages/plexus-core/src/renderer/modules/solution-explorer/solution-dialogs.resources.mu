@@ -88,7 +88,7 @@ resources SolutionDialogsResources {
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Create" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Create" ] }
             }
         }
     }
@@ -112,7 +112,7 @@ resources SolutionDialogsResources {
 
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Save" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Save" ] }
             }
         }
     }
@@ -128,7 +128,7 @@ resources SolutionDialogsResources {
             TextBlock [ Style = @BodySm, Text = $Error, Foreground = @StateDanger, Margin = (0,0,0,10) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Set Version" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Set Version" ] }
             }
         }
     }

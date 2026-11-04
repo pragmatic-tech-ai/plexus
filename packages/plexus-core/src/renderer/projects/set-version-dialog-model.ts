@@ -30,7 +30,13 @@ export class SetVersionDialogModel extends MuralBase
         super()
         this.set_property_value(SetVersionDialogModel.CurrentKey, current)
         this.set_property_value(SetVersionDialogModel.NewVersionKey, current)
-        this.set_property_value(SetVersionDialogModel.ConfirmCommandKey, new RelayCommand(() => this.confirm()))
+        this.set_property_value(SetVersionDialogModel.ConfirmCommandKey, new RelayCommand(() => this.confirm(), () => this.CanConfirm))
+        // The Confirm button binds the command only: CanConfirm is its CanExecute, so a change of
+        // CanConfirm (recompute re-writes it on every input change) is a CanExecuteChanged.
+        this.PropertyChanged(SetVersionDialogModel.CanConfirmKey).subscribe(({ oldValue, newValue }) =>
+        {
+            if (oldValue !== newValue) (this.ConfirmCommand as RelayCommand).RaiseCanExecuteChanged()
+        })
         this.set_property_value(SetVersionDialogModel.CancelCommandKey, new RelayCommand(() => this.close(undefined)))
         this.PropertyChanged(SetVersionDialogModel.NewVersionKey).subscribe(() => this.recompute())
         this.recompute()

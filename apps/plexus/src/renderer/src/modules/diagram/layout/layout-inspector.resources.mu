@@ -81,8 +81,7 @@ resources LayoutInspectorResources {
                         PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).SaveCommand ] {
                             Shape [ Geometry = @Save, Fill = @Fg2, Width = 20, Height = 20 ]
                         }
-                        PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).DeleteCommand,
-                                      IsEnabled = $service(LayoutPipelineService).CanDelete ] {
+                        PanelButton [ Margin = (0,0,4,0), Command = $service(LayoutPipelineService).DeleteCommand ] {
                             Shape [ Geometry = @Delete, Fill = @Fg2, Width = 20, Height = 20 ]
                         }
                         // Preview: paint a ghost of the proposed layout over the canvas.
@@ -123,7 +122,7 @@ resources LayoutInspectorResources {
     // The save-preset prompt dialog body (DialogService supplies surface/title/
     // padding). A name field, a "Save to" scope picker (Global / Project /
     // Diagram — only the scopes the caller offers), then Cancel / Save; Save
-    // stays disabled until the name is non-blank (CanConfirm). The scope ComboBox
+    // stays disabled until the name is non-blank (ConfirmCommand's CanExecute). The scope ComboBox
     // shows each option's Label via the displayString convention.
     DataTemplate [ DataType = SavePresetPromptModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
@@ -133,7 +132,7 @@ resources LayoutInspectorResources {
             ComboBox [ ItemsSource = $Scopes, SelectedItem = $SelectedScope, HorizontalAlignment = Stretch, Margin = (0,0,0,14) ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
-                Button [ Variant = Filled, Command = $ConfirmCommand, IsEnabled = $CanConfirm ] { TextBlock [ Text = "Save" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Save" ] }
             }
         }
     }
