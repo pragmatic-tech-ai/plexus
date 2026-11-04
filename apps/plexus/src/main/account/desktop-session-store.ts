@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
+import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
 // Structural twin of todl-platform-node's Encryptor (SafeStorageEncryptor satisfies it), kept
 // local so this store has no Electron dependency and tests use a plain fake.
@@ -29,16 +30,22 @@ export class DesktopSessionStore
     private static readonly SessionFile = 'desktop-session.bin'
     private static readonly TempSuffix = '.tmp'
     private static readonly NotFoundCode = 'ENOENT'
-    private static readonly EncryptionUnavailable = 'Secure storage is unavailable on this system; the session cannot be stored or read.'
     private static readonly Fields: readonly (keyof DesktopSession)[] = ['TenantPlaneUrl', 'Token', 'Email', 'TenantId', 'TenantName', 'ExpiresAt']
 
     public constructor(private readonly dir: string, private readonly encryptor: ITokenEncryptor)
     {
     }
 
+    // Whether a session can be stored (and read back) on this system: checked before a sign-in opens
+    // the browser, so the user is not sent through it for a session that could never be kept.
+    public CanStore(): boolean
+    {
+        return this.encryptor.IsAvailable()
+    }
+
     public async Save(session: DesktopSession): Promise<void>
     {
-        if (!this.encryptor.IsAvailable()) throw new Error(DesktopSessionStore.EncryptionUnavailable)
+        if (!this.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
         const blob = this.encryptor.Encrypt(JSON.stringify(DesktopSessionStore.Pick(session)))
         await fs.mkdir(this.dir, { recursive: true })
         const target = this.Path()
@@ -51,7 +58,7 @@ export class DesktopSessionStore
     {
         const blob = await this.ReadBlob()
         if (blob === undefined) return undefined
-        if (!this.encryptor.IsAvailable()) throw new Error(DesktopSessionStore.EncryptionUnavailable)
+        if (!this.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
         return this.Decode(blob)
     }
 

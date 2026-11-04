@@ -46,7 +46,8 @@ type ChoiceFile = Record<string, Partial<Record<TargetKind, TargetChoice>>>
 // browser, wait for the code on the loopback, complete with the binding verifier, store the desktop
 // session encrypted. The token stays here: State() reports only email + tenant name, and every
 // change is raised on Changed for the IPC layer to push. A SignedOut answer from the tenant plane
-// (targets here, relay connects via HandleSignedOut) clears the session.
+// (targets here, relay connects via HandleSignedOut) clears the session it was given for, and only
+// that one: a late 401 for a session already replaced leaves the newer one alone.
 export class AccountService
 {
     private static readonly ChoicesFile = 'publish-choices.json'
@@ -102,6 +103,8 @@ export class AccountService
 
     public async SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
     {
+        // Without secure storage the session could never be kept: say so before the browser opens.
+        if (!this.store.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
         this.attempt?.Cancel()
         const attempt = new SignInAttempt(this.receivers())
         this.attempt = attempt
@@ -132,8 +135,7 @@ export class AccountService
                 await this.EndQuietly(session)
                 attempt.Check()
             }
-            const previous = await this.store.Load()
-            await this.store.Save(session)
+            const previous = await this.Keep(session)
             if (previous !== undefined && previous.Token !== session.Token) await this.EndQuietly(previous)
             const signedIn = AccountService.StateOf(session)
             this.Changed.emit(signedIn)
@@ -161,15 +163,18 @@ export class AccountService
     {
         const session = await this.store.Load()
         if (session !== undefined) await this.EndQuietly(session)
-        await this.HandleSignedOut()
+        await this.Forget()
         return AccountService.StateOf(undefined)
     }
 
-    // The tenant plane said the session is over (expired, revoked, signed out elsewhere).
-    public async HandleSignedOut(): Promise<void>
+    // The tenant plane said the session holding `token` is over (expired, revoked, signed out
+    // elsewhere). Cleared only while that session is still the stored one: a 401 that arrives after
+    // a sign-out and a new sign-in belongs to the old session and must not end the new one.
+    public async HandleSignedOut(token: string): Promise<void>
     {
-        await this.store.Clear()
-        this.Changed.emit(AccountService.StateOf(undefined))
+        const current = await this.store.Load()
+        if (current === undefined || current.Token !== token) return
+        await this.Forget()
     }
 
     public async Targets(): Promise<AccountTargets>
@@ -182,7 +187,7 @@ export class AccountService
         }
         catch (e)
         {
-            if (e instanceof AccountError && e.Kind === AccountErrorKind.SignedOut) await this.HandleSignedOut()
+            if (e instanceof AccountError && e.Kind === AccountErrorKind.SignedOut) await this.HandleSignedOut(session.Token)
             throw e
         }
     }
@@ -221,6 +226,29 @@ export class AccountService
         if (known !== undefined && known.PlatformUrl === platform && known.Email === email) return known.TenantPlaneUrl
         await this.Discover(platform, email)
         return this.discovered!.TenantPlaneUrl
+    }
+
+    // Stores a freshly issued session and returns the one it replaced. When it cannot be stored the
+    // tenant plane has already issued it, so it is ended there before the failure is reported.
+    private async Keep(session: DesktopSession): Promise<DesktopSession | undefined>
+    {
+        try
+        {
+            const previous = await this.store.Load()
+            await this.store.Save(session)
+            return previous
+        }
+        catch (e)
+        {
+            await this.EndQuietly(session)
+            throw e
+        }
+    }
+
+    private async Forget(): Promise<void>
+    {
+        await this.store.Clear()
+        this.Changed.emit(AccountService.StateOf(undefined))
     }
 
     private async EndQuietly(session: DesktopSession): Promise<void>

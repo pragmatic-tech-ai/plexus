@@ -8,9 +8,9 @@ class Harness
     public readonly Account = new FakeAccountService()
     public Closed = 0
 
-    public Make(address: string = PlatformAddress.Default): AccountDialog
+    public Make(address: string = PlatformAddress.Default, closeOnSignIn = false): AccountDialog
     {
-        return new AccountDialog(this.Account, address, () => { this.Closed++ })
+        return new AccountDialog(this.Account, address, () => { this.Closed++ }, closeOnSignIn)
     }
 
     // Lets queued promise continuations run.
@@ -51,6 +51,47 @@ describe('AccountDialog', () =>
         expect(vm.IsSignedInStep).toBe(true)
         expect(vm.SignedInText).toBe('Signed in as ada@acme.test (Acme)')
         expect(vm.Message).toBe('')
+    })
+
+    it('stays open on SignedIn after its sign-in by default (a status-bar sign-in)', async () =>
+    {
+        const h = new Harness()
+        h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+        h.Account.SignInGate.Resolve()
+        const vm = h.Make()
+        vm.Email = 'ada@acme.test'
+        await vm.Continue()
+        expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+        expect(h.Closed).toBe(0)
+    })
+
+    it('closes itself once its sign-in succeeds when opened for a sign-in request', async () =>
+    {
+        const h = new Harness()
+        h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+        const vm = h.Make(PlatformAddress.Default, true)
+        vm.Email = 'ada@acme.test'
+        const continued = vm.Continue()
+        await Harness.Flush()
+        expect(h.Closed).toBe(0)
+        h.Account.SignInGate.Resolve()
+        await continued
+        expect(h.Closed).toBe(1)
+    })
+
+    it('opened for a sign-in request, a failed sign-in keeps the dialog open with its sentence', async () =>
+    {
+        const h = new Harness()
+        h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+        const vm = h.Make(PlatformAddress.Default, true)
+        vm.Email = 'ada@acme.test'
+        const continued = vm.Continue()
+        await Harness.Flush()
+        h.Account.SignInGate.Reject(new AccountError(AccountErrorKind.TimedOut))
+        await continued
+        expect(h.Closed).toBe(0)
+        expect(vm.Step).toBe(AccountDialogStep.Email)
+        expect(vm.Message).toBe(new AccountError(AccountErrorKind.TimedOut).message)
     })
 
     it('several tenants stop at ChooseTenant with names sorted, then sign in to the choice', async () =>

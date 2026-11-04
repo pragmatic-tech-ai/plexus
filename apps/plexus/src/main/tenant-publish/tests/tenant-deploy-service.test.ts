@@ -99,8 +99,8 @@ describe('TenantDeployService', () =>
 
     it('closes the client when the deploy rejects and propagates the server message', async () =>
     {
-        const client = new FakeClient(new Error('This method is not available through the desktop relay.'))
-        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow(/not available through the desktop relay/)
+        const client = new FakeClient(new ResponseError(ErrorCodes.InvalidRequest, 'pragmatic applications are not available on this connection'))
+        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow('pragmatic applications are not available on this connection')
         expect(client.Closed).toBe(1)
     })
 
@@ -116,8 +116,15 @@ describe('TenantDeployService', () =>
 
     it('keeps a server JSON-RPC error message as it is', async () =>
     {
-        const client = new FakeClient(new ResponseError(-32601, 'This method is not available through the desktop relay.'))
-        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow('This method is not available through the desktop relay.')
+        const client = new FakeClient(new ResponseError(-32004, 'Application app1 1.0.0 conflicts with the deployed version'))
+        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow('Application app1 1.0.0 conflicts with the deployed version')
+    })
+
+    it('maps a JSON-RPC protocol error (-32601 Method not found) to a fixed sentence and closes', async () =>
+    {
+        const client = new FakeClient(new ResponseError(ErrorCodes.MethodNotFound, 'This method is not available through the desktop relay.'))
+        await expect(new TenantDeployService(new FakeRelay(client)).Deploy('prod', dir)).rejects.toThrow('The environment prod could not handle this request. It may need an update.')
+        expect(client.Closed).toBe(1)
     })
 
     it('a failing close does not hide the deploy result', async () =>

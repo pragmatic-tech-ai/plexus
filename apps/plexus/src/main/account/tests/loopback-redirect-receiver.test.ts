@@ -76,6 +76,24 @@ describe('LoopbackRedirectReceiver', () =>
         expect(await code).toBe('c')
     })
 
+    it('answers 400 to a malformed request target and keeps waiting (no uncaught exception)', async () =>
+    {
+        receiver = new LoopbackRedirectReceiver()
+        const { RedirectUri } = await receiver.Start()
+        const code = receiver.WaitForCode('s')
+        const statusLine = await new Promise<string>((resolve, reject) =>
+        {
+            const socket = connect(Probe.PortOf(RedirectUri), '127.0.0.1', () => socket.write('GET http://[ HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n'))
+            let text = ''
+            socket.on('data', d => { text += String(d) })
+            socket.once('close', () => resolve(text.split('\r\n')[0]))
+            socket.once('error', reject)
+        })
+        expect(statusLine).toBe('HTTP/1.1 400 Bad Request')
+        await fetch(`${RedirectUri}?state=s&code=c`)
+        expect(await code).toBe('c')
+    })
+
     it('fails the sign-in when the browser comes back with an error for our state', async () =>
     {
         receiver = new LoopbackRedirectReceiver()

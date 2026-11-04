@@ -144,8 +144,10 @@ test.describe('SP1 Plexus smoke', () =>
                     try { const r = await origPub(env, dir); state.publish = r; state.log.push('publish:done ' + JSON.stringify(r)); return r }
                     catch (e) { state.publishError = String((e as any)?.stack ?? e); state.log.push('publish:error'); throw e }
                 }
-                // The environment prompt is stubbed; publish(member, bind) is TS-private, reachable at runtime.
-                pub.prompt = { Prompt: async () => environment }
+                // The environment picker (ITargetPicker) is stubbed to choose `environment` at once
+                // ('chosen' is TargetPickOutcome.Chosen) and never ask to sign in; publish(member, bind)
+                // is TS-private, reachable at runtime.
+                pub.picker = { Show: async () => ({ Outcome: 'chosen', Choice: { Environment: environment } }), RequestSignIn: async () => false }
                 pub.publish(member, 'application').catch((e: unknown) => { state.invokeError = String(e) })
             }, ENVIRONMENT)
 

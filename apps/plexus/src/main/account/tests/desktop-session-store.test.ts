@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'n
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { DesktopSessionStore, type DesktopSession, type ITokenEncryptor } from '../desktop-session-store.js'
 
 class ReverseEncryptor implements ITokenEncryptor
@@ -51,9 +52,28 @@ describe('DesktopSessionStore', () =>
         expect(await new DesktopSessionStore(dir, new ReverseEncryptor()).Load()).toBeUndefined()
     })
 
-    it('refuses to save when secure storage is unavailable', async () =>
+    it('refuses to save when secure storage is unavailable, with the SecureStorageUnavailable kind', async () =>
     {
-        await expect(new DesktopSessionStore(dir, new ReverseEncryptor(false)).Save(session)).rejects.toThrow(/Secure storage/)
+        const store = new DesktopSessionStore(dir, new ReverseEncryptor(false))
+        expect(store.CanStore()).toBe(false)
+        await expect(store.Save(session)).rejects.toEqual(new AccountError(AccountErrorKind.SecureStorageUnavailable))
+        await expect(store.Save(session)).rejects.toBeInstanceOf(AccountError)
         expect(readdirSync(dir)).toEqual([])
+    })
+
+    it('CanStore follows the encryptor', () =>
+    {
+        expect(new DesktopSessionStore(dir, new ReverseEncryptor()).CanStore()).toBe(true)
+    })
+
+    it('a stored session cannot be read once secure storage is unavailable (SecureStorageUnavailable)', async () =>
+    {
+        const encryptor = new ReverseEncryptor()
+        const store = new DesktopSessionStore(dir, encryptor)
+        await store.Save(session)
+        encryptor.Available = false
+        const failure = await store.Load().then(() => undefined, (e: unknown) => e)
+        expect(failure).toBeInstanceOf(AccountError)
+        expect((failure as AccountError).Kind).toBe(AccountErrorKind.SecureStorageUnavailable)
     })
 })

@@ -165,7 +165,7 @@ class RendererOps
 
     // Builds the whole active solution's packages and contributes them to the dev environment's graph
     // through the real IGraphContributor (the tenant-plane relay, with the app's signed-in session) —
-    // the exact path the Solution row's "Contribute to graph" command runs (minus the target prompt).
+    // the exact path the Solution row's "Contribute to graph" command runs (minus the target picker).
     public static async Contribute(win: Page, environment: string, graphName: string): Promise<ContributeOutcome>
     {
         return win.evaluate(
@@ -237,7 +237,7 @@ class RendererOps
     }
 
     // Drives the real Publish-env command (html-bundle-remote build with RemoteBindMode.Environment ->
-    // IPC deploy through the tenant-plane relay) with the environment prompt stubbed to `environment`. Mirrors sp1-plexus-smoke: wrap the build
+    // IPC deploy through the tenant-plane relay) with the environment picker stubbed to choose `environment`. Mirrors sp1-plexus-smoke: wrap the build
     // service + publisher to capture outcomes into a window state object, invoke, then wait for a
     // terminal signal. `bind` is RemoteBindMode.Environment (the `tenant.publish-env` path).
     public static async PublishEnv(win: Page, environment: string, projectMatch: string, bind: RemoteBindMode): Promise<PublishOutcome>
@@ -251,7 +251,9 @@ class RendererOps
                     .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes(p.projectMatch))
                 const pub = H.byCtor(svc[p.registryName].For(p.projectFamily) ?? [], p.publishContributorName)
                 const state: any = (window as any)[p.stateKey] = {}
-                pub.prompt = { Prompt: async () => p.environment }
+                // The environment picker (ITargetPicker) is stubbed: it chooses the environment at
+                // once ('chosen' is TargetPickOutcome.Chosen) and never asks to sign in.
+                pub.picker = { Show: async () => ({ Outcome: 'chosen', Choice: { Environment: p.environment } }), RequestSignIn: async () => false }
 
                 const origBuild = pub.buildService.Build.bind(pub.buildService)
                 pub.buildService.Build = async (...a: any[]) => {

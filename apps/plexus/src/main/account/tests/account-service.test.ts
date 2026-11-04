@@ -11,7 +11,8 @@ import type { IRedirectReceiver } from '../loopback-redirect-receiver.js'
 
 class ReverseEncryptor implements ITokenEncryptor
 {
-    public IsAvailable(): boolean { return true }
+    public Available = true
+    public IsAvailable(): boolean { return this.Available }
     public Encrypt(plain: string): Buffer { return Buffer.from([...plain].reverse().join('')) }
     public Decrypt(blob: Buffer): string { return [...blob.toString()].reverse().join('') }
 }
@@ -95,7 +96,8 @@ class Harness
     public readonly Receiver = new FakeReceiver()
     public readonly Opened: string[] = []
     public readonly Changes: AccountState[] = []
-    public readonly Store = new DesktopSessionStore(this.Dir, new ReverseEncryptor())
+    public readonly Encryptor = new ReverseEncryptor()
+    public readonly Store = new DesktopSessionStore(this.Dir, this.Encryptor)
     public readonly Service: AccountService
 
     public constructor()
@@ -398,12 +400,68 @@ describe('AccountService', () =>
         expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
     })
 
-    it('HandleSignedOut clears the store and emits Changed', async () =>
+    it('HandleSignedOut for the stored token clears the store and emits Changed', async () =>
     {
         await h.SignIn()
-        await h.Service.HandleSignedOut()
+        await h.Service.HandleSignedOut('secret-token-t1')
         expect(await h.Service.Session()).toBeUndefined()
         expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
+    })
+
+    it('HandleSignedOut for a session already replaced leaves the newer one alone', async () =>
+    {
+        await h.SignIn()
+        const changes = h.Changes.length
+        await h.Service.HandleSignedOut('secret-token-old')
+        expect((await h.Service.Session())?.Token).toBe('secret-token-t1')
+        expect(h.Changes).toHaveLength(changes)
+    })
+
+    it('a Targets 401 that lands after a new sign-in does not sign the new session out', async () =>
+    {
+        await h.SignIn()
+        const gate = new Gate()
+        h.Fetch.Routes.set('/desktop/targets', async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(401, { error: 'signed-out' })
+        })
+        const targets = Caught.Kind(h.Service.Targets())
+        while (h.Fetch.To('/desktop/targets').length === 0) await new Promise(r => setTimeout(r, 1))
+        h.Fetch.Routes.set('/desktop/sign-out', () => new Response(null, { status: 204 }))
+        h.Tenant('t2', 'Globex', 'ada@acme.example')
+        await h.SignIn('t2')
+        gate.Release()
+        expect(await targets).toBe(AccountErrorKind.SignedOut)
+        expect((await h.Service.Session())?.Token).toBe('secret-token-t2')
+        expect(h.Changes.at(-1)).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
+    })
+
+    it('without secure storage, sign-in fails SecureStorageUnavailable before discovery or the browser', async () =>
+    {
+        h.Encryptor.Available = false
+        expect(await Caught.Kind(h.SignIn())).toBe(AccountErrorKind.SecureStorageUnavailable)
+        expect(h.Opened).toEqual([])
+        expect(h.Fetch.Requests).toEqual([])
+        expect(h.Receiver.Closed).toBe(0)
+        expect(h.Changes).toEqual([])
+    })
+
+    it('a session that cannot be stored after Complete is ended on the tenant plane before the failure is reported', async () =>
+    {
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () =>
+        {
+            // The keyring goes away while the browser step runs.
+            h.Encryptor.Available = false
+            return FakeFetch.Json(200, { token: 'secret-token-issued', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: 'Acme', email: 'ada@acme.example' })
+        })
+        h.Fetch.Routes.set('/desktop/sign-out', () => new Response(null, { status: 204 }))
+        expect(await Caught.Kind(h.SignIn())).toBe(AccountErrorKind.SecureStorageUnavailable)
+        const signOuts = h.Fetch.To('/desktop/sign-out')
+        expect(signOuts).toHaveLength(1)
+        expect(signOuts[0].Headers['authorization']).toBe('Bearer secret-token-issued')
+        expect(h.Changes).toEqual([])
+        expect(h.Receiver.Closed).toBe(1)
     })
 
     it('RememberChoice / LastChoice round-trip per kind and are keyed by tenant', async () =>

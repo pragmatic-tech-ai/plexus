@@ -88,7 +88,7 @@ describe('GraphContributeService', () =>
 
     it('closes the client when ContributeGraph rejects and propagates the server message', async () =>
     {
-        const client = new FakeClient(new Error('Graph g1 conflicts with existing contribution'))
+        const client = new FakeClient(new ResponseError(-32004, 'Graph g1 conflicts with existing contribution'))
         const msg = await Fixture.Message(new GraphContributeService(new FakeRelay(client)).Contribute('dev', 'g1', 's1', Fixture.Packages))
         expect(msg).toContain('conflicts')
         expect(client.Closed).toBe(1)
@@ -108,6 +108,16 @@ describe('GraphContributeService', () =>
     {
         const client = new FakeClient(new ResponseError(-32004, 'Solution s1 not found'))
         expect(await Fixture.Message(new GraphContributeService(new FakeRelay(client)).Contribute('dev', 'g1', 's1', Fixture.Packages))).toBe('Solution s1 not found')
+    })
+
+    it('maps a JSON-RPC protocol error (-32601 Method not found) or a local error to a fixed sentence', async () =>
+    {
+        const missing = new FakeClient(new ResponseError(-32601, 'Unhandled method graph/contribute'))
+        const local = new FakeClient(new TypeError("Cannot read properties of undefined (reading 'name')"))
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(missing)).Contribute('dev', 'g1', 's1', Fixture.Packages))).toBe('The environment dev could not handle this request. It may need an update.')
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(local)).ListGraphs('dev'))).toBe('The environment dev could not handle this request. It may need an update.')
+        expect(missing.Closed).toBe(1)
+        expect(local.Closed).toBe(1)
     })
 
     it('propagates the relay refusal sentence unchanged', async () =>

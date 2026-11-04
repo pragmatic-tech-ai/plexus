@@ -70,6 +70,7 @@ export class AccountDialog extends Observable implements IDisposable
     private readonly account: IAccountService
     private readonly platformAddress: string
     private readonly close: () => void
+    private readonly closeOnSignIn: boolean
     private readonly changed: IDisposable
     private readonly continueCommand: RelayCommand
     private readonly cancelCommand: RelayCommand
@@ -86,13 +87,16 @@ export class AccountDialog extends Observable implements IDisposable
     // Set once the dialog has closed: a discovery answering afterwards must not start a sign-in.
     private disposed = false
 
-    // `close` dismisses the host dialog.
-    public constructor(account: IAccountService, platformAddress: string, close: () => void)
+    // `close` dismisses the host dialog. `closeOnSignIn` (set when the dialog was opened for a
+    // sign-in request, e.g. a picker's Sign in) closes it as soon as its own sign-in succeeds, so the
+    // picker comes back without an extra click; otherwise it stays open on "Signed in as".
+    public constructor(account: IAccountService, platformAddress: string, close: () => void, closeOnSignIn = false)
     {
         super()
         this.account = account
         this.platformAddress = platformAddress
         this.close = close
+        this.closeOnSignIn = closeOnSignIn
         const state = account.State
         this.step = state.SignedIn ? AccountDialogStep.SignedIn : AccountDialogStep.Email
         this.email = state.Email ?? ''
@@ -287,6 +291,7 @@ export class AccountDialog extends Observable implements IDisposable
             await this.account.SignIn(this.platformAddress, this.email.trim(), tenantId)
             if (generation !== this.signInGeneration) return
             this.SetStep(AccountDialogStep.SignedIn)
+            if (this.closeOnSignIn) this.close()
         }
         catch (e)
         {

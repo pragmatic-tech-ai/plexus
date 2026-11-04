@@ -156,7 +156,9 @@ import BackgroundWorkModule from "./modules/background-work/background-work.modu
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
 // The account area: the StatusBar account cell + the "Platform address" setting
-// (AccountModule) and the cell/dialog views (AccountResources).
+// (AccountModule), the cell/dialog views (AccountResources), and AccountSignInModule, which
+// builds the account dialog host at module load so a picker's Sign in works from boot.
+import AccountSignInModule from "./modules/account/account-sign-in-module.js"
 import AccountModule from "./modules/account/account.module.mu.js"
 import AccountResources from "./modules/account/account.resources.mu.js"
 
@@ -559,6 +561,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         MarkdownViewerModule
         BackgroundWorkModule
         SaveModule
+        // After .services: (IpcAccountService under AccountServiceKey): it resolves the account
+        // at module load to own SignInRequested.
+        AccountSignInModule
         AccountModule
         // Shared window chrome: the title bar strip + menu look + TitleService.
         PragmaticWindowChrome

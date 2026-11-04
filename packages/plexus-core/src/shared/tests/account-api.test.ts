@@ -29,6 +29,7 @@ describe('AccountError', () =>
         expect(new AccountError(AccountErrorKind.TimedOut).message).toBe('Sign-in was not finished in the browser. Try again.')
         expect(new AccountError(AccountErrorKind.SignedOut).message).toBe("You're signed out. Sign in and try again.")
         expect(new AccountError(AccountErrorKind.InvalidEmail).message).toBe("That doesn't look like an email address.")
+        expect(new AccountError(AccountErrorKind.SecureStorageUnavailable).message).toBe("Plexus can't store your sign-in securely on this computer.")
         for (const kind of Object.values(AccountErrorKind))
         {
             expect(new AccountError(kind).message.length).toBeGreaterThan(0)

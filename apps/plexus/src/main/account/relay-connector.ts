@@ -12,7 +12,8 @@ export type RelayDial = (url: string, token: string) => Promise<RelayClient>
 export interface IRelaySessionSource
 {
     Session(): Promise<DesktopSession | undefined>;
-    HandleSignedOut(): Promise<void>;
+    // Clears the session holding `token`, only while it is still the stored one.
+    HandleSignedOut(token: string): Promise<void>;
 }
 
 export interface IRelayConnector
@@ -71,6 +72,22 @@ export class RelayDrop
     }
 }
 
+// Tells a server's own answer (a conflict, a not-found, a refused parameter: a ResponseError whose
+// message the server wrote for the user) from a protocol-level failure whose text is JSON-RPC
+// plumbing ("Method not found", a parse error, "server not initialized") or from any other error
+// thrown on this side. Only a server's own answer keeps its message.
+export class RelayAnswer
+{
+    private static readonly ProtocolCodes: readonly number[] = [
+        ErrorCodes.ParseError, ErrorCodes.MethodNotFound, ErrorCodes.ServerNotInitialized, ErrorCodes.UnknownErrorCode,
+    ]
+
+    public static IsServerAnswer(error: unknown): boolean
+    {
+        return error instanceof ResponseError && !RelayAnswer.ProtocolCodes.includes(error.code)
+    }
+}
+
 // Opens a JSON-RPC connection to an environment through the tenant plane's desktop relay, which mints
 // and keeps the environment credential server-side. Plexus presents only the desktop session token.
 // Every failure becomes a fixed sentence (naming at most the environment): never a URL, a token or
@@ -86,6 +103,7 @@ export class RelayConnector implements IRelayConnector
     private static readonly EnvironmentPrefix = 'The environment '
     private static readonly NotRunningSuffix = ' is not running. Start it from the tenant console.'
     private static readonly UnreachableSuffix = ' could not be reached.'
+    private static readonly NotHandledSuffix = ' could not handle this request. It may need an update.'
     private static readonly TrailingSlashes = /\/+$/
 
     public constructor(private readonly sessions: IRelaySessionSource, private readonly dial: RelayDial)
@@ -94,7 +112,7 @@ export class RelayConnector implements IRelayConnector
 
     public async Connect(environment: string, kind: TargetKind): Promise<RelayClient>
     {
-        const session = await this.sessions.Session()
+        const session = await this.LoadSession()
         if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
         let url: string
         try
@@ -111,7 +129,22 @@ export class RelayConnector implements IRelayConnector
         }
         catch (e)
         {
-            throw await this.Refusal(RelayRefusal.StatusOf(e), environment)
+            throw await this.Refusal(RelayRefusal.StatusOf(e), environment, session.Token)
+        }
+    }
+
+    // An account failure (secure storage gone) keeps its kind; any other failure to read the stored
+    // session (a file-system error naming its path) becomes the fixed Unavailable sentence.
+    private async LoadSession(): Promise<DesktopSession | undefined>
+    {
+        try
+        {
+            return await this.sessions.Session()
+        }
+        catch (e)
+        {
+            if (e instanceof AccountError) throw e
+            throw new AccountError(AccountErrorKind.Unavailable)
         }
     }
 
@@ -127,12 +160,12 @@ export class RelayConnector implements IRelayConnector
         return `${scheme}//${plane.host}${base}${RelayConnector.RelayPath}?${query}`
     }
 
-    private async Refusal(status: number | undefined, environment: string): Promise<Error>
+    private async Refusal(status: number | undefined, environment: string, token: string): Promise<Error>
     {
         switch (status)
         {
             case RelayStatus.Unauthorized:
-                await this.ForgetSession()
+                await this.ForgetSession(token)
                 return new AccountError(AccountErrorKind.SignedOut)
             case RelayStatus.Forbidden:
                 return new Error(RelayConnector.NotAllowed)
@@ -144,11 +177,11 @@ export class RelayConnector implements IRelayConnector
     }
 
     // A failure to clear the local copy must not replace the SignedOut answer the user acts on.
-    private async ForgetSession(): Promise<void>
+    private async ForgetSession(token: string): Promise<void>
     {
         try
         {
-            await this.sessions.HandleSignedOut()
+            await this.sessions.HandleSignedOut(token)
         }
         catch
         {
@@ -157,7 +190,9 @@ export class RelayConnector implements IRelayConnector
     }
 
     // Runs a call on an open relay: a relay that went away mid-call becomes the unreachable sentence;
-    // anything else (the server's own answer) is rethrown as is.
+    // the server's own answer (and an account failure) is rethrown as is; anything else (a JSON-RPC
+    // protocol error such as -32601 Method not found, or an error raised on this side) becomes a
+    // fixed sentence naming only the environment.
     public static async Call<T>(environment: string, work: () => Promise<T>): Promise<T>
     {
         try
@@ -167,7 +202,8 @@ export class RelayConnector implements IRelayConnector
         catch (e)
         {
             if (RelayDrop.Is(e)) throw RelayConnector.Unreachable(environment)
-            throw e
+            if (e instanceof AccountError || RelayAnswer.IsServerAnswer(e)) throw e
+            throw new Error(`${RelayConnector.EnvironmentPrefix}${environment}${RelayConnector.NotHandledSuffix}`)
         }
     }
 

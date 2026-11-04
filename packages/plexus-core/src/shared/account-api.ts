@@ -83,6 +83,7 @@ export enum AccountErrorKind
     Cancelled = 'cancelled',
     SignedOut = 'signed-out',
     Unavailable = 'unavailable',
+    SecureStorageUnavailable = 'secure-storage-unavailable',
 }
 
 // An account failure the user can act on. The message is a fixed plain sentence per kind, so it
@@ -99,6 +100,7 @@ export class AccountError extends Error
         [AccountErrorKind.Cancelled]: 'Sign-in was cancelled.',
         [AccountErrorKind.SignedOut]: "You're signed out. Sign in and try again.",
         [AccountErrorKind.Unavailable]: 'Sign-in is not available right now. Try again later.',
+        [AccountErrorKind.SecureStorageUnavailable]: "Plexus can't store your sign-in securely on this computer.",
     }
 
     public constructor(public readonly Kind: AccountErrorKind)

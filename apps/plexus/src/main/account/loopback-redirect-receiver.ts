@@ -122,7 +122,12 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
 
     private Answer(req: IncomingMessage, res: ServerResponse): void
     {
-        const url = new URL(req.url ?? LoopbackRedirectReceiver.RootPath, `${LoopbackRedirectReceiver.Scheme}${LoopbackRedirectReceiver.Host}`)
+        const url = LoopbackRedirectReceiver.UrlOf(req)
+        if (url === undefined)
+        {
+            this.Reply(res, LoopbackRedirectReceiver.StatusBadRequest, LoopbackRedirectReceiver.TextType, LoopbackRedirectReceiver.BadRequestText)
+            return
+        }
         if (url.pathname !== LoopbackRedirectReceiver.CallbackPath)
         {
             this.Reply(res, LoopbackRedirectReceiver.StatusNotFound, LoopbackRedirectReceiver.TextType, LoopbackRedirectReceiver.NotFoundText)
@@ -152,6 +157,21 @@ export class LoopbackRedirectReceiver implements IRedirectReceiver
         }
         res.once(LoopbackRedirectReceiver.ResponseCloseEvent, settle)
         this.Reply(res, LoopbackRedirectReceiver.StatusOk, LoopbackRedirectReceiver.HtmlType, failed ? LoopbackRedirectReceiver.FailedPage : LoopbackRedirectReceiver.DonePage, settle)
+    }
+
+    // The request target, or undefined when it does not parse (a malformed absolute-form target such
+    // as "http://[" throws in new URL): answered 400 rather than thrown out of the request listener,
+    // where it would be an uncaught exception in the main process.
+    private static UrlOf(req: IncomingMessage): URL | undefined
+    {
+        try
+        {
+            return new URL(req.url ?? LoopbackRedirectReceiver.RootPath, `${LoopbackRedirectReceiver.Scheme}${LoopbackRedirectReceiver.Host}`)
+        }
+        catch
+        {
+            return undefined
+        }
     }
 
     // Time-out and cancel: rejects the pending wait (if any) only once the listener is closed, so a

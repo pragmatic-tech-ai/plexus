@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { AccountError, AccountErrorKind, TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { ConnectionLostError, ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { RelayConnector, RelayDrop, RelayRefusal, type IRelaySessionSource, type RelayClient } from '../relay-connector.js'
+import { RelayAnswer, RelayConnector, RelayDrop, RelayRefusal, type IRelaySessionSource, type RelayClient } from '../relay-connector.js'
 import type { DesktopSession } from '../desktop-session-store.js'
 
 const Token = 'DESKTOP-SECRET-token-123'
@@ -9,6 +9,8 @@ const Token = 'DESKTOP-SECRET-token-123'
 class FakeSessions implements IRelaySessionSource
 {
     public SignedOutCalls = 0
+    public readonly SignedOutTokens: string[] = []
+    public LoadFailure: unknown = undefined
 
     public constructor(public Current: DesktopSession | undefined)
     {
@@ -16,12 +18,14 @@ class FakeSessions implements IRelaySessionSource
 
     public async Session(): Promise<DesktopSession | undefined>
     {
+        if (this.LoadFailure !== undefined) throw this.LoadFailure
         return this.Current
     }
 
-    public async HandleSignedOut(): Promise<void>
+    public async HandleSignedOut(token: string): Promise<void>
     {
         this.SignedOutCalls++
+        this.SignedOutTokens.push(token)
         this.Current = undefined
     }
 }
@@ -113,7 +117,29 @@ describe('RelayConnector', () =>
         expect((error as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
         expect(error.message).toBe("You're signed out. Sign in and try again.")
         expect(sessions.SignedOutCalls).toBe(1)
+        expect(sessions.SignedOutTokens).toEqual([Token])
         RelayFixture.ExpectClean(error)
+    })
+
+    it('a session that cannot be read (a file-system error naming its path) becomes the Unavailable sentence, without dialing', async () =>
+    {
+        const sessions = new FakeSessions(RelayFixture.Session())
+        sessions.LoadFailure = Object.assign(new Error("EACCES: permission denied, open 'C:\\Users\\ada\\AppData\\Plexus\\desktop-session.bin'"), { code: 'EACCES' })
+        const dial = new FakeDial()
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, dial.Dial).Connect('dev', TargetKind.Contribute))
+        expect(error).toBeInstanceOf(AccountError)
+        expect((error as AccountError).Kind).toBe(AccountErrorKind.Unavailable)
+        expect(error.message).not.toContain('EACCES')
+        expect(error.message).not.toContain('desktop-session')
+        expect(dial.Calls).toHaveLength(0)
+    })
+
+    it('an account failure reading the session keeps its kind', async () =>
+    {
+        const sessions = new FakeSessions(RelayFixture.Session())
+        sessions.LoadFailure = new AccountError(AccountErrorKind.SecureStorageUnavailable)
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial().Dial).Connect('dev', TargetKind.Contribute))
+        expect((error as AccountError).Kind).toBe(AccountErrorKind.SecureStorageUnavailable)
     })
 
     it('maps 403 to the not-allowed sentence', async () =>
@@ -210,5 +236,47 @@ describe('RelayConnector.Call', () =>
         const conflict = new ResponseError(-32004, 'Graph g1 conflicts with existing contribution')
         await expect(RelayConnector.Call('dev', () => Promise.reject(conflict))).rejects.toBe(conflict)
         expect(await RelayConnector.Call('dev', async () => 7)).toBe(7)
+    })
+
+    it('keeps the server answers the user acts on (conflict, not found, refused params, internal) and account failures', async () =>
+    {
+        const answers: unknown[] = [
+            new ResponseError(-32004, 'Graph g1 conflicts with existing contribution'),
+            new ResponseError(ErrorCodes.InvalidRequest, 'graph service is not available on this tenant'),
+            new ResponseError(ErrorCodes.InvalidParams, 'invalid params: graph g1 not found'),
+            new AccountError(AccountErrorKind.SignedOut),
+        ]
+        for (const answer of answers)
+        {
+            await expect(RelayConnector.Call('dev', () => Promise.reject(answer))).rejects.toBe(answer)
+        }
+    })
+
+    it('turns JSON-RPC protocol errors and local errors into a fixed sentence naming only the environment', async () =>
+    {
+        const failures: unknown[] = [
+            new ResponseError(ErrorCodes.MethodNotFound, 'Unhandled method graph/contribute'),
+            new ResponseError(ErrorCodes.ParseError, 'Parse error at 0x1f'),
+            new ResponseError(ErrorCodes.ServerNotInitialized, 'Server not initialized'),
+            new ResponseError(ErrorCodes.UnknownErrorCode, 'Unknown error'),
+            new TypeError("Cannot read properties of undefined (reading 'name')"),
+            'a string',
+        ]
+        for (const failure of failures)
+        {
+            const error = await RelayFixture.Failure(RelayConnector.Call('dev', () => Promise.reject(failure)))
+            expect(error).not.toBeInstanceOf(ResponseError)
+            expect(error.message).toBe('The environment dev could not handle this request. It may need an update.')
+        }
+    })
+})
+
+describe('RelayAnswer', () =>
+{
+    it('tells a server answer from a protocol error', () =>
+    {
+        expect(RelayAnswer.IsServerAnswer(new ResponseError(-32004, 'conflict'))).toBe(true)
+        expect(RelayAnswer.IsServerAnswer(new ResponseError(ErrorCodes.MethodNotFound, 'Method not found'))).toBe(false)
+        expect(RelayAnswer.IsServerAnswer(new Error('x'))).toBe(false)
     })
 })
