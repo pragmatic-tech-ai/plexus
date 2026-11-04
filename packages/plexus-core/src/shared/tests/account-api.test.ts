@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, AccountWire, PlatformAddress, RelayWire } from '../account-api.js'
+import { AccountError, AccountErrorKind, AccountWire, PlatformAddress, RelayError, RelayWire } from '../account-api.js'
 
 describe('PlatformAddress.Validate', () =>
 {
@@ -125,7 +125,7 @@ describe('RelayWire', () =>
         const reply = await RelayWire.Capture(async () => { throw new Error('The environment dev could not be reached.') })
         expect(reply).toEqual({ Ok: false, Error: { Message: 'The environment dev could not be reached.' } })
         const error = (() => { try { RelayWire.Unwrap(reply) } catch (e) { return e as Error } })()
-        expect(error).toBeInstanceOf(Error)
+        expect(error).toBeInstanceOf(RelayError)
         expect(error).not.toBeInstanceOf(AccountError)
         expect(error!.message).toBe('The environment dev could not be reached.')
     })

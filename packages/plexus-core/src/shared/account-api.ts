@@ -157,6 +157,19 @@ export type RelayWireError = { Message: string; Kind?: AccountErrorKind }
 // sentence, and the context bridge would drop an AccountError's class and Kind.
 export type RelayReply<T> = { Ok: true; Value: T } | { Ok: false; Error: RelayWireError }
 
+// A contribute or publish failure rebuilt on the renderer side: its message is the relay's or the
+// server's plain sentence, so a picker or task row may show it as is.
+export class RelayError extends Error
+{
+    private static readonly ErrorName = 'RelayError'
+
+    public constructor(message: string)
+    {
+        super(message)
+        this.name = RelayError.ErrorName
+    }
+}
+
 export class RelayWire
 {
     private static readonly Failed = 'The request did not finish. Try again.'
@@ -177,12 +190,12 @@ export class RelayWire
     }
 
     // Renderer side: unwraps a reply, rebuilding an account failure into an AccountError and any
-    // other failure into an Error whose message is the sentence.
+    // other failure into a RelayError whose message is the sentence.
     public static Unwrap<T>(reply: RelayReply<T>): T
     {
         if (reply.Ok) return reply.Value
         if (AccountError.IsKind(reply.Error.Kind)) throw new AccountError(reply.Error.Kind)
-        throw new Error(typeof reply.Error.Message === 'string' ? reply.Error.Message : RelayWire.Failed)
+        throw new RelayError(typeof reply.Error.Message === 'string' ? reply.Error.Message : RelayWire.Failed)
     }
 }
 

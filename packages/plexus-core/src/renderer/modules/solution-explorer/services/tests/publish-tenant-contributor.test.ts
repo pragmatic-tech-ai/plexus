@@ -5,7 +5,8 @@ import { PublishTenantContributor } from '../publish-tenant-contributor.js'
 import { BuildProgressReporter } from '../build-progress-reporter.js'
 import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.js'
 import { TenantPublishStatus, type TenantPublishResult } from '../../../../../shared/tenant-publish-api.js'
-import type { ITenantTargetPrompt } from '../tenant-profile-dialog.js'
+import type { ITargetPicker } from '../target-dialog.js'
+import type { TargetChoice } from '../../../../../shared/account-api.js'
 
 class FakeItem
 {
@@ -33,7 +34,7 @@ class PublishTestHelper
     {
         // The task is observed at once (as BackgroundWorkService does), so a rejection awaited after the
         // prompt flush is not reported as unhandled.
-        const w: any = { run: (_t: string, fn: any) => { w.task = fn({}); w.task.catch(() => undefined); return w.task } }
+        const w: any = { run: (t: string, fn: any) => { w.Title = t; w.task = fn({}); w.task.catch(() => undefined); return w.task } }
         return w
     }
 
@@ -91,16 +92,16 @@ class FakePublisher implements ITenantPublisher
     }
 }
 
-class FakePrompt implements ITenantTargetPrompt
+class FakePrompt implements ITargetPicker
 {
     constructor(private readonly environment: string | undefined | Error)
     {
     }
 
-    public Prompt(): Promise<string | undefined>
+    public Show(): Promise<TargetChoice | undefined>
     {
         if (this.environment instanceof Error) return Promise.reject(this.environment)
-        return Promise.resolve(this.environment)
+        return Promise.resolve(this.environment === undefined ? undefined : { Environment: this.environment })
     }
 }
 
@@ -122,6 +123,7 @@ describe('PublishTenantContributor', () =>
         expect(svc.Calls[0].progress).toBeInstanceOf(BuildProgressReporter)
         expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build-remote', Remote: { AppName: 'orders', Bind: RemoteBindMode.Application } })
         expect(publisher.Published).toEqual([['prod', '/out']])
+        expect(work.Title).toBe('Publishing ./p to prod')
     })
 
     it('does not publish when the build fails', async () =>

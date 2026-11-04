@@ -11,10 +11,10 @@ import type { IGraphContributor } from '../../graph-contribute/graph-contributor
 import type { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import type { GraphContributeResult } from '../../../../shared/graph-contribute-api.js'
 import { InfoDialog } from './info-dialog.js'
-import type { GraphTargetInput, IGraphTargetPrompt } from './graph-profile-dialog.js'
+import type { ITargetPicker } from './target-dialog.js'
 
-// Contributes the "Contribute to graph…" command to the Solution root row. Contribute asks for the
-// target environment + graph, builds the whole active solution's packages via
+// Contributes the "Contribute to graph…" command to the Solution root row. Contribute asks the
+// environment picker (ContributeTargetDialog) for the target environment + graph, builds the whole active solution's packages via
 // SolutionPackageBuilder, then hands them to IGraphContributor.Contribute (whose main-process side
 // posts them through the tenant plane relay; no credential ever reaches the renderer). A build /
 // sign-in / refusal / conflict failure throws inside the background task and fails that row with
@@ -28,6 +28,7 @@ export class ContributeToGraphContributor implements IHierarchyContributor
     private static readonly ContributeLabel = 'Contribute to graph…'
     private static readonly TitlePrefix = 'Contributing '
     private static readonly ToGraph = ' to graph '
+    private static readonly InEnvironment = ' in '
     private static readonly ContributeFailedTitle = 'Contribute to graph failed'
     private static readonly ContributedTitle = 'Contributed to graph'
     private static readonly CountSeparator = ' - packages contributed: '
@@ -43,7 +44,7 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         private readonly work: BackgroundWorkService | undefined,
         private readonly contributor: IGraphContributor | undefined,
         private readonly dialogs: DialogService | undefined,
-        private readonly prompt: IGraphTargetPrompt | undefined = undefined)
+        private readonly picker: ITargetPicker | undefined = undefined)
     {
         this.Actions = [
             ContributeToGraphContributor.command(ContributeToGraphContributor.ContributeCommandId, ContributeToGraphContributor.ContributeLabel, 56),
@@ -68,43 +69,45 @@ export class ContributeToGraphContributor implements IHierarchyContributor
     public Resolve(commandId: string, _context: CommandContext): ICommand | undefined
     {
         if (commandId !== ContributeToGraphContributor.ContributeCommandId) return undefined
-        return new RelayCommand(() => void this.contribute(), () => this.builder !== undefined && this.contributor !== undefined && this.work !== undefined && this.prompt !== undefined)
+        return new RelayCommand(() => void this.contribute(), () => this.builder !== undefined && this.contributor !== undefined && this.work !== undefined && this.picker !== undefined)
     }
 
-    // Asks for the target environment + graph, then runs the build+contribute under a background
-    // task so a build / sign-in / refusal / conflict failure fails that row with its sentence. A
-    // prompt failure blocks early via InfoDialog.
+    // Asks the picker for the target environment + graph, then runs the build+contribute under a
+    // background task so a build / sign-in / refusal / conflict failure fails that row with its
+    // sentence. A picker failure blocks early via InfoDialog.
     private async contribute(): Promise<void>
     {
         const builder = this.builder
         const contributor = this.contributor
         const work = this.work
-        const prompt = this.prompt
-        if (builder === undefined || contributor === undefined || work === undefined || prompt === undefined) return
-        let target: GraphTargetInput
+        const picker = this.picker
+        if (builder === undefined || contributor === undefined || work === undefined || picker === undefined) return
+        let environment: string
+        let graphName: string
         try
         {
-            const input = await prompt.Prompt()
-            if (input === undefined) return
-            target = input
+            const choice = await picker.Show()
+            if (choice === undefined || choice.GraphName === undefined) return
+            environment = choice.Environment
+            graphName = choice.GraphName
         }
         catch (e)
         {
             this.surface(ContributeToGraphContributor.ContributeFailedTitle, e)
             return
         }
-        const graphName = target.GraphName
         const solution = this.solution
-        void work.run(`${ContributeToGraphContributor.TitlePrefix}${solution.Name}${ContributeToGraphContributor.ToGraph}${graphName}`, async (_ctx): Promise<GraphContributeResult> =>
+        const where = `${graphName}${ContributeToGraphContributor.InEnvironment}${environment}`
+        void work.run(`${ContributeToGraphContributor.TitlePrefix}${solution.Name}${ContributeToGraphContributor.ToGraph}${where}`, async (_ctx): Promise<GraphContributeResult> =>
         {
             const packages = [...await builder.Build()]
-            return contributor.Contribute(target.Environment, graphName, solution.Name, packages)
+            return contributor.Contribute(environment, graphName, solution.Name, packages)
         }).done.then(
             (result) =>
             {
                 if (this.dialogs !== undefined)
                 {
-                    void InfoDialog.Show(this.dialogs, ContributeToGraphContributor.ContributedTitle, `${graphName}${ContributeToGraphContributor.CountSeparator}${result.PackageCount}`)
+                    void InfoDialog.Show(this.dialogs, ContributeToGraphContributor.ContributedTitle, `${where}${ContributeToGraphContributor.CountSeparator}${result.PackageCount}`)
                 }
             },
             () => { /* failure is already shown in the background task row */ },

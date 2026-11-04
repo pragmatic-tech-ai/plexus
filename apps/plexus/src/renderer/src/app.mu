@@ -183,6 +183,8 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 
 // The New/Open project, references, set-version and shared Confirm DIALOG templates.
 import SolutionDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-dialogs.resources.mu.js"
+// The Contribute to graph / Publish to tenant environment pickers (ContributeTargetDialog, PublishTargetDialog).
+import TargetDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/target-dialogs.resources.mu.js"
 // Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
 // + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
 // [HierarchyItem]. The dialog templates come from SolutionDialogsResources (below).
@@ -655,6 +657,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
 
         // Solution dialog templates (New/Open project, references, set-version, confirm).
         merge SolutionDialogsResources
+
+        // Environment pickers for Contribute to graph and Publish to tenant.
+        merge TargetDialogsResources
 
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +
         // HierarchicalDataTemplate[HierarchyItem].

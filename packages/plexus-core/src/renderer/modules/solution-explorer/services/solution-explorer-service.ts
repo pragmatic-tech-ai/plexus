@@ -28,9 +28,10 @@ import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, Conne
 import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contributor.js'
 import { HtmlAppContributor } from './html-app-contributor.js'
 import { PublishTenantContributor } from './publish-tenant-contributor.js'
-import { TenantProfileDialog } from './tenant-profile-dialog.js'
+import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
-import { GraphProfileDialog } from './graph-profile-dialog.js'
+import { ContributeTargetDialog } from './contribute-target-dialog.js'
+import { AccountServiceKey } from '../../account/account-service.js'
 import { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import { GraphContributorKey } from '../../graph-contribute/graph-contributor.js'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
@@ -222,8 +223,12 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.handles.push(registry.RegisterInstance(buildContributor, buildContributor.Actions))
             const htmlApp = new HtmlAppContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.provider.getRequired(FileSystemService.Key), this.workspace, this.provider.get(PreviewServerKey))
             this.handles.push(registry.RegisterInstance(htmlApp, htmlApp.Actions))
+            // The environment pickers need the account (its targets + last choices) and a dialog host;
+            // without either, the publish/contribute commands stay disabled.
             const dialogs = this.provider.get(DialogService.Key)
-            const publishTenant = new PublishTenantContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(TenantPublisherKey), dialogs === undefined ? undefined : new TenantProfileDialog(dialogs))
+            const account = this.provider.get(AccountServiceKey)
+            const publishPicker = dialogs === undefined || account === undefined ? undefined : new PublishTargetDialog(account, dialogs)
+            const publishTenant = new PublishTenantContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(TenantPublisherKey), publishPicker)
             this.handles.push(registry.RegisterInstance(publishTenant, publishTenant.Actions))
             // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
             // registry + storage provider + package store (absent in headless/unit contexts): only
@@ -234,7 +239,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             if (graphRegistry !== undefined && graphStorage !== undefined && graphPackages !== undefined)
             {
                 const graphBuilder = new SolutionPackageBuilder(graphRegistry, graphStorage, graphPackages, this.provider.getRequired(SolutionManagerService.Key))
-                const contributeGraph = new ContributeToGraphContributor(solution, graphBuilder, this.provider.get(BackgroundWorkService.Key), this.provider.get(GraphContributorKey), dialogs, dialogs === undefined ? undefined : new GraphProfileDialog(dialogs))
+                const graphs = this.provider.get(GraphContributorKey)
+                const contributePicker = dialogs === undefined || account === undefined || graphs === undefined ? undefined : new ContributeTargetDialog(account, graphs, dialogs)
+                const contributeGraph = new ContributeToGraphContributor(solution, graphBuilder, this.provider.get(BackgroundWorkService.Key), graphs, dialogs, contributePicker)
                 this.handles.push(registry.RegisterInstance(contributeGraph, contributeGraph.Actions))
             }
         }

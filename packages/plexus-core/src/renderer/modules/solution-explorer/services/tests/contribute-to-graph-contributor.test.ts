@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { Solution } from '@pragmatic-tech-ai/todl'
 import { ContributeToGraphContributor } from '../contribute-to-graph-contributor.js'
-import type { IGraphTargetPrompt, GraphTargetInput } from '../graph-profile-dialog.js'
+import type { ITargetPicker } from '../target-dialog.js'
+import type { TargetChoice } from '../../../../../shared/account-api.js'
 import type { IGraphContributor } from '../../../graph-contribute/graph-contributor.js'
 import type { ContributedPackage, GraphContributeResult } from '../../../../../shared/graph-contribute-api.js'
 
@@ -45,15 +46,15 @@ class FakeBuilder
     }
 }
 
-class FakePrompt implements IGraphTargetPrompt
+class FakePrompt implements ITargetPicker
 {
     public Calls = 0
 
-    constructor(private readonly input: GraphTargetInput | undefined | Error)
+    constructor(private readonly input: TargetChoice | undefined | Error)
     {
     }
 
-    public Prompt(): Promise<GraphTargetInput | undefined>
+    public Show(): Promise<TargetChoice | undefined>
     {
         this.Calls++
         if (this.input instanceof Error) return Promise.reject(this.input)
@@ -81,7 +82,7 @@ class GraphTestHelper
     // A fake BackgroundWorkService.run that captures the task promise so a test can await it.
     public static Work(): any
     {
-        const w: any = { run: (_t: string, fn: any) => { w.task = fn({}); return { handle: {}, done: w.task } } }
+        const w: any = { run: (t: string, fn: any) => { w.Title = t; w.task = fn({}); return { handle: {}, done: w.task } } }
         return w
     }
 
@@ -94,9 +95,9 @@ class GraphTestHelper
 
 describe('ContributeToGraphContributor', () =>
 {
-    const Result: GraphContributeResult = { GraphName: 'g1', PackageCount: 1 }
+    const Result: GraphContributeResult = { GraphName: 'main', PackageCount: 1 }
     const Packages: ContributedPackage[] = [{ id: 'orders', version: '1.0.0', modelJson: '{}' }]
-    const Input: GraphTargetInput = { Environment: 'dev', GraphName: 'g1' }
+    const Input: TargetChoice = { Environment: 'dev', GraphName: 'main' }
 
     it('asks for the target, builds the solution packages, then contributes them to the environment graph', async () =>
     {
@@ -109,9 +110,11 @@ describe('ContributeToGraphContributor', () =>
         await GraphTestHelper.Flush()
         await expect(work.task).resolves.toEqual(Result)
         expect(builder.Built).toBe(1)
-        expect(contributor.Contributions).toEqual([{ environment: 'dev', graphName: 'g1', solutionId: 'S', packages: Packages }])
+        expect(contributor.Contributions).toEqual([{ environment: 'dev', graphName: 'main', solutionId: 'S', packages: Packages }])
+        expect(work.Title).toBe('Contributing S to graph main in dev')
         await GraphTestHelper.Flush()
         expect(dialogs.Shown.map((d) => d.Title)).toEqual(['Contributed to graph'])
+        expect(dialogs.Shown[0]!.Content.Message).toBe('main in dev - packages contributed: 1')
     })
 
     it('does nothing when the target prompt is cancelled', async () =>
@@ -160,6 +163,16 @@ describe('ContributeToGraphContributor', () =>
         expect(dialogs.Shown[0]!.Content.Message).toBe('prompt broke')
     })
 
+    it('contributes nothing when the picker resolves without a graph', async () =>
+    {
+        const contributor = new FakeContributor(Result)
+        const work = GraphTestHelper.Work()
+        const c = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, work, contributor, undefined, new FakePrompt({ Environment: 'dev' }))
+        c.Resolve('graph.contribute', {} as any)!.Execute()
+        await GraphTestHelper.Flush()
+        expect(work.task).toBeUndefined()
+    })
+
     it('is disabled without active deps, offers no configure command and ignores unknown command ids', () =>
     {
         const contributor = new FakeContributor(Result)
@@ -170,6 +183,8 @@ describe('ContributeToGraphContributor', () =>
         expect(noContributor.Resolve('graph.contribute', {} as any)!.CanExecute()).toBe(false)
         const noWork = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, undefined, contributor, undefined, prompt)
         expect(noWork.Resolve('graph.contribute', {} as any)!.CanExecute()).toBe(false)
+        const noPicker = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, GraphTestHelper.Work(), contributor, undefined, undefined)
+        expect(noPicker.Resolve('graph.contribute', {} as any)!.CanExecute()).toBe(false)
         expect(noBuilder.Actions.map((a) => a.Id)).toEqual(['graph.contribute'])
         expect(noBuilder.Resolve('graph.configure', {} as any)).toBeUndefined()
         expect(noBuilder.Resolve('nope', {} as any)).toBeUndefined()

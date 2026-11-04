@@ -14,9 +14,10 @@ import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
 import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
-import type { ITenantTargetPrompt } from './tenant-profile-dialog.js'
+import type { ITargetPicker } from './target-dialog.js'
 
-// Contributes the Publish to tenant commands to a project row: asks for the target environment,
+// Contributes the Publish to tenant commands to a project row: asks the environment picker
+// (PublishTargetDialog) for the target Runtime environment,
 // builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
 // Open/Serve HTML app), then hands the environment + output dir to the ITenantPublisher, whose
 // main-process side uploads it through the tenant plane relay via the protocol deploy method. A
@@ -36,7 +37,8 @@ export class PublishTenantContributor implements IHierarchyContributor
     public static readonly BuildDir = RemoteBuildDirName
     private static readonly PublishLabel = 'Publish to tenant'
     private static readonly PublishEnvLabel = 'Publish to tenant (environment graph)'
-    private static readonly TitlePrefix = 'Publishing to tenant '
+    private static readonly TitlePrefix = 'Publishing '
+    private static readonly ToEnvironment = ' to '
     private static readonly BuildFailedPrefix = 'Build failed: '
     private static readonly NoOutputPathError = 'Build produced no output path to publish'
     private static readonly PublishFailedPrefix = 'Publish to tenant failed ('
@@ -53,7 +55,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         private readonly work: BackgroundWorkService | undefined,
         private readonly mutations: IContentMutations,
         private readonly publisher: ITenantPublisher | undefined,
-        private readonly prompt: ITenantTargetPrompt | undefined = undefined)
+        private readonly picker: ITargetPicker | undefined = undefined)
     {
         this.Actions = [
             PublishTenantContributor.command(PublishTenantContributor.PublishCommandId, PublishTenantContributor.PublishLabel, 54),
@@ -82,33 +84,33 @@ export class PublishTenantContributor implements IHierarchyContributor
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return undefined
         const bind = commandId === PublishTenantContributor.PublishEnvCommandId ? RemoteBindMode.Environment : RemoteBindMode.Application
-        return new RelayCommand(() => void this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined && this.prompt !== undefined)
+        return new RelayCommand(() => void this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined && this.picker !== undefined)
     }
 
-    // Asks for the environment first (a cancel publishes nothing), then builds and uploads under a
-    // background task so a build / sign-in / refusal failure fails that row with its sentence. A
-    // prompt failure fails a task row too (this contributor has no dialog surface), so it is never
-    // an unhandled rejection.
+    // Asks the picker for the environment first (a cancel publishes nothing), then builds and
+    // uploads under a background task so a build / sign-in / refusal failure fails that row with its
+    // sentence. A picker failure fails a task row too (this contributor has no dialog surface), so
+    // it is never an unhandled rejection.
     private async publish(member: SolutionMember, bind: RemoteBindMode): Promise<void>
     {
         const work = this.work
         const storage = member.Storage
         const publisher = this.publisher
-        const prompt = this.prompt
-        if (work === undefined || storage === undefined || publisher === undefined || prompt === undefined) return
-        const title = `${PublishTenantContributor.TitlePrefix}${member.Title}`
+        const picker = this.picker
+        if (work === undefined || storage === undefined || publisher === undefined || picker === undefined) return
         let environment: string | undefined
         try
         {
-            environment = await prompt.Prompt()
+            environment = (await picker.Show())?.Environment
         }
         catch (e)
         {
-            void work.run(title, () => Promise.reject(e))
+            void work.run(`${PublishTenantContributor.TitlePrefix}${member.Title}`, () => Promise.reject(e))
             return
         }
         if (environment === undefined) return
         const target = environment
+        const title = `${PublishTenantContributor.TitlePrefix}${member.Title}${PublishTenantContributor.ToEnvironment}${target}`
         void work.run(title, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
