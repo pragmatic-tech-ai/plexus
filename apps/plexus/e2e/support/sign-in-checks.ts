@@ -66,6 +66,14 @@ export class SignInChecks
         return index
     }
 
+    // Whether teardown must sign out: a sign-in was attempted on the (verified session-free) profile
+    // and the account reports signed in, so the session is this run's - even when the helper gave up
+    // waiting after the IdP had already completed the login.
+    public static ShouldSignOut(signInAttempted: boolean, signedIn: boolean): boolean
+    {
+        return signInAttempted && signedIn
+    }
+
     // The fault to report when the launched profile is already signed in, else undefined.
     public static ExistingSessionFault(signedIn: boolean): string | undefined
     {

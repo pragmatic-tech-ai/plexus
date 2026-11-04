@@ -74,7 +74,6 @@ export class IdpPasswordLogin
     private static readonly CallbackFailed = 'Plexus loopback callback refused the code, status '
     private static readonly UnsupportedScheme = 'authorize URL is not http(s)'
     private static readonly Insecure = 'authorize URL must be https unless the IdP is on a loopback host (the password is posted to it)'
-    private static readonly LoopbackIpv6 = '::1'
     private static readonly TimedOut = 'IdP request timed out'
 
     public constructor(
@@ -210,7 +209,7 @@ export class IdpPasswordLogin
     private static IsLoopback(url: URL): boolean
     {
         const S = IdpPasswordLogin
-        return S.LoopbackHosts.includes(url.hostname) || url.hostname === S.LoopbackIpv6
+        return S.LoopbackHosts.includes(url.hostname)
     }
 
     // One request, redirects never followed; https requests carry the dev CA when one was given.

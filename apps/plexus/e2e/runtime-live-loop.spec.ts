@@ -590,25 +590,28 @@ test.describe('runtime publishing live loop', () => {
         const clone = ContosoClone.From(ContosoFixture.folder)
         // Cloned too: Generate UI writes into the project, which must never touch the committed fixture.
         const catalogClone = ContosoClone.From(CatalogFixture.folder, CatalogClonePrefix)
-        const profile = E2eProfile.Create()
-        profile.SeedSession([clone.Folder, catalogClone.Folder])
         const signIn = ScriptedDesktopSignIn.FromEnvironment()
         const reader = new BrowserReader()
+        let profile: E2eProfile | undefined
         let l: Launched | undefined
         let dev: DevDescriptor | undefined
         let rt: RuntimeDescriptor | undefined
 
         try
         {
-            // Step 2: launch Plexus, place it on the second monitor, install shared renderer helpers.
-            l = await launchPlexus(profile)
+            // Step 2: launch Plexus on an isolated profile seeded with the clones, place it on the
+            // second monitor, install shared renderer helpers.
+            const isolated = E2eProfile.Create()
+            profile = isolated
+            isolated.SeedSession([clone.Folder, catalogClone.Folder])
+            l = await launchPlexus(isolated)
             const origin = await WindowPlacer.PlaceOnSecondMonitor(l, process.env[WindowOriginEnv])
             await RendererOps.InstallHelpers(l.win)
 
             // Step 2b: sign the app in to the account (scripted: no browser) so contribute/publish
             // run through the relay with a real desktop session.
             await test.step('desktop sign-in', async () => {
-                await signIn.SignIn(l!.app, l!.win, profile)
+                await signIn.SignIn(l!.app, l!.win, isolated)
             })
 
             // Step 3: open Contoso (seeded above) + Generate UI for the entrypoint concept.
@@ -752,7 +755,7 @@ test.describe('runtime publishing live loop', () => {
                 await signIn.SignOut(l.win).catch(() => {})
                 await l.app.close().catch(() => {})
             }
-            try { profile.Dispose() } catch { /* best-effort; must not skip Teardown */ }
+            profile?.DisposeQuietly()
             await orchestrator.Teardown().catch(() => {})
             clone.Dispose()
             catalogClone.Dispose()

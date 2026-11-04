@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -48,5 +48,21 @@ describe('E2eProfile', () => {
         p.Dispose()
         expect(existsSync(p.Dir)).toBe(false)
         expect(() => p.Dispose()).not.toThrow()
+    })
+
+    it('DisposeQuietly never throws, so a stuck temp dir cannot mask the run own failure', () => {
+        const p = make()
+        vi.spyOn(p, 'Dispose').mockImplementation(() => { throw new Error('EBUSY') })
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+        expect(() => p.DisposeQuietly()).not.toThrow()
+        expect(warn).toHaveBeenCalledOnce()
+        warn.mockRestore()
+        vi.mocked(p.Dispose).mockRestore()
+    })
+
+    it('DisposeQuietly removes the directory when it can', () => {
+        const p = E2eProfile.Create()
+        p.DisposeQuietly()
+        expect(existsSync(p.Dir)).toBe(false)
     })
 })

@@ -18,8 +18,9 @@
 //      RunLogin: GET, keep the cookie, POST the password form, follow the redirect to the loopback
 //      callback), so Plexus's own loopback receiver completes the sign-in and stores the session.
 //   4. It waits until the account reports signed in and the dialog's request resolved true.
-// SignOut() ends the session this helper created (call it before closing the app); the profile's
-// Dispose() then deletes what is left on disk.
+// SignOut() ends the session whenever a sign-in was attempted on the session-free profile (call it
+// before closing the app, also after a failed SignIn); the profile's Dispose() then deletes what is
+// left on disk.
 //
 // Services are found in the renderer's service-provider cache by their ServiceKey description (a
 // stable string, unlike a constructor name under minification) - the same cache walk plexus-app.ts
@@ -98,8 +99,9 @@ export class ScriptedDesktopSignIn
     private static readonly NotSignedIn = 'the account did not report signed in after the loopback callback'
     private static readonly EmptyPassword = 'the password file is empty'
 
-    // Whether this instance signed the app in (and so may sign it out).
-    private createdSession = false
+    // Whether this instance started a sign-in on the session-free profile (so any session at teardown
+    // is this run's, and SignOut ends it).
+    private signInAttempted = false
 
     private constructor(
         private readonly email: string,
@@ -144,11 +146,11 @@ export class ScriptedDesktopSignIn
             if (located.Fault !== undefined) throw new Error(located.Fault)
             const existing = SignInChecks.ExistingSessionFault(located.SignedIn === true)
             if (existing !== undefined) throw new Error(existing)
+            this.signInAttempted = true
             await this.OpenDialogAndContinue(win)
             const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
             await this.login.Run(authorizeUrl, this.email, this.password)
             await this.AwaitSignedIn(win)
-            this.createdSession = true
         }
         finally
         {
@@ -156,17 +158,26 @@ export class ScriptedDesktopSignIn
         }
     }
 
-    // Ends the session this helper created (no-op otherwise), so the owner token does not stay live
-    // on the tenant plane after the run.
+    // Ends the session this run created whenever a sign-in was attempted (no-op otherwise), so the
+    // owner token does not stay live on the tenant plane after the run - also when SignIn failed
+    // after the IdP had already completed the login.
     public async SignOut(win: Page): Promise<void>
     {
-        if (!this.createdSession) return
-        this.createdSession = false
-        await win.evaluate(async (stateKey) =>
+        if (!this.signInAttempted) return
+        const S = ScriptedDesktopSignIn
+        const signedIn = await win.evaluate(async (stateKey) =>
         {
             const account = (window as any)[stateKey]?.account
-            if (account?.State?.SignedIn) await account.SignOut()
-        }, ScriptedDesktopSignIn.StateKey)
+            if (account === undefined) return false
+            await account.Refresh()
+            return account.State?.SignedIn === true
+        }, S.StateKey)
+        if (!SignInChecks.ShouldSignOut(this.signInAttempted, signedIn)) return
+        this.signInAttempted = false
+        await win.evaluate(async (stateKey) =>
+        {
+            await (window as any)[stateKey].account.SignOut()
+        }, S.StateKey)
     }
 
     private async InterceptOpener(app: ElectronApplication): Promise<void>

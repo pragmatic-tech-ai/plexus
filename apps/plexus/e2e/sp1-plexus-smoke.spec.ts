@@ -24,7 +24,7 @@
 import { test, expect } from '@playwright/test'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import { launchPlexus, MAIN, ELECTRON_EXE } from './plexus-app'
+import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
 import { E2eProfile } from './support/e2e-profile'
 
@@ -44,12 +44,16 @@ test.describe('SP1 Plexus smoke', () =>
     {
         expect(existsSync(MAIN), `built app missing at ${MAIN} — run npm run build`).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), 'electron binary missing').toBeTruthy()
-        const profile = E2eProfile.Create()
-        profile.SeedSession([path.resolve(PROJECT_DIR)])
         const signIn = ScriptedDesktopSignIn.FromEnvironment()
-        const l = await launchPlexus(profile)
+        let profile: E2eProfile | undefined
+        let launched: Launched | undefined
         try
         {
+            profile = E2eProfile.Create()
+            profile.SeedSession([path.resolve(PROJECT_DIR)])
+            launched = await launchPlexus(profile)
+            const l = launched
+
             // 0) Sign the app in to the account (scripted: no browser) so publish runs through the
             //    relay with a real desktop session.
             await signIn.SignIn(l.app, l.win, profile)
@@ -198,11 +202,14 @@ test.describe('SP1 Plexus smoke', () =>
         }
         finally
         {
-            const appErrs = l.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
-            if (appErrs.length) console.log('[sp1-smoke] renderer errors:\n' + appErrs.slice(0, 20).join('\n'))
-            await signIn.SignOut(l.win).catch(() => {})
-            await l.app.close().catch(() => {})
-            profile.Dispose()
+            if (launched !== undefined)
+            {
+                const appErrs = launched.errors.filter((e) => !/Insecure Content-Security-Policy|Electron Security Warning|devtools|Autofill\./i.test(e))
+                if (appErrs.length) console.log('[sp1-smoke] renderer errors:\n' + appErrs.slice(0, 20).join('\n'))
+                await signIn.SignOut(launched.win).catch(() => {})
+                await launched.app.close().catch(() => {})
+            }
+            profile?.DisposeQuietly()
         }
     })
 })

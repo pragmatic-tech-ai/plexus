@@ -16,6 +16,7 @@ export class E2eProfile
     private static readonly Utf8 = 'utf8'
     private static readonly RemoveRetries = 10
     private static readonly RemoveRetryDelayMs = 200
+    private static readonly DisposeFailed = 'E2eProfile: could not remove the temporary profile directory; delete it by hand:'
 
     private constructor(public readonly Dir: string)
     {
@@ -57,5 +58,19 @@ export class E2eProfile
             recursive: true, force: true,
             maxRetries: E2eProfile.RemoveRetries, retryDelay: E2eProfile.RemoveRetryDelayMs,
         })
+    }
+
+    // Dispose for a test's finally: a directory Chromium still holds is reported (its path only)
+    // instead of thrown, so it can never replace the run's own failure.
+    public DisposeQuietly(): void
+    {
+        try
+        {
+            this.Dispose()
+        }
+        catch
+        {
+            console.warn(E2eProfile.DisposeFailed, this.Dir)
+        }
     }
 }

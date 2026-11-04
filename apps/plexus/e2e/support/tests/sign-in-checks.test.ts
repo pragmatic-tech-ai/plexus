@@ -51,3 +51,13 @@ describe('SignInChecks.ExistingSessionFault', () => {
         expect(SignInChecks.ExistingSessionFault(true)).toMatch(/already holds a session/)
     })
 })
+
+describe('SignInChecks.ShouldSignOut', () => {
+    // The profile was verified session-free before the sign-in, so any session at teardown came from
+    // this run - including one completed by the IdP after the helper gave up waiting.
+    it('signs out whenever a sign-in was attempted and the account reports signed in', () => {
+        expect(SignInChecks.ShouldSignOut(true, true)).toBe(true)
+        expect(SignInChecks.ShouldSignOut(true, false)).toBe(false)
+        expect(SignInChecks.ShouldSignOut(false, true)).toBe(false)
+    })
+})
