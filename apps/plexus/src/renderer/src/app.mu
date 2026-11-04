@@ -155,6 +155,10 @@ import SkillRunner from "./modules/skills/services/skill-runner.js"
 import BackgroundWorkModule from "./modules/background-work/background-work.module.mu.js"
 import SaveModule from "./modules/save/save.module.mu.js"
 import BackgroundWorkResources from "./modules/background-work/background-work.resources.mu.js"
+// The account area: the StatusBar account cell + the "Platform address" setting
+// (AccountModule) and the cell/dialog views (AccountResources).
+import AccountModule from "./modules/account/account.module.mu.js"
+import AccountResources from "./modules/account/account.resources.mu.js"
 
 // Plexus's window-chrome slots: @WindowBrand (SolariaMark) + @WindowMenu (the
 // File/Edit/View/Help MenuButtons), filled into the shared PragmaticWindowChrome
@@ -553,6 +557,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         MarkdownViewerModule
         BackgroundWorkModule
         SaveModule
+        AccountModule
         // Shared window chrome: the title bar strip + menu look + TitleService.
         PragmaticWindowChrome
     }
@@ -623,6 +628,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Background-work status-bar dock (@BackgroundWorkDock) + task row + output
         // document templates.
         merge BackgroundWorkResources
+
+        // Account status-bar cell (@AccountStatusCell) + the account dialog body.
+        merge AccountResources
 
         // Each service's view resources live with the service, merged app-global
         // here (see ./services/<service>/*.resources.mu).
