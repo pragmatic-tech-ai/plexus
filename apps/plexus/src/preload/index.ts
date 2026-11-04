@@ -15,6 +15,7 @@ import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-
 import { TenantPublishChannel, type ITenantPublishApi } from '../shared/tenant-publish-api.js'
 import { GraphContributeChannel, type IGraphContributeApi, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
+import { AccountChannel, AccountWire, type AccountReply, type AccountState, type IAccountApi } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TypeCheckChannel } from '@pragmatic-tech-ai/plexus-core/shared/type-check-api.js'
 import type { TypeCheckRequest, TypeCheckResult } from '@pragmatic-tech-ai/todl/build-system-core'
@@ -159,6 +160,33 @@ const graphContribute: IGraphContributeApi = {
   HasProfile: () => ipcRenderer.invoke(GraphContributeChannel.HasProfile),
 }
 
+// Account bridge: sign in by email through the system browser. Every main handler answers an
+// AccountReply envelope; Unwrap rebuilds a failure into an AccountError. (The context bridge keeps
+// only the message of a thrown error; AccountError.From recovers the kind from it renderer-side.)
+// No answer ever carries the session token.
+class AccountBridge
+{
+  public static async Call<T>(channel: AccountChannel, ...args: unknown[]): Promise<T>
+  {
+    return AccountWire.Unwrap(await ipcRenderer.invoke(channel, ...args) as AccountReply<T>)
+  }
+}
+const account: IAccountApi = {
+  State: () => AccountBridge.Call(AccountChannel.State),
+  Discover: (platformUrl, email) => AccountBridge.Call(AccountChannel.Discover, platformUrl, email),
+  SignIn: (platformUrl, email, tenantId) => AccountBridge.Call(AccountChannel.SignIn, platformUrl, email, tenantId),
+  CancelSignIn: () => AccountBridge.Call(AccountChannel.CancelSignIn),
+  SignOut: () => AccountBridge.Call(AccountChannel.SignOut),
+  Targets: () => AccountBridge.Call(AccountChannel.Targets),
+  LastChoice: (kind) => AccountBridge.Call(AccountChannel.LastChoice, kind),
+  RememberChoice: (kind, choice) => AccountBridge.Call(AccountChannel.RememberChoice, kind, choice),
+  OnChanged: (cb: (s: AccountState) => void): (() => void) => {
+    const listener = (_e: unknown, state: AccountState): void => cb(state)
+    ipcRenderer.on(AccountChannel.Changed, listener)
+    return () => { ipcRenderer.removeListener(AccountChannel.Changed, listener) }
+  },
+}
+
 // Bundler bridge — the html-bundle esbuild bundle runs in main; the renderer's IpcBundler
 // invokes this single channel.
 const bundle = {
@@ -171,7 +199,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, tenantPublish, graphContribute, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, tenantPublish, graphContribute, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {

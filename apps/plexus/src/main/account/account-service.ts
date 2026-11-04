@@ -1,0 +1,247 @@
+import { promises as fs } from 'node:fs'
+import { join } from 'node:path'
+import { createHash, randomBytes } from 'node:crypto'
+import { Signal } from '@pragmatic-tech-ai/todl-runtime'
+import {
+    AccountError, AccountErrorKind, PlatformAddress, TargetKind,
+    type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
+} from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { DesktopApiClient } from './desktop-api-client.js'
+import type { DesktopSession, DesktopSessionStore } from './desktop-session-store.js'
+import type { IRedirectReceiver } from './loopback-redirect-receiver.js'
+
+// Last environment picked per action, per tenant: { [tenantId]: { contribute?, publish? } }.
+type ChoiceFile = Record<string, Partial<Record<TargetKind, TargetChoice>>>
+
+// The Plexus account, main-process side. Sign-in: discover the email's tenant on the platform, begin
+// a sign-in on the tenant plane with a loopback redirect and a binding challenge, open the system
+// browser, wait for the code on the loopback, complete with the binding verifier, store the desktop
+// session encrypted. The token stays here: State() reports only email + tenant name, and every
+// change is raised on Changed for the IPC layer to push. A SignedOut answer from the tenant plane
+// (targets here, relay connects via HandleSignedOut) clears the session.
+export class AccountService
+{
+    private static readonly ChoicesFile = 'publish-choices.json'
+    private static readonly TempSuffix = '.tmp'
+    private static readonly NotFoundCode = 'ENOENT'
+    private static readonly SecureScheme = 'https:'
+    private static readonly CleartextScheme = 'http:'
+    private static readonly StateParam = 'state'
+    private static readonly VerifierBytes = 32
+    private static readonly Sha256 = 'sha256'
+    private static readonly Base64Url = 'base64url'
+    private static readonly Utf8 = 'utf8'
+    private static readonly JsonIndent = 2
+    private static readonly SignedOutState: AccountState = { SignedIn: false }
+
+    public readonly Changed = new Signal<AccountState>()
+    private discovered: { PlatformUrl: string; Email: string; TenantPlaneUrl: string } | undefined
+    private pending: IRedirectReceiver | undefined
+
+    public constructor(
+        private readonly store: DesktopSessionStore,
+        private readonly choicesDir: string,
+        private readonly client: DesktopApiClient,
+        private readonly receivers: () => IRedirectReceiver,
+        private readonly openExternal: (url: string) => Promise<void>,
+    )
+    {
+    }
+
+    public async State(): Promise<AccountState>
+    {
+        return AccountService.StateOf(await this.store.Load())
+    }
+
+    // Main-process only (the relay connector): the session including its token.
+    public Session(): Promise<DesktopSession | undefined>
+    {
+        return this.store.Load()
+    }
+
+    public async Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>
+    {
+        const platform = AccountService.Platform(platformUrl)
+        const address = email.trim()
+        const found = await this.client.Discover(platform, address)
+        if (PlatformAddress.Validate(found.TenantPlaneUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
+        this.discovered = { PlatformUrl: platform, Email: address, TenantPlaneUrl: found.TenantPlaneUrl }
+        return found.Tenants
+    }
+
+    public async SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
+    {
+        this.pending?.Cancel()
+        const address = email.trim()
+        const plane = await this.TenantPlaneFor(AccountService.Platform(platformUrl), address)
+        const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
+        const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
+        const receiver = this.receivers()
+        this.pending = receiver
+        try
+        {
+            const { RedirectUri } = await receiver.Start()
+            const authorizeUrl = await this.client.Begin(plane, tenantId, RedirectUri, challenge)
+            const state = AccountService.StateIn(authorizeUrl)
+            const [, code] = await Promise.all([this.openExternal(authorizeUrl), receiver.WaitForCode(state)])
+            const done = await this.client.Complete(plane, state, code, verifier)
+            const previous = await this.store.Load()
+            const session: DesktopSession = {
+                TenantPlaneUrl: plane, Token: done.Token, Email: done.Email ?? address, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
+            }
+            await this.store.Save(session)
+            if (previous !== undefined && previous.Token !== session.Token) await this.EndQuietly(previous)
+            const signedIn = AccountService.StateOf(session)
+            this.Changed.emit(signedIn)
+            return signedIn
+        }
+        finally
+        {
+            if (this.pending === receiver) this.pending = undefined
+            await receiver.Close()
+        }
+    }
+
+    public async CancelSignIn(): Promise<void>
+    {
+        this.pending?.Cancel()
+    }
+
+    // Ends the session on the tenant plane when it can be reached; clears locally either way.
+    public async SignOut(): Promise<AccountState>
+    {
+        const session = await this.store.Load()
+        if (session !== undefined) await this.EndQuietly(session)
+        await this.HandleSignedOut()
+        return AccountService.StateOf(undefined)
+    }
+
+    // The tenant plane said the session is over (expired, revoked, signed out elsewhere).
+    public async HandleSignedOut(): Promise<void>
+    {
+        await this.store.Clear()
+        this.Changed.emit(AccountService.StateOf(undefined))
+    }
+
+    public async Targets(): Promise<AccountTargets>
+    {
+        const session = await this.store.Load()
+        if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
+        try
+        {
+            return await this.client.Targets(session)
+        }
+        catch (e)
+        {
+            if (e instanceof AccountError && e.Kind === AccountErrorKind.SignedOut) await this.HandleSignedOut()
+            throw e
+        }
+    }
+
+    public async LastChoice(kind: TargetKind): Promise<TargetChoice | undefined>
+    {
+        const session = await this.store.Load()
+        if (session === undefined) return undefined
+        const choice = (await this.ReadChoices())[session.TenantId]?.[kind]
+        return AccountService.ValidChoice(choice) ? AccountService.CopyChoice(choice) : undefined
+    }
+
+    public async RememberChoice(kind: TargetKind, choice: TargetChoice): Promise<void>
+    {
+        const session = await this.store.Load()
+        if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
+        const choices = await this.ReadChoices()
+        choices[session.TenantId] = { ...choices[session.TenantId], [kind]: AccountService.CopyChoice(choice) }
+        await fs.mkdir(this.choicesDir, { recursive: true })
+        const target = join(this.choicesDir, AccountService.ChoicesFile)
+        const temp = `${target}${AccountService.TempSuffix}`
+        await fs.writeFile(temp, JSON.stringify(choices, null, AccountService.JsonIndent))
+        await fs.rename(temp, target)
+    }
+
+    private async TenantPlaneFor(platform: string, email: string): Promise<string>
+    {
+        const known = this.discovered
+        if (known !== undefined && known.PlatformUrl === platform && known.Email === email) return known.TenantPlaneUrl
+        await this.Discover(platform, email)
+        return this.discovered!.TenantPlaneUrl
+    }
+
+    private async EndQuietly(session: DesktopSession): Promise<void>
+    {
+        try
+        {
+            await this.client.SignOut(session)
+        }
+        catch
+        {
+            // unreachable or refused: the local copy is dropped regardless
+        }
+    }
+
+    private async ReadChoices(): Promise<ChoiceFile>
+    {
+        let text: string
+        try
+        {
+            text = await fs.readFile(join(this.choicesDir, AccountService.ChoicesFile), AccountService.Utf8)
+        }
+        catch (e)
+        {
+            if ((e as NodeJS.ErrnoException).code === AccountService.NotFoundCode) return {}
+            throw e
+        }
+        try
+        {
+            const parsed: unknown = JSON.parse(text)
+            return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? parsed as ChoiceFile : {}
+        }
+        catch
+        {
+            return {}
+        }
+    }
+
+    private static Platform(platformUrl: string): string
+    {
+        if (PlatformAddress.Validate(platformUrl) !== undefined) throw new AccountError(AccountErrorKind.Unreachable)
+        return platformUrl.trim()
+    }
+
+    // The state the browser will hand back is the one the tenant plane put in the authorize URL. Only
+    // an http(s) URL is ever opened in the browser.
+    private static StateIn(authorizeUrl: string): string
+    {
+        let url: URL
+        try
+        {
+            url = new URL(authorizeUrl)
+        }
+        catch
+        {
+            throw new AccountError(AccountErrorKind.SignInFailed)
+        }
+        const state = url.searchParams.get(AccountService.StateParam)
+        const scheme = url.protocol === AccountService.SecureScheme || url.protocol === AccountService.CleartextScheme
+        if (!scheme || state === null || state === '') throw new AccountError(AccountErrorKind.SignInFailed)
+        return state
+    }
+
+    private static StateOf(session: DesktopSession | undefined): AccountState
+    {
+        if (session === undefined) return { ...AccountService.SignedOutState }
+        return { SignedIn: true, Email: session.Email, TenantName: session.TenantName }
+    }
+
+    private static ValidChoice(choice: unknown): choice is TargetChoice
+    {
+        if (typeof choice !== 'object' || choice === null) return false
+        const { Environment, GraphName } = choice as Record<string, unknown>
+        return typeof Environment === 'string' && Environment !== '' && (GraphName === undefined || typeof GraphName === 'string')
+    }
+
+    private static CopyChoice(choice: TargetChoice): TargetChoice
+    {
+        return choice.GraphName === undefined ? { Environment: choice.Environment } : { Environment: choice.Environment, GraphName: choice.GraphName }
+    }
+}

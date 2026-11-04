@@ -33,6 +33,12 @@ import { GraphContributeService } from './graph-contribute/graph-contribute-serv
 import { PragmaticGraphClientFactory } from './graph-contribute/graph-client.js'
 import { GraphContributeIpc } from './graph-contribute/graph-contribute-ipc.js'
 import { TypeCheckIpc } from './build/type-check-ipc.js'
+import { AccountService } from './account/account-service.js'
+import { AccountIpc } from './account/account-ipc.js'
+import { DesktopApiClient } from './account/desktop-api-client.js'
+import { DesktopSessionStore } from './account/desktop-session-store.js'
+import { LegacyProfileCleanup } from './account/legacy-profile-cleanup.js'
+import { LoopbackRedirectReceiver } from './account/loopback-redirect-receiver.js'
 import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-system'
 
 // Initial WCO colours (Windows/Linux). The app boots on MaterialDark, so seed
@@ -176,6 +182,21 @@ app.whenReady().then(async () => {
   const previewServers = new PreviewServerManager()
   registerPreviewServerIpc(ipcMain, previewServers)
   app.on('will-quit', () => void previewServers.StopAll())
+
+  // Account: sign in by email through the system browser (loopback redirect), holding the desktop
+  // session encrypted via safeStorage. The token never crosses to the renderer: the account:* channels
+  // answer only email + tenant name, and account:changed pushes that state to every window. The
+  // hand-entered graph/tenant profiles of earlier versions are superseded by sign-in and discarded.
+  await LegacyProfileCleanup.Run(userData)
+  const account = new AccountService(
+    new DesktopSessionStore(userData, new SafeStorageEncryptor()),
+    userData,
+    new DesktopApiClient(),
+    () => new LoopbackRedirectReceiver(),
+    (url) => shell.openExternal(url),
+  )
+  AccountIpc.Register(ipcMain, account, () => BrowserWindow.getAllWindows().map((w) => w.webContents))
+  app.on('will-quit', () => void account.CancelSignIn())
 
   // Tenant publish capability: the renderer builds the remote flavor, then invokes
   // tenant-publish:deploy; the upload (Node PragmaticClient + admin bearer token) runs here.
