@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { SignInChecks, SignInCheckError } from '../sign-in-checks'
+import { IdpLoginKind, SignInChecks, SignInCheckError } from '../sign-in-checks'
 
 describe('SignInChecks.IsAuthorizeUrl', () => {
     it('accepts an http(s) URL carrying state and code_challenge', () => {
@@ -59,5 +59,23 @@ describe('SignInChecks.ShouldSignOut', () => {
         expect(SignInChecks.ShouldSignOut(true, true)).toBe(true)
         expect(SignInChecks.ShouldSignOut(true, false)).toBe(false)
         expect(SignInChecks.ShouldSignOut(false, true)).toBe(false)
+    })
+})
+
+describe('SignInChecks.IdpLoginKindOf', () => {
+    it('selects the http leg when unset or http', () => {
+        expect(SignInChecks.IdpLoginKindOf(undefined)).toBe(IdpLoginKind.Http)
+        expect(SignInChecks.IdpLoginKindOf('http')).toBe(IdpLoginKind.Http)
+    })
+
+    it('selects the browser leg for browser', () => {
+        expect(SignInChecks.IdpLoginKindOf('browser')).toBe(IdpLoginKind.Browser)
+    })
+
+    it('fails clearly for any other value instead of falling back', () => {
+        for (const value of ['Browser', 'https', '', 'chromium'])
+        {
+            expect(() => SignInChecks.IdpLoginKindOf(value)).toThrow(SignInCheckError)
+        }
     })
 })

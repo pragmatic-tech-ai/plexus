@@ -44,6 +44,8 @@ class RendererGraph
     private static readonly BridgeKey = 'graphContribute'
     private static readonly NotFound = 'the graph-contribute bridge is not exposed on window.api'
     private static readonly Failed = 'the relay call failed'
+    private static readonly TimedOut = 'the relay call timed out'
+    private static readonly CallTimeoutMs = 60_000
     private static readonly EntityId = 'ihc-smoke-entity'
     private static readonly PackageVersion = '1.0.0'
 
@@ -55,15 +57,30 @@ class RendererGraph
             const bridge = (window as any).api?.[p.bridgeKey]
             if (bridge === undefined) return { Ok: false, Error: p.notFound }
             // Each call answers a RelayReply envelope: { Ok, Value } or { Ok: false, Error: { Kind?, Message? } }.
+            // Each call is raced against a bounded timer so a hung relay fails the step with a step-only error.
+            const bounded = async (call: Promise<any>): Promise<any> =>
+            {
+                let timer: ReturnType<typeof setTimeout> | undefined
+                const timeout = new Promise<any>((resolve) => { timer = setTimeout(() => resolve({ Ok: false, Error: { Message: p.timedOut } }), p.callTimeoutMs) })
+                try
+                {
+                    return await Promise.race([call, timeout])
+                }
+                finally
+                {
+                    clearTimeout(timer)
+                }
+            }
             const failure = (reply: any): string => String(reply?.Error?.Kind ?? reply?.Error?.Message ?? p.failed)
             const model = JSON.stringify({ id: p.packageId, entities: [{ id: p.entityId }] })
-            const contributed = await bridge.Contribute(p.environment, p.graphName, p.packageId, [{ id: p.packageId, version: p.version, modelJson: model }])
+            const contributed = await bounded(bridge.Contribute(p.environment, p.graphName, p.packageId, [{ id: p.packageId, version: p.version, modelJson: model }]))
             if (!contributed?.Ok) return { Ok: false, Error: failure(contributed) }
-            const listed = await bridge.ListGraphs(p.environment)
+            const listed = await bounded(bridge.ListGraphs(p.environment))
             if (!listed?.Ok) return { Ok: false, Error: failure(listed) }
             return { Ok: true, PackageCount: contributed.Value?.PackageCount, Graphs: listed.Value }
         }, {
             bridgeKey: RendererGraph.BridgeKey, notFound: RendererGraph.NotFound, failed: RendererGraph.Failed,
+            timedOut: RendererGraph.TimedOut, callTimeoutMs: RendererGraph.CallTimeoutMs,
             entityId: RendererGraph.EntityId, environment, graphName, packageId, version: RendererGraph.PackageVersion,
         })
     }
@@ -105,29 +122,55 @@ class SmokeInputs
     }
 }
 
-const TenantId = 'pragmatic-default'
-const RunningStatus = 'running'
-const SignedOutKind = 'signed-out'
-const GraphName = 'ihc-smoke-graph'
-const PackageId = 'ihc-smoke'
-const OperatorNote = 'operator-run by hand outside Plexus: console desktop audit file check (no Bearer in it) and the operator Owner reset (Targets() becomes signed-out within 5 minutes)'
+// The spec's literals: data values, annotation text, step titles and assertion messages.
+class SmokeConstants
+{
+    public static readonly TenantId = 'pragmatic-default'
+    public static readonly RunningStatus = 'running'
+    public static readonly SignedOutKind = 'signed-out'
+    public static readonly GraphName = 'ihc-smoke-graph'
+    public static readonly PackageId = 'ihc-smoke'
+    public static readonly NotCoveredType = 'not covered'
+    public static readonly OperatorNote =
+        'operator-run by hand outside Plexus: console desktop audit file check (no Bearer in it) and the operator Owner reset (Targets() becomes signed-out within 5 minutes)'
+    public static readonly SuiteTitle = 'in-hive console sign-in live smoke'
+    public static readonly TestTitle = 'discover sign-in, console targets and relay contribute, sign out, typed-address sign-in'
+    public static readonly ElectronMissing = 'electron binary missing'
+    public static readonly StepLaunch = 'launch Plexus, signed out'
+    public static readonly StepDiscoverySignIn = 'discovery sign-in completes against the tenant'
+    public static readonly StepTargets = 'targets list the console environment as running'
+    public static readonly StepContribute = 'contribute through the console relay and list the graph'
+    public static readonly StepSignOut = 'sign out; targets are refused as signed out'
+    public static readonly StepTypedSignIn = 'typed console address sign-in lists the environment again'
+    public static readonly ShouldBeSignedIn = 'account should be signed in'
+    public static readonly HasTenantName = 'signed in with a tenant name'
+    public static readonly ListedUnderContribute = 'the console environment is listed under Contribute'
+    public static readonly ListedAgain = 'the console environment is listed again'
+    public static readonly TargetsRefusedPrefix = 'targets refused: '
+    public static readonly ContributeFailedPrefix = 'contribute failed: '
+
+    public static BuiltAppMissing(main: string): string
+    {
+        return `built app missing at ${main} - run npm run build`
+    }
+}
 
 // No trace, screenshot or video: the IdP leg handles the Owner password.
 test.use({ trace: 'off', screenshot: 'off', video: 'off' })
 
-test.describe('in-hive console sign-in live smoke', () => {
+test.describe(SmokeConstants.SuiteTitle, () => {
     test.skip(!SmokeInputs.IsConfigured(), SmokeInputs.SkipMessage)
     test.setTimeout(600_000)
 
-    test('discover sign-in, console targets and relay contribute, sign out, typed-address sign-in', async () => {
-        expect(existsSync(MAIN), `built app missing at ${MAIN} - run npm run build`).toBeTruthy()
-        expect(existsSync(ELECTRON_EXE), 'electron binary missing').toBeTruthy()
-        test.info().annotations.push({ type: 'not covered', description: OperatorNote })
+    test(SmokeConstants.TestTitle, async () => {
+        expect(existsSync(MAIN), SmokeConstants.BuiltAppMissing(MAIN)).toBeTruthy()
+        expect(existsSync(ELECTRON_EXE), SmokeConstants.ElectronMissing).toBeTruthy()
+        test.info().annotations.push({ type: SmokeConstants.NotCoveredType, description: SmokeConstants.OperatorNote })
 
         const inputs = SmokeInputs.FromEnvironment()
         // Picks the in-hive tenant when the email belongs to several; the in-hive IdP serves a
         // JavaScript login, so its login runs in a headless browser trusting the OS store.
-        const signIn = ScriptedDesktopSignIn.FromEnvironment({ ...process.env, [ScriptedDesktopSignIn.TenantEnv]: TenantId, [ScriptedDesktopSignIn.IdpLoginEnv]: ScriptedDesktopSignIn.IdpLoginBrowser })
+        const signIn = ScriptedDesktopSignIn.FromEnvironment({ ...process.env, [ScriptedDesktopSignIn.TenantEnv]: SmokeConstants.TenantId, [ScriptedDesktopSignIn.IdpLoginEnv]: ScriptedDesktopSignIn.IdpLoginBrowser })
         let profile: E2eProfile | undefined
         let l: Launched | undefined
 
@@ -136,46 +179,46 @@ test.describe('in-hive console sign-in live smoke', () => {
             const isolated = E2eProfile.Create()
             profile = isolated
 
-            await test.step('launch Plexus, signed out', async () => {
+            await test.step(SmokeConstants.StepLaunch, async () => {
                 l = await launchPlexus(isolated)
                 // The helper locates the services on first use; the signed-out state is its precondition.
             })
 
-            await test.step('discovery sign-in completes against the tenant', async () => {
+            await test.step(SmokeConstants.StepDiscoverySignIn, async () => {
                 await signIn.SignIn(l!.app, l!.win, isolated)
                 const state = await signIn.AccountState(l!.win)
-                expect(state.SignedIn, 'account should be signed in').toBeTruthy()
-                expect(state.TenantName ?? '', 'signed in with a tenant name').not.toBe('')
+                expect(state.SignedIn, SmokeConstants.ShouldBeSignedIn).toBeTruthy()
+                expect(state.TenantName ?? '', SmokeConstants.HasTenantName).not.toBe('')
             })
 
-            await test.step('targets list the console environment as running', async () => {
+            await test.step(SmokeConstants.StepTargets, async () => {
                 const result = await signIn.Targets(l!.win)
-                expect(result.ErrorKind, `targets refused: ${result.ErrorKind ?? ''}`).toBeUndefined()
+                expect(result.ErrorKind, SmokeConstants.TargetsRefusedPrefix + (result.ErrorKind ?? '')).toBeUndefined()
                 const found = result.Targets!.Contribute.find((t) => t.Name === inputs.Environment)
-                expect(found, 'the console environment is listed under Contribute').toBeDefined()
-                expect(found!.Status).toBe(RunningStatus)
+                expect(found, SmokeConstants.ListedUnderContribute).toBeDefined()
+                expect(found!.Status).toBe(SmokeConstants.RunningStatus)
             })
 
-            await test.step('contribute through the console relay and list the graph', async () => {
-                const outcome = await RendererGraph.ContributeAndList(l!.win, inputs.Environment, GraphName, PackageId)
-                expect(outcome.Ok, `contribute failed: ${outcome.Error ?? ''}`).toBeTruthy()
-                expect(outcome.Graphs ?? []).toContain(GraphName)
+            await test.step(SmokeConstants.StepContribute, async () => {
+                const outcome = await RendererGraph.ContributeAndList(l!.win, inputs.Environment, SmokeConstants.GraphName, SmokeConstants.PackageId)
+                expect(outcome.Ok, SmokeConstants.ContributeFailedPrefix + (outcome.Error ?? '')).toBeTruthy()
+                expect(outcome.Graphs ?? []).toContain(SmokeConstants.GraphName)
             })
 
-            await test.step('sign out; targets are refused as signed out', async () => {
+            await test.step(SmokeConstants.StepSignOut, async () => {
                 await signIn.EndSession(l!.win)
                 const state = await signIn.AccountState(l!.win)
                 expect(state.SignedIn).toBeFalsy()
                 const result = await signIn.Targets(l!.win)
-                expect(result.ErrorKind).toBe(SignedOutKind)
+                expect(result.ErrorKind).toBe(SmokeConstants.SignedOutKind)
             })
 
-            await test.step('typed console address sign-in lists the environment again', async () => {
+            await test.step(SmokeConstants.StepTypedSignIn, async () => {
                 await signIn.SignIn(l!.app, l!.win, isolated, { ConsoleAddress: inputs.ConsoleUrl })
                 const result = await signIn.Targets(l!.win)
-                expect(result.ErrorKind, `targets refused: ${result.ErrorKind ?? ''}`).toBeUndefined()
+                expect(result.ErrorKind, SmokeConstants.TargetsRefusedPrefix + (result.ErrorKind ?? '')).toBeUndefined()
                 const found = result.Targets!.Contribute.find((t) => t.Name === inputs.Environment)
-                expect(found, 'the console environment is listed again').toBeDefined()
+                expect(found, SmokeConstants.ListedAgain).toBeDefined()
             })
         }
         finally

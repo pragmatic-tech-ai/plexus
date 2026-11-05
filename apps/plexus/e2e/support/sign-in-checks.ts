@@ -9,6 +9,13 @@ export interface TenantRow
     DisplayName: string
 }
 
+// How the scripted IdP login runs (PLEXUS_E2E_IDP_LOGIN).
+export enum IdpLoginKind
+{
+    Http = 'http',
+    Browser = 'browser',
+}
+
 export class SignInCheckError extends Error
 {
     private static readonly ErrorName = 'SignInCheckError'
@@ -22,6 +29,7 @@ export class SignInCheckError extends Error
 
 export class SignInChecks
 {
+    private static readonly BadIdpLogin = 'PLEXUS_E2E_IDP_LOGIN must be `http` or `browser`'
     private static readonly HttpScheme = 'http:'
     private static readonly HttpsScheme = 'https:'
     private static readonly StateParam = 'state'
@@ -34,6 +42,15 @@ export class SignInChecks
 
     // Whether `url` is the PKCE authorize URL Plexus opens for sign-in: http(s) with state and
     // code_challenge. The intercepted opener also records any other external link opened meanwhile.
+    // The IdP login leg for a PLEXUS_E2E_IDP_LOGIN value: unset or `http` -> Http, `browser` -> Browser;
+    // anything else fails with a fixed sentence (a typo must not silently fall back to the http leg).
+    public static IdpLoginKindOf(value: string | undefined): IdpLoginKind
+    {
+        if (value === undefined || value === IdpLoginKind.Http) return IdpLoginKind.Http
+        if (value === IdpLoginKind.Browser) return IdpLoginKind.Browser
+        throw new SignInCheckError(SignInChecks.BadIdpLogin)
+    }
+
     public static IsAuthorizeUrl(url: string): boolean
     {
         const S = SignInChecks

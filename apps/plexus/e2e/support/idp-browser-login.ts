@@ -12,7 +12,7 @@
 //
 // Secret hygiene: no tracing, no video, no screenshots (also none on failure). The password only goes
 // into the field. Errors name the failed step only, never the underlying error text or any URL.
-import { chromium } from '@playwright/test'
+import { chromium } from 'playwright'
 import { IdpLoginError, IdpPasswordLogin } from './idp-password-login'
 
 export class IdpBrowserLogin
@@ -53,7 +53,7 @@ export class IdpBrowserLogin
     }
 
     // Whether `url` is the Plexus loopback callback (http, loopback host, callback path).
-    private static IsCallback(url: URL): boolean
+    public static IsCallback(url: URL): boolean
     {
         const S = IdpBrowserLogin
         return url.protocol === S.HttpScheme && S.LoopbackHosts.includes(url.hostname) && url.pathname === IdpPasswordLogin.CallbackPath

@@ -51,7 +51,7 @@ import { AccountDialogStep } from '../src/renderer/src/modules/account/account-d
 import { IdpBrowserLogin } from './support/idp-browser-login'
 import { IdpPasswordLogin } from './support/idp-password-login'
 import type { E2eProfile } from './support/e2e-profile'
-import { SignInChecks, type TenantRow } from './support/sign-in-checks'
+import { IdpLoginKind, SignInChecks, type TenantRow } from './support/sign-in-checks'
 
 // The dialog's progress as the renderer reports it to the node side.
 interface DialogProbe
@@ -92,11 +92,14 @@ export class ScriptedDesktopSignIn
     public static readonly TenantEnv = 'PLEXUS_E2E_TENANT'
     public static readonly IdpCaFileEnv = 'PLEXUS_E2E_IDP_CA_FILE'
     public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
-    public static readonly IdpLoginBrowser = 'browser'
+    public static readonly IdpLoginBrowser = IdpLoginKind.Browser
     public static readonly SkipMessage =
         `needs a scripted desktop sign-in: set ${ScriptedDesktopSignIn.EmailEnv} (account email) and `
         + `${ScriptedDesktopSignIn.PasswordFileEnv} (path of a file holding its password)`
 
+    private static readonly UnknownErrorKind = 'unknown'
+    private static readonly TimedOutKind = 'timed-out'
+    private static readonly RelayCallTimeoutMs = 60_000
     private static readonly OpenerKey = '__plexusE2eOpener'
     private static readonly StateKey = '__plexusE2eSignIn'
     private static readonly VisualBackref = 'mural:visual-backref'
@@ -153,7 +156,7 @@ export class ScriptedDesktopSignIn
         const password = readFileSync(passwordFile, S.Utf8).trim()
         if (password === '') throw new Error(S.EmptyPassword)
         const caFile = S.Value(env, S.IdpCaFileEnv)
-        const login: IIdpLogin = S.Value(env, S.IdpLoginEnv) === S.IdpLoginBrowser
+        const login: IIdpLogin = SignInChecks.IdpLoginKindOf(S.Value(env, S.IdpLoginEnv)) === IdpLoginKind.Browser
             ? new IdpBrowserLogin()
             : new IdpPasswordLogin(caFile === undefined ? undefined : readFileSync(caFile))
         return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login)
@@ -199,10 +202,15 @@ export class ScriptedDesktopSignIn
         }, S.StateKey)
         if (!SignInChecks.ShouldSignOut(this.signInAttempted, signedIn)) return
         this.signInAttempted = false
-        await win.evaluate(async (stateKey) =>
+        await this.SignOutAccount(win)
+    }
+
+    private SignOutAccount(win: Page): Promise<void>
+    {
+        return win.evaluate(async (stateKey) =>
         {
             await (window as any)[stateKey].account.SignOut()
-        }, S.StateKey)
+        }, ScriptedDesktopSignIn.StateKey)
     }
 
     // The account state (SignedIn, TenantName) as the renderer's account service reports it now.
@@ -220,26 +228,31 @@ export class ScriptedDesktopSignIn
     // The sign-in targets, or the AccountError kind when the call is refused (e.g. signed out).
     public Targets(win: Page): Promise<{ Targets?: { Contribute: { Name: string; Status: string }[]; Publish: { Name: string; Status: string }[] }; ErrorKind?: string }>
     {
-        return win.evaluate(async (stateKey) =>
+        const S = ScriptedDesktopSignIn
+        return win.evaluate(async (p) =>
         {
+            // Each relay call is raced against a bounded timer so a hung relay fails the step, not the run.
+            let timer: ReturnType<typeof setTimeout> | undefined
+            const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject({ Kind: p.timedOutKind }), p.timeoutMs) })
             try
             {
-                return { Targets: await (window as any)[stateKey].account.Targets() }
+                return { Targets: await Promise.race([(window as any)[p.stateKey].account.Targets(), timeout]) }
             }
             catch (e)
             {
-                return { ErrorKind: String((e as any)?.Kind ?? 'unknown') }
+                return { ErrorKind: String((e as any)?.Kind ?? p.unknownKind) }
             }
-        }, ScriptedDesktopSignIn.StateKey)
+            finally
+            {
+                clearTimeout(timer)
+            }
+        }, { stateKey: S.StateKey, unknownKind: S.UnknownErrorKind, timedOutKind: S.TimedOutKind, timeoutMs: S.RelayCallTimeoutMs })
     }
 
     // Ends the current session now (the spec's own sign-out step); a later SignIn may follow.
     public async EndSession(win: Page): Promise<void>
     {
-        await win.evaluate(async (stateKey) =>
-        {
-            await (window as any)[stateKey].account.SignOut()
-        }, ScriptedDesktopSignIn.StateKey)
+        await this.SignOutAccount(win)
     }
 
     private async InterceptOpener(app: ElectronApplication): Promise<void>

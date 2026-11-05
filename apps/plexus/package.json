@@ -21,6 +21,7 @@
     "test:watch": "vitest",
     "typecheck:node": "tsc -p tsconfig.node.json --noEmit",
     "typecheck:web": "tsc -p tsconfig.web.json --noEmit",
+    "typecheck:e2e": "tsc -p tsconfig.e2e.json",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "kill": "powershell -NoProfile -Command \"Get-Process -Name node,cmd,bash -ErrorAction SilentlyContinue | Stop-Process -Force\"",
     "test:e2e": "playwright test",
