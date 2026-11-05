@@ -5,8 +5,8 @@
 //   - the console installed on the hive with development TLS, its environment (PLEXUS_IHC_ENVIRONMENT)
 //     created and running, and the control plane advertising the console (discovery returns consoleUrl);
 //   - the dev CA trusted by the OS store, so Plexus main reaches the console over https with no CA option;
-//   - PLEXUS_E2E_IDP_CA_FILE set to the install's devCaFile, so the scripted IdP login (Node https in
-//     this test process, which does not use the OS store) trusts the same CA.
+//   - the IdP login runs in a separate headless Chromium (PLEXUS_E2E_IDP_LOGIN=browser, set by the
+//     spec), which trusts the OS store, so PLEXUS_E2E_IDP_CA_FILE is not needed.
 //
 // Inputs (environment variables, all required):
 //   PLEXUS_E2E_PLATFORM_ADDRESS     platform address used by the discovery sign-in (e.g. http://localhost:7000)
@@ -14,7 +14,6 @@
 //   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding the Owner's password (read, never printed)
 //   PLEXUS_IHC_CONSOLE_URL          the console address (e.g. https://console-pragmatic-default.localtest.me)
 //   PLEXUS_IHC_ENVIRONMENT          the environment created on the console (e.g. smoke-ihd)
-// Also read by the helper: PLEXUS_E2E_IDP_CA_FILE (see above).
 //
 // Secret hygiene: the password lives only inside ScriptedDesktopSignIn. Tracing, screenshots and video
 // are disabled for this spec, and no step title or assertion message carries a secret.
@@ -153,8 +152,9 @@ test.describe('in-hive console sign-in live smoke', () => {
         test.info().annotations.push({ type: 'not covered', description: OperatorNote })
 
         const inputs = SmokeInputs.FromEnvironment()
-        // Picks the in-hive tenant when the email belongs to several.
-        const signIn = ScriptedDesktopSignIn.FromEnvironment({ ...process.env, [ScriptedDesktopSignIn.TenantEnv]: TenantId })
+        // Picks the in-hive tenant when the email belongs to several; the in-hive IdP serves a
+        // JavaScript login, so its login runs in a headless browser trusting the OS store.
+        const signIn = ScriptedDesktopSignIn.FromEnvironment({ ...process.env, [ScriptedDesktopSignIn.TenantEnv]: TenantId, [ScriptedDesktopSignIn.IdpLoginEnv]: ScriptedDesktopSignIn.IdpLoginBrowser })
         let profile: E2eProfile | undefined
         let l: Launched | undefined
 

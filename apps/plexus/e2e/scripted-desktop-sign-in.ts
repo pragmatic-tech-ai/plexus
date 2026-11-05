@@ -38,11 +38,17 @@
 //                                   matching no listed tenant fails the sign-in)
 //   PLEXUS_E2E_IDP_CA_FILE          the IdP's dev CA certificate (optional; for an https IdP with a
 //                                   private CA, added to Node's default trust)
+//   PLEXUS_E2E_IDP_LOGIN            how the IdP login runs: `http` (default; Node http(s) against a
+//                                   server-rendered login form, as the control-plane IdP serves) or
+//                                   `browser` (a separate headless Chromium that types into a
+//                                   JavaScript login page, as the in-hive tenant IdP serves; it trusts
+//                                   the OS root store, so PLEXUS_E2E_IDP_CA_FILE is not used)
 // SignIn takes an optional ConsoleAddress: the dialog then signs in at that in-hive console address
 // (the typed path) instead of discovering tenants from the platform address.
 import { readFileSync } from 'node:fs'
 import type { ElectronApplication, Page } from 'playwright'
 import { AccountDialogStep } from '../src/renderer/src/modules/account/account-dialog-step'
+import { IdpBrowserLogin } from './support/idp-browser-login'
 import { IdpPasswordLogin } from './support/idp-password-login'
 import type { E2eProfile } from './support/e2e-profile'
 import { SignInChecks, type TenantRow } from './support/sign-in-checks'
@@ -65,6 +71,12 @@ interface LocateResult
     SignedIn?: boolean
 }
 
+// The IdP login leg: runs the login for one authorize URL.
+export interface IIdpLogin
+{
+    Run(authorizeUrl: string, email: string, password: string): Promise<void>
+}
+
 // Options for one SignIn.
 export interface ScriptedSignInOptions
 {
@@ -79,6 +91,8 @@ export class ScriptedDesktopSignIn
     public static readonly PlatformAddressEnv = 'PLEXUS_E2E_PLATFORM_ADDRESS'
     public static readonly TenantEnv = 'PLEXUS_E2E_TENANT'
     public static readonly IdpCaFileEnv = 'PLEXUS_E2E_IDP_CA_FILE'
+    public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
+    public static readonly IdpLoginBrowser = 'browser'
     public static readonly SkipMessage =
         `needs a scripted desktop sign-in: set ${ScriptedDesktopSignIn.EmailEnv} (account email) and `
         + `${ScriptedDesktopSignIn.PasswordFileEnv} (path of a file holding its password)`
@@ -117,7 +131,7 @@ export class ScriptedDesktopSignIn
         private readonly password: string,
         private readonly platformAddress: string | undefined,
         private readonly tenant: string | undefined,
-        private readonly login: IdpPasswordLogin,
+        private readonly login: IIdpLogin,
     )
     {
     }
@@ -139,7 +153,9 @@ export class ScriptedDesktopSignIn
         const password = readFileSync(passwordFile, S.Utf8).trim()
         if (password === '') throw new Error(S.EmptyPassword)
         const caFile = S.Value(env, S.IdpCaFileEnv)
-        const login = new IdpPasswordLogin(caFile === undefined ? undefined : readFileSync(caFile))
+        const login: IIdpLogin = S.Value(env, S.IdpLoginEnv) === S.IdpLoginBrowser
+            ? new IdpBrowserLogin()
+            : new IdpPasswordLogin(caFile === undefined ? undefined : readFileSync(caFile))
         return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login)
     }
 
