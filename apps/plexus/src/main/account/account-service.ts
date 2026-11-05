@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountError, AccountErrorKind, PlatformAddress, TargetKind,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { DesktopApiClient } from './desktop-api-client.js'
@@ -64,7 +64,8 @@ export class AccountService
     private static readonly SignedOutState: AccountState = { SignedIn: false }
 
     public readonly Changed = new Signal<AccountState>()
-    private discovered: { PlatformUrl: string; Email: string; TenantPlaneUrl: string } | undefined
+    // Consoles: tenant id -> the console address to sign in at (main-process only).
+    private discovered: { PlatformUrl: string; Email: string; Consoles: ReadonlyMap<string, string> } | undefined
     private attempt: SignInAttempt | undefined
     // RememberChoice read-modify-writes run one at a time, so concurrent calls neither share a temp
     // file nor lose each other's update.
@@ -101,61 +102,28 @@ export class AccountService
         const address = email.trim()
         const found = await this.client.Discover(platform, address)
         if (PlatformAddress.Validate(found.TenantPlaneUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
-        this.discovered = { PlatformUrl: platform, Email: address, TenantPlaneUrl: found.TenantPlaneUrl }
+        this.discovered = { PlatformUrl: platform, Email: address, Consoles: new Map(found.Tenants.map(t => [t.Id, t.ConsoleUrl])) }
         // Exactly the renderer's shape: a console address never crosses IPC.
         return found.Tenants.map(t => ({ Id: t.Id, DisplayName: t.DisplayName }))
     }
 
-    public async SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
+    public SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
     {
-        // Without secure storage the session could never be kept: say so before the browser opens.
-        if (!this.store.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
-        this.attempt?.Cancel()
-        const attempt = new SignInAttempt(this.receivers())
-        this.attempt = attempt
-        const receiver = attempt.Receiver
-        try
+        const address = email.trim()
+        return this.Attempt(async () =>
         {
-            const address = email.trim()
-            const plane = await this.TenantPlaneFor(AccountService.Platform(platformUrl), address)
-            attempt.Check()
-            const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
-            const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
-            const { RedirectUri } = await receiver.Start()
-            attempt.Check()
-            const authorizeUrl = await this.client.Begin(plane, tenantId, RedirectUri, challenge)
-            attempt.Check()
-            const state = AccountService.StateIn(authorizeUrl)
-            const code = receiver.WaitForCode(state)
-            const [, received] = await Promise.all([this.openExternal(authorizeUrl), code])
-            attempt.Check()
-            const done = await this.client.Complete(plane, state, received, verifier)
-            const session: DesktopSession = {
-                ConsoleUrl: plane, Token: done.Token, Email: done.Email ?? address, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
-            }
-            // Cancelled while Complete was in flight: the tenant plane already issued a session; end it
-            // rather than leave a live token nobody holds. Past this point the sign-in is committed.
-            if (attempt.Cancelled)
-            {
-                await this.EndQuietly(session)
-                attempt.Check()
-            }
-            const previous = await this.Keep(session)
-            if (previous !== undefined && previous.Token !== session.Token) await this.EndQuietly(previous)
-            const signedIn = AccountService.StateOf(session)
-            this.Changed.emit(signedIn)
-            return signedIn
-        }
-        catch (e)
-        {
-            attempt.Check()
-            throw e
-        }
-        finally
-        {
-            if (this.attempt === attempt) this.attempt = undefined
-            await receiver.Close()
-        }
+            const consoleUrl = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
+            if (ConsoleAddress.Validate(consoleUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
+            return { ConsoleUrl: consoleUrl, TenantId: tenantId }
+        }, address)
+    }
+
+    // Signs in at a console address the user typed: it names its own tenant, so no email is sent to it.
+    public SignInAtConsole(consoleUrl: string, email: string): Promise<AccountState>
+    {
+        if (ConsoleAddress.Validate(consoleUrl) !== undefined) return Promise.reject(new AccountError(AccountErrorKind.ConsoleAddressInvalid))
+        const normalised = ConsoleAddress.Normalise(consoleUrl)
+        return this.Attempt(async () => ({ ConsoleUrl: normalised, TenantId: (await this.client.Console(normalised)).TenantId }), email.trim())
     }
 
     public async CancelSignIn(): Promise<void>
@@ -228,12 +196,74 @@ export class AccountService
         await fs.rename(temp, target)
     }
 
-    private async TenantPlaneFor(platform: string, email: string): Promise<string>
+    // The attempt is created first so a cancel during the resolving step (discovery, console lookup)
+    // is honoured; `resolve` names the console and tenant to sign in at.
+    private async Attempt(resolve: () => Promise<{ ConsoleUrl: string; TenantId: string }>, email: string): Promise<AccountState>
     {
-        const known = this.discovered
-        if (known !== undefined && known.PlatformUrl === platform && known.Email === email) return known.TenantPlaneUrl
-        await this.Discover(platform, email)
-        return this.discovered!.TenantPlaneUrl
+        // Without secure storage the session could never be kept: say so before the browser opens.
+        if (!this.store.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
+        this.attempt?.Cancel()
+        const attempt = new SignInAttempt(this.receivers())
+        this.attempt = attempt
+        try
+        {
+            const target = await resolve()
+            attempt.Check()
+            return await this.SignInAt(attempt, target.ConsoleUrl, target.TenantId, email)
+        }
+        catch (e)
+        {
+            attempt.Check()
+            throw e
+        }
+        finally
+        {
+            if (this.attempt === attempt) this.attempt = undefined
+            await attempt.Receiver.Close()
+        }
+    }
+
+    private async SignInAt(attempt: SignInAttempt, consoleUrl: string, tenantId: string, email: string): Promise<AccountState>
+    {
+        const normalised = ConsoleAddress.Normalise(consoleUrl)
+        const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
+        const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
+        const { RedirectUri } = await attempt.Receiver.Start()
+        attempt.Check()
+        const authorizeUrl = await this.client.Begin(normalised, tenantId, RedirectUri, challenge)
+        attempt.Check()
+        const state = AccountService.StateIn(authorizeUrl)
+        const code = attempt.Receiver.WaitForCode(state)
+        const [, received] = await Promise.all([this.openExternal(authorizeUrl), code])
+        attempt.Check()
+        const done = await this.client.Complete(normalised, state, received, verifier)
+        const session: DesktopSession = {
+            ConsoleUrl: normalised, Token: done.Token, Email: done.Email ?? email, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
+        }
+        // Cancelled while Complete was in flight: the console already issued a session; end it
+        // rather than leave a live token nobody holds. Past this point the sign-in is committed.
+        if (attempt.Cancelled)
+        {
+            await this.EndQuietly(session)
+            attempt.Check()
+        }
+        const previous = await this.Keep(session)
+        if (previous !== undefined && previous.Token !== session.Token) await this.EndQuietly(previous)
+        const signedIn = AccountService.StateOf(session)
+        this.Changed.emit(signedIn)
+        return signedIn
+    }
+
+    // From the cached discovery; discovered again when the platform or email differ or the tenant is
+    // not in the cached answer (it may be stale). Still absent afterwards: no such account.
+    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<string>
+    {
+        const cached = this.discovered
+        const fresh = cached !== undefined && cached.PlatformUrl === platform && cached.Email === email && cached.Consoles.has(tenantId)
+        if (!fresh) await this.Discover(platform, email)
+        const consoleUrl = this.discovered!.Consoles.get(tenantId)
+        if (consoleUrl === undefined) throw new AccountError(AccountErrorKind.NoAccount)
+        return consoleUrl
     }
 
     // Stores a freshly issued session and returns the one it replaced. When it cannot be stored the

@@ -274,6 +274,102 @@ describe('AccountService', () =>
         expect(h.Receiver.Closed).toBe(1)
     })
 
+    it('signs in at the chosen tenant\'s console address', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, {
+            tenants: [{ id: 'a', displayName: 'A', consoleUrl: 'https://console-a.example' }, { id: 'b', displayName: 'B', consoleUrl: 'http://127.0.0.1:7002' }],
+            tenantPlaneUrl: Harness.Plane,
+        }))
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'tok-a', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 'a', tenantName: 'A' }))
+        h.Fetch.Routes.set('/desktop/targets', () => FakeFetch.Json(200, { contribute: [], publish: [] }))
+        await h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'a')
+        expect(h.Fetch.To('/desktop/sign-in/begin')[0].Url).toBe('https://console-a.example/desktop/sign-in/begin')
+        expect(h.Fetch.To('/desktop/sign-in/complete')[0].Url).toBe('https://console-a.example/desktop/sign-in/complete')
+        expect((await h.Store.Load())!.ConsoleUrl).toBe('https://console-a.example')
+        await h.Service.Targets()
+        expect(h.Fetch.To('/desktop/targets')[0].Url).toBe('https://console-a.example/desktop/targets')
+    })
+
+    it('a discovered cleartext non-loopback console is refused before Begin', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, {
+            tenants: [{ id: 'a', displayName: 'A', consoleUrl: 'http://console-a.example' }],
+            tenantPlaneUrl: Harness.Plane,
+        }))
+        expect(await Caught.Kind(h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'a'))).toBe(AccountErrorKind.Unavailable)
+        expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
+        expect(h.Opened).toEqual([])
+        expect(h.Receiver.ExpectedState).toBeUndefined()
+        expect(h.Fetch.Requests.filter(r => !r.Url.includes('/api/desktop/discover'))).toEqual([])
+    })
+
+    it('a tenant absent from the discovery answer is NoAccount', async () =>
+    {
+        expect(await Caught.Kind(h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'nope'))).toBe(AccountErrorKind.NoAccount)
+        expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
+    })
+
+    it('SignInAtConsole signs in at the typed address', async () =>
+    {
+        h.Fetch.Routes.set('/desktop/console', () => FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme' }))
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'tok-acme', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 'acme', tenantName: 'Acme' }))
+        const state = await h.Service.SignInAtConsole('  HTTPS://Console-Acme.localtest.me/ ', 'ada@acme.example')
+        expect(state).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
+        expect(h.Fetch.To('/desktop/console')[0].Url).toBe('https://console-acme.localtest.me/desktop/console')
+        const [begin] = h.Fetch.To('/desktop/sign-in/begin')
+        expect(begin.Url).toBe('https://console-acme.localtest.me/desktop/sign-in/begin')
+        expect(begin.Body).toMatchObject({ tenantId: 'acme' })
+        expect(begin.Body).not.toHaveProperty('email')
+        expect((await h.Store.Load())!.ConsoleUrl).toBe('https://console-acme.localtest.me')
+        expect(h.Fetch.To('/api/desktop/discover')).toEqual([])
+    })
+
+    it('SignInAtConsole rejects an invalid address without dialing', async () =>
+    {
+        expect(await Caught.Kind(h.Service.SignInAtConsole('http://console-acme.localtest.me', 'a@b.c'))).toBe(AccountErrorKind.ConsoleAddressInvalid)
+        expect(h.Fetch.Requests).toEqual([])
+        expect(h.Opened).toEqual([])
+    })
+
+    it('SignInAtConsole on a non-console never opens the browser', async () =>
+    {
+        h.Fetch.Routes.set('/desktop/console', () => FakeFetch.Json(404, {}))
+        expect(await Caught.Kind(h.Service.SignInAtConsole('https://console-acme.localtest.me', 'a@b.c'))).toBe(AccountErrorKind.NotAConsole)
+        expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
+        expect(h.Opened).toEqual([])
+        expect(h.Receiver.Closed).toBe(1)
+    })
+
+    it('cancel during the console lookup: no browser, kind Cancelled', async () =>
+    {
+        const gate = new Gate()
+        h.Fetch.Routes.set('/desktop/console', async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme' })
+        })
+        const signIn = Caught.Kind(h.Service.SignInAtConsole('https://console-acme.localtest.me', 'a@b.c'))
+        while (h.Fetch.To('/desktop/console').length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.CancelSignIn()
+        gate.Release()
+        expect(await signIn).toBe(AccountErrorKind.Cancelled)
+        expect(h.Opened).toEqual([])
+        expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
+        expect(h.Receiver.Closed).toBe(1)
+    })
+
+    it('signing in to a console ends the previous platform session at the platform', async () =>
+    {
+        await h.Store.Save({ ConsoleUrl: Harness.Plane, Token: 'old-token', Email: 'ada@acme.example', TenantId: 't0', TenantName: 'Old', ExpiresAt: '2026-11-11T00:00:00.000Z' })
+        h.Fetch.Routes.set('/desktop/console', () => FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme' }))
+        h.Fetch.Routes.set('/desktop/sign-out', () => new Response(null, { status: 204 }))
+        h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'tok-acme', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 'acme', tenantName: 'Acme' }))
+        await h.Service.SignInAtConsole('https://console-acme.localtest.me', 'ada@acme.example')
+        const [signOut] = h.Fetch.To('/desktop/sign-out')
+        expect(signOut.Url).toBe('http://127.0.0.1:7002/desktop/sign-out')
+        expect(signOut.Headers['authorization']).toBe('Bearer old-token')
+    })
+
     it('cancel during an in-flight Begin (also the will-quit path): no browser, kind Cancelled', async () =>
     {
         const gate = new Gate()

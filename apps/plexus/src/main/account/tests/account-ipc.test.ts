@@ -29,6 +29,7 @@ class FakeService
     public async State(): Promise<AccountState> { return this.Run(['State'], { SignedIn: true, Email: 'a@b.c', TenantName: 'Acme' }) }
     public async Discover(p: string, e: string): Promise<DiscoveredTenant[]> { return this.Run(['Discover', p, e], [{ Id: 't', DisplayName: 'T' }]) }
     public async SignIn(p: string, e: string, t: string): Promise<AccountState> { return this.Run(['SignIn', p, e, t], { SignedIn: true }) }
+    public async SignInAtConsole(c: string, e: string): Promise<AccountState> { return this.Run(['SignInAtConsole', c, e], { SignedIn: true }) }
     public async CancelSignIn(): Promise<void> { return this.Run(['CancelSignIn'], undefined) }
     public async SignOut(): Promise<AccountState> { return this.Run(['SignOut'], { SignedIn: false }) }
     public async Targets(): Promise<AccountTargets> { return this.Run(['Targets'], { Contribute: [], Publish: [] }) }
@@ -85,8 +86,6 @@ describe('AccountIpc', () =>
         const h = new Harness()
         for (const channel of Object.values(AccountChannel))
         {
-            // SignInAtConsole is bound by Task 7 (main-process service); remove the exclusion there.
-            if (channel === AccountChannel.SignInAtConsole) continue
             expect(h.Ipc.Handlers.has(channel)).toBe(channel !== AccountChannel.Changed)
         }
     })
@@ -112,6 +111,21 @@ describe('AccountIpc', () =>
             ['LastChoice', TargetKind.Publish],
             ['RememberChoice', TargetKind.Contribute, { Environment: 'dev', GraphName: 'g' }],
         ])
+    })
+
+    it('sign-in-at-console passes both strings and answers the state envelope', async () =>
+    {
+        const h = new Harness()
+        expect(await h.Invoke(AccountChannel.SignInAtConsole, 'https://c.example', 'a@b.c')).toEqual({ Ok: true, Value: { SignedIn: true } })
+        expect(h.Service.Calls).toEqual([['SignInAtConsole', 'https://c.example', 'a@b.c']])
+    })
+
+    it('a non-string console address is refused as malformed', async () =>
+    {
+        const h = new Harness()
+        expect(await h.Invoke(AccountChannel.SignInAtConsole, 42, 'a@b.c')).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
+        expect(await h.Invoke(AccountChannel.SignInAtConsole, 'https://c.example', undefined)).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
+        expect(h.Service.Calls).toEqual([])
     })
 
     it('carries an AccountError as its kind only', async () =>

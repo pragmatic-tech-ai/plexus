@@ -26,6 +26,8 @@ export class AccountIpc
             service.Discover(AccountIpc.Text(platformUrl), AccountIpc.Text(email)), AccountIpc.LogUnexpected))
         ipc.handle(AccountChannel.SignIn, (_e, platformUrl: unknown, email: unknown, tenantId: unknown) => AccountWire.Capture(async () =>
             service.SignIn(AccountIpc.Text(platformUrl), AccountIpc.Text(email), AccountIpc.Text(tenantId)), AccountIpc.LogUnexpected))
+        ipc.handle(AccountChannel.SignInAtConsole, (_e, consoleUrl: unknown, email: unknown) => AccountWire.Capture(async () =>
+            service.SignInAtConsole(AccountIpc.Text(consoleUrl), AccountIpc.Text(email)), AccountIpc.LogUnexpected))
         ipc.handle(AccountChannel.CancelSignIn, () => AccountWire.Capture(() => service.CancelSignIn(), AccountIpc.LogUnexpected))
         ipc.handle(AccountChannel.SignOut, () => AccountWire.Capture(() => service.SignOut(), AccountIpc.LogUnexpected))
         ipc.handle(AccountChannel.Targets, () => AccountWire.Capture(() => service.Targets(), AccountIpc.LogUnexpected))
