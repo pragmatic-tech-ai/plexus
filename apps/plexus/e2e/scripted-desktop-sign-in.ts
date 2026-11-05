@@ -38,6 +38,8 @@
 //                                   matching no listed tenant fails the sign-in)
 //   PLEXUS_E2E_IDP_CA_FILE          the IdP's dev CA certificate (optional; for an https IdP with a
 //                                   private CA, added to Node's default trust)
+// SignIn takes an optional ConsoleAddress: the dialog then signs in at that in-hive console address
+// (the typed path) instead of discovering tenants from the platform address.
 import { readFileSync } from 'node:fs'
 import type { ElectronApplication, Page } from 'playwright'
 import { AccountDialogStep } from '../src/renderer/src/modules/account/account-dialog-step'
@@ -61,6 +63,13 @@ interface LocateResult
 {
     Fault?: string
     SignedIn?: boolean
+}
+
+// Options for one SignIn.
+export interface ScriptedSignInOptions
+{
+    // An in-hive console address to type into the dialog (signs in at the console, no discovery).
+    ConsoleAddress?: string
 }
 
 export class ScriptedDesktopSignIn
@@ -135,7 +144,7 @@ export class ScriptedDesktopSignIn
     }
 
     // Signs the app (launched on `profile`) in; resolves once the account reports signed in.
-    public async SignIn(app: ElectronApplication, win: Page, profile: E2eProfile): Promise<void>
+    public async SignIn(app: ElectronApplication, win: Page, profile: E2eProfile, options: ScriptedSignInOptions = {}): Promise<void>
     {
         const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
         if (!profile.Owns(userData)) throw new Error(ScriptedDesktopSignIn.NotIsolated)
@@ -147,7 +156,7 @@ export class ScriptedDesktopSignIn
             const existing = SignInChecks.ExistingSessionFault(located.SignedIn === true)
             if (existing !== undefined) throw new Error(existing)
             this.signInAttempted = true
-            await this.OpenDialogAndContinue(win)
+            await this.OpenDialogAndContinue(win, options.ConsoleAddress)
             const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
             await this.login.Run(authorizeUrl, this.email, this.password)
             await this.AwaitSignedIn(win)
@@ -178,6 +187,43 @@ export class ScriptedDesktopSignIn
         {
             await (window as any)[stateKey].account.SignOut()
         }, S.StateKey)
+    }
+
+    // The account state (SignedIn, TenantName) as the renderer's account service reports it now.
+    // Call after SignIn has located the services.
+    public AccountState(win: Page): Promise<{ SignedIn: boolean; Email?: string; TenantName?: string }>
+    {
+        return win.evaluate(async (stateKey) =>
+        {
+            const account = (window as any)[stateKey].account
+            await account.Refresh()
+            return { SignedIn: account.State.SignedIn === true, Email: account.State.Email, TenantName: account.State.TenantName }
+        }, ScriptedDesktopSignIn.StateKey)
+    }
+
+    // The sign-in targets, or the AccountError kind when the call is refused (e.g. signed out).
+    public Targets(win: Page): Promise<{ Targets?: { Contribute: { Name: string; Status: string }[]; Publish: { Name: string; Status: string }[] }; ErrorKind?: string }>
+    {
+        return win.evaluate(async (stateKey) =>
+        {
+            try
+            {
+                return { Targets: await (window as any)[stateKey].account.Targets() }
+            }
+            catch (e)
+            {
+                return { ErrorKind: String((e as any)?.Kind ?? 'unknown') }
+            }
+        }, ScriptedDesktopSignIn.StateKey)
+    }
+
+    // Ends the current session now (the spec's own sign-out step); a later SignIn may follow.
+    public async EndSession(win: Page): Promise<void>
+    {
+        await win.evaluate(async (stateKey) =>
+        {
+            await (window as any)[stateKey].account.SignOut()
+        }, ScriptedDesktopSignIn.StateKey)
     }
 
     private async InterceptOpener(app: ElectronApplication): Promise<void>
@@ -252,7 +298,7 @@ export class ScriptedDesktopSignIn
     }
 
     // Raises the sign-in request (the account dialog opens), enters the email and presses Continue.
-    private async OpenDialogAndContinue(win: Page): Promise<void>
+    private async OpenDialogAndContinue(win: Page, consoleAddress: string | undefined): Promise<void>
     {
         const S = ScriptedDesktopSignIn
         const fault = await win.evaluate((p) =>
@@ -271,11 +317,17 @@ export class ScriptedDesktopSignIn
             if (dialog === undefined) return p.noDialog
             state.dialog = dialog
             dialog.Email = p.email
+            // UseConsoleAddress has no setter: its command switches the dialog to the typed address.
+            if (p.consoleAddress !== undefined)
+            {
+                dialog.UseConsoleAddressCommand.Execute(undefined)
+                dialog.ConsoleAddress = p.consoleAddress
+            }
             if (!dialog.ContinueCommand.CanExecute(undefined)) return p.cannotContinue
             dialog.ContinueCommand.Execute(undefined)
             return undefined
         }, {
-            stateKey: S.StateKey, email: this.email, platformAddress: this.platformAddress,
+            stateKey: S.StateKey, email: this.email, platformAddress: this.platformAddress, consoleAddress,
             addressSetting: S.PlatformAddressSetting, noAddressSetting: S.NoAddressSetting,
             noDialog: S.NoDialog, cannotContinue: S.CannotContinue,
         })
