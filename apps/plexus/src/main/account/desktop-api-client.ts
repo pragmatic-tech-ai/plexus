@@ -1,4 +1,4 @@
-import { AccountError, AccountErrorKind, TargetStatus, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetStatus, UrlBase, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import type { DesktopSession } from './desktop-session-store.js'
 import { TextValue } from './text-value.js'
@@ -32,7 +32,6 @@ export class DesktopApiClient
     private static readonly AcceptHeader = 'Accept'
     private static readonly JsonType = 'application/json'
     private static readonly BearerPrefix = 'Bearer '
-    private static readonly TrailingSlashes = /\/+$/
     private static readonly NoRedirects: RequestRedirect = 'error'
     private static readonly ManualRedirects: RequestRedirect = 'manual'
     private static readonly StatusOk = 200
@@ -134,7 +133,7 @@ export class DesktopApiClient
         if (token !== undefined) headers[DesktopApiClient.AuthorizationHeader] = `${DesktopApiClient.BearerPrefix}${token}`
         try
         {
-            return await this.fetch(`${base.trim().replace(DesktopApiClient.TrailingSlashes, '')}${path}`, {
+            return await this.fetch(`${UrlBase.Of(base)}${path}`, {
                 method,
                 headers,
                 body: body === undefined ? undefined : JSON.stringify(body),

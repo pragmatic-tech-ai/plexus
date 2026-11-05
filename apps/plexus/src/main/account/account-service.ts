@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind, TenantPlaneAddress,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind, TenantPlaneAddress, UrlBase,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
@@ -56,7 +56,6 @@ export class AccountService
     private static readonly SecureScheme = 'https:'
     private static readonly CleartextScheme = 'http:'
     private static readonly StateParam = 'state'
-    private static readonly TrailingSlashes = /\/+$/
     private static readonly VerifierBytes = 32
     private static readonly Sha256 = 'sha256'
     private static readonly Base64Url = 'base64url'
@@ -343,7 +342,7 @@ export class AccountService
         if (found.FromTenantPlane)
         {
             if (!TenantPlaneAddress.IsUsable(found.ConsoleUrl)) throw new AccountError(AccountErrorKind.Unavailable)
-            return found.ConsoleUrl.trim().replace(AccountService.TrailingSlashes, '')
+            return UrlBase.Of(found.ConsoleUrl)
         }
         if (ConsoleAddress.Validate(found.ConsoleUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
         return ConsoleAddress.Normalise(found.ConsoleUrl)

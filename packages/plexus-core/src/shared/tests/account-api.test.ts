@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire, TenantPlaneAddress, TransportRule } from '../account-api.js'
+import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire, TenantPlaneAddress, TransportRule, UrlBase } from '../account-api.js'
 
 describe('PlatformAddress.Validate', () =>
 {
@@ -62,6 +62,17 @@ describe('TenantPlaneAddress.IsUsable', () =>
         {
             expect(TenantPlaneAddress.IsUsable(bad)).toBe(false)
         }
+    })
+})
+
+describe('UrlBase', () =>
+{
+    it('trims and drops every trailing slash, keeping the base path', () =>
+    {
+        expect(UrlBase.Of('  https://platform.example/tenant-plane//  ')).toBe('https://platform.example/tenant-plane')
+        expect(UrlBase.Of('https://console-a.example/')).toBe('https://console-a.example')
+        expect(UrlBase.Of('/relay')).toBe('/relay')
+        expect(UrlBase.Of('/')).toBe('')
     })
 })
 

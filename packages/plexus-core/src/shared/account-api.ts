@@ -63,6 +63,18 @@ export class TransportRule
     }
 }
 
+// An address used as a base for request paths: trimmed, with trailing slashes dropped, so
+// `${base}/desktop/...` never doubles a slash. The one home for that rule.
+export class UrlBase
+{
+    private static readonly TrailingSlashes = /\/+$/
+
+    public static Of(address: string): string
+    {
+        return address.trim().replace(UrlBase.TrailingSlashes, '')
+    }
+}
+
 // The platform's tenant plane, where a tenant without a console of its own signs in. Only the
 // transport rule applies: unlike a console address it may carry a base path (a gateway prefix).
 export class TenantPlaneAddress

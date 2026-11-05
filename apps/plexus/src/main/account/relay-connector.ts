@@ -1,5 +1,5 @@
 import { ConnectionLostError, ErrorCodes, ResponseError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { AccountError, AccountErrorKind, type TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, UrlBase, type TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import type { DesktopSession } from './desktop-session-store.js'
 
@@ -106,7 +106,6 @@ export class RelayConnector implements IRelayConnector
     private static readonly NotRunningSuffix = ' is not running. Start it from the tenant console.'
     private static readonly UnreachableSuffix = ' could not be reached.'
     private static readonly NotHandledSuffix = ' could not handle this request. It may need an update.'
-    private static readonly TrailingSlashes = /\/+$/
 
     public constructor(private readonly sessions: IRelaySessionSource, private readonly dial: RelayDial)
     {
@@ -160,7 +159,7 @@ export class RelayConnector implements IRelayConnector
         const address = new URL(consoleUrl)
         const scheme = RelayConnector.SocketSchemes[address.protocol]
         if (scheme === undefined) throw new Error(RelayConnector.BadConsole)
-        const base = address.pathname.replace(RelayConnector.TrailingSlashes, '')
+        const base = UrlBase.Of(address.pathname)
         const query = `${RelayConnector.EnvironmentParam}=${encodeURIComponent(environment)}&${RelayConnector.ActionParam}=${encodeURIComponent(kind)}`
         return `${scheme}//${address.host}${base}${RelayConnector.RelayPath}?${query}`
     }

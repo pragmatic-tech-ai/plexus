@@ -304,6 +304,26 @@ describe('AccountService', () =>
         expect(h.Fetch.Requests.filter(r => !r.Url.includes('/api/desktop/discover'))).toEqual([])
     })
 
+    it('a discovered console address with a path is refused before Begin', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, {
+            tenants: [{ id: 'a', displayName: 'A', consoleUrl: 'https://console-a.example/base' }],
+            tenantPlaneUrl: Harness.Plane,
+        }))
+        expect(await Caught.Kind(h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'a'))).toBe(AccountErrorKind.Unavailable)
+        expect(h.Opened).toEqual([])
+        expect(h.Receiver.Started).toBe(0)
+        expect(h.Fetch.Requests.filter(r => !r.Url.includes('/api/desktop/discover'))).toEqual([])
+    })
+
+    it('SignInAtConsole refuses a typed address with a path without dialing', async () =>
+    {
+        expect(await Caught.Kind(h.Service.SignInAtConsole('https://console-acme.localtest.me/base', 'a@b.c'))).toBe(AccountErrorKind.ConsoleAddressInvalid)
+        expect(h.Fetch.Requests).toEqual([])
+        expect(h.Opened).toEqual([])
+        expect(h.Receiver.Started).toBe(0)
+    })
+
     it('a tenant without its own console signs in at the platform tenant plane, base path kept', async () =>
     {
         const plane = 'https://platform.example/tenant-plane'
