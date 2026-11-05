@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TextValue } from './text-value.js'
 
 // Structural twin of todl-platform-node's Encryptor (SafeStorageEncryptor satisfies it), kept
 // local so this store has no Electron dependency and tests use a plain fake.
@@ -91,17 +92,12 @@ export class DesktopSessionStore
         if (typeof parsed !== 'object' || parsed === null) return undefined
         const record = { ...(parsed as Record<string, unknown>) }
         const legacy = record[DesktopSessionStore.LegacyAddressField]
-        if (!DesktopSessionStore.Filled(record[DesktopSessionStore.AddressField]) && DesktopSessionStore.Filled(legacy))
+        if (!TextValue.Filled(record[DesktopSessionStore.AddressField]) && TextValue.Filled(legacy))
         {
             record[DesktopSessionStore.AddressField] = legacy
         }
-        const complete = DesktopSessionStore.Fields.every(f => DesktopSessionStore.Filled(record[f]))
+        const complete = DesktopSessionStore.Fields.every(f => TextValue.Filled(record[f]))
         return complete ? DesktopSessionStore.Pick(record as DesktopSession) : undefined
-    }
-
-    private static Filled(value: unknown): value is string
-    {
-        return typeof value === 'string' && value !== ''
     }
 
     // Copies exactly the session fields, so nothing extra is ever written or returned.

@@ -6,16 +6,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AccountError, AccountErrorKind, TargetKind, TargetStatus, type AccountState } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountService } from '../account-service.js'
 import { DesktopApiClient } from '../desktop-api-client.js'
-import { DesktopSessionStore, type ITokenEncryptor } from '../desktop-session-store.js'
+import { DesktopSessionStore } from '../desktop-session-store.js'
 import type { IRedirectReceiver } from '../loopback-redirect-receiver.js'
-
-class ReverseEncryptor implements ITokenEncryptor
-{
-    public Available = true
-    public IsAvailable(): boolean { return this.Available }
-    public Encrypt(plain: string): Buffer { return Buffer.from([...plain].reverse().join('')) }
-    public Decrypt(blob: Buffer): string { return [...blob.toString()].reverse().join('') }
-}
+import { ReverseEncryptor } from './reverse-encryptor.js'
 
 type Recorded = { Url: string; Method: string; Headers: Record<string, string>; Body: Record<string, unknown> | undefined }
 type Route = () => Response | Promise<Response>

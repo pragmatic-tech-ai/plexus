@@ -1,6 +1,7 @@
 import { AccountError, AccountErrorKind, TargetStatus, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import type { DesktopSession } from './desktop-session-store.js'
+import { TextValue } from './text-value.js'
 
 // A discovered tenant and the console address to sign in at: its own consoleUrl, else the
 // platform's tenant plane. Main-process only; the renderer sees only Id and DisplayName.
@@ -73,8 +74,8 @@ export class DesktopApiClient
         }
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new AccountError(AccountErrorKind.NotAConsole)
         const { tenantId, tenantName } = parsed as Record<string, unknown>
-        if (!DesktopApiClient.Filled(tenantId)) throw new AccountError(AccountErrorKind.NotAConsole)
-        return { TenantId: tenantId, TenantName: DesktopApiClient.Filled(tenantName) ? tenantName : tenantId }
+        if (!TextValue.Filled(tenantId)) throw new AccountError(AccountErrorKind.NotAConsole)
+        return { TenantId: tenantId, TenantName: TextValue.Filled(tenantName) ? tenantName : tenantId }
     }
 
     // Starts a sign-in; answers the IdP authorize URL to open in the system browser.
@@ -93,11 +94,11 @@ export class DesktopApiClient
         if (res.status === DesktopApiClient.StatusUnauthorized) throw new AccountError(AccountErrorKind.SignInFailed)
         const { token, expiresAt, tenantId, tenantName, email } = await DesktopApiClient.Body(res)
         // The same rule the session store applies on Load: a session missing any of these is unusable.
-        if (!DesktopApiClient.Filled(token) || !DesktopApiClient.Filled(expiresAt) || !DesktopApiClient.Filled(tenantId) || !DesktopApiClient.Filled(tenantName))
+        if (!TextValue.Filled(token) || !TextValue.Filled(expiresAt) || !TextValue.Filled(tenantId) || !TextValue.Filled(tenantName))
         {
             throw new AccountError(AccountErrorKind.SignInFailed)
         }
-        return { Token: token, ExpiresAt: expiresAt, TenantId: tenantId, TenantName: tenantName, Email: DesktopApiClient.Filled(email) ? email : undefined }
+        return { Token: token, ExpiresAt: expiresAt, TenantId: tenantId, TenantName: tenantName, Email: TextValue.Filled(email) ? email : undefined }
     }
 
     public async Targets(session: DesktopSession): Promise<AccountTargets>
@@ -155,22 +156,17 @@ export class DesktopApiClient
         return parsed as Record<string, unknown>
     }
 
-    private static Filled(value: unknown): value is string
-    {
-        return typeof value === 'string' && value !== ''
-    }
-
     // A tenant without a usable consoleUrl of its own signs in at the platform's tenant plane. Any
     // other string is kept as given; the caller validates it before dialling.
     private static Tenant(raw: unknown, tenantPlaneUrl: string): DiscoveredConsole | undefined
     {
         if (typeof raw !== 'object' || raw === null) return undefined
         const { id, displayName, consoleUrl } = raw as Record<string, unknown>
-        if (!DesktopApiClient.Filled(id)) return undefined
+        if (!TextValue.Filled(id)) return undefined
         return {
             Id: id,
-            DisplayName: DesktopApiClient.Filled(displayName) ? displayName : id,
-            ConsoleUrl: DesktopApiClient.Filled(consoleUrl) ? consoleUrl : tenantPlaneUrl,
+            DisplayName: TextValue.Filled(displayName) ? displayName : id,
+            ConsoleUrl: TextValue.Filled(consoleUrl) ? consoleUrl : tenantPlaneUrl,
         }
     }
 

@@ -163,7 +163,7 @@ export class AccountService
         this.attempt?.Cancel()
     }
 
-    // Ends the session on the tenant plane when it can be reached; clears locally either way.
+    // Ends the session at its console when that can be reached; clears locally either way.
     public async SignOut(): Promise<AccountState>
     {
         const session = await this.store.Load()
@@ -172,7 +172,7 @@ export class AccountService
         return AccountService.StateOf(undefined)
     }
 
-    // The tenant plane said the session holding `token` is over (expired, revoked, signed out
+    // The session's console said the session holding `token` is over (expired, revoked, signed out
     // elsewhere). Cleared only while that session is still the stored one: a 401 that arrives after
     // a sign-out and a new sign-in belongs to the old session and must not end the new one.
     public HandleSignedOut(token: string): Promise<void>

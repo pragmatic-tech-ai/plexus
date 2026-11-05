@@ -3,18 +3,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import { DesktopSessionStore, type DesktopSession, type ITokenEncryptor } from '../desktop-session-store.js'
-
-class ReverseEncryptor implements ITokenEncryptor
-{
-    public constructor(public Available = true)
-    {
-    }
-
-    public IsAvailable(): boolean { return this.Available }
-    public Encrypt(plain: string): Buffer { return Buffer.from([...plain].reverse().join('')) }
-    public Decrypt(blob: Buffer): string { return [...blob.toString()].reverse().join('') }
-}
+import { DesktopSessionStore, type DesktopSession } from '../desktop-session-store.js'
+import { ReverseEncryptor } from './reverse-encryptor.js'
 
 describe('DesktopSessionStore', () =>
 {
