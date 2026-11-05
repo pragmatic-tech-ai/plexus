@@ -36,16 +36,15 @@ interface GraphOutcome
     Graphs?: string[]
 }
 
-// Renderer-side graph operations: reach the GraphContributor service through the mural visual backref
-// (the same cache walk the helper uses) and invoke it, i.e. the relay path the app's own commands use.
+// Renderer-side graph operations through the preload's graph-contribute bridge (window.api.graphContribute):
+// the IPC the app's own Contribute command uses, so main reaches the environment through the console relay
+// with the account session and no credential crosses into the renderer.
 class RendererGraph
 {
-    private static readonly VisualBackref = 'mural:visual-backref'
-    private static readonly ContributorKey = 'GraphContributor'
-    private static readonly ErrorKind = 'Kind'
-    private static readonly PollMs = 250
-    private static readonly ResolveTimeoutMs = 30_000
-    private static readonly NotFound = 'the GraphContributor service was not found'
+    private static readonly BridgeKey = 'graphContribute'
+    private static readonly NotFound = 'the graph-contribute bridge is not exposed on window.api'
+    private static readonly Failed = 'the relay call failed'
+    private static readonly EntityId = 'ihc-smoke-entity'
     private static readonly PackageVersion = '1.0.0'
 
     // Contributes a one-entity package to the environment's graph, then lists the environment's graphs.
@@ -53,45 +52,19 @@ class RendererGraph
     {
         return win.evaluate(async (p) =>
         {
-            const backref = Symbol.for(p.backref)
-            const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms))
-            const deadline = Date.now() + p.timeoutMs
-            let contributor: any
-            while (contributor === undefined)
-            {
-                for (const el of document.querySelectorAll('*'))
-                {
-                    const root = (el as any)[backref]
-                    if (root?.Services === undefined) continue
-                    for (let scope = root.Services; scope !== undefined && contributor === undefined; scope = scope._parent)
-                    {
-                        for (const [key, entry] of (scope._cache ?? new Map()))
-                        {
-                            if ((key as any)?.description === p.key) contributor = entry
-                        }
-                    }
-                    break
-                }
-                if (contributor !== undefined) break
-                if (Date.now() > deadline) return { Ok: false, Error: p.notFound }
-                await sleep(p.pollMs)
-            }
-            try
-            {
-                const model = JSON.stringify({ id: p.packageId, entities: [{ id: 'ihc-smoke-entity' }] })
-                const result = await contributor.Contribute(p.environment, p.graphName, p.packageId, [{ id: p.packageId, version: p.version, modelJson: model }])
-                const graphs: string[] = await contributor.ListGraphs(p.environment)
-                return { Ok: true, PackageCount: result?.PackageCount, Graphs: graphs }
-            }
-            catch (e)
-            {
-                // Only the AccountError kind or the sentence: never a token (none is ever in a message).
-                return { Ok: false, Error: String((e as any)?.[p.errorKind] ?? (e as any)?.message ?? e) }
-            }
+            const bridge = (window as any).api?.[p.bridgeKey]
+            if (bridge === undefined) return { Ok: false, Error: p.notFound }
+            // Each call answers a RelayReply envelope: { Ok, Value } or { Ok: false, Error: { Kind?, Message? } }.
+            const failure = (reply: any): string => String(reply?.Error?.Kind ?? reply?.Error?.Message ?? p.failed)
+            const model = JSON.stringify({ id: p.packageId, entities: [{ id: p.entityId }] })
+            const contributed = await bridge.Contribute(p.environment, p.graphName, p.packageId, [{ id: p.packageId, version: p.version, modelJson: model }])
+            if (!contributed?.Ok) return { Ok: false, Error: failure(contributed) }
+            const listed = await bridge.ListGraphs(p.environment)
+            if (!listed?.Ok) return { Ok: false, Error: failure(listed) }
+            return { Ok: true, PackageCount: contributed.Value?.PackageCount, Graphs: listed.Value }
         }, {
-            backref: RendererGraph.VisualBackref, key: RendererGraph.ContributorKey, notFound: RendererGraph.NotFound,
-            pollMs: RendererGraph.PollMs, timeoutMs: RendererGraph.ResolveTimeoutMs, errorKind: RendererGraph.ErrorKind,
-            environment, graphName, packageId, version: RendererGraph.PackageVersion,
+            bridgeKey: RendererGraph.BridgeKey, notFound: RendererGraph.NotFound, failed: RendererGraph.Failed,
+            entityId: RendererGraph.EntityId, environment, graphName, packageId, version: RendererGraph.PackageVersion,
         })
     }
 }
