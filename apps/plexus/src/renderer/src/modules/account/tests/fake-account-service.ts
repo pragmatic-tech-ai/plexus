@@ -74,6 +74,8 @@ export class FakeAccountService implements IAccountService
     public async SignInAtConsole(consoleUrl: string, email: string): Promise<void>
     {
         this.Calls.push(['SignInAtConsole', consoleUrl, email])
+        await this.SignInGate.Promise
+        this.SetState({ SignedIn: true, Email: email, TenantName: this.Tenants[0]?.DisplayName })
     }
 
     public async CancelSignIn(): Promise<void>

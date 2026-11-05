@@ -81,14 +81,18 @@ export class ConsoleAddress
     private static readonly SecureScheme = 'https:'
     private static readonly CleartextScheme = 'http:'
     private static readonly RootPath = '/'
+    private static readonly ForbiddenCharacters: readonly string[] = ['?', '#', '@']
 
     // undefined when usable, else AccountErrorKind.ConsoleAddressInvalid.
     public static Validate(url: string): AccountErrorKind | undefined
     {
+        const trimmed = url.trim()
+        // The URL parser reports an empty query, fragment or userinfo as absent, so check the raw text.
+        if (ConsoleAddress.ForbiddenCharacters.some(c => trimmed.includes(c))) return AccountErrorKind.ConsoleAddressInvalid
         let parsed: URL
         try
         {
-            parsed = new URL(url.trim())
+            parsed = new URL(trimmed)
         }
         catch
         {

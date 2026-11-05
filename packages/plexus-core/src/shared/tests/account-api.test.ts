@@ -27,10 +27,17 @@ describe('ConsoleAddress', () =>
         expect(ConsoleAddress.Validate('https://console-acme.localtest.me')).toBeUndefined()
         expect(ConsoleAddress.Validate('http://127.0.0.1:7002')).toBeUndefined()
         expect(ConsoleAddress.Validate('http://console-acme.localtest.me')).toBe(AccountErrorKind.ConsoleAddressInvalid)
-        for (const bad of ['ftp://x', 'not a url', '', 'https://u:p@h', 'https://h/?q', 'https://h/#f', 'https://h/tenant'])
+        for (const bad of ['ftp://x', 'not a url', '', 'https://u:p@h', 'https://h/?q', 'https://h/#f', 'https://h/tenant', 'https://h?', 'https://h#', 'https://@h', 'https://h//'])
         {
             expect(ConsoleAddress.Validate(bad)).toBe(AccountErrorKind.ConsoleAddressInvalid)
         }
+    })
+
+    it('Validate accepts IPv6 loopback over http in both forms', () =>
+    {
+        expect(ConsoleAddress.Validate('http://[::1]:7002')).toBeUndefined()
+        expect(ConsoleAddress.Validate('http://[0:0:0:0:0:0:0:1]:7002')).toBeUndefined()
+        expect(ConsoleAddress.Validate('http://[::2]')).toBe(AccountErrorKind.ConsoleAddressInvalid)
     })
 
     it('Normalise trims, lowercases the origin and drops the trailing slash', () =>
