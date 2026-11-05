@@ -36,6 +36,7 @@ import { DesktopSessionStore } from './account/desktop-session-store.js'
 import { LegacyProfileCleanup } from './account/legacy-profile-cleanup.js'
 import { LoopbackRedirectReceiver } from './account/loopback-redirect-receiver.js'
 import { RelayConnector } from './account/relay-connector.js'
+import { SystemTrust } from './net/system-trust.js'
 import { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-system'
 
@@ -140,6 +141,8 @@ function createWindow(): void
 }
 
 app.whenReady().then(async () => {
+  // Main's fetch and the ws relay use Node TLS, which ignores the Windows certificate store by default.
+  SystemTrust.Apply()
   electronApp.setAppUserModelId('com.pragmatic-tech-ai.plexus')
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
 
