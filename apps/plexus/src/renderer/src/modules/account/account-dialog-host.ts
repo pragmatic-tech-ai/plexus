@@ -4,6 +4,7 @@ import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import { AccountServiceKey, type IAccountService, type SignInRequest } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import { PlatformAddress } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog } from './account-dialog.js'
+import { ConsoleAddressSetting } from './console-address-setting.js'
 
 // Opens the account dialog: for the status-bar cell's click, and for every
 // IAccountService.RequestSignIn() (a picker's Sign in). It owns the SignInRequested subscription, and
@@ -55,7 +56,8 @@ export class AccountDialogHost implements IDisposable
             // DialogService keeps one dialog at a time and Close() takes no handle: it closes whichever
             // dialog is current. A newer Show supersedes (and resolves) this one, which disposes this
             // VM, so in practice its close callback only runs while it is the current dialog.
-            dialog = new AccountDialog(this.account, this.PlatformAddress(), () => dialogs.Close(undefined), request !== undefined)
+            dialog = new AccountDialog(this.account, this.PlatformAddress(),
+                new ConsoleAddressSetting(this.provider.get(ApplicationSettings.Key)), () => dialogs.Close(undefined), request !== undefined)
             this.openDialog = dialog
             await dialogs.Show({ Title: AccountDialogHost.DialogTitle, Content: dialog })
         }

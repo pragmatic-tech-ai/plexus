@@ -2,10 +2,11 @@ import { Observable, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mura
 import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import {
-    AccountError, AccountErrorKind, PlatformAddress, type DiscoveredTenant,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, type DiscoveredTenant,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountLabel } from './account-label.js'
 import { AccountDialogStep } from './account-dialog-step.js'
+import type { IConsoleAddressSetting } from './console-address-setting.js'
 
 export { AccountDialogStep }
 
@@ -24,6 +25,9 @@ enum AccountDialogProperty
     HasMessage = 'HasMessage',
     IsBusy = 'IsBusy',
     SignedInText = 'SignedInText',
+    UseConsoleAddress = 'UseConsoleAddress',
+    ShowsUseConsoleLink = 'ShowsUseConsoleLink',
+    ConsoleAddress = 'ConsoleAddress',
 }
 
 // One tenant offered in the chooser. toString is the ComboBox display text.
@@ -63,18 +67,23 @@ export class AccountDialog extends Observable implements IDisposable
 
     private readonly account: IAccountService
     private readonly platformAddress: string
+    private readonly consoleAddressSetting: IConsoleAddressSetting
     private readonly close: () => void
     private readonly closeOnSignIn: boolean
     private readonly changed: IDisposable
     private readonly continueCommand: RelayCommand
     private readonly cancelCommand: RelayCommand
     private readonly signOutCommand: RelayCommand
+    private readonly useConsoleAddressCommand: RelayCommand
+    private readonly usePlatformCommand: RelayCommand
 
     private step: AccountDialogStep
     private email = ''
     private tenants: TenantChoice[] = []
     private selectedTenant: TenantChoice | undefined = undefined
     private message = ''
+    private useConsoleAddress = false
+    private consoleAddress = ''
     private isBusy = false
     // Bumped whenever a pending sign-in is abandoned (Cancel / dispose), so its late answer is ignored.
     private signInGeneration = 0
@@ -84,11 +93,15 @@ export class AccountDialog extends Observable implements IDisposable
     // `close` dismisses the host dialog. `closeOnSignIn` (set when the dialog was opened for a
     // sign-in request, e.g. a picker's Sign in) closes it as soon as its own sign-in succeeds, so the
     // picker comes back without an extra click; otherwise it stays open on "Signed in as".
-    public constructor(account: IAccountService, platformAddress: string, close: () => void, closeOnSignIn = false)
+    public constructor(account: IAccountService, platformAddress: string, consoleAddress: IConsoleAddressSetting,
+        close: () => void, closeOnSignIn = false)
     {
         super()
         this.account = account
         this.platformAddress = platformAddress
+        this.consoleAddressSetting = consoleAddress
+        this.consoleAddress = consoleAddress.Value
+        this.useConsoleAddress = this.consoleAddress !== ''
         this.close = close
         this.closeOnSignIn = closeOnSignIn
         const state = account.State
@@ -97,6 +110,8 @@ export class AccountDialog extends Observable implements IDisposable
         this.continueCommand = new RelayCommand(() => { void this.Continue() }, () => this.CanContinue)
         this.cancelCommand = new RelayCommand(() => { void this.Cancel() })
         this.signOutCommand = new RelayCommand(() => { void this.SignOut() }, () => !this.isBusy)
+        this.useConsoleAddressCommand = new RelayCommand(() => this.SetUseConsoleAddress(true))
+        this.usePlatformCommand = new RelayCommand(() => this.SetUseConsoleAddress(false))
         this.changed = account.Changed.subscribe(() => this.OnAccountChanged())
     }
 
@@ -114,6 +129,19 @@ export class AccountDialog extends Observable implements IDisposable
         this.email = value
         this.RaisePropertyChanged(AccountDialogProperty.Email, old, value)
         this.continueCommand.RaiseCanExecuteChanged()
+    }
+
+    public get UseConsoleAddress(): boolean { return this.useConsoleAddress }
+    // The "Use a specific console address" link shows while the address field is hidden.
+    public get ShowsUseConsoleLink(): boolean { return !this.useConsoleAddress }
+
+    public get ConsoleAddress(): string { return this.consoleAddress }
+    public set ConsoleAddress(value: string)
+    {
+        if (value === this.consoleAddress) return
+        const old = this.consoleAddress
+        this.consoleAddress = value
+        this.RaisePropertyChanged(AccountDialogProperty.ConsoleAddress, old, value)
     }
 
     public get Tenants(): readonly TenantChoice[] { return this.tenants }
@@ -140,6 +168,8 @@ export class AccountDialog extends Observable implements IDisposable
     public get ContinueCommand(): ICommand { return this.continueCommand }
     public get CancelCommand(): ICommand { return this.cancelCommand }
     public get SignOutCommand(): ICommand { return this.signOutCommand }
+    public get UseConsoleAddressCommand(): ICommand { return this.useConsoleAddressCommand }
+    public get UsePlatformCommand(): ICommand { return this.usePlatformCommand }
 
     private get CanContinue(): boolean
     {
@@ -155,7 +185,8 @@ export class AccountDialog extends Observable implements IDisposable
         if (this.isBusy) return
         if (this.step === AccountDialogStep.Email)
         {
-            await this.DiscoverTenants()
+            if (this.useConsoleAddress) await this.SignInAtConsole()
+            else await this.DiscoverTenants()
         }
         else if (this.step === AccountDialogStep.ChooseTenant && this.selectedTenant !== undefined)
         {
@@ -228,6 +259,55 @@ export class AccountDialog extends Observable implements IDisposable
         return error instanceof Error ? error.name : typeof error
     }
 
+    // Signs in straight at the typed tenant console; nothing reaches main unless the address is valid.
+    private async SignInAtConsole(): Promise<void>
+    {
+        const email = this.email.trim()
+        if (email === '')
+        {
+            this.SetMessage(new AccountError(AccountErrorKind.InvalidEmail).message)
+            return
+        }
+        const invalid = ConsoleAddress.Validate(this.consoleAddress)
+        if (invalid !== undefined)
+        {
+            this.SetMessage(new AccountError(invalid).message)
+            return
+        }
+        const address = this.consoleAddress.trim()
+        const generation = ++this.signInGeneration
+        this.SetMessage('')
+        this.SetStep(AccountDialogStep.Waiting)
+        this.SetBusy(true)
+        try
+        {
+            await this.account.SignInAtConsole(address, email)
+            if (generation !== this.signInGeneration) return
+            this.consoleAddressSetting.Remember(ConsoleAddress.Normalise(address))
+            this.SetStep(AccountDialogStep.SignedIn)
+            if (this.closeOnSignIn) this.close()
+        }
+        catch (e)
+        {
+            if (generation !== this.signInGeneration) return
+            this.SetMessage(AccountDialog.SentenceFor(e))
+            this.SetStep(AccountDialogStep.Email)
+        }
+        finally
+        {
+            if (generation === this.signInGeneration) this.SetBusy(false)
+        }
+    }
+
+    private SetUseConsoleAddress(value: boolean): void
+    {
+        if (value === this.useConsoleAddress) return
+        this.useConsoleAddress = value
+        this.RaisePropertyChanged(AccountDialogProperty.UseConsoleAddress, !value, value)
+        this.RaisePropertyChanged(AccountDialogProperty.ShowsUseConsoleLink, value, !value)
+        this.SetMessage('')
+    }
+
     private async DiscoverTenants(): Promise<void>
     {
         const invalidAddress = PlatformAddress.Validate(this.platformAddress)
@@ -285,6 +365,7 @@ export class AccountDialog extends Observable implements IDisposable
             await this.account.SignIn(this.platformAddress, this.email.trim(), tenantId)
             if (generation !== this.signInGeneration) return
             this.SetStep(AccountDialogStep.SignedIn)
+            this.consoleAddressSetting.Forget()
             if (this.closeOnSignIn) this.close()
         }
         catch (e)

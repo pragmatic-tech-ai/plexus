@@ -31,6 +31,11 @@ export class FakeSettings
     {
         return this.Values.get(key) as T | undefined
     }
+
+    public Set(key: string, value: unknown): void
+    {
+        this.Values.set(key, value)
+    }
 }
 
 // The services the account area resolves: the account, DialogService and ApplicationSettings.

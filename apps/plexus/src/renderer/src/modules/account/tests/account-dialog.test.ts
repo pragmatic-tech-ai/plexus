@@ -2,15 +2,34 @@ import { describe, expect, it } from 'vitest'
 import { AccountError, AccountErrorKind, PlatformAddress } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog, AccountDialogStep } from '../account-dialog.js'
 import { FakeAccountService } from './fake-account-service.js'
+import type { IConsoleAddressSetting } from '../console-address-setting.js'
+
+class FakeConsoleSetting implements IConsoleAddressSetting
+{
+    public Value = ''
+    public Remembered: string[] = []
+    public ForgetCount = 0
+
+    public Remember(address: string): void
+    {
+        this.Remembered.push(address)
+    }
+
+    public Forget(): void
+    {
+        this.ForgetCount++
+    }
+}
 
 class Harness
 {
     public readonly Account = new FakeAccountService()
     public Closed = 0
+    public readonly Setting = new FakeConsoleSetting()
 
     public Make(address: string = PlatformAddress.Default, closeOnSignIn = false): AccountDialog
     {
-        return new AccountDialog(this.Account, address, () => { this.Closed++ }, closeOnSignIn)
+        return new AccountDialog(this.Account, address, this.Setting, () => { this.Closed++ }, closeOnSignIn)
     }
 
     // Lets queued promise continuations run.
@@ -309,5 +328,86 @@ describe('AccountDialog', () =>
         vm.dispose()
         await Harness.Flush()
         expect(h.Account.CallNames()).toContain('CancelSignIn')
+    })
+
+    describe('console address', () =>
+    {
+        it('the console address field starts open with the remembered address', () =>
+        {
+            const h = new Harness()
+            h.Setting.Value = 'https://console-acme.localtest.me'
+            const vm = h.Make()
+            expect(vm.UseConsoleAddress).toBe(true)
+            expect(vm.ShowsUseConsoleLink).toBe(false)
+            expect(vm.ConsoleAddress).toBe('https://console-acme.localtest.me')
+        })
+
+        it('the commands toggle the field', () =>
+        {
+            const vm = new Harness().Make()
+            expect(vm.UseConsoleAddress).toBe(false)
+            vm.UseConsoleAddressCommand.Execute()
+            expect(vm.UseConsoleAddress).toBe(true)
+            vm.UsePlatformCommand.Execute()
+            expect(vm.UseConsoleAddress).toBe(false)
+            expect(vm.ShowsUseConsoleLink).toBe(true)
+        })
+
+        it('continue with a console address signs in there and remembers it', async () =>
+        {
+            const h = new Harness()
+            h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+            h.Account.SignInGate.Resolve()
+            const vm = h.Make()
+            vm.UseConsoleAddressCommand.Execute()
+            vm.Email = 'ann@acme.example'
+            vm.ConsoleAddress = 'https://Console-Acme.localtest.me/'
+            await vm.Continue()
+            expect(h.Account.Calls).toEqual([['SignInAtConsole', 'https://Console-Acme.localtest.me/', 'ann@acme.example']])
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(h.Setting.Remembered).toEqual(['https://console-acme.localtest.me'])
+        })
+
+        it('an invalid console address shows the sentence and calls nothing', async () =>
+        {
+            const h = new Harness()
+            const vm = h.Make()
+            vm.UseConsoleAddressCommand.Execute()
+            vm.Email = 'ann@acme.example'
+            vm.ConsoleAddress = 'http://console-acme.localtest.me'
+            await vm.Continue()
+            expect(vm.Message).toBe(new AccountError(AccountErrorKind.ConsoleAddressInvalid).message)
+            expect(h.Account.Calls).toEqual([])
+            expect(vm.Step).toBe(AccountDialogStep.Email)
+        })
+
+        it('a console sign-in failure shows its sentence and remembers nothing', async () =>
+        {
+            const h = new Harness()
+            h.Account.SignInGate.Reject(new AccountError(AccountErrorKind.NotAConsole))
+            const vm = h.Make()
+            vm.UseConsoleAddressCommand.Execute()
+            vm.Email = 'ann@acme.example'
+            vm.ConsoleAddress = 'https://console-acme.localtest.me'
+            await vm.Continue()
+            expect(vm.Message).toBe('That address is not a Pragmatic tenant console.')
+            expect(new AccountError(AccountErrorKind.NotAConsole).message).toBe('That address is not a Pragmatic tenant console.')
+            expect(vm.Step).toBe(AccountDialogStep.Email)
+            expect(h.Setting.Remembered).toEqual([])
+        })
+
+        it('a platform sign-in forgets the remembered console address', async () =>
+        {
+            const h = new Harness()
+            h.Setting.Value = 'https://console-acme.localtest.me'
+            h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+            h.Account.SignInGate.Resolve()
+            const vm = h.Make()
+            vm.UsePlatformCommand.Execute()
+            vm.Email = 'ann@acme.example'
+            await vm.Continue()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(h.Setting.ForgetCount).toBe(1)
+        })
     })
 })

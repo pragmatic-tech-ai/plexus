@@ -40,6 +40,19 @@ resources AccountResources {
                 TextBlock [ Text = "Sign in with your work email.", Style = @Body, Foreground = @Fg1, Margin = (0,0,0,8) ]
                 TextBlock [ Text = "Email", Style = @BodySm, Foreground = @Fg2 ]
                 TextBox [ Text = $Email, Margin = (0,0,0,6) ]
+                Button [ Variant = Text, Command = $UseConsoleAddressCommand, HorizontalAlignment = Left,
+                         Visibility = $ShowsUseConsoleLink << ToVisibility ] {
+                    TextBlock [ Text = "Use a specific console address" ]
+                }
+                StackPanel [ Orientation = Vertical, Visibility = $UseConsoleAddress << ToVisibility ] {
+                    TextBlock [ Text = "Console address", Style = @BodySm, Foreground = @Fg2 ]
+                    TextBox [ Text = $ConsoleAddress, Margin = (0,0,0,4) ]
+                    TextBlock [ Text = "For example https://console-yourcompany.example.com", Style = @BodySm,
+                                Foreground = @Fg2, TextWrapping = Wrap, Margin = (0,0,0,4) ]
+                    Button [ Variant = Text, Command = $UsePlatformCommand, HorizontalAlignment = Left ] {
+                        TextBlock [ Text = "Find my organization from my email instead" ]
+                    }
+                }
             }
 
             // ChooseTenant: the email has accounts in several tenants.

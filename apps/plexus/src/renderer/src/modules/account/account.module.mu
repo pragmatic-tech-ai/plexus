@@ -34,5 +34,14 @@ shell module AccountModule [ Name = "Account" ] {
               Kind        = String,
               Default     = "http://localhost:7000",
               Category    = "Account" ]
+
+        // The Key mirrors ConsoleAddressSetting.Key (console-address-setting.ts).
+        SettingDefinition
+            [ Key         = "account.consoleAddress",
+              Label       = "Console address",
+              Description = "A tenant console to sign in to directly, instead of asking the platform which organization your email belongs to.",
+              Kind        = String,
+              Default     = "",
+              Category    = "Account" ]
     }
 }

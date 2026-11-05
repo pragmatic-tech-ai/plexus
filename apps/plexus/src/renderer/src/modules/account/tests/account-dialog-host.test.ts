@@ -43,6 +43,15 @@ describe('AccountSignInModule', () =>
 
 describe('AccountDialogHost', () =>
 {
+    it('the dialog reads the console address setting', async () =>
+    {
+        const h = new AccountShellHarness()
+        h.Settings.Values.set('account.consoleAddress', 'https://c.example')
+        const host = new AccountDialogHost(h.Provider)
+        h.Account.RequestSignIn()
+        expect(host.CurrentDialog?.ConsoleAddress).toBe('https://c.example')
+    })
+
     it('exposes the open dialog as CurrentDialog while it is shown, and clears it on close', async () =>
     {
         const h = new AccountShellHarness()
