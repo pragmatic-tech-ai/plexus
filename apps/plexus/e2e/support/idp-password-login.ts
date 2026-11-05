@@ -17,6 +17,7 @@
 import { request as httpRequest, type IncomingHttpHeaders, type IncomingMessage } from 'node:http'
 import { request as httpsRequest } from 'node:https'
 import { rootCertificates } from 'node:tls'
+import { TransportRule } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
 // One HTTP answer: what the login needs of it, nothing more.
 export interface IdpHttpAnswer
@@ -41,7 +42,6 @@ export class IdpLoginError extends Error
 export class IdpPasswordLogin
 {
     public static readonly CallbackPath = '/pragmatic-desktop/callback'
-    private static readonly LoopbackHosts: readonly string[] = ['127.0.0.1', 'localhost', '[::1]']
     private static readonly HttpScheme = 'http:'
     private static readonly HttpsScheme = 'https:'
     private static readonly MethodGet = 'GET'
@@ -115,9 +115,7 @@ export class IdpPasswordLogin
     // Whether the password may be posted to `url`: https, or http on a loopback host only.
     public static IsSecureEnough(url: URL): boolean
     {
-        const S = IdpPasswordLogin
-        if (url.protocol === S.HttpsScheme) return true
-        return url.protocol === S.HttpScheme && S.IsLoopback(url)
+        return TransportRule.IsSecureOrLoopback(url)
     }
 
     // The CA list for an https request: Node's bundled roots plus the dev CA, or undefined (Node's
@@ -163,7 +161,7 @@ export class IdpPasswordLogin
         {
             throw new IdpLoginError(S.BadLocation)
         }
-        if (url.protocol !== S.HttpScheme || !S.IsLoopback(url) || url.pathname !== S.CallbackPath)
+        if (url.protocol !== S.HttpScheme || !TransportRule.IsLoopback(url) || url.pathname !== S.CallbackPath)
         {
             throw new IdpLoginError(S.BadLocation)
         }
@@ -204,12 +202,6 @@ export class IdpPasswordLogin
         {
             return undefined
         }
-    }
-
-    private static IsLoopback(url: URL): boolean
-    {
-        const S = IdpPasswordLogin
-        return S.LoopbackHosts.includes(url.hostname)
     }
 
     // One request, redirects never followed; https requests carry the dev CA when one was given.

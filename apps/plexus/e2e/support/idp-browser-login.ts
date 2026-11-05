@@ -12,16 +12,23 @@
 //
 // Secret hygiene: no tracing, no video, no screenshots (also none on failure). The password only goes
 // into the field. Errors name the failed step only, never the underlying error text or any URL.
-import { chromium } from 'playwright'
+import { chromium, type LaunchOptions, type Page } from 'playwright'
+import { TransportRule } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { IIdpLogin } from '../scripted-desktop-sign-in'
 import { IdpLoginError, IdpPasswordLogin } from './idp-password-login'
 
-export class IdpBrowserLogin
+// The navigation event a step waits for (Playwright's waitUntil union).
+type WaitUntil = NonNullable<NonNullable<Parameters<Page['goto']>[1]>['waitUntil']>
+
+export class IdpBrowserLogin implements IIdpLogin
 {
     private static readonly EmailSelector = 'input[autocomplete="email"]'
     private static readonly PasswordSelector = 'input[autocomplete="current-password"]'
     private static readonly HttpScheme = 'http:'
     private static readonly SubmitKey = 'Enter'
-    private static readonly LoopbackHosts: readonly string[] = ['127.0.0.1', 'localhost', '[::1]']
+    // Navigation counts as reached once the response starts (the callback page itself may never load).
+    private static readonly WaitUntil: WaitUntil = 'commit'
+    private static readonly Launch: LaunchOptions = { headless: true }
     private static readonly StepTimeoutMs = 60_000
     private static readonly OpenFailed = 'IdP browser login: the authorize page did not open'
     private static readonly NoLoginForm = 'IdP browser login: the login form did not show within the timeout'
@@ -32,11 +39,11 @@ export class IdpBrowserLogin
     public async Run(authorizeUrl: string, email: string, password: string): Promise<void>
     {
         const S = IdpBrowserLogin
-        const browser = await chromium.launch({ headless: true })
+        const browser = await chromium.launch(S.Launch)
         try
         {
             const page = await (await browser.newContext()).newPage()
-            await S.Step(S.OpenFailed, () => page.goto(authorizeUrl, { waitUntil: 'commit', timeout: S.StepTimeoutMs }))
+            await S.Step(S.OpenFailed, () => page.goto(authorizeUrl, { waitUntil: S.WaitUntil, timeout: S.StepTimeoutMs }))
             await S.Step(S.NoLoginForm, () => page.waitForSelector(S.EmailSelector, { timeout: S.StepTimeoutMs }))
             await S.Step(S.SubmitFailed, async () =>
             {
@@ -44,7 +51,7 @@ export class IdpBrowserLogin
                 await page.fill(S.PasswordSelector, password)
                 await page.press(S.PasswordSelector, S.SubmitKey)
             })
-            await S.Step(S.NoCallback, () => page.waitForURL((url) => S.IsCallback(url), { timeout: S.StepTimeoutMs, waitUntil: 'commit' }))
+            await S.Step(S.NoCallback, () => page.waitForURL((url) => S.IsCallback(url), { timeout: S.StepTimeoutMs, waitUntil: S.WaitUntil }))
         }
         finally
         {
@@ -56,7 +63,7 @@ export class IdpBrowserLogin
     public static IsCallback(url: URL): boolean
     {
         const S = IdpBrowserLogin
-        return url.protocol === S.HttpScheme && S.LoopbackHosts.includes(url.hostname) && url.pathname === IdpPasswordLogin.CallbackPath
+        return url.protocol === S.HttpScheme && TransportRule.IsLoopback(url) && url.pathname === IdpPasswordLogin.CallbackPath
     }
 
     // Runs one step; a failure becomes an IdpLoginError naming the step only.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire } from '../account-api.js'
+import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire, TenantPlaneAddress, TransportRule } from '../account-api.js'
 
 describe('PlatformAddress.Validate', () =>
 {
@@ -44,6 +44,39 @@ describe('ConsoleAddress', () =>
     {
         expect(ConsoleAddress.Normalise('  HTTPS://Console-Acme.localtest.me/ ')).toBe('https://console-acme.localtest.me')
         expect(ConsoleAddress.Normalise('https://h.example:8443/')).toBe('https://h.example:8443')
+    })
+})
+
+describe('TenantPlaneAddress.IsUsable', () =>
+{
+    it('applies only the transport rule, so a base path is kept usable', () =>
+    {
+        expect(TenantPlaneAddress.IsUsable('https://platform.example/tenant-plane')).toBe(true)
+        expect(TenantPlaneAddress.IsUsable('http://127.0.0.1:7002/tenant')).toBe(true)
+        expect(TenantPlaneAddress.IsUsable('http://[::1]:7002')).toBe(true)
+    })
+
+    it('refuses cleartext to a non-loopback host, other schemes and malformed addresses', () =>
+    {
+        for (const bad of ['http://platform.example/tenant-plane', 'ftp://x', 'not a url', ''])
+        {
+            expect(TenantPlaneAddress.IsUsable(bad)).toBe(false)
+        }
+    })
+})
+
+describe('TransportRule', () =>
+{
+    it('is the rule both address validators apply', () =>
+    {
+        for (const host of TransportRule.LoopbackHosts)
+        {
+            expect(TransportRule.IsSecureOrLoopback(new URL(`http://${host}:1`))).toBe(true)
+            expect(PlatformAddress.Validate(`http://${host}:1`)).toBeUndefined()
+            expect(ConsoleAddress.Validate(`http://${host}:1`)).toBeUndefined()
+        }
+        expect(TransportRule.IsSecureOrLoopback(new URL('http://p.example'))).toBe(false)
+        expect(TransportRule.IsSecureOrLoopback(new URL('https://p.example'))).toBe(true)
     })
 })
 

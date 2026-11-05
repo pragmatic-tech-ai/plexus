@@ -43,14 +43,48 @@ export enum TargetKind
 
 export type TargetChoice = { Environment: string; GraphName?: string }
 
+// The one transport rule for every address Plexus dials (the Platform address, a console address,
+// the platform's tenant plane): https anywhere, cleartext http only to a loopback host.
+export class TransportRule
+{
+    public static readonly SecureScheme = 'https:'
+    public static readonly CleartextScheme = 'http:'
+    public static readonly LoopbackHosts: readonly string[] = ['localhost', '127.0.0.1', '[::1]']
+
+    public static IsLoopback(parsed: URL): boolean
+    {
+        return TransportRule.LoopbackHosts.includes(parsed.hostname)
+    }
+
+    public static IsSecureOrLoopback(parsed: URL): boolean
+    {
+        return parsed.protocol === TransportRule.SecureScheme
+            || (parsed.protocol === TransportRule.CleartextScheme && TransportRule.IsLoopback(parsed))
+    }
+}
+
+// The platform's tenant plane, where a tenant without a console of its own signs in. Only the
+// transport rule applies: unlike a console address it may carry a base path (a gateway prefix).
+export class TenantPlaneAddress
+{
+    public static IsUsable(url: string): boolean
+    {
+        try
+        {
+            return TransportRule.IsSecureOrLoopback(new URL(url.trim()))
+        }
+        catch
+        {
+            return false
+        }
+    }
+}
+
 // The Platform address setting: where Plexus asks which tenant an email belongs to. https is
 // accepted anywhere; cleartext http only for a loopback host.
 export class PlatformAddress
 {
     public static readonly Default = 'http://localhost:7000'
-    private static readonly SecureScheme = 'https:'
-    private static readonly CleartextScheme = 'http:'
-    public static readonly LoopbackHosts: readonly string[] = ['localhost', '127.0.0.1', '[::1]']
     private static readonly Malformed = 'The Platform address is not a valid web address.'
     private static readonly BadScheme = 'The Platform address must start with https://.'
     private static readonly Cleartext = 'The Platform address must use https://; plain http:// is only allowed for localhost.'
@@ -67,10 +101,8 @@ export class PlatformAddress
         {
             return PlatformAddress.Malformed
         }
-        if (parsed.protocol === PlatformAddress.SecureScheme) return undefined
-        if (parsed.protocol !== PlatformAddress.CleartextScheme) return PlatformAddress.BadScheme
-        if (!PlatformAddress.LoopbackHosts.includes(parsed.hostname)) return PlatformAddress.Cleartext
-        return undefined
+        if (TransportRule.IsSecureOrLoopback(parsed)) return undefined
+        return parsed.protocol === TransportRule.CleartextScheme ? PlatformAddress.Cleartext : PlatformAddress.BadScheme
     }
 }
 
@@ -78,8 +110,6 @@ export class PlatformAddress
 // https anywhere, cleartext http only for a loopback host; no credentials, path, query or fragment.
 export class ConsoleAddress
 {
-    private static readonly SecureScheme = 'https:'
-    private static readonly CleartextScheme = 'http:'
     private static readonly RootPath = '/'
     private static readonly ForbiddenCharacters: readonly string[] = ['?', '#', '@']
 
@@ -98,8 +128,7 @@ export class ConsoleAddress
         {
             return AccountErrorKind.ConsoleAddressInvalid
         }
-        const schemeOk = parsed.protocol === ConsoleAddress.SecureScheme
-            || (parsed.protocol === ConsoleAddress.CleartextScheme && PlatformAddress.LoopbackHosts.includes(parsed.hostname))
+        const schemeOk = TransportRule.IsSecureOrLoopback(parsed)
         const bare = parsed.username === '' && parsed.password === '' && parsed.search === ''
             && parsed.hash === '' && parsed.pathname === ConsoleAddress.RootPath
         return schemeOk && bare ? undefined : AccountErrorKind.ConsoleAddressInvalid

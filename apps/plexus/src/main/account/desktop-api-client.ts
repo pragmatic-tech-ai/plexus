@@ -4,8 +4,10 @@ import type { DesktopSession } from './desktop-session-store.js'
 import { TextValue } from './text-value.js'
 
 // A discovered tenant and the console address to sign in at: its own consoleUrl, else the
-// platform's tenant plane. Main-process only; the renderer sees only Id and DisplayName.
-export type DiscoveredConsole = { Id: string; DisplayName: string; ConsoleUrl: string }
+// platform's tenant plane (FromTenantPlane; that address may carry a base path, so it is checked
+// with TenantPlaneAddress rather than ConsoleAddress). Main-process only; the renderer sees only Id
+// and DisplayName.
+export type DiscoveredConsole = { Id: string; DisplayName: string; ConsoleUrl: string; FromTenantPlane: boolean }
 export type Discovery = { Tenants: DiscoveredConsole[]; TenantPlaneUrl: string }
 // The tenant a console address serves.
 export type ServedTenant = { TenantId: string; TenantName: string }
@@ -32,6 +34,7 @@ export class DesktopApiClient
     private static readonly BearerPrefix = 'Bearer '
     private static readonly TrailingSlashes = /\/+$/
     private static readonly NoRedirects: RequestRedirect = 'error'
+    private static readonly ManualRedirects: RequestRedirect = 'manual'
     private static readonly StatusOk = 200
     private static readonly StatusNoContent = 204
     private static readonly StatusBadRequest = 400
@@ -57,10 +60,12 @@ export class DesktopApiClient
     }
 
     // Asks an address which tenant's console it is. Anything that does not answer like a console
-    // (no such route, a web page, an object without a tenant id) is NotAConsole.
+    // (no such route, a web page, an object without a tenant id, a redirect elsewhere) is
+    // NotAConsole. Redirects are not followed but answered (a 3xx, or an opaque redirect of status
+    // 0), so a site that redirects reads as reachable but not a console.
     public async Console(consoleUrl: string): Promise<ServedTenant>
     {
-        const res = await this.Send(consoleUrl, DesktopApiClient.ConsolePath, DesktopApiClient.MethodGet, AccountErrorKind.ConsoleUnreachable, undefined)
+        const res = await this.Send(consoleUrl, DesktopApiClient.ConsolePath, DesktopApiClient.MethodGet, AccountErrorKind.ConsoleUnreachable, undefined, undefined, DesktopApiClient.ManualRedirects)
         if (res.status === DesktopApiClient.StatusTooManyRequests || res.status >= DesktopApiClient.StatusServerError) throw new AccountError(AccountErrorKind.Unavailable)
         if (res.status !== DesktopApiClient.StatusOk) throw new AccountError(AccountErrorKind.NotAConsole)
         let parsed: unknown
@@ -119,7 +124,10 @@ export class DesktopApiClient
 
     // `unreachable` is the kind raised when the request cannot be made at all; a certificate this
     // computer does not trust is told apart, since only installing that certificate fixes it.
-    private async Send(base: string, path: string, method: string, unreachable: AccountErrorKind, body: unknown, token?: string): Promise<Response>
+    private async Send(
+        base: string, path: string, method: string, unreachable: AccountErrorKind, body: unknown, token?: string,
+        redirect: RequestRedirect = DesktopApiClient.NoRedirects,
+    ): Promise<Response>
     {
         const headers: Record<string, string> = { [DesktopApiClient.AcceptHeader]: DesktopApiClient.JsonType }
         if (body !== undefined) headers[DesktopApiClient.ContentTypeHeader] = DesktopApiClient.JsonType
@@ -130,7 +138,7 @@ export class DesktopApiClient
                 method,
                 headers,
                 body: body === undefined ? undefined : JSON.stringify(body),
-                redirect: DesktopApiClient.NoRedirects,
+                redirect,
             })
         }
         catch (e)
@@ -163,10 +171,12 @@ export class DesktopApiClient
         if (typeof raw !== 'object' || raw === null) return undefined
         const { id, displayName, consoleUrl } = raw as Record<string, unknown>
         if (!TextValue.Filled(id)) return undefined
+        const own = TextValue.Filled(consoleUrl)
         return {
             Id: id,
             DisplayName: TextValue.Filled(displayName) ? displayName : id,
-            ConsoleUrl: TextValue.Filled(consoleUrl) ? consoleUrl : tenantPlaneUrl,
+            ConsoleUrl: own ? consoleUrl : tenantPlaneUrl,
+            FromTenantPlane: !own,
         }
     }
 

@@ -7,7 +7,7 @@ import { DesktopApiClient } from '../desktop-api-client.js'
 import { DesktopSessionStore, type DesktopSession } from '../desktop-session-store.js'
 import { ReverseEncryptor } from './reverse-encryptor.js'
 
-type Recorded = { Url: string; Method: string; Headers: Record<string, string> }
+type Recorded = { Url: string; Method: string; Headers: Record<string, string>; Redirect: RequestRedirect | undefined }
 
 // A fetch double answering every request with one response (or one rejection), recording each call.
 class FakeFetch
@@ -17,7 +17,7 @@ class FakeFetch
 
     public readonly Fetch = async (input: string | URL, init?: RequestInit): Promise<Response> =>
     {
-        this.Requests.push({ Url: String(input), Method: init?.method ?? 'GET', Headers: Object.fromEntries(new Headers(init?.headers).entries()) })
+        this.Requests.push({ Url: String(input), Method: init?.method ?? 'GET', Headers: Object.fromEntries(new Headers(init?.headers).entries()), Redirect: init?.redirect })
         return await this.Answer()
     }
 
@@ -78,7 +78,8 @@ describe('DesktopApiClient', () =>
         expect(found.Tenants[1]!.ConsoleUrl).toBe('http://127.0.0.1:7002')
         expect(found.Tenants[2]!.ConsoleUrl).toBe('http://127.0.0.1:7002')
         expect(found.Tenants[3]!.ConsoleUrl).toBe('http://127.0.0.1:7002')
-        expect(found.Tenants[0]).toEqual({ Id: 'a', DisplayName: 'A', ConsoleUrl: 'https://console-a.example' })
+        expect(found.Tenants[0]).toEqual({ Id: 'a', DisplayName: 'A', ConsoleUrl: 'https://console-a.example', FromTenantPlane: false })
+        expect(found.Tenants.map(t => t.FromTenantPlane)).toEqual([false, true, true, true])
     })
 
     it('Console answers the served tenant', async () =>
@@ -114,6 +115,31 @@ describe('DesktopApiClient', () =>
             fake.Answer = answer
             expect(await Caught.Kind(client.Console('https://console-acme.example'))).toBe(AccountErrorKind.NotAConsole)
         }
+    })
+
+    it('Console reads a redirecting address as NotAConsole, not unreachable', async () =>
+    {
+        for (const status of [301, 302, 307, 308])
+        {
+            fake.Answer = () => new Response(null, { status, headers: { location: 'https://www.example.com/' } })
+            expect(await Caught.Kind(client.Console('https://example.com'))).toBe(AccountErrorKind.NotAConsole)
+        }
+        // A status-0 answer, as an opaque redirect is.
+        fake.Answer = () => Response.error()
+        expect(await Caught.Kind(client.Console('https://example.com'))).toBe(AccountErrorKind.NotAConsole)
+        expect(fake.Requests.every(r => r.Redirect === 'manual')).toBe(true)
+    })
+
+    it('every call but the console lookup refuses redirects outright', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { authorizeUrl: 'https://idp.example/a?state=s' })
+        await client.Begin('https://console-acme.example', 'acme', 'http://127.0.0.1:5555/cb', 'ch')
+        fake.Answer = () => FakeFetch.Json(500, {})
+        await Caught.Kind(client.Complete('https://console-acme.example', 'st', 'code', 'ver'))
+        await Caught.Kind(client.Targets(session))
+        await Caught.Kind(client.Discover('http://localhost:7000', 'ada@acme.example'))
+        expect(fake.Requests).toHaveLength(4)
+        expect(fake.Requests.every(r => r.Redirect === 'error')).toBe(true)
     })
 
     it('Console maps a throttled or failing console to Unavailable', async () =>

@@ -40,8 +40,6 @@ export class SignInChecks
         'the launched profile already holds a session; the scripted sign-in only signs in a fresh e2e profile '
         + 'and never signs out a session it did not create'
 
-    // Whether `url` is the PKCE authorize URL Plexus opens for sign-in: http(s) with state and
-    // code_challenge. The intercepted opener also records any other external link opened meanwhile.
     // The IdP login leg for a PLEXUS_E2E_IDP_LOGIN value: unset or `http` -> Http, `browser` -> Browser;
     // anything else fails with a fixed sentence (a typo must not silently fall back to the http leg).
     public static IdpLoginKindOf(value: string | undefined): IdpLoginKind
@@ -51,6 +49,8 @@ export class SignInChecks
         throw new SignInCheckError(SignInChecks.BadIdpLogin)
     }
 
+    // Whether `url` is the PKCE authorize URL Plexus opens for sign-in: http(s) with state and
+    // code_challenge. The intercepted opener also records any other external link opened meanwhile.
     public static IsAuthorizeUrl(url: string): boolean
     {
         const S = SignInChecks

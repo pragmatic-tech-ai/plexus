@@ -304,6 +304,27 @@ describe('AccountService', () =>
         expect(h.Fetch.Requests.filter(r => !r.Url.includes('/api/desktop/discover'))).toEqual([])
     })
 
+    it('a tenant without its own console signs in at the platform tenant plane, base path kept', async () =>
+    {
+        const plane = 'https://platform.example/tenant-plane'
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, { tenants: [{ id: 't1', displayName: 'Acme' }], tenantPlaneUrl: plane }))
+        h.Fetch.Routes.set('/tenant-plane/desktop/sign-in/begin', () => FakeFetch.Json(200, { authorizeUrl: Harness.Authorize }))
+        h.Fetch.Routes.set('/tenant-plane/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'tok-t1', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: 'Acme' }))
+        expect(await h.SignIn()).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
+        expect(h.Fetch.To('/tenant-plane/desktop/sign-in/begin')[0].Url).toBe('https://platform.example/tenant-plane/desktop/sign-in/begin')
+        expect(h.Fetch.To('/tenant-plane/desktop/sign-in/complete')[0].Url).toBe('https://platform.example/tenant-plane/desktop/sign-in/complete')
+        expect((await h.Store.Load())!.ConsoleUrl).toBe(plane)
+    })
+
+    it('a cleartext non-loopback tenant plane fallback is refused before Begin', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, { tenants: [{ id: 't1', displayName: 'Acme' }], tenantPlaneUrl: 'http://platform.example/tenant-plane' }))
+        expect(await Caught.Kind(h.SignIn())).toBe(AccountErrorKind.Unavailable)
+        expect(h.Fetch.Requests.filter(r => !r.Url.includes('/api/desktop/discover'))).toEqual([])
+        expect(h.Opened).toEqual([])
+        expect(h.Receiver.Started).toBe(0)
+    })
+
     it('a tenant absent from the discovery answer is NoAccount', async () =>
     {
         expect(await Caught.Kind(h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'nope'))).toBe(AccountErrorKind.NoAccount)

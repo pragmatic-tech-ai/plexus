@@ -3,10 +3,10 @@ import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind, TenantPlaneAddress,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { DesktopApiClient } from './desktop-api-client.js'
+import type { DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
 import type { DesktopSession, DesktopSessionStore } from './desktop-session-store.js'
 import type { IRedirectReceiver } from './loopback-redirect-receiver.js'
 
@@ -56,6 +56,7 @@ export class AccountService
     private static readonly SecureScheme = 'https:'
     private static readonly CleartextScheme = 'http:'
     private static readonly StateParam = 'state'
+    private static readonly TrailingSlashes = /\/+$/
     private static readonly VerifierBytes = 32
     private static readonly Sha256 = 'sha256'
     private static readonly Base64Url = 'base64url'
@@ -64,8 +65,8 @@ export class AccountService
     private static readonly SignedOutState: AccountState = { SignedIn: false }
 
     public readonly Changed = new Signal<AccountState>()
-    // Consoles: tenant id -> the console address to sign in at (main-process only).
-    private discovered: { PlatformUrl: string; Email: string; Consoles: ReadonlyMap<string, string> } | undefined
+    // Consoles: tenant id -> the discovered console to sign in at (main-process only).
+    private discovered: { PlatformUrl: string; Email: string; Consoles: ReadonlyMap<string, DiscoveredConsole> } | undefined
     private attempt: SignInAttempt | undefined
     // RememberChoice read-modify-writes run one at a time, so concurrent calls neither share a temp
     // file nor lose each other's update.
@@ -101,8 +102,8 @@ export class AccountService
         const platform = AccountService.Platform(platformUrl)
         const address = email.trim()
         const found = await this.client.Discover(platform, address)
-        if (PlatformAddress.Validate(found.TenantPlaneUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
-        this.discovered = { PlatformUrl: platform, Email: address, Consoles: new Map(found.Tenants.map(t => [t.Id, t.ConsoleUrl])) }
+        if (!TenantPlaneAddress.IsUsable(found.TenantPlaneUrl)) throw new AccountError(AccountErrorKind.Unavailable)
+        this.discovered = { PlatformUrl: platform, Email: address, Consoles: new Map(found.Tenants.map(t => [t.Id, t])) }
         // Exactly the renderer's shape: a console address never crosses IPC.
         return found.Tenants.map(t => ({ Id: t.Id, DisplayName: t.DisplayName }))
     }
@@ -112,9 +113,8 @@ export class AccountService
         const address = email.trim()
         return this.RunAttempt(async () =>
         {
-            const consoleUrl = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
-            if (ConsoleAddress.Validate(consoleUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
-            return { ConsoleUrl: consoleUrl, TenantId: tenantId }
+            const found = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
+            return { ConsoleUrl: AccountService.SignInAddress(found), TenantId: tenantId }
         }, address)
     }
 
@@ -223,9 +223,9 @@ export class AccountService
         }
     }
 
-    private async SignInAt(attempt: SignInAttempt, consoleUrl: string, tenantId: string, email: string): Promise<AccountState>
+    // `normalised` is already the validated, final address (see SignInAddress and SignInAtConsole).
+    private async SignInAt(attempt: SignInAttempt, normalised: string, tenantId: string, email: string): Promise<AccountState>
     {
-        const normalised = ConsoleAddress.Normalise(consoleUrl)
         const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
         const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
         const { RedirectUri } = await attempt.Receiver.Start()
@@ -256,14 +256,14 @@ export class AccountService
 
     // From the cached discovery; discovered again when the platform or email differ or the tenant is
     // not in the cached answer (it may be stale). Still absent afterwards: no such account.
-    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<string>
+    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<DiscoveredConsole>
     {
         const cached = this.discovered
         const fresh = cached !== undefined && cached.PlatformUrl === platform && cached.Email === email && cached.Consoles.has(tenantId)
         if (!fresh) await this.Discover(platform, email)
-        const consoleUrl = this.discovered!.Consoles.get(tenantId)
-        if (consoleUrl === undefined) throw new AccountError(AccountErrorKind.NoAccount)
-        return consoleUrl
+        const found = this.discovered!.Consoles.get(tenantId)
+        if (found === undefined) throw new AccountError(AccountErrorKind.NoAccount)
+        return found
     }
 
     // Stores a freshly issued session and returns the one it replaced. When it cannot be stored the
@@ -333,6 +333,20 @@ export class AccountService
         {
             return {}
         }
+    }
+
+    // The address a discovered tenant signs in at, or Unavailable before anything is dialled. A
+    // tenant's own console must be a bare origin and is normalised to it; the platform's tenant plane
+    // only follows the transport rule and keeps its base path (trailing slashes dropped).
+    private static SignInAddress(found: DiscoveredConsole): string
+    {
+        if (found.FromTenantPlane)
+        {
+            if (!TenantPlaneAddress.IsUsable(found.ConsoleUrl)) throw new AccountError(AccountErrorKind.Unavailable)
+            return found.ConsoleUrl.trim().replace(AccountService.TrailingSlashes, '')
+        }
+        if (ConsoleAddress.Validate(found.ConsoleUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
+        return ConsoleAddress.Normalise(found.ConsoleUrl)
     }
 
     private static Platform(platformUrl: string): string
