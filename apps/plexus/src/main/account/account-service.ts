@@ -102,7 +102,8 @@ export class AccountService
         const found = await this.client.Discover(platform, address)
         if (PlatformAddress.Validate(found.TenantPlaneUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
         this.discovered = { PlatformUrl: platform, Email: address, TenantPlaneUrl: found.TenantPlaneUrl }
-        return found.Tenants
+        // Exactly the renderer's shape: a console address never crosses IPC.
+        return found.Tenants.map(t => ({ Id: t.Id, DisplayName: t.DisplayName }))
     }
 
     public async SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
@@ -130,7 +131,7 @@ export class AccountService
             attempt.Check()
             const done = await this.client.Complete(plane, state, received, verifier)
             const session: DesktopSession = {
-                TenantPlaneUrl: plane, Token: done.Token, Email: done.Email ?? address, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
+                ConsoleUrl: plane, Token: done.Token, Email: done.Email ?? address, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
             }
             // Cancelled while Complete was in flight: the tenant plane already issued a session; end it
             // rather than leave a live token nobody holds. Past this point the sign-in is committed.

@@ -1,5 +1,6 @@
 import { ConnectionLostError, ErrorCodes, ResponseError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { AccountError, AccountErrorKind, type TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TlsFailure } from '../net/system-trust.js'
 import type { DesktopSession } from './desktop-session-store.js'
 
 // The methods the contribute and publish flows call on a relay connection (PragmaticClient has them).
@@ -88,8 +89,9 @@ export class RelayAnswer
     }
 }
 
-// Opens a JSON-RPC connection to an environment through the tenant plane's desktop relay, which mints
-// and keeps the environment credential server-side. Plexus presents only the desktop session token.
+// Opens a JSON-RPC connection to an environment through the desktop relay of the session's console
+// (a tenant's own console, or the platform's tenant plane), which mints and keeps the environment
+// credential server-side. Plexus presents only the desktop session token.
 // Every failure becomes a fixed sentence (naming at most the environment): never a URL, a token or
 // the underlying transport text. A 401 means the session is over, so the account is cleared.
 export class RelayConnector implements IRelayConnector
@@ -98,7 +100,7 @@ export class RelayConnector implements IRelayConnector
     private static readonly EnvironmentParam = 'environment'
     private static readonly ActionParam = 'action'
     private static readonly SocketSchemes: Readonly<Record<string, string>> = { 'http:': 'ws:', 'https:': 'wss:' }
-    private static readonly BadPlane = 'The tenant plane address is not usable.'
+    private static readonly BadConsole = 'The console address is not usable.'
     private static readonly NotAllowed = "Your account can't use this environment."
     private static readonly EnvironmentPrefix = 'The environment '
     private static readonly NotRunningSuffix = ' is not running. Start it from the tenant console.'
@@ -117,7 +119,7 @@ export class RelayConnector implements IRelayConnector
         let url: string
         try
         {
-            url = RelayConnector.RelayUrl(session.TenantPlaneUrl, environment, kind)
+            url = RelayConnector.RelayUrl(session.ConsoleUrl, environment, kind)
         }
         catch
         {
@@ -129,6 +131,8 @@ export class RelayConnector implements IRelayConnector
         }
         catch (e)
         {
+            // Only installing the certificate fixes this, so it is named rather than called unreachable.
+            if (TlsFailure.IsCertificate(e)) throw new AccountError(AccountErrorKind.CertificateUntrusted)
             throw await this.Refusal(RelayRefusal.StatusOf(e), environment, session.Token)
         }
     }
@@ -148,16 +152,17 @@ export class RelayConnector implements IRelayConnector
         }
     }
 
-    // ws(s)://<tenant plane>/desktop/relay?environment=<name>&action=<kind>. Encoded by hand so a
-    // space is %20 (URLSearchParams would write +).
-    public static RelayUrl(tenantPlaneUrl: string, environment: string, kind: TargetKind): string
+    // ws(s)://<console>/desktop/relay?environment=<name>&action=<kind>. Encoded by hand so a space is
+    // %20 (URLSearchParams would write +). A base path is kept for sessions saved with a tenant plane
+    // address that had one.
+    public static RelayUrl(consoleUrl: string, environment: string, kind: TargetKind): string
     {
-        const plane = new URL(tenantPlaneUrl)
-        const scheme = RelayConnector.SocketSchemes[plane.protocol]
-        if (scheme === undefined) throw new Error(RelayConnector.BadPlane)
-        const base = plane.pathname.replace(RelayConnector.TrailingSlashes, '')
+        const address = new URL(consoleUrl)
+        const scheme = RelayConnector.SocketSchemes[address.protocol]
+        if (scheme === undefined) throw new Error(RelayConnector.BadConsole)
+        const base = address.pathname.replace(RelayConnector.TrailingSlashes, '')
         const query = `${RelayConnector.EnvironmentParam}=${encodeURIComponent(environment)}&${RelayConnector.ActionParam}=${encodeURIComponent(kind)}`
-        return `${scheme}//${plane.host}${base}${RelayConnector.RelayPath}?${query}`
+        return `${scheme}//${address.host}${base}${RelayConnector.RelayPath}?${query}`
     }
 
     private async Refusal(status: number | undefined, environment: string, token: string): Promise<Error>

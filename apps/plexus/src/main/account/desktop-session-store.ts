@@ -12,9 +12,10 @@ export interface ITokenEncryptor
 }
 
 // The signed-in desktop session. Lives only in the main process; the Token never crosses to the
-// renderer.
+// renderer. ConsoleUrl is the console the session was issued by (a tenant's own console, or the
+// platform's tenant plane), where its targets, relay and sign-out go.
 export type DesktopSession = {
-    TenantPlaneUrl: string;
+    ConsoleUrl: string;
     Token: string;
     Email: string;
     TenantId: string;
@@ -30,7 +31,11 @@ export class DesktopSessionStore
     private static readonly SessionFile = 'desktop-session.bin'
     private static readonly TempSuffix = '.tmp'
     private static readonly NotFoundCode = 'ENOENT'
-    private static readonly Fields: readonly (keyof DesktopSession)[] = ['TenantPlaneUrl', 'Token', 'Email', 'TenantId', 'TenantName', 'ExpiresAt']
+    private static readonly Fields: readonly (keyof DesktopSession)[] = ['ConsoleUrl', 'Token', 'Email', 'TenantId', 'TenantName', 'ExpiresAt']
+    // Sessions saved before per-tenant consoles named their address TenantPlaneUrl (the platform's
+    // tenant plane); they keep working there.
+    private static readonly LegacyAddressField = 'TenantPlaneUrl'
+    private static readonly AddressField: keyof DesktopSession = 'ConsoleUrl'
 
     public constructor(private readonly dir: string, private readonly encryptor: ITokenEncryptor)
     {
@@ -84,15 +89,25 @@ export class DesktopSessionStore
             return undefined
         }
         if (typeof parsed !== 'object' || parsed === null) return undefined
-        const record = parsed as Record<string, unknown>
-        const complete = DesktopSessionStore.Fields.every(f => typeof record[f] === 'string' && record[f] !== '')
+        const record = { ...(parsed as Record<string, unknown>) }
+        const legacy = record[DesktopSessionStore.LegacyAddressField]
+        if (!DesktopSessionStore.Filled(record[DesktopSessionStore.AddressField]) && DesktopSessionStore.Filled(legacy))
+        {
+            record[DesktopSessionStore.AddressField] = legacy
+        }
+        const complete = DesktopSessionStore.Fields.every(f => DesktopSessionStore.Filled(record[f]))
         return complete ? DesktopSessionStore.Pick(record as DesktopSession) : undefined
+    }
+
+    private static Filled(value: unknown): value is string
+    {
+        return typeof value === 'string' && value !== ''
     }
 
     // Copies exactly the session fields, so nothing extra is ever written or returned.
     private static Pick(s: DesktopSession): DesktopSession
     {
-        return { TenantPlaneUrl: s.TenantPlaneUrl, Token: s.Token, Email: s.Email, TenantId: s.TenantId, TenantName: s.TenantName, ExpiresAt: s.ExpiresAt }
+        return { ConsoleUrl: s.ConsoleUrl, Token: s.Token, Email: s.Email, TenantId: s.TenantId, TenantName: s.TenantName, ExpiresAt: s.ExpiresAt }
     }
 
     private async ReadBlob(): Promise<Buffer | undefined>

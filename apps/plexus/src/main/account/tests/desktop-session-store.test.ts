@@ -19,8 +19,9 @@ class ReverseEncryptor implements ITokenEncryptor
 describe('DesktopSessionStore', () =>
 {
     const session: DesktopSession = {
-        TenantPlaneUrl: 'http://127.0.0.1:7002', Token: 'plain-token-123', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z',
+        ConsoleUrl: 'https://console-acme.example', Token: 'plain-token-123', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z',
     }
+    const legacy = { Token: 'plain-token-123', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z' }
     let dir: string
 
     beforeEach(() => { dir = mkdtempSync(join(tmpdir(), 'desktop-session-')) })
@@ -59,6 +60,33 @@ describe('DesktopSessionStore', () =>
         await expect(store.Save(session)).rejects.toEqual(new AccountError(AccountErrorKind.SecureStorageUnavailable))
         await expect(store.Save(session)).rejects.toBeInstanceOf(AccountError)
         expect(readdirSync(dir)).toEqual([])
+    })
+
+    it('Load maps a legacy TenantPlaneUrl blob to ConsoleUrl', async () =>
+    {
+        const encryptor = new ReverseEncryptor()
+        writeFileSync(join(dir, 'desktop-session.bin'), encryptor.Encrypt(JSON.stringify({ TenantPlaneUrl: 'http://127.0.0.1:7002', ...legacy })))
+        expect(await new DesktopSessionStore(dir, encryptor).Load()).toEqual({ ConsoleUrl: 'http://127.0.0.1:7002', ...legacy })
+    })
+
+    it('Save writes only the new fields', async () =>
+    {
+        const encryptor = new ReverseEncryptor()
+        await new DesktopSessionStore(dir, encryptor).Save({ ...session, TenantPlaneUrl: 'http://127.0.0.1:7002' } as DesktopSession)
+        const written = JSON.parse(encryptor.Decrypt(readFileSync(join(dir, 'desktop-session.bin')))) as Record<string, unknown>
+        expect(written['ConsoleUrl']).toBe('https://console-acme.example')
+        expect(Object.keys(written)).not.toContain('TenantPlaneUrl')
+        expect(Object.keys(written).sort()).toEqual(['ConsoleUrl', 'Email', 'ExpiresAt', 'TenantId', 'TenantName', 'Token'])
+    })
+
+    it('a blob with neither address reads as signed out', async () =>
+    {
+        const encryptor = new ReverseEncryptor()
+        const store = new DesktopSessionStore(dir, encryptor)
+        writeFileSync(join(dir, 'desktop-session.bin'), encryptor.Encrypt(JSON.stringify(legacy)))
+        expect(await store.Load()).toBeUndefined()
+        writeFileSync(join(dir, 'desktop-session.bin'), encryptor.Encrypt(JSON.stringify({ ConsoleUrl: '', TenantPlaneUrl: '', ...legacy })))
+        expect(await store.Load()).toBeUndefined()
     })
 
     it('CanStore follows the encryptor', () =>

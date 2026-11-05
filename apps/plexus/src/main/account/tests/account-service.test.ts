@@ -159,6 +159,21 @@ describe('AccountService', () =>
         expect(discover.Headers['origin']).toBeUndefined()
     })
 
+    it('discovered tenants reach the renderer without their console address', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, {
+            tenants: [{ id: 't1', displayName: 'Acme', consoleUrl: 'https://console-t1.example' }, { id: 't2', displayName: 'Beta' }],
+            tenantPlaneUrl: Harness.Plane,
+        }))
+        const found = await h.Service.Discover(Harness.Platform, 'ada@acme.example')
+        expect(found).toEqual([{ Id: 't1', DisplayName: 'Acme' }, { Id: 't2', DisplayName: 'Beta' }])
+        for (const tenant of found)
+        {
+            expect(Object.keys(tenant).sort()).toEqual(['DisplayName', 'Id'])
+        }
+        expect(JSON.stringify(found)).not.toContain('console-t1')
+    })
+
     it('maps an unknown email to NoAccount and a dead platform to Unreachable', async () =>
     {
         h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(404, { error: 'no-account' }))
@@ -194,7 +209,7 @@ describe('AccountService', () =>
         expect(h.Receiver.Closed).toBe(1)
         expect(h.Changes).toEqual([state])
         expect(await h.Store.Load()).toEqual({
-            TenantPlaneUrl: Harness.Plane, Token: 'secret-token-t1', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z',
+            ConsoleUrl: Harness.Plane, Token: 'secret-token-t1', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z',
         })
         expect(await h.Service.Session()).toEqual(await h.Store.Load())
     })

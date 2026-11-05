@@ -49,9 +49,9 @@ class FakeDial
 
 class RelayFixture
 {
-    public static Session(plane = 'http://127.0.0.1:7002'): DesktopSession
+    public static Session(consoleUrl = 'http://127.0.0.1:7002'): DesktopSession
     {
-        return { TenantPlaneUrl: plane, Token, Email: 'o@acme.test', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2099-01-01T00:00:00Z' }
+        return { ConsoleUrl: consoleUrl, Token, Email: 'o@acme.test', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2099-01-01T00:00:00Z' }
     }
 
     // The error ws raises when the server answers the upgrade with a plain HTTP status.
@@ -98,6 +98,30 @@ describe('RelayConnector', () =>
         const dial = new FakeDial()
         await new RelayConnector(new FakeSessions(RelayFixture.Session('https://tenant.example.com')), dial.Dial).Connect('prod', TargetKind.Publish)
         expect(dial.Calls[0]!.url).toBe('wss://tenant.example.com/desktop/relay?environment=prod&action=publish')
+    })
+
+    it('RelayUrl of a normalised https console', () =>
+    {
+        expect(RelayConnector.RelayUrl('https://console-acme.localtest.me', 'dev env', TargetKind.Contribute))
+            .toBe('wss://console-acme.localtest.me/desktop/relay?environment=dev%20env&action=contribute')
+    })
+
+    it("relay dials the session's console address", async () =>
+    {
+        const dial = new FakeDial()
+        await new RelayConnector(new FakeSessions(RelayFixture.Session('https://console-acme.localtest.me')), dial.Dial).Connect('dev', TargetKind.Publish)
+        expect(dial.Calls).toEqual([{ url: 'wss://console-acme.localtest.me/desktop/relay?environment=dev&action=publish', token: Token }])
+    })
+
+    it('relay certificate failure names the certificate', async () =>
+    {
+        const sessions = new FakeSessions(RelayFixture.Session('https://console-acme.localtest.me'))
+        const failure = Object.assign(new Error('x'), { code: 'SELF_SIGNED_CERT_IN_CHAIN' })
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(failure).Dial).Connect('dev', TargetKind.Contribute))
+        expect(error).toBeInstanceOf(AccountError)
+        expect((error as AccountError).Kind).toBe(AccountErrorKind.CertificateUntrusted)
+        expect(sessions.SignedOutCalls).toBe(0)
+        expect(sessions.Current).toBeDefined()
     })
 
     it('is SignedOut without a session and never dials', async () =>
