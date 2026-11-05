@@ -85,6 +85,8 @@ describe('AccountIpc', () =>
         const h = new Harness()
         for (const channel of Object.values(AccountChannel))
         {
+            // SignInAtConsole is bound by Task 7 (main-process service); remove the exclusion there.
+            if (channel === AccountChannel.SignInAtConsole) continue
             expect(h.Ipc.Handlers.has(channel)).toBe(channel !== AccountChannel.Changed)
         }
     })

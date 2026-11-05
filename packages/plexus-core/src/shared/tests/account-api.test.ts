@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, AccountWire, PlatformAddress, RelayError, RelayWire } from '../account-api.js'
+import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire } from '../account-api.js'
 
 describe('PlatformAddress.Validate', () =>
 {
@@ -20,8 +20,36 @@ describe('PlatformAddress.Validate', () =>
     })
 })
 
+describe('ConsoleAddress', () =>
+{
+    it('Validate accepts https anywhere and http only on loopback', () =>
+    {
+        expect(ConsoleAddress.Validate('https://console-acme.localtest.me')).toBeUndefined()
+        expect(ConsoleAddress.Validate('http://127.0.0.1:7002')).toBeUndefined()
+        expect(ConsoleAddress.Validate('http://console-acme.localtest.me')).toBe(AccountErrorKind.ConsoleAddressInvalid)
+        for (const bad of ['ftp://x', 'not a url', '', 'https://u:p@h', 'https://h/?q', 'https://h/#f', 'https://h/tenant'])
+        {
+            expect(ConsoleAddress.Validate(bad)).toBe(AccountErrorKind.ConsoleAddressInvalid)
+        }
+    })
+
+    it('Normalise trims, lowercases the origin and drops the trailing slash', () =>
+    {
+        expect(ConsoleAddress.Normalise('  HTTPS://Console-Acme.localtest.me/ ')).toBe('https://console-acme.localtest.me')
+        expect(ConsoleAddress.Normalise('https://h.example:8443/')).toBe('https://h.example:8443')
+    })
+})
+
 describe('AccountError', () =>
 {
+    it('every new error kind has its fixed sentence', () =>
+    {
+        expect(new AccountError(AccountErrorKind.ConsoleAddressInvalid).message).toBe('Enter the console address as an https:// web address. Plain http:// works only for this computer.')
+        expect(new AccountError(AccountErrorKind.NotAConsole).message).toBe('That address is not a Pragmatic tenant console.')
+        expect(new AccountError(AccountErrorKind.ConsoleUnreachable).message).toBe("Your organization's console could not be reached. Try again later, or check the console address.")
+        expect(new AccountError(AccountErrorKind.CertificateUntrusted).message).toBe("This computer doesn't trust the server's certificate. Ask your administrator to install it, then restart Plexus.")
+    })
+
     it('carries a fixed plain sentence per kind', () =>
     {
         expect(new AccountError(AccountErrorKind.NoAccount).message).toBe('No account was found for this email.')

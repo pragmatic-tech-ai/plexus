@@ -78,6 +78,10 @@ export class FakeTargetAccount implements IAccountService
     {
     }
 
+    public async SignInAtConsole(_consoleUrl: string, _email: string): Promise<void>
+    {
+    }
+
     public async CancelSignIn(): Promise<void>
     {
     }

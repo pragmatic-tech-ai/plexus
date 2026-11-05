@@ -8,6 +8,7 @@ export enum AccountChannel
     State = 'account:state',
     Discover = 'account:discover',
     SignIn = 'account:sign-in',
+    SignInAtConsole = 'account:sign-in-at-console',
     CancelSignIn = 'account:cancel-sign-in',
     SignOut = 'account:sign-out',
     Targets = 'account:targets',
@@ -49,7 +50,7 @@ export class PlatformAddress
     public static readonly Default = 'http://localhost:7000'
     private static readonly SecureScheme = 'https:'
     private static readonly CleartextScheme = 'http:'
-    private static readonly LoopbackHosts: readonly string[] = ['localhost', '127.0.0.1', '[::1]']
+    public static readonly LoopbackHosts: readonly string[] = ['localhost', '127.0.0.1', '[::1]']
     private static readonly Malformed = 'The Platform address is not a valid web address.'
     private static readonly BadScheme = 'The Platform address must start with https://.'
     private static readonly Cleartext = 'The Platform address must use https://; plain http:// is only allowed for localhost.'
@@ -73,6 +74,40 @@ export class PlatformAddress
     }
 }
 
+// The address of an organization's own tenant console, typed by the user. A bare origin only:
+// https anywhere, cleartext http only for a loopback host; no credentials, path, query or fragment.
+export class ConsoleAddress
+{
+    private static readonly SecureScheme = 'https:'
+    private static readonly CleartextScheme = 'http:'
+    private static readonly RootPath = '/'
+
+    // undefined when usable, else AccountErrorKind.ConsoleAddressInvalid.
+    public static Validate(url: string): AccountErrorKind | undefined
+    {
+        let parsed: URL
+        try
+        {
+            parsed = new URL(url.trim())
+        }
+        catch
+        {
+            return AccountErrorKind.ConsoleAddressInvalid
+        }
+        const schemeOk = parsed.protocol === ConsoleAddress.SecureScheme
+            || (parsed.protocol === ConsoleAddress.CleartextScheme && PlatformAddress.LoopbackHosts.includes(parsed.hostname))
+        const bare = parsed.username === '' && parsed.password === '' && parsed.search === ''
+            && parsed.hash === '' && parsed.pathname === ConsoleAddress.RootPath
+        return schemeOk && bare ? undefined : AccountErrorKind.ConsoleAddressInvalid
+    }
+
+    // The origin of a valid address: scheme and host lowercased, port kept, no trailing slash.
+    public static Normalise(url: string): string
+    {
+        return new URL(url.trim()).origin
+    }
+}
+
 export enum AccountErrorKind
 {
     NoAccount = 'no-account',
@@ -84,6 +119,10 @@ export enum AccountErrorKind
     SignedOut = 'signed-out',
     Unavailable = 'unavailable',
     SecureStorageUnavailable = 'secure-storage-unavailable',
+    ConsoleAddressInvalid = 'console-address-invalid',
+    NotAConsole = 'not-a-console',
+    ConsoleUnreachable = 'console-unreachable',
+    CertificateUntrusted = 'certificate-untrusted',
 }
 
 // An account failure the user can act on. The message is a fixed plain sentence per kind, so it
@@ -101,6 +140,10 @@ export class AccountError extends Error
         [AccountErrorKind.SignedOut]: "You're signed out. Sign in and try again.",
         [AccountErrorKind.Unavailable]: 'Sign-in is not available right now. Try again later.',
         [AccountErrorKind.SecureStorageUnavailable]: "Plexus can't store your sign-in securely on this computer.",
+        [AccountErrorKind.ConsoleAddressInvalid]: 'Enter the console address as an https:// web address. Plain http:// works only for this computer.',
+        [AccountErrorKind.NotAConsole]: 'That address is not a Pragmatic tenant console.',
+        [AccountErrorKind.ConsoleUnreachable]: "Your organization's console could not be reached. Try again later, or check the console address.",
+        [AccountErrorKind.CertificateUntrusted]: "This computer doesn't trust the server's certificate. Ask your administrator to install it, then restart Plexus.",
     }
 
     public constructor(public readonly Kind: AccountErrorKind)
@@ -209,6 +252,7 @@ export interface IAccountBridge
     State(): Promise<AccountReply<AccountState>>;
     Discover(platformUrl: string, email: string): Promise<AccountReply<DiscoveredTenant[]>>;
     SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountReply<AccountState>>;
+    SignInAtConsole(consoleUrl: string, email: string): Promise<AccountReply<AccountState>>;
     CancelSignIn(): Promise<AccountReply<void>>;
     SignOut(): Promise<AccountReply<AccountState>>;
     Targets(): Promise<AccountReply<AccountTargets>>;
@@ -224,6 +268,8 @@ export interface IAccountApi
     Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>;
     // Opens the system browser on the tenant's sign-in page and resolves once it is finished there.
     SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>;
+    // Signs in at an organization's console whose address the user typed.
+    SignInAtConsole(consoleUrl: string, email: string): Promise<AccountState>;
     CancelSignIn(): Promise<void>;
     SignOut(): Promise<AccountState>;
     Targets(): Promise<AccountTargets>;

@@ -21,6 +21,11 @@ class FakeAccountBridge
         this.Calls.push(['SignIn', p, e, t])
         return Promise.resolve(this.Reply)
     }
+    public SignInAtConsole(u: string, e: string): Promise<unknown>
+    {
+        this.Calls.push(['SignInAtConsole', u, e])
+        return Promise.resolve(this.Reply)
+    }
     public CancelSignIn(): Promise<unknown> { this.Calls.push(['Cancel']); return Promise.resolve({ Ok: true, Value: undefined }) }
     public SignOut(): Promise<unknown> { return Promise.resolve({ Ok: true, Value: { SignedIn: false } }) }
     public Targets(): Promise<unknown> { return Promise.resolve({ Ok: true, Value: { Contribute: [], Publish: [] } }) }
@@ -86,6 +91,16 @@ describe('IpcAccountService', () =>
             ['Discover', 'p', 'e'], ['SignIn', 'p', 'e', 't'], ['Cancel'],
             ['LastChoice', 'contribute'], ['Remember', 'publish', { Environment: 'z' }],
         ])
+    })
+
+    it('SignInAtConsole forwards both strings and applies the state', async () =>
+    {
+        const bridge = new FakeAccountBridge()
+        bridge.Reply = { Ok: true, Value: { SignedIn: true, Email: 'a@b.c', TenantName: 'T' } }
+        const { Bridge, Service } = Make(bridge)
+        await Service.SignInAtConsole('https://c.example', 'a@b.c')
+        expect(Bridge.Calls).toEqual([['SignInAtConsole', 'https://c.example', 'a@b.c']])
+        expect(Service.State).toEqual({ SignedIn: true, Email: 'a@b.c', TenantName: 'T' })
     })
 
     it('keeps the AccountError kind from a failed reply', async () =>

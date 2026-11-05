@@ -59,6 +59,7 @@ export interface IAccountService
     RequestSignIn(): Promise<boolean>;
     Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>;
     SignIn(platformUrl: string, email: string, tenantId: string): Promise<void>;
+    SignInAtConsole(consoleUrl: string, email: string): Promise<void>;
     CancelSignIn(): Promise<void>;
     SignOut(): Promise<void>;
     Targets(): Promise<AccountTargets>;

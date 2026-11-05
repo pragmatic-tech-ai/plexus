@@ -180,6 +180,7 @@ const account: IAccountBridge = {
   State: () => AccountBridge.Call(AccountChannel.State),
   Discover: (platformUrl, email) => AccountBridge.Call(AccountChannel.Discover, platformUrl, email),
   SignIn: (platformUrl, email, tenantId) => AccountBridge.Call(AccountChannel.SignIn, platformUrl, email, tenantId),
+  SignInAtConsole: (consoleUrl, email) => AccountBridge.Call(AccountChannel.SignInAtConsole, consoleUrl, email),
   CancelSignIn: () => AccountBridge.Call(AccountChannel.CancelSignIn),
   SignOut: () => AccountBridge.Call(AccountChannel.SignOut),
   Targets: () => AccountBridge.Call(AccountChannel.Targets),

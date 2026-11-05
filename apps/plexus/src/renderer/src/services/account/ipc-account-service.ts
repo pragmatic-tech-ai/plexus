@@ -60,6 +60,11 @@ export class IpcAccountService implements IAccountService, IDisposable
         this.Apply(AccountWire.Unwrap(await this.api.SignIn(platformUrl, email, tenantId)))
     }
 
+    public async SignInAtConsole(consoleUrl: string, email: string): Promise<void>
+    {
+        this.Apply(AccountWire.Unwrap(await this.api.SignInAtConsole(consoleUrl, email)))
+    }
+
     public async CancelSignIn(): Promise<void>
     {
         AccountWire.Unwrap(await this.api.CancelSignIn())
