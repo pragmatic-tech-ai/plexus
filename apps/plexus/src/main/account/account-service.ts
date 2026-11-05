@@ -42,10 +42,10 @@ class SignInAttempt
 type ChoiceFile = Record<string, Partial<Record<TargetKind, TargetChoice>>>
 
 // The Plexus account, main-process side. Sign-in: discover the email's tenant on the platform, begin
-// a sign-in on the tenant plane with a loopback redirect and a binding challenge, open the system
+// a sign-in at the tenant's console with a loopback redirect and a binding challenge, open the system
 // browser, wait for the code on the loopback, complete with the binding verifier, store the desktop
 // session encrypted. The token stays here: State() reports only email + tenant name, and every
-// change is raised on Changed for the IPC layer to push. A SignedOut answer from the tenant plane
+// change is raised on Changed for the IPC layer to push. A SignedOut answer from the session's console
 // (targets here, relay connects via HandleSignedOut) clears the session it was given for, and only
 // that one: a late 401 for a session already replaced leaves the newer one alone.
 export class AccountService
@@ -110,7 +110,7 @@ export class AccountService
     public SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
     {
         const address = email.trim()
-        return this.Attempt(async () =>
+        return this.RunAttempt(async () =>
         {
             const consoleUrl = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
             if (ConsoleAddress.Validate(consoleUrl) !== undefined) throw new AccountError(AccountErrorKind.Unavailable)
@@ -123,7 +123,7 @@ export class AccountService
     {
         if (ConsoleAddress.Validate(consoleUrl) !== undefined) return Promise.reject(new AccountError(AccountErrorKind.ConsoleAddressInvalid))
         const normalised = ConsoleAddress.Normalise(consoleUrl)
-        return this.Attempt(async () => ({ ConsoleUrl: normalised, TenantId: (await this.client.Console(normalised)).TenantId }), email.trim())
+        return this.RunAttempt(async () => ({ ConsoleUrl: normalised, TenantId: (await this.client.Console(normalised)).TenantId }), email.trim())
     }
 
     public async CancelSignIn(): Promise<void>
@@ -198,7 +198,7 @@ export class AccountService
 
     // The attempt is created first so a cancel during the resolving step (discovery, console lookup)
     // is honoured; `resolve` names the console and tenant to sign in at.
-    private async Attempt(resolve: () => Promise<{ ConsoleUrl: string; TenantId: string }>, email: string): Promise<AccountState>
+    private async RunAttempt(resolve: () => Promise<{ ConsoleUrl: string; TenantId: string }>, email: string): Promise<AccountState>
     {
         // Without secure storage the session could never be kept: say so before the browser opens.
         if (!this.store.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
@@ -267,7 +267,7 @@ export class AccountService
     }
 
     // Stores a freshly issued session and returns the one it replaced. When it cannot be stored the
-    // tenant plane has already issued it, so it is ended there before the failure is reported.
+    // console has already issued it, so it is ended there before the failure is reported.
     private async Keep(session: DesktopSession): Promise<DesktopSession | undefined>
     {
         try
@@ -341,7 +341,7 @@ export class AccountService
         return platformUrl.trim()
     }
 
-    // The state the browser will hand back is the one the tenant plane put in the authorize URL. Only
+    // The state the browser will hand back is the one the console put in the authorize URL. Only
     // an http(s) URL is ever opened in the browser.
     private static StateIn(authorizeUrl: string): string
     {

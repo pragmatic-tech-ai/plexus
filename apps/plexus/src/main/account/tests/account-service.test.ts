@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
@@ -47,11 +47,12 @@ class FakeReceiver implements IRedirectReceiver
     public static readonly Uri = 'http://127.0.0.1:5555/pragmatic-desktop/callback'
     public ExpectedState: string | undefined
     public Closed = 0
+    public Started = 0
     public Cancelled = false
     public Outcome: () => Promise<string> = async () => 'the-code'
     private reject: ((e: unknown) => void) | undefined
 
-    public async Start(): Promise<{ RedirectUri: string }> { return { RedirectUri: FakeReceiver.Uri } }
+    public async Start(): Promise<{ RedirectUri: string }> { this.Started++; return { RedirectUri: FakeReceiver.Uri } }
 
     public WaitForCode(expectedState: string): Promise<string>
     {
@@ -299,7 +300,7 @@ describe('AccountService', () =>
         expect(await Caught.Kind(h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'a'))).toBe(AccountErrorKind.Unavailable)
         expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
         expect(h.Opened).toEqual([])
-        expect(h.Receiver.ExpectedState).toBeUndefined()
+        expect(h.Receiver.Started).toBe(0)
         expect(h.Fetch.Requests.filter(r => !r.Url.includes('/api/desktop/discover'))).toEqual([])
     })
 
@@ -329,6 +330,7 @@ describe('AccountService', () =>
         expect(await Caught.Kind(h.Service.SignInAtConsole('http://console-acme.localtest.me', 'a@b.c'))).toBe(AccountErrorKind.ConsoleAddressInvalid)
         expect(h.Fetch.Requests).toEqual([])
         expect(h.Opened).toEqual([])
+        expect(h.Receiver.Started).toBe(0)
     })
 
     it('SignInAtConsole on a non-console never opens the browser', async () =>
@@ -337,6 +339,7 @@ describe('AccountService', () =>
         expect(await Caught.Kind(h.Service.SignInAtConsole('https://console-acme.localtest.me', 'a@b.c'))).toBe(AccountErrorKind.NotAConsole)
         expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
         expect(h.Opened).toEqual([])
+        expect(h.Receiver.Started).toBe(0)
         expect(h.Receiver.Closed).toBe(1)
     })
 
@@ -355,12 +358,15 @@ describe('AccountService', () =>
         expect(await signIn).toBe(AccountErrorKind.Cancelled)
         expect(h.Opened).toEqual([])
         expect(h.Fetch.To('/desktop/sign-in/begin')).toEqual([])
+        expect(h.Receiver.Started).toBe(0)
         expect(h.Receiver.Closed).toBe(1)
     })
 
     it('signing in to a console ends the previous platform session at the platform', async () =>
     {
-        await h.Store.Save({ ConsoleUrl: Harness.Plane, Token: 'old-token', Email: 'ada@acme.example', TenantId: 't0', TenantName: 'Old', ExpiresAt: '2026-11-11T00:00:00.000Z' })
+        writeFileSync(join(h.Dir, 'desktop-session.bin'), h.Encryptor.Encrypt(JSON.stringify({
+            TenantPlaneUrl: Harness.Plane, Token: 'old-token', Email: 'ada@acme.example', TenantId: 't0', TenantName: 'Old', ExpiresAt: '2026-11-11T00:00:00.000Z',
+        })))
         h.Fetch.Routes.set('/desktop/console', () => FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme' }))
         h.Fetch.Routes.set('/desktop/sign-out', () => new Response(null, { status: 204 }))
         h.Fetch.Routes.set('/desktop/sign-in/complete', () => FakeFetch.Json(200, { token: 'tok-acme', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 'acme', tenantName: 'Acme' }))
