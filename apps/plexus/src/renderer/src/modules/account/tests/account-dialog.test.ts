@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { AccountError, AccountErrorKind, PlatformAddress } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog, AccountDialogStep } from '../account-dialog.js'
 import { FakeAccountService } from './fake-account-service.js'
@@ -366,6 +366,40 @@ describe('AccountDialog', () =>
             expect(h.Account.Calls).toEqual([['SignInAtConsole', 'https://Console-Acme.localtest.me/', 'ann@acme.example']])
             expect(vm.Step).toBe(AccountDialogStep.SignedIn)
             expect(h.Setting.Remembered).toEqual(['https://console-acme.localtest.me'])
+            expect(h.Account.CallNames()).not.toContain('Discover')
+        })
+
+        it('raises PropertyChanged for the console address members', () =>
+        {
+            const vm = new Harness().Make()
+            const seen: string[] = []
+            for (const name of ['UseConsoleAddress', 'ShowsUseConsoleLink', 'ConsoleAddress'])
+            {
+                vm.PropertyChanged(name).subscribe(() => { seen.push(name) })
+            }
+            vm.UseConsoleAddressCommand.Execute()
+            expect(seen).toEqual(['UseConsoleAddress', 'ShowsUseConsoleLink'])
+            vm.ConsoleAddress = 'https://x.example'
+            expect(seen).toContain('ConsoleAddress')
+            seen.length = 0
+            vm.UsePlatformCommand.Execute()
+            expect(seen).toEqual(['UseConsoleAddress', 'ShowsUseConsoleLink'])
+        })
+
+        it('a failure to remember the address still ends on SignedIn', async () =>
+        {
+            const h = new Harness()
+            h.Account.SignInGate.Resolve()
+            h.Setting.Remember = () => { throw new Error('disk full') }
+            const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+            const vm = h.Make()
+            vm.UseConsoleAddressCommand.Execute()
+            vm.Email = 'ann@acme.example'
+            vm.ConsoleAddress = 'https://console-acme.localtest.me'
+            await vm.Continue()
+            warn.mockRestore()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.Message).toBe('')
         })
 
         it('an invalid console address shows the sentence and calls nothing', async () =>

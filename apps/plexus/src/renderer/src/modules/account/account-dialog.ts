@@ -63,6 +63,7 @@ export class AccountDialog extends Observable implements IDisposable
 {
     private static readonly Unexpected = 'Something went wrong. Try again.'
     private static readonly SignedInPrefix = 'Signed in as '
+    private static readonly RememberFailedLog = 'AccountDialog: saving the console address setting failed:'
     private static readonly CancelFailedLog = 'AccountDialog: cancelling the pending sign-in on close failed:'
 
     private readonly account: IAccountService
@@ -283,7 +284,7 @@ export class AccountDialog extends Observable implements IDisposable
         {
             await this.account.SignInAtConsole(address, email)
             if (generation !== this.signInGeneration) return
-            this.consoleAddressSetting.Remember(ConsoleAddress.Normalise(address))
+            this.SaveSetting(() => this.consoleAddressSetting.Remember(ConsoleAddress.Normalise(address)))
             this.SetStep(AccountDialogStep.SignedIn)
             if (this.closeOnSignIn) this.close()
         }
@@ -296,6 +297,20 @@ export class AccountDialog extends Observable implements IDisposable
         finally
         {
             if (generation === this.signInGeneration) this.SetBusy(false)
+        }
+    }
+
+    // A failure to save the remembered address must not look like a failed sign-in; only the
+    // error's name is logged.
+    private SaveSetting(save: () => void): void
+    {
+        try
+        {
+            save()
+        }
+        catch (e)
+        {
+            console.warn(AccountDialog.RememberFailedLog, AccountDialog.ErrorName(e))
         }
     }
 
@@ -365,7 +380,7 @@ export class AccountDialog extends Observable implements IDisposable
             await this.account.SignIn(this.platformAddress, this.email.trim(), tenantId)
             if (generation !== this.signInGeneration) return
             this.SetStep(AccountDialogStep.SignedIn)
-            this.consoleAddressSetting.Forget()
+            this.SaveSetting(() => this.consoleAddressSetting.Forget())
             if (this.closeOnSignIn) this.close()
         }
         catch (e)
