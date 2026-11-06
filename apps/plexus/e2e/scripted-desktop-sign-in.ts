@@ -17,7 +17,14 @@
 //   3. The recorded authorize URL is driven over HTTP by IdpPasswordLogin (the server smoke's
 //      RunLogin: GET, keep the cookie, POST the password form, follow the redirect to the loopback
 //      callback), so Plexus's own loopback receiver completes the sign-in and stores the session.
-//   4. It waits until the account reports signed in and the dialog's request resolved true.
+//   4. It waits until the account reports signed in and the dialog's request resolved true - or, for
+//      a tenant that also has platform environments, until the dialog stops on PlatformOffer. The
+//      spec then either signs in at the platform (SignInAtPlatform: the dialog's PlatformSignInCommand,
+//      the same opener interception and an IdP login with the platform credentials) or presses Skip
+//      (SkipPlatform); both end with the dialog closed and its request resolved true.
+// AttemptConsoleSignIn() tries the typed console path straight on the account service and answers
+// the AccountError kind it failed with (the retired-console check); it records whether any browser
+// URL was opened meanwhile (LastAttemptOpenedBrowser).
 // SignOut() ends the session whenever a sign-in was attempted on the session-free profile (call it
 // before closing the app, also after a failed SignIn); the profile's Dispose() then deletes what is
 // left on disk.
@@ -43,10 +50,16 @@
 //                                   `browser` (a separate headless Chromium that types into a
 //                                   JavaScript login page, as the in-hive tenant IdP serves; it trusts
 //                                   the OS root store, so PLEXUS_E2E_IDP_CA_FILE is not used)
+//   PLEXUS_IHC_PLATFORM_EMAIL       the email for the platform sign-in (optional; default:
+//                                   PLEXUS_E2E_OWNER_EMAIL)
+//   PLEXUS_IHC_PLATFORM_PASSWORD_FILE  path of a file holding the platform account's password
+//                                   (optional; SignInAtPlatform needs it; read, never printed). The
+//                                   platform IdP is not the in-hive IdP, so its password differs.
 // SignIn takes an optional ConsoleAddress: the dialog then signs in at that in-hive console address
 // (the typed path) instead of discovering tenants from the platform address.
 import { readFileSync } from 'node:fs'
 import type { ElectronApplication, Page } from 'playwright'
+import { PlatformAccess } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialogStep } from '../src/renderer/src/modules/account/account-dialog-step'
 import { IdpBrowserLogin } from './support/idp-browser-login'
 import { IdpPasswordLogin } from './support/idp-password-login'
@@ -61,7 +74,33 @@ interface DialogProbe
     Message?: string
     Done?: boolean
     SignedIn?: boolean
+    Platform?: string
     Tenants?: TenantRow[]
+}
+
+// The account state as the renderer's account service reports it (never a token).
+export interface ScriptedAccountState
+{
+    SignedIn: boolean
+    Email?: string
+    TenantName?: string
+    Platform?: string
+}
+
+// One environment row of the sign-in targets.
+export interface ScriptedTarget
+{
+    Id: string
+    Name: string
+    Status: string
+    Source: string
+}
+
+// The sign-in targets, or the AccountError kind when the call is refused (e.g. signed out).
+export interface ScriptedTargets
+{
+    Targets?: { Contribute: ScriptedTarget[]; Publish: ScriptedTarget[] }
+    ErrorKind?: string
 }
 
 // What locating the services found: a fault sentence, or whether the profile is signed in.
@@ -93,6 +132,8 @@ export class ScriptedDesktopSignIn
     public static readonly IdpCaFileEnv = 'PLEXUS_E2E_IDP_CA_FILE'
     public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
     public static readonly IdpLoginBrowser = IdpLoginKind.Browser
+    public static readonly PlatformEmailEnv = 'PLEXUS_IHC_PLATFORM_EMAIL'
+    public static readonly PlatformPasswordFileEnv = 'PLEXUS_IHC_PLATFORM_PASSWORD_FILE'
     public static readonly SkipMessage =
         `needs a scripted desktop sign-in: set ${ScriptedDesktopSignIn.EmailEnv} (account email) and `
         + `${ScriptedDesktopSignIn.PasswordFileEnv} (path of a file holding its password)`
@@ -124,10 +165,19 @@ export class ScriptedDesktopSignIn
     private static readonly DialogFailedPrefix = 'the account dialog reported: '
     private static readonly NotSignedIn = 'the account did not report signed in after the loopback callback'
     private static readonly EmptyPassword = 'the password file is empty'
+    private static readonly EmptyPlatformPassword = 'the platform password file is empty'
+    private static readonly NoPlatformLogin =
+        `the platform sign-in needs ${ScriptedDesktopSignIn.PlatformPasswordFileEnv} (path of a file holding the platform account's password)`
+    private static readonly NoPlatformOffer = 'the account dialog does not offer the platform sign-in (not on PlatformOffer, or closed)'
+    private static readonly NotPlatformSignedIn = 'the account did not report the platform signed in after the loopback callback'
+    private static readonly NotSkipped = 'the account dialog did not close after Skip'
+    private static readonly AttemptTimeoutMs = 60_000
 
     // Whether this instance started a sign-in on the session-free profile (so any session at teardown
     // is this run's, and SignOut ends it).
     private signInAttempted = false
+    // Whether the last AttemptConsoleSignIn saw the app open any URL in a browser.
+    private lastAttemptOpenedBrowser = false
 
     private constructor(
         private readonly email: string,
@@ -135,8 +185,22 @@ export class ScriptedDesktopSignIn
         private readonly platformAddress: string | undefined,
         private readonly tenant: string | undefined,
         private readonly login: IIdpLogin,
+        private readonly platformEmail: string,
+        private readonly platformPassword: string | undefined,
     )
     {
+    }
+
+    // Whether the platform sign-in's credentials were given (SignInAtPlatform needs them).
+    public get HasPlatformLogin(): boolean
+    {
+        return this.platformPassword !== undefined
+    }
+
+    // Whether the last AttemptConsoleSignIn saw the app open any URL in a browser.
+    public get LastAttemptOpenedBrowser(): boolean
+    {
+        return this.lastAttemptOpenedBrowser
     }
 
     // Whether the required inputs are set (the specs skip with SkipMessage otherwise).
@@ -159,7 +223,11 @@ export class ScriptedDesktopSignIn
         const login: IIdpLogin = SignInChecks.IdpLoginKindOf(S.Value(env, S.IdpLoginEnv)) === IdpLoginKind.Browser
             ? new IdpBrowserLogin()
             : new IdpPasswordLogin(caFile === undefined ? undefined : readFileSync(caFile))
-        return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login)
+        const platformPasswordFile = S.Value(env, S.PlatformPasswordFileEnv)
+        const platformPassword = platformPasswordFile === undefined ? undefined : readFileSync(platformPasswordFile, S.Utf8).trim()
+        if (platformPassword === '') throw new Error(S.EmptyPlatformPassword)
+        return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login,
+            S.Value(env, S.PlatformEmailEnv) ?? email, platformPassword)
     }
 
     // Signs the app (launched on `profile`) in; resolves once the account reports signed in.
@@ -179,6 +247,100 @@ export class ScriptedDesktopSignIn
             const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
             await this.login.Run(authorizeUrl, this.email, this.password)
             await this.AwaitSignedIn(win)
+        }
+        finally
+        {
+            await this.RestoreOpener(app)
+        }
+    }
+
+    // The dialog stopped on PlatformOffer (after SignIn): presses its platform sign-in, runs the
+    // platform IdP login with the platform credentials on the authorize URL the app opened, and
+    // resolves once the dialog closed signed in and the account reports the platform signed in.
+    public async SignInAtPlatform(app: ElectronApplication, win: Page): Promise<void>
+    {
+        const S = ScriptedDesktopSignIn
+        if (this.platformPassword === undefined) throw new Error(S.NoPlatformLogin)
+        await this.InterceptOpener(app)
+        try
+        {
+            const fault = await win.evaluate((p) =>
+            {
+                const state: any = (window as any)[p.stateKey]
+                const dialog = state?.dialog
+                if (dialog === undefined || state.host.CurrentDialog !== dialog) return p.noOffer
+                if (!dialog.PlatformSignInCommand.CanExecute(undefined)) return p.noOffer
+                dialog.PlatformSignInCommand.Execute(undefined)
+                return undefined
+            }, { stateKey: S.StateKey, noOffer: S.NoPlatformOffer })
+            if (fault !== undefined) throw new Error(fault)
+            const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
+            await this.login.Run(authorizeUrl, this.platformEmail, this.platformPassword)
+            await this.AwaitDone(win, S.NotPlatformSignedIn, (probe) => probe.Platform === PlatformAccess.SignedIn)
+        }
+        finally
+        {
+            await this.RestoreOpener(app)
+        }
+    }
+
+    // The dialog stopped on PlatformOffer (after SignIn): presses Skip and resolves once the dialog
+    // closed signed in. A dialog that never offered the platform has closed already.
+    public async SkipPlatform(win: Page): Promise<void>
+    {
+        const S = ScriptedDesktopSignIn
+        await win.evaluate((p) =>
+        {
+            const dialog = (window as any)[p.stateKey]?.dialog
+            if (dialog?.Step === p.offerStep) dialog.SkipPlatformCommand.Execute(undefined)
+        }, { stateKey: S.StateKey, offerStep: AccountDialogStep.PlatformOffer })
+        await this.AwaitDone(win, S.NotSkipped, () => true)
+    }
+
+    // Tries the typed console sign-in straight on the account service, with the opener intercepted,
+    // and answers the AccountError kind it failed with (undefined when it succeeded). Whether any URL
+    // was opened meanwhile is kept in LastAttemptOpenedBrowser. A sign-in that neither fails nor
+    // finishes within the timeout is cancelled and answers the timed-out kind.
+    public async AttemptConsoleSignIn(app: ElectronApplication, win: Page, profile: E2eProfile, consoleUrl: string): Promise<string | undefined>
+    {
+        const S = ScriptedDesktopSignIn
+        const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
+        if (!profile.Owns(userData)) throw new Error(S.NotIsolated)
+        await this.InterceptOpener(app)
+        try
+        {
+            const located = await this.LocateServices(win)
+            if (located.Fault !== undefined) throw new Error(located.Fault)
+            const existing = SignInChecks.ExistingSessionFault(located.SignedIn === true)
+            if (existing !== undefined) throw new Error(existing)
+            this.signInAttempted = true
+            this.lastAttemptOpenedBrowser = false
+            const kind = await win.evaluate(async (p) =>
+            {
+                const account = (window as any)[p.stateKey].account
+                let timer: ReturnType<typeof setTimeout> | undefined
+                const timeout = new Promise<never>((_, reject) => { timer = setTimeout(() => reject({ Kind: p.timedOutKind }), p.timeoutMs) })
+                try
+                {
+                    await Promise.race([account.SignInAtConsole(p.consoleUrl, p.email), timeout])
+                    return undefined
+                }
+                catch (e)
+                {
+                    const kind = String((e as any)?.Kind ?? p.unknownKind)
+                    if (kind === p.timedOutKind) await account.CancelSignIn().catch(() => undefined)
+                    return kind
+                }
+                finally
+                {
+                    clearTimeout(timer)
+                }
+            }, {
+                stateKey: S.StateKey, consoleUrl, email: this.email, unknownKind: S.UnknownErrorKind,
+                timedOutKind: S.TimedOutKind, timeoutMs: S.AttemptTimeoutMs,
+            })
+            this.lastAttemptOpenedBrowser = (await this.OpenedUrls(app)).length > 0
+            return kind
         }
         finally
         {
@@ -213,20 +375,24 @@ export class ScriptedDesktopSignIn
         }, ScriptedDesktopSignIn.StateKey)
     }
 
-    // The account state (SignedIn, TenantName) as the renderer's account service reports it now.
-    // Call after SignIn has located the services.
-    public AccountState(win: Page): Promise<{ SignedIn: boolean; Email?: string; TenantName?: string }>
+    // The account state (SignedIn, TenantName, Platform) as the renderer's account service reports it
+    // now. Call after SignIn has located the services.
+    public AccountState(win: Page): Promise<ScriptedAccountState>
     {
         return win.evaluate(async (stateKey) =>
         {
             const account = (window as any)[stateKey].account
             await account.Refresh()
-            return { SignedIn: account.State.SignedIn === true, Email: account.State.Email, TenantName: account.State.TenantName }
+            return {
+                SignedIn: account.State.SignedIn === true, Email: account.State.Email,
+                TenantName: account.State.TenantName, Platform: account.State.Platform,
+            }
         }, ScriptedDesktopSignIn.StateKey)
     }
 
-    // The sign-in targets, or the AccountError kind when the call is refused (e.g. signed out).
-    public Targets(win: Page): Promise<{ Targets?: { Contribute: { Name: string; Status: string }[]; Publish: { Name: string; Status: string }[] }; ErrorKind?: string }>
+    // The sign-in targets (each row with its Id, Name, Status and Source), or the AccountError kind
+    // when the call is refused (e.g. signed out).
+    public Targets(win: Page): Promise<ScriptedTargets>
     {
         const S = ScriptedDesktopSignIn
         return win.evaluate(async (p) =>
@@ -285,6 +451,16 @@ export class ScriptedDesktopSignIn
         }, ScriptedDesktopSignIn.OpenerKey).catch(() => undefined)
     }
 
+    // Every URL the intercepted opener recorded since the interception.
+    private OpenedUrls(app: ElectronApplication): Promise<string[]>
+    {
+        return app.evaluate((_electron, key) =>
+        {
+            const record = (globalThis as unknown as Record<string, { Urls: string[] } | undefined>)[key]
+            return record === undefined ? [] : [...record.Urls]
+        }, ScriptedDesktopSignIn.OpenerKey)
+    }
+
     // Finds the dialog host, the account service and the settings (by ServiceKey description), keeps
     // them on a window-side state object, and loads the account state.
     private LocateServices(win: Page): Promise<LocateResult>
@@ -340,7 +516,10 @@ export class ScriptedDesktopSignIn
                 state.settings.Set(p.addressSetting, p.platformAddress)
                 if (state.settings.Get(p.addressSetting) !== p.platformAddress) return p.noAddressSetting
             }
-            // The real path: IAccountService.RequestSignIn opens the dialog for this request.
+            // The real path: IAccountService.RequestSignIn opens the dialog for this request. The
+            // previous request's outcome is cleared so only this request's counts.
+            state.done = undefined
+            state.dialog = undefined
             state.account.RequestSignIn().then((signedIn: boolean) => { state.done = signedIn }, () => { state.done = false })
             const dialog = state.host.CurrentDialog
             if (dialog === undefined) return p.noDialog
@@ -371,16 +550,13 @@ export class ScriptedDesktopSignIn
         const deadline = Date.now() + S.OpenTimeoutMs
         for (;;)
         {
-            const urls = await app.evaluate((_electron, key) =>
-            {
-                const record = (globalThis as unknown as Record<string, { Urls: string[] } | undefined>)[key]
-                return record === undefined ? [] : [...record.Urls]
-            }, S.OpenerKey)
-            const url = SignInChecks.FirstAuthorizeUrl(urls)
+            const url = SignInChecks.FirstAuthorizeUrl(await this.OpenedUrls(app))
             if (url !== undefined) return url
             const probe = await this.Probe(win)
             if (probe.Open && probe.Step === AccountDialogStep.ChooseTenant) await this.ChooseTenant(win, probe.Tenants ?? [])
             if (probe.Step === AccountDialogStep.Email && probe.Message) throw new Error(S.DialogFailedPrefix + probe.Message)
+            // A failed platform sign-in returns to SignedIn with its sentence.
+            if (probe.Step === AccountDialogStep.SignedIn && probe.Message) throw new Error(S.DialogFailedPrefix + probe.Message)
             if (probe.Done === false) throw new Error(S.DialogFailedPrefix + (probe.Message ?? ''))
             if (Date.now() > deadline) throw new Error(S.NoAuthorizeUrl)
             await win.waitForTimeout(S.PollMs)
@@ -402,6 +578,8 @@ export class ScriptedDesktopSignIn
         }, { stateKey: ScriptedDesktopSignIn.StateKey, index })
     }
 
+    // Resolves once the dialog's request resolved signed in, or once the account is signed in and the
+    // dialog stopped on PlatformOffer (SignInAtPlatform or SkipPlatform then closes it).
     private async AwaitSignedIn(win: Page): Promise<void>
     {
         const S = ScriptedDesktopSignIn
@@ -410,8 +588,26 @@ export class ScriptedDesktopSignIn
         {
             const probe = await this.Probe(win)
             if (probe.Done === true && probe.SignedIn === true) return
+            if (probe.SignedIn === true && probe.Step === AccountDialogStep.PlatformOffer) return
             if (probe.Done === false) throw new Error(S.DialogFailedPrefix + (probe.Message ?? S.NotSignedIn))
             if (Date.now() > deadline) throw new Error(probe.Message ? S.DialogFailedPrefix + probe.Message : S.NotSignedIn)
+            await win.waitForTimeout(S.PollMs)
+        }
+    }
+
+    // Resolves once the dialog's request resolved signed in and `also` holds for the probe; fails on
+    // a request resolved false, on a sentence on the SignedIn step, or at the timeout with `timedOut`.
+    private async AwaitDone(win: Page, timedOut: string, also: (probe: DialogProbe) => boolean): Promise<void>
+    {
+        const S = ScriptedDesktopSignIn
+        const deadline = Date.now() + S.SignedInTimeoutMs
+        for (;;)
+        {
+            const probe = await this.Probe(win)
+            if (probe.Done === true && probe.SignedIn === true && also(probe)) return
+            if (probe.Done === false) throw new Error(S.DialogFailedPrefix + (probe.Message ?? timedOut))
+            if (probe.Open && probe.Step === AccountDialogStep.SignedIn && probe.Message) throw new Error(S.DialogFailedPrefix + probe.Message)
+            if (Date.now() > deadline) throw new Error(probe.Message ? S.DialogFailedPrefix + probe.Message : timedOut)
             await win.waitForTimeout(S.PollMs)
         }
     }
@@ -431,6 +627,7 @@ export class ScriptedDesktopSignIn
                 Message: state.dialog?.Message || undefined,
                 Done: state.done,
                 SignedIn: state.account.State?.SignedIn === true,
+                Platform: state.account.State?.Platform,
                 Tenants: (state.dialog?.Tenants ?? []).map((t: any) => ({ Id: t.Id, DisplayName: t.DisplayName })),
             }
         }, ScriptedDesktopSignIn.StateKey)
