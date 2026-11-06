@@ -632,6 +632,32 @@ describe('AccountDialog', () =>
             expect(vm2.Step).toBe(AccountDialogStep.Email)
         })
 
+        it('the platform sign-in does nothing on the Email step', async () =>
+        {
+            const h = new Harness()
+            const vm = h.Make()
+            expect(vm.Step).toBe(AccountDialogStep.Email)
+            expect(vm.PlatformSignInCommand.CanExecute()).toBe(false)
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            expect(h.Account.Calls).toEqual([])
+            expect(vm.Step).toBe(AccountDialogStep.Email)
+            expect(vm.IsBusy).toBe(false)
+        })
+
+        it('the platform command can run on PlatformOffer and on SignedIn only while offered', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make()
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            expect(vm.PlatformSignInCommand.CanExecute()).toBe(true)
+            vm.SkipPlatformCommand.Execute()
+            expect(vm.PlatformSignInCommand.CanExecute()).toBe(true)
+            h.Account.SetState({ ...h.Account.State, Platform: PlatformAccess.SignedIn })
+            expect(vm.PlatformSignInCommand.CanExecute()).toBe(false)
+        })
+
         it('raises PropertyChanged for the platform members', async () =>
         {
             const h = Harness.Offered()

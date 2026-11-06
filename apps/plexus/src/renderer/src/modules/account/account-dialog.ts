@@ -122,7 +122,7 @@ export class AccountDialog extends Observable implements IDisposable
         this.signOutCommand = new RelayCommand(() => { void this.SignOut() }, () => !this.isBusy)
         this.useConsoleAddressCommand = new RelayCommand(() => this.SetUseConsoleAddress(true))
         this.usePlatformCommand = new RelayCommand(() => this.SetUseConsoleAddress(false))
-        this.platformSignInCommand = new RelayCommand(() => { void this.SignInAtPlatform() }, () => !this.isBusy)
+        this.platformSignInCommand = new RelayCommand(() => { void this.SignInAtPlatform() }, () => this.CanSignInAtPlatform)
         this.skipPlatformCommand = new RelayCommand(() => this.SkipPlatform())
         this.changed = account.Changed.subscribe(() => this.OnAccountChanged())
     }
@@ -204,6 +204,13 @@ export class AccountDialog extends Observable implements IDisposable
         if (this.step === AccountDialogStep.Email) return this.email.trim() !== ''
         if (this.step === AccountDialogStep.ChooseTenant) return this.selectedTenant !== undefined
         return false
+    }
+
+    // The platform sign-in is offered on PlatformOffer, and on SignedIn while the offer still shows.
+    private get CanSignInAtPlatform(): boolean
+    {
+        if (this.isBusy) return false
+        return this.IsPlatformOfferStep || this.ShowsPlatformOffer
     }
 
     // Email: ask which tenants the email belongs to. ChooseTenant: sign in to the chosen one.
@@ -435,7 +442,7 @@ export class AccountDialog extends Observable implements IDisposable
     // sentence on SignedIn (the discovery sign-in still stands).
     private async SignInAtPlatform(): Promise<void>
     {
-        if (this.isBusy) return
+        if (!this.CanSignInAtPlatform) return
         const generation = ++this.signInGeneration
         this.SetMessage('')
         this.waitingOnPlatform = true
@@ -514,6 +521,7 @@ export class AccountDialog extends Observable implements IDisposable
     {
         this.RaisePropertyChanged(AccountDialogProperty.ShowsPlatformOffer, undefined, this.ShowsPlatformOffer)
         this.RaisePropertyChanged(AccountDialogProperty.ShowsPlatformSignedIn, undefined, this.ShowsPlatformSignedIn)
+        this.platformSignInCommand.RaiseCanExecuteChanged()
     }
 
     private SetTenants(value: TenantChoice[]): void
