@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { AccountError, AccountErrorKind, PlatformAccess, TargetKind, TargetSource, TargetStatus, type AccountState } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountService } from '../account-service.js'
 import { DesktopApiClient } from '../desktop-api-client.js'
@@ -1066,6 +1066,87 @@ describe('AccountService platform session', () =>
         expect(stored.Console).toBeUndefined()
         expect(stored.Platform).toEqual({ ConsoleUrl: Harness.Plane, Token: PlatformToken, ExpiresAt: '2026-11-11T00:00:00.000Z', TenantId: 't1', Email: 'ada@acme.example' })
         expect(h.SignOutsWith(PlatformToken)).toEqual([])
+    })
+
+    it('a platform part committed while SignOut runs is ended, never left live and unheld', async () =>
+    {
+        h.InHive()
+        await h.SignIn()
+        const complete = new Gate()
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/sign-in/complete`, async () =>
+        {
+            await complete.Opened
+            return FakeFetch.Json(200, { token: 'secret-platform-mid', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: 'Acme', email: 'ada@acme.example' })
+        })
+        const consoleSignOut = new Gate()
+        h.Fetch.Routes.set(`${Harness.Console}/desktop/sign-out`, async () =>
+        {
+            await consoleSignOut.Opened
+            return new Response(null, { status: 204 })
+        })
+        const platform = Caught.Kind(h.Service.SignInAtPlatform())
+        while (h.Fetch.At(`${Harness.Plane}/desktop/sign-in/complete`).length === 0) await new Promise(r => setTimeout(r, 1))
+        const signOut = h.Service.SignOut()
+        while (h.SignOutsWith(ConsoleToken).length === 0) await new Promise(r => setTimeout(r, 1))
+        complete.Release()
+        for (let i = 0; i < 20; i++) await new Promise(r => setTimeout(r, 1))
+        consoleSignOut.Release()
+        expect(await signOut).toEqual({ SignedIn: false })
+        expect(await platform).toBe(AccountErrorKind.SignedOut)
+        expect(h.SignOutsWith('secret-platform-mid').map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect(await h.Store.Load()).toEqual({ Console: undefined, Platform: undefined })
+        expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
+    })
+
+    it('a store failure while dropping a 401 platform part still answers the console set', async () =>
+    {
+        await h.SignInBoth()
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/targets`, () => FakeFetch.Json(401, { error: 'signed-out' }))
+        h.Store.Save = async () => { throw new Error('disk full') }
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        try
+        {
+            expect(await h.Service.Targets()).toEqual(ConsoleSet)
+            expect(warn).toHaveBeenCalledTimes(1)
+            expect(JSON.stringify(warn.mock.calls)).not.toContain('secret')
+            expect(JSON.stringify(warn.mock.calls)).not.toContain('disk full')
+        }
+        finally
+        {
+            warn.mockRestore()
+        }
+    })
+
+    it('a platform commit is refused when the console part was replaced meanwhile, even for the same tenant and email', async () =>
+    {
+        h.InHive()
+        await h.SignIn()
+        const complete = new Gate()
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/sign-in/complete`, async () =>
+        {
+            await complete.Opened
+            return FakeFetch.Json(200, { token: 'secret-platform-orphan', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: 'Acme', email: 'ada@acme.example' })
+        })
+        const platform = Caught.Kind(h.Service.SignInAtPlatform())
+        while (h.Fetch.At(`${Harness.Plane}/desktop/sign-in/complete`).length === 0) await new Promise(r => setTimeout(r, 1))
+        const owner = (await h.Store.Load()).Console!
+        await h.Store.Save({ Console: { ...owner, Token: 'secret-console-replacement' } })
+        complete.Release()
+        expect(await platform).toBe(AccountErrorKind.SignedOut)
+        expect(h.SignOutsWith('secret-platform-orphan').map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        const stored = await h.Store.Load()
+        expect(stored.Console!.Token).toBe('secret-console-replacement')
+        expect(stored.Platform).toBeUndefined()
+    })
+
+    it('a 401 for a dormant platform part drops it without emitting an unchanged state', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.HandleSignedOut(ConsoleToken)
+        const changes = h.Changes.length
+        await h.Service.HandleSignedOut(PlatformToken)
+        expect(await h.Store.Load()).toEqual({ Console: undefined, Platform: undefined })
+        expect(h.Changes).toHaveLength(changes)
     })
 
     it('a platform 401 leaves the console part untouched', async () =>

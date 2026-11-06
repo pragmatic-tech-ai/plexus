@@ -76,6 +76,7 @@ export class AccountService
     private static readonly Utf8 = 'utf8'
     private static readonly JsonIndent = 2
     private static readonly SignedOutState: AccountState = { SignedIn: false }
+    private static readonly DropPlatformFailedLog = '[account] could not drop the signed-out platform session:'
 
     public readonly Changed = new Signal<AccountState>()
     // Consoles: tenant id -> the discovered console to sign in at; TenantPlaneUrl: the platform's
@@ -174,7 +175,7 @@ export class AccountService
                 await this.EndQuietly(session)
                 throw new AccountError(AccountErrorKind.SignInFailed)
             }
-            return this.CommitPlatform(session)
+            return this.CommitPlatform(session, owner.Token)
         })
     }
 
@@ -183,13 +184,18 @@ export class AccountService
         this.attempt?.Cancel()
     }
 
-    // Ends both parts (a dormant platform part too) each at its own address when that can be
-    // reached; clears locally either way.
+    // Clears locally, then ends both parts that were stored (a dormant platform part too) each at its
+    // own address when that can be reached. Reading and clearing are one serialised step, so a part
+    // committed meanwhile is either read here and ended, or committed after the clear (and refused).
     public async SignOut(): Promise<AccountState>
     {
-        const { Console: own, Platform: platform } = await this.store.Load()
+        const { Console: own, Platform: platform } = await this.Serialised(async () =>
+        {
+            const stored = await this.store.Load()
+            await this.Forget()
+            return stored
+        })
         await Promise.all([own, platform].map(part => part === undefined ? undefined : this.EndQuietly(part)))
-        await this.Serialised(() => this.Forget())
         return { ...AccountService.SignedOutState }
     }
 
@@ -216,7 +222,9 @@ export class AccountService
                 return
             }
             await this.store.Save(next)
-            this.Changed.emit(this.StateOf(next))
+            // A dormant platform part dropped while signed out changes nothing the user sees.
+            const state = this.StateOf(next)
+            if (!AccountService.SameState(state, this.StateOf(current))) this.Changed.emit(state)
         })
     }
 
@@ -353,15 +361,16 @@ export class AccountService
         return this.Announce(Account)
     }
 
-    // Stores a fresh platform part beside the console part it was signed in for, and ends the one it
-    // replaces. The console part gone or changed tenant meanwhile: the fresh part has nothing to sit
-    // beside, so it is ended and the call fails SignedOut.
-    private async CommitPlatform(session: PlatformSession): Promise<AccountState>
+    // Stores a fresh platform part beside the console part it was signed in for (the one holding
+    // `ownerToken` when the attempt started), and ends the one it replaces. That console part gone or
+    // replaced meanwhile, even by a session of the same tenant and email: the fresh part has nothing
+    // to sit beside, so it is ended and the call fails SignedOut.
+    private async CommitPlatform(session: PlatformSession, ownerToken: string): Promise<AccountState>
     {
         const kept = await this.Commit(session, async () =>
         {
             const current = await this.store.Load()
-            if (current.Console === undefined || current.Console.TenantId !== session.TenantId) return undefined
+            if (current.Console === undefined || current.Console.Token !== ownerToken || current.Console.TenantId !== session.TenantId) return undefined
             await this.store.Save({ Console: current.Console, Platform: session })
             return { Account: { Console: current.Console, Platform: session }, Previous: current.Platform }
         })
@@ -422,7 +431,8 @@ export class AccountService
         }
     }
 
-    // Never fails: a platform 401 drops the platform part; any failure answers no platform set.
+    // Never fails: a platform 401 drops the platform part; any failure answers no platform set. A
+    // store failure while dropping it is logged by name only (never a message, which may carry a path).
     private async PlatformTargets(session: PlatformSession): Promise<AccountTargets | undefined>
     {
         try
@@ -431,8 +441,20 @@ export class AccountService
         }
         catch (e)
         {
-            if (AccountService.IsSignedOut(e)) await this.HandleSignedOut(session.Token)
+            if (AccountService.IsSignedOut(e)) await this.DropPlatform(session.Token)
             return undefined
+        }
+    }
+
+    private async DropPlatform(token: string): Promise<void>
+    {
+        try
+        {
+            await this.HandleSignedOut(token)
+        }
+        catch (e)
+        {
+            console.warn(AccountService.DropPlatformFailedLog, { name: e instanceof Error ? e.name : typeof e })
         }
     }
 
@@ -548,6 +570,11 @@ export class AccountService
         if (this.PlatformBeside(account) !== undefined) state.Platform = PlatformAccess.SignedIn
         else if (session.PlatformSignInUrl !== undefined) state.Platform = PlatformAccess.Offered
         return state
+    }
+
+    private static SameState(a: AccountState, b: AccountState): boolean
+    {
+        return a.SignedIn === b.SignedIn && a.Email === b.Email && a.TenantName === b.TenantName && a.Platform === b.Platform
     }
 
     private static IsSignedOut(e: unknown): boolean
