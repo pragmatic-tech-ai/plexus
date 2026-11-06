@@ -1,6 +1,6 @@
 import type { IpcMain } from 'electron'
 import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
-import { AccountChannel, AccountWire, TargetKind, type TargetChoice } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountChannel, AccountWire, TargetIdentity, TargetKind, type TargetChoice } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { AccountService } from './account-service.js'
 
 // The slice of a renderer's WebContents the Changed push needs (Electron's WebContents satisfies it).
@@ -80,9 +80,13 @@ export class AccountIpc
     private static Choice(value: unknown): TargetChoice
     {
         if (typeof value !== 'object' || value === null) throw new TypeError(AccountIpc.BadArguments)
-        const { Environment, GraphName } = value as Record<string, unknown>
+        const { Environment, Source, GraphName } = value as Record<string, unknown>
         if (typeof Environment !== 'string' || Environment === '') throw new TypeError(AccountIpc.BadArguments)
+        if (Source !== undefined && !TargetIdentity.IsSource(Source)) throw new TypeError(AccountIpc.BadArguments)
         if (GraphName !== undefined && typeof GraphName !== 'string') throw new TypeError(AccountIpc.BadArguments)
-        return GraphName === undefined ? { Environment } : { Environment, GraphName }
+        const choice: TargetChoice = { Environment }
+        if (Source !== undefined) choice.Source = Source
+        if (GraphName !== undefined) choice.GraphName = GraphName
+        return choice
     }
 }

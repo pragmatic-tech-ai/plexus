@@ -132,7 +132,7 @@ export class FakeGraphSource implements IGraphContributor
         this.Listed.push(target)
         if (this.ListGate !== undefined) await this.ListGate.Promise
         if (this.ListError !== undefined) throw this.ListError
-        return this.Graphs[target.Name] ?? []
+        return this.Graphs[`${target.Source}:${target.Name}`] ?? this.Graphs[target.Name] ?? []
     }
 }
 

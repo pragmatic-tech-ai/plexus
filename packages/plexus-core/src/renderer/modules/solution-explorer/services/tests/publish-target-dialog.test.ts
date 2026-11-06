@@ -97,6 +97,22 @@ describe('PublishTargetDialog', () =>
         expect(h.Account.Remembered).toEqual([[TargetKind.Publish, { Environment: 'stage', Source: TargetSource.Console }]])
     })
 
+    it('labels the colliding platform environment and pre-selects the remembered one by source', async () =>
+    {
+        const h = new PublishDialogHarness()
+        h.Account.TargetList = {
+            Contribute: [],
+            Publish: [
+                { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console },
+                { Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Platform },
+            ],
+        }
+        h.Account.Last = { [TargetKind.Publish]: { Environment: 'dev', Source: TargetSource.Platform } }
+        await h.Open()
+        expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['dev', 'dev (platform)'])
+        expect(h.Dialog.SelectedEnvironment?.Id).toBe('platform:dev')
+    })
+
     it('resolves the platform source for a platform environment', async () =>
     {
         const h = new PublishDialogHarness()

@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountError, AccountErrorKind, ConsoleAddress, PlatformAccess, PlatformAddress, TargetKind, TargetSource, TenantPlaneAddress, UrlBase,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAccess, PlatformAddress, TargetIdentity, TargetKind, TargetSource, TenantPlaneAddress, UrlBase,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CompletedSignIn, DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
@@ -579,12 +579,17 @@ export class AccountService
     private static ValidChoice(choice: unknown): choice is TargetChoice
     {
         if (typeof choice !== 'object' || choice === null) return false
-        const { Environment, GraphName } = choice as Record<string, unknown>
-        return typeof Environment === 'string' && Environment !== '' && (GraphName === undefined || typeof GraphName === 'string')
+        const { Environment, Source, GraphName } = choice as Record<string, unknown>
+        return typeof Environment === 'string' && Environment !== ''
+            && (Source === undefined || TargetIdentity.IsSource(Source))
+            && (GraphName === undefined || typeof GraphName === 'string')
     }
 
     private static CopyChoice(choice: TargetChoice): TargetChoice
     {
-        return choice.GraphName === undefined ? { Environment: choice.Environment } : { Environment: choice.Environment, GraphName: choice.GraphName }
+        const copy: TargetChoice = { Environment: choice.Environment }
+        if (choice.Source !== undefined) copy.Source = choice.Source
+        if (choice.GraphName !== undefined) copy.GraphName = choice.GraphName
+        return copy
     }
 }

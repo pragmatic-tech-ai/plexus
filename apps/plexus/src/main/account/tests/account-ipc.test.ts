@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { IpcMain } from 'electron'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountChannel, AccountError, AccountErrorKind, PlatformAccess, TargetKind,
+    AccountChannel, AccountError, AccountErrorKind, PlatformAccess, TargetKind, TargetSource,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountIpc, type IAccountChangeSink } from '../account-ipc.js'
@@ -164,6 +164,16 @@ describe('AccountIpc', () =>
         expect(await h.Invoke(AccountChannel.Discover, 42, 'a@b.c')).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
         expect(await h.Invoke(AccountChannel.LastChoice, 'deploy')).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
         expect(await h.Invoke(AccountChannel.RememberChoice, TargetKind.Publish, { Environment: 7 })).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
+        expect(h.Service.Calls).toEqual([])
+    })
+
+    it('RememberChoice passes a valid Source through and refuses an invalid one without calling the service', async () =>
+    {
+        const h = new Harness()
+        await h.Invoke(AccountChannel.RememberChoice, TargetKind.Publish, { Environment: 'dev', Source: TargetSource.Platform })
+        expect(h.Service.Calls).toEqual([['RememberChoice', TargetKind.Publish, { Environment: 'dev', Source: TargetSource.Platform }]])
+        h.Service.Calls.length = 0
+        expect(await h.Invoke(AccountChannel.RememberChoice, TargetKind.Publish, { Environment: 'dev', Source: 'bogus' })).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
         expect(h.Service.Calls).toEqual([])
     })
 

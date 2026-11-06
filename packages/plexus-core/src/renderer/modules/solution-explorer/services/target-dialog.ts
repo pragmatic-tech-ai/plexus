@@ -3,7 +3,7 @@ import type { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { IAccountService } from '../../account/account-service.js'
 import {
-    AccountError, AccountErrorKind, RelayError, TargetStatus,
+    AccountError, AccountErrorKind, RelayError, TargetIdentity, TargetSource, TargetStatus,
     type AccountTargets, type EnvironmentTarget, type TargetChoice, type TargetKind, type TargetRef,
 } from '../../../../shared/account-api.js'
 
@@ -55,9 +55,19 @@ export class EnvironmentChoice extends Observable
         [TargetStatus.Unknown]: ' (status unknown)',
     }
 
-    public constructor(public readonly Target: EnvironmentTarget)
+    private static readonly PlatformMarker = ' (platform)'
+
+    public constructor(public readonly Target: EnvironmentTarget, private readonly showsSource = false)
     {
         super()
+    }
+
+    // The choices for a list of targets; a platform target whose name also occurs on a console
+    // target shows its source so the two read apart.
+    public static ListOf(targets: readonly EnvironmentTarget[]): EnvironmentChoice[]
+    {
+        const consoleNames = new Set(targets.filter((t) => t.Source === TargetSource.Console).map((t) => t.Name))
+        return targets.map((t) => new EnvironmentChoice(t, t.Source === TargetSource.Platform && consoleNames.has(t.Name)))
     }
 
     public get Name(): string { return this.Target.Name }
@@ -70,7 +80,8 @@ export class EnvironmentChoice extends Observable
 
     public get Label(): string
     {
-        return `${this.Target.Name}${EnvironmentChoice.StatusSuffixes[this.Target.Status] ?? ''}`
+        const source = this.showsSource ? EnvironmentChoice.PlatformMarker : ''
+        return `${this.Target.Name}${source}${EnvironmentChoice.StatusSuffixes[this.Target.Status] ?? ''}`
     }
 
     public toString(): string
@@ -309,7 +320,7 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
         }
         if (!this.IsCurrent(load)) return
         this.SetBusy(false)
-        const environments = this.TargetsFor(targets).map((t) => new EnvironmentChoice(t))
+        const environments = EnvironmentChoice.ListOf(this.TargetsFor(targets))
         this.SetEnvironments(environments)
         if (environments.length === 0)
         {
@@ -317,7 +328,8 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
             return
         }
         this.lastChoice = last
-        this.SelectedEnvironment = environments.find((e) => e.Name === last?.Environment) ?? environments[0]
+        const rememberedId = last === undefined ? undefined : TargetIdentity.Id(last.Source ?? TargetSource.Console, last.Environment)
+        this.SelectedEnvironment = environments.find((e) => e.Id === rememberedId) ?? environments[0]
     }
 
     private ShowSignedOut(): void

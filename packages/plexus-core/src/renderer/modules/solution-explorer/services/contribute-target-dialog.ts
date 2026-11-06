@@ -2,7 +2,7 @@ import type { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import type { IAccountService } from '../../account/account-service.js'
 import type { IGraphContributor } from '../../graph-contribute/graph-contributor.js'
 import {
-    TargetKind, type AccountTargets, type EnvironmentTarget, type TargetChoice,
+    TargetIdentity, TargetKind, TargetSource, type AccountTargets, type EnvironmentTarget, type TargetChoice,
 } from '../../../../shared/account-api.js'
 import { TargetDialog, type EnvironmentChoice } from './target-dialog.js'
 
@@ -107,7 +107,7 @@ export class ContributeTargetDialog extends TargetDialog
             return
         }
         const last = this.LastChoice
-        const remembered = last?.Environment === environment.Name ? last.GraphName : undefined
+        const remembered = last !== undefined && environment.Id === TargetIdentity.Id(last.Source ?? TargetSource.Console, last.Environment) ? last.GraphName : undefined
         this.SelectedGraph = graphs.find((g) => g === remembered) ?? graphs[0]
     }
 

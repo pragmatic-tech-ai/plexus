@@ -121,6 +121,72 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['dev', 'qa (stopped)', 'old (failed)', 'odd (status unknown)'])
     })
 
+    it('labels a platform environment only when a console one shares its name', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetList = {
+            Contribute: [
+                { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console },
+                { Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Platform },
+                { Id: 'platform:qa', Name: 'qa', Status: TargetStatus.Running, Source: TargetSource.Platform },
+            ],
+            Publish: [],
+        }
+        await h.Open()
+        expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['dev', 'dev (platform)', 'qa'])
+        expect(new Set(h.Dialog.Environments.map((e) => e.Id)).size).toBe(3)
+    })
+
+    it('puts the status after the platform marker', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetList = {
+            Contribute: [
+                { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console },
+                { Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Stopped, Source: TargetSource.Platform },
+            ],
+            Publish: [],
+        }
+        await h.Open()
+        expect(h.Dialog.Environments.map((e) => e.Label)).toEqual(['dev', 'dev (platform) (stopped)'])
+    })
+
+    it('pre-selects the remembered environment by source, and its graph only on that source', async () =>
+    {
+        const targets = {
+            Contribute: [
+                { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console },
+                { Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Platform },
+            ],
+            Publish: [],
+        }
+        const graphs = { 'console:dev': ['a', 'shared'], 'platform:dev': ['b', 'shared'] }
+
+        const platform = new ContributeDialogHarness()
+        platform.Account.TargetList = targets
+        platform.Graphs.Graphs = graphs
+        platform.Account.Last = { [TargetKind.Contribute]: { Environment: 'dev', Source: TargetSource.Platform, GraphName: 'shared' } }
+        await platform.Open()
+        expect(platform.Dialog.SelectedEnvironment?.Id).toBe('platform:dev')
+        expect(platform.Dialog.SelectedGraph).toBe('shared')
+
+        const legacy = new ContributeDialogHarness()
+        legacy.Account.TargetList = targets
+        legacy.Graphs.Graphs = graphs
+        legacy.Account.Last = { [TargetKind.Contribute]: { Environment: 'dev' } }
+        await legacy.Open()
+        expect(legacy.Dialog.SelectedEnvironment?.Id).toBe('console:dev')
+
+        // A console choice must not pre-select its graph on the platform environment of the same name.
+        const crossed = new ContributeDialogHarness()
+        crossed.Account.TargetList = { Contribute: [targets.Contribute[1]!], Publish: [] }
+        crossed.Graphs.Graphs = graphs
+        crossed.Account.Last = { [TargetKind.Contribute]: { Environment: 'dev', GraphName: 'shared' } }
+        await crossed.Open()
+        expect(crossed.Dialog.SelectedEnvironment?.Id).toBe('platform:dev')
+        expect(crossed.Dialog.SelectedGraph).toBe('b')
+    })
+
     it('says when the running environment has no graphs yet', async () =>
     {
         const h = new ContributeDialogHarness()

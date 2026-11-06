@@ -737,6 +737,22 @@ describe('AccountService', () =>
         })
     })
 
+    it('RememberChoice / LastChoice keep a valid Source', async () =>
+    {
+        await h.SignIn()
+        await h.Service.RememberChoice(TargetKind.Publish, { Environment: 'dev', Source: TargetSource.Platform })
+        await h.Service.RememberChoice(TargetKind.Contribute, { Environment: 'dev', Source: TargetSource.Console, GraphName: 'g' })
+        expect(await h.Service.LastChoice(TargetKind.Publish)).toEqual({ Environment: 'dev', Source: TargetSource.Platform })
+        expect(await h.Service.LastChoice(TargetKind.Contribute)).toEqual({ Environment: 'dev', Source: TargetSource.Console, GraphName: 'g' })
+    })
+
+    it('a stored choice with an invalid Source reads as no choice', async () =>
+    {
+        await h.SignIn()
+        await h.Service.RememberChoice(TargetKind.Publish, { Environment: 'dev', Source: 'bogus' as TargetSource })
+        expect(await h.Service.LastChoice(TargetKind.Publish)).toBeUndefined()
+    })
+
     it('concurrent RememberChoice calls both land', async () =>
     {
         await h.SignIn()
