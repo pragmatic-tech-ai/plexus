@@ -262,7 +262,8 @@ describe('AccountService', () =>
         expect((await h.Store.Load()).Console).toEqual({
             ConsoleUrl: Harness.Plane, Token: 'secret-token-t1', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z',
         })
-        expect(await h.Service.Session()).toEqual((await h.Store.Load()).Console)
+        const stored = (await h.Store.Load()).Console!
+        expect(await h.Service.SessionFor(TargetSource.Console)).toEqual({ ConsoleUrl: stored.ConsoleUrl, Token: stored.Token })
     })
 
     it('binds the sign-in: the challenge is base64url(sha256(verifier)) and the verifier goes only to Complete', async () =>
@@ -615,7 +616,7 @@ describe('AccountService', () =>
     {
         await h.SignIn()
         await h.Service.HandleSignedOut('secret-token-t1')
-        expect(await h.Service.Session()).toBeUndefined()
+        expect(await h.Service.SessionFor(TargetSource.Console)).toBeUndefined()
         expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
     })
 
@@ -624,7 +625,7 @@ describe('AccountService', () =>
         await h.SignIn()
         const changes = h.Changes.length
         await h.Service.HandleSignedOut('secret-token-old')
-        expect((await h.Service.Session())?.Token).toBe('secret-token-t1')
+        expect((await h.Service.SessionFor(TargetSource.Console))?.Token).toBe('secret-token-t1')
         expect(h.Changes).toHaveLength(changes)
     })
 
@@ -644,7 +645,7 @@ describe('AccountService', () =>
         await h.SignIn('t2')
         gate.Release()
         expect(await targets).toBe(AccountErrorKind.SignedOut)
-        expect((await h.Service.Session())?.Token).toBe('secret-token-t2')
+        expect((await h.Service.SessionFor(TargetSource.Console))?.Token).toBe('secret-token-t2')
         expect(h.Changes.at(-1)).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
     })
 
@@ -679,7 +680,7 @@ describe('AccountService', () =>
         clearGate.Release()
         expect(await targets).toBe(AccountErrorKind.SignedOut)
         expect(await signIn).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
-        expect((await h.Service.Session())?.Token).toBe('secret-token-t2')
+        expect((await h.Service.SessionFor(TargetSource.Console))?.Token).toBe('secret-token-t2')
         expect(h.Changes.at(-1)).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
     })
 

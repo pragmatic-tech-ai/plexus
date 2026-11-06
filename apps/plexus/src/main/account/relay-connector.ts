@@ -1,10 +1,11 @@
-import { ConnectionLostError, ErrorCodes, ResponseError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { AccountError, AccountErrorKind, UrlBase, type TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { ConnectionLostError, ErrorCodes, ResponseError, UpgradeRefusedError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { AccountError, AccountErrorKind, TargetSource, UrlBase, type TargetKind, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
-import type { DesktopSession } from './desktop-session-store.js'
+import { ConsoleRetirement } from './console-retirement.js'
+import type { SessionAddress } from './desktop-session-store.js'
 
 // The methods the contribute and publish flows call on a relay connection (PragmaticClient has them).
-export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync'>
+export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'>
 
 // Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).
 export type RelayDial = (url: string, token: string) => Promise<RelayClient>
@@ -12,14 +13,31 @@ export type RelayDial = (url: string, token: string) => Promise<RelayClient>
 // The slice of AccountService the connector needs (AccountService satisfies it).
 export interface IRelaySessionSource
 {
-    Session(): Promise<DesktopSession | undefined>;
+    // Where a target of `source` is reached and the token that proves it; undefined when signed out there.
+    SessionFor(source: TargetSource): Promise<SessionAddress | undefined>;
     // Clears the session holding `token`, only while it is still the stored one.
     HandleSignedOut(token: string): Promise<void>;
 }
 
 export interface IRelayConnector
 {
-    Connect(environment: string, kind: TargetKind): Promise<RelayClient>;
+    Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>;
+}
+
+// A call on an open relay: the environment (and graph) it is about, for the sentences, and the client
+// whose close code tells a retired console from any other drop.
+export type RelayCall = { Environment: string; Graph?: string; Client: Pick<RelayClient, 'CloseCode'> }
+
+// The JSON-RPC server-error codes of the graph catalog. The protocol carries none; the server's home
+// is GraphErrorCode in pragmatic-server src/host/graphs/graph-error-codes.ts (reserved -32040..-32045).
+export enum GraphErrorCode
+{
+    NotFound = -32040,
+    Exists = -32041,
+    NameInvalid = -32042,
+    PackageConflict = -32043,
+    PackageSegment = -32044,
+    PackageMissing = -32045,
 }
 
 // The HTTP answers the tenant plane refuses a relay upgrade with.
@@ -28,24 +46,32 @@ enum RelayStatus
     Unauthorized = 401,
     Forbidden = 403,
     Conflict = 409,
+    Unavailable = 503,
 }
 
 // Reads the HTTP status of a refused relay upgrade. ws reports a non-101 answer only as an Error whose
-// message is "Unexpected server response: <status>" (PragmaticClient.ConnectAsync passes it through),
-// so the message is parsed here and nowhere else; a numeric statusCode/status on the error wins when
-// present.
+// message is "Unexpected server response: <status>"; the protocol's UpgradeRefusedError carries the
+// status (and body) itself. Otherwise the message is parsed here and nowhere else; a numeric
+// statusCode/status on the error wins when present.
 export class RelayRefusal
 {
     private static readonly UnexpectedResponse = /^Unexpected server response: (\d{3})$/
 
     public static StatusOf(error: unknown): number | undefined
     {
+        if (error instanceof UpgradeRefusedError) return error.Status
         if (!(error instanceof Error)) return undefined
         const { statusCode, status } = error as { statusCode?: unknown; status?: unknown }
         if (typeof statusCode === 'number') return statusCode
         if (typeof status === 'number') return status
         const match = RelayRefusal.UnexpectedResponse.exec(error.message)
         return match === null ? undefined : Number(match[1])
+    }
+
+    // The body of a refused upgrade (capped by the protocol), or undefined when the error carries none.
+    public static BodyOf(error: unknown): string | undefined
+    {
+        return error instanceof UpgradeRefusedError ? error.Body : undefined
     }
 }
 
@@ -89,11 +115,12 @@ export class RelayAnswer
     }
 }
 
-// Opens a JSON-RPC connection to an environment through the desktop relay of the session's console
-// (a tenant's own console, or the platform's tenant plane), which mints and keeps the environment
-// credential server-side. Plexus presents only the desktop session token.
-// Every failure becomes a fixed sentence (naming at most the environment): never a URL, a token or
-// the underlying transport text. A 401 means the session is over, so the account is cleared.
+// Opens a JSON-RPC connection to an environment through the desktop relay of the session its target's
+// source holds (a tenant's own console, or the platform's tenant plane), which mints and keeps the
+// environment credential server-side. Plexus presents only that session's token.
+// Every failure becomes a fixed sentence (naming at most the environment and graph): never a URL, a
+// token or the underlying transport text. A 401 means that session is over, so it is cleared; a
+// console the platform no longer registers answers ConsoleRetired.
 export class RelayConnector implements IRelayConnector
 {
     private static readonly RelayPath = '/desktop/relay'
@@ -106,23 +133,33 @@ export class RelayConnector implements IRelayConnector
     private static readonly NotRunningSuffix = ' is not running. Start it from the tenant console.'
     private static readonly UnreachableSuffix = ' could not be reached.'
     private static readonly NotHandledSuffix = ' could not handle this request. It may need an update.'
+    private static readonly GraphPrefix = 'The graph '
+    private static readonly GraphGoneMiddle = ' no longer exists in '
+    private static readonly GraphGoneSuffix = '. Create it again in the tenant console.'
+    private static readonly ConflictPrefix = 'A package version is already in '
+    private static readonly ConflictSuffix = ' with different content.'
+    // The answer for a source with no live session, at connect or on a 401.
+    private static readonly SignedOutKinds: Readonly<Record<TargetSource, AccountErrorKind>> = {
+        [TargetSource.Console]: AccountErrorKind.SignedOut,
+        [TargetSource.Platform]: AccountErrorKind.PlatformSignedOut,
+    }
 
     public constructor(private readonly sessions: IRelaySessionSource, private readonly dial: RelayDial)
     {
     }
 
-    public async Connect(environment: string, kind: TargetKind): Promise<RelayClient>
+    public async Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>
     {
-        const session = await this.LoadSession()
-        if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
+        const session = await this.LoadSession(target.Source)
+        if (session === undefined) throw new AccountError(RelayConnector.SignedOutKinds[target.Source])
         let url: string
         try
         {
-            url = RelayConnector.RelayUrl(session.ConsoleUrl, environment, kind)
+            url = RelayConnector.RelayUrl(session.ConsoleUrl, target.Name, kind)
         }
         catch
         {
-            throw RelayConnector.Unreachable(environment)
+            throw RelayConnector.Unreachable(target.Name)
         }
         try
         {
@@ -132,17 +169,17 @@ export class RelayConnector implements IRelayConnector
         {
             // Only installing the certificate fixes this, so it is named rather than called unreachable.
             if (TlsFailure.IsCertificate(e)) throw new AccountError(AccountErrorKind.CertificateUntrusted)
-            throw await this.Refusal(RelayRefusal.StatusOf(e), environment, session.Token)
+            throw await this.Refusal(e, target, session.Token)
         }
     }
 
     // An account failure (secure storage gone) keeps its kind; any other failure to read the stored
     // session (a file-system error naming its path) becomes the fixed Unavailable sentence.
-    private async LoadSession(): Promise<DesktopSession | undefined>
+    private async LoadSession(source: TargetSource): Promise<SessionAddress | undefined>
     {
         try
         {
-            return await this.sessions.Session()
+            return await this.sessions.SessionFor(source)
         }
         catch (e)
         {
@@ -164,20 +201,27 @@ export class RelayConnector implements IRelayConnector
         return `${scheme}//${address.host}${base}${RelayConnector.RelayPath}?${query}`
     }
 
-    private async Refusal(status: number | undefined, environment: string, token: string): Promise<Error>
+    private async Refusal(error: unknown, target: TargetRef, token: string): Promise<Error>
     {
-        switch (status)
+        switch (RelayRefusal.StatusOf(error))
         {
             case RelayStatus.Unauthorized:
                 await this.ForgetSession(token)
-                return new AccountError(AccountErrorKind.SignedOut)
+                return new AccountError(RelayConnector.SignedOutKinds[target.Source])
             case RelayStatus.Forbidden:
                 return new Error(RelayConnector.NotAllowed)
             case RelayStatus.Conflict:
-                return new Error(`${RelayConnector.EnvironmentPrefix}${environment}${RelayConnector.NotRunningSuffix}`)
+                return new Error(`${RelayConnector.EnvironmentPrefix}${target.Name}${RelayConnector.NotRunningSuffix}`)
+            case RelayStatus.Unavailable:
+                return RelayConnector.IsRetiredBody(RelayRefusal.BodyOf(error)) ? new AccountError(AccountErrorKind.ConsoleRetired) : RelayConnector.Unreachable(target.Name)
             default:
-                return RelayConnector.Unreachable(environment)
+                return RelayConnector.Unreachable(target.Name)
         }
+    }
+
+    private static IsRetiredBody(body: string | undefined): boolean
+    {
+        return body !== undefined && ConsoleRetirement.IsBody(body)
     }
 
     // A failure to clear the local copy must not replace the SignedOut answer the user acts on.
@@ -193,11 +237,13 @@ export class RelayConnector implements IRelayConnector
         }
     }
 
-    // Runs a call on an open relay: a relay that went away mid-call becomes the unreachable sentence;
-    // the server's own answer (and an account failure) is rethrown as is; anything else (a JSON-RPC
-    // protocol error such as -32601 Method not found, or an error raised on this side) becomes a
-    // fixed sentence naming only the environment.
-    public static async Call<T>(environment: string, work: () => Promise<T>): Promise<T>
+    // Runs a call on an open relay. A relay that went away mid-call is ConsoleRetired when its socket
+    // closed with the retired console's code, else the unreachable sentence. A graph that is gone or a
+    // conflicting package version (on a call about a graph) becomes its plain sentence; every other
+    // server answer, and an account failure, is rethrown as is; anything else (a JSON-RPC protocol
+    // error such as -32601 Method not found, or an error raised on this side) becomes a fixed sentence
+    // naming only the environment.
+    public static async Call<T>(call: RelayCall, work: () => Promise<T>): Promise<T>
     {
         try
         {
@@ -205,9 +251,34 @@ export class RelayConnector implements IRelayConnector
         }
         catch (e)
         {
-            if (RelayDrop.Is(e)) throw RelayConnector.Unreachable(environment)
-            if (e instanceof AccountError || RelayAnswer.IsServerAnswer(e)) throw e
-            throw new Error(`${RelayConnector.EnvironmentPrefix}${environment}${RelayConnector.NotHandledSuffix}`)
+            throw RelayConnector.CallFailure(call, e)
+        }
+    }
+
+    private static CallFailure(call: RelayCall, error: unknown): unknown
+    {
+        if (RelayDrop.Is(error))
+        {
+            if (call.Client.CloseCode() === ConsoleRetirement.CloseCode) return new AccountError(AccountErrorKind.ConsoleRetired)
+            return RelayConnector.Unreachable(call.Environment)
+        }
+        if (error instanceof AccountError) return error
+        if (RelayAnswer.IsServerAnswer(error)) return RelayConnector.GraphSentence(call, error as ResponseError) ?? error
+        return new Error(`${RelayConnector.EnvironmentPrefix}${call.Environment}${RelayConnector.NotHandledSuffix}`)
+    }
+
+    // The plain sentence for a graph answer the user acts on, or undefined to keep the server's message.
+    private static GraphSentence(call: RelayCall, answer: ResponseError): Error | undefined
+    {
+        if (call.Graph === undefined) return undefined
+        switch (answer.code)
+        {
+            case GraphErrorCode.NotFound:
+                return new Error(`${RelayConnector.GraphPrefix}${call.Graph}${RelayConnector.GraphGoneMiddle}${call.Environment}${RelayConnector.GraphGoneSuffix}`)
+            case GraphErrorCode.PackageConflict:
+                return new Error(`${RelayConnector.ConflictPrefix}${call.Graph}${RelayConnector.ConflictSuffix}`)
+            default:
+                return undefined
         }
     }
 

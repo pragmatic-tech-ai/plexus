@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ConnectionLostError, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { ContributedPackageDto, GraphContributeParamsDto, GraphDetailDto, GraphSummaryDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TargetKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { GraphContributeService } from '../graph-contribute-service.js'
 import type { IRelayConnector, RelayClient } from '../../account/relay-connector.js'
 
@@ -31,19 +31,24 @@ class FakeClient
     {
         this.Closed++
     }
+
+    public CloseCode(): number | undefined
+    {
+        return undefined
+    }
 }
 
 class FakeRelay implements IRelayConnector
 {
-    public Connects: Array<{ environment: string; kind: TargetKind }> = []
+    public Connects: Array<{ target: TargetRef; kind: TargetKind }> = []
 
     constructor(private readonly client: FakeClient | Error)
     {
     }
 
-    public async Connect(environment: string, kind: TargetKind): Promise<RelayClient>
+    public async Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>
     {
-        this.Connects.push({ environment, kind })
+        this.Connects.push({ target, kind })
         if (this.client instanceof Error) throw this.client
         return this.client as unknown as RelayClient
     }
@@ -81,7 +86,7 @@ describe('GraphContributeService', () =>
         const relay = new FakeRelay(client)
         const result = await new GraphContributeService(relay).Contribute('dev', 'g1', 's1', Fixture.Packages)
         expect(result).toEqual({ GraphName: 'g1', PackageCount: 2 })
-        expect(relay.Connects).toEqual([{ environment: 'dev', kind: TargetKind.Contribute }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, kind: TargetKind.Contribute }])
         expect(client.Calls).toEqual([{ graphName: 'g1', solutionId: 's1', packages: Fixture.Packages }])
         expect(client.Closed).toBe(1)
     })
@@ -132,8 +137,19 @@ describe('GraphContributeService', () =>
         const relay = new FakeRelay(client)
         const names = await new GraphContributeService(relay).ListGraphs('dev')
         expect(names).toEqual(['alpha', 'main', 'zeta'])
-        expect(relay.Connects).toEqual([{ environment: 'dev', kind: TargetKind.Contribute }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, kind: TargetKind.Contribute }])
         expect(client.Closed).toBe(1)
+    })
+
+    it('a contribute to a graph that is gone, or with a conflicting package version, reads as its sentence', async () =>
+    {
+        const gone = new FakeClient(new ResponseError(-32040, 'Graph not found: g1'))
+        const conflict = new FakeClient(new ResponseError(-32043, 'Package a@1.0.0 conflicts'))
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(gone)).Contribute('dev', 'g1', 's1', Fixture.Packages)))
+            .toBe('The graph g1 no longer exists in dev. Create it again in the tenant console.')
+        expect(await Fixture.Message(new GraphContributeService(new FakeRelay(conflict)).Contribute('dev', 'g1', 's1', Fixture.Packages)))
+            .toBe('A package version is already in g1 with different content.')
+        expect(gone.Closed).toBe(1)
     })
 
     it('ListGraphs closes the client on failure', async () =>

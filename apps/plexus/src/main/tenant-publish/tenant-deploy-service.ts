@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { RemoteBuildDirName, TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
-import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TargetKind, TargetSource } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { ITenantPublishApi, TenantPublishResult } from '../../shared/tenant-publish-api.js'
 import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
@@ -52,10 +52,10 @@ export class TenantDeployService implements ITenantPublishApi
     {
         TenantDeployService.RequireBuildDir(outputDir)
         const params = await TenantDeployService.AssembleOrSentence(outputDir)
-        const client = await this.relay.Connect(environment, TargetKind.Publish)
+        const client = await this.relay.Connect({ Name: environment, Source: TargetSource.Console }, TargetKind.Publish)
         try
         {
-            const result = await RelayConnector.Call(environment, () => client.DeployApplication(params))
+            const result = await RelayConnector.Call({ Environment: environment, Client: client }, () => client.DeployApplication(params))
             return { Status: result.status as string as TenantPublishStatus, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
         }
         finally

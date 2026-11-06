@@ -107,13 +107,7 @@ export class AccountService
         return this.StateOf(await this.store.Load())
     }
 
-    // Main-process only (the relay connector): the session including its token.
-    public async Session(): Promise<DesktopSession | undefined>
-    {
-        return (await this.store.Load()).Console
-    }
-
-    // Main-process only: where a target of `source` is reached and the token that proves it. The
+    // Main-process only (the relay connector): where a target of `source` is reached and the token that proves it. The
     // platform part answers only beside a console part, and only while it is live.
     public async SessionFor(source: TargetSource): Promise<SessionAddress | undefined>
     {

@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionLostError, ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { AppDeployResultDto, CypherAppDeployParamsDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { TargetKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TargetKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TenantDeployService } from '../tenant-deploy-service.js'
 import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import type { IRelayConnector, RelayClient } from '../../account/relay-connector.js'
@@ -30,19 +30,24 @@ class FakeClient
         this.Closed++
         return this.closeFails ? Promise.reject(new Error('close failed')) : Promise.resolve()
     }
+
+    public CloseCode(): number | undefined
+    {
+        return undefined
+    }
 }
 
 class FakeRelay implements IRelayConnector
 {
-    public Connects: Array<{ environment: string; kind: TargetKind }> = []
+    public Connects: Array<{ target: TargetRef; kind: TargetKind }> = []
 
     constructor(public readonly Client: FakeClient, private readonly failWith?: Error)
     {
     }
 
-    public Connect(environment: string, kind: TargetKind): Promise<RelayClient>
+    public Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>
     {
-        this.Connects.push({ environment, kind })
+        this.Connects.push({ target, kind })
         if (this.failWith !== undefined) return Promise.reject(this.failWith)
         return Promise.resolve(this.Client as unknown as RelayClient)
     }
@@ -82,7 +87,7 @@ describe('TenantDeployService', () =>
         const client = new FakeClient()
         const relay = new FakeRelay(client)
         const result = await new TenantDeployService(relay).Deploy('prod', dir)
-        expect(relay.Connects).toEqual([{ environment: 'prod', kind: TargetKind.Publish }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Console }, kind: TargetKind.Publish }])
         expect(client.Deployed).toHaveLength(1)
         const sent = client.Deployed[0]
         expect(sent.appName).toBe('orders')
