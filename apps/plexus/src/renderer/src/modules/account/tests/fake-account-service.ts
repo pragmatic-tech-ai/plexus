@@ -32,6 +32,10 @@ export class FakeAccountService implements IAccountService
     public Tenants: DiscoveredTenant[] = []
     public DiscoverError: unknown = undefined
     public SignInGate = new Deferred<void>()
+    // When set, SignInAtPlatform waits on it (the platform browser sign-in) before applying SignedIn.
+    public PlatformGate: Deferred<void> | undefined = undefined
+    // The Platform access a discovery sign-in reports (Offered when the tenant has platform environments).
+    public SignInPlatform: PlatformAccess | undefined = undefined
     public RefreshCount = 0
 
     private state: AccountState = { SignedIn: false }
@@ -69,12 +73,13 @@ export class FakeAccountService implements IAccountService
         this.Calls.push(['SignIn', platformUrl, email, tenantId])
         await this.SignInGate.Promise
         const tenant = this.Tenants.find((t) => t.Id === tenantId)
-        this.SetState({ SignedIn: true, Email: email, TenantName: tenant?.DisplayName })
+        this.SetState({ SignedIn: true, Email: email, TenantName: tenant?.DisplayName, Platform: this.SignInPlatform })
     }
 
     public async SignInAtPlatform(): Promise<void>
     {
         this.Calls.push(['SignInAtPlatform'])
+        if (this.PlatformGate !== undefined) await this.PlatformGate.Promise
         this.SetState({ ...this.State, Platform: PlatformAccess.SignedIn })
     }
 

@@ -4,7 +4,7 @@
 // Button showing $Text ("Sign in" / "<email> (<tenant>)") that opens the account dialog.
 //
 // DataTemplate[AccountDialog]: the account dialog body, shown by DialogService. One panel per
-// step (Email, ChooseTenant, Waiting, SignedIn), each shown by its Is<Step>Step flag through
+// step (Email, ChooseTenant, Waiting, SignedIn, PlatformOffer), each shown by its Is<Step>Step flag through
 // ToVisibility (the same per-state switch the connection editor and skill dialogs use). The
 // Message line (an AccountError sentence) shows under whichever step is active.
 //
@@ -68,9 +68,21 @@ resources AccountResources {
                 TextBlock [ Text = "Finish signing in in your browser.", Style = @Body, Foreground = @Fg1, TextWrapping = Wrap ]
             }
 
-            // SignedIn.
+            // PlatformOffer: the tenant also has platform-managed environments; offer that sign-in.
+            StackPanel [ Orientation = Vertical, Visibility = $IsPlatformOfferStep << ToVisibility ] {
+                TextBlock [ Text = "Some of your organization's environments are managed by the platform. Sign in once more to use them in Plexus.",
+                            Style = @Body, Foreground = @Fg1, TextWrapping = Wrap ]
+            }
+
+            // SignedIn, with the platform offer (until taken) or its signed-in line.
             StackPanel [ Orientation = Vertical, Visibility = $IsSignedInStep << ToVisibility ] {
                 TextBlock [ Text = $SignedInText, Style = @Body, Foreground = @Fg1, TextWrapping = Wrap ]
+                TextBlock [ Text = "Also signed in for your platform environments.", Style = @BodySm, Foreground = @Fg2,
+                            TextWrapping = Wrap, Margin = (0,4,0,0), Visibility = $ShowsPlatformSignedIn << ToVisibility ]
+                Button [ Variant = Text, Command = $PlatformSignInCommand, HorizontalAlignment = Left, Margin = (0,4,0,0),
+                         Visibility = $ShowsPlatformOffer << ToVisibility ] {
+                    TextBlock [ Text = "Also sign in for your platform environments" ]
+                }
             }
 
             TextBlock [ Text = $Message, Style = @BodySm, Foreground = @StateDanger, TextWrapping = Wrap,
@@ -95,6 +107,13 @@ resources AccountResources {
                          Visibility = $IsSignedInStep << ToVisibility ] {
                 Button [ Variant = Text, Command = $SignOutCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Sign out" ] }
                 Button [ Variant = Filled, Command = $CancelCommand ] { TextBlock [ Text = "Close" ] }
+            }
+            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,12,0,0),
+                         Visibility = $IsPlatformOfferStep << ToVisibility ] {
+                Button [ Variant = Text, Command = $SkipPlatformCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Skip" ] }
+                Button [ Variant = Filled, Command = $PlatformSignInCommand ] {
+                    TextBlock [ Text = "Also sign in for your platform environments" ]
+                }
             }
         }
     }

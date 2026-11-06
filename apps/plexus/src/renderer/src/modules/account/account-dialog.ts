@@ -2,7 +2,7 @@ import { Observable, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mura
 import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import {
-    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, type DiscoveredTenant,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAccess, PlatformAddress, type DiscoveredTenant,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountLabel } from './account-label.js'
 import { AccountDialogStep } from './account-dialog-step.js'
@@ -18,6 +18,9 @@ enum AccountDialogProperty
     IsChooseTenantStep = 'IsChooseTenantStep',
     IsWaitingStep = 'IsWaitingStep',
     IsSignedInStep = 'IsSignedInStep',
+    IsPlatformOfferStep = 'IsPlatformOfferStep',
+    ShowsPlatformOffer = 'ShowsPlatformOffer',
+    ShowsPlatformSignedIn = 'ShowsPlatformSignedIn',
     Email = 'Email',
     Tenants = 'Tenants',
     SelectedTenant = 'SelectedTenant',
@@ -56,6 +59,8 @@ export class TenantChoice extends Observable
 }
 
 // The account dialog body: email -> (tenant chooser) -> finish in the browser -> signed in.
+// A discovery sign-in for a tenant that also has platform environments (State.Platform Offered)
+// stops on PlatformOffer first: sign in once more at the platform (Waiting -> SignedIn), or Skip.
 // The Platform address is the Settings value read when the dialog opened; an invalid one is
 // reported with PlatformAddress.Validate's sentence before anything reaches the main process.
 // Only AccountError sentences (or one fixed sentence) are ever shown as Message.
@@ -77,8 +82,12 @@ export class AccountDialog extends Observable implements IDisposable
     private readonly signOutCommand: RelayCommand
     private readonly useConsoleAddressCommand: RelayCommand
     private readonly usePlatformCommand: RelayCommand
+    private readonly platformSignInCommand: RelayCommand
+    private readonly skipPlatformCommand: RelayCommand
 
     private step: AccountDialogStep
+    // Set while Waiting is the platform sign-in (a Cancel then returns to SignedIn, not Email).
+    private waitingOnPlatform = false
     private email = ''
     private tenants: TenantChoice[] = []
     private selectedTenant: TenantChoice | undefined = undefined
@@ -113,6 +122,8 @@ export class AccountDialog extends Observable implements IDisposable
         this.signOutCommand = new RelayCommand(() => { void this.SignOut() }, () => !this.isBusy)
         this.useConsoleAddressCommand = new RelayCommand(() => this.SetUseConsoleAddress(true))
         this.usePlatformCommand = new RelayCommand(() => this.SetUseConsoleAddress(false))
+        this.platformSignInCommand = new RelayCommand(() => { void this.SignInAtPlatform() }, () => !this.isBusy)
+        this.skipPlatformCommand = new RelayCommand(() => this.SkipPlatform())
         this.changed = account.Changed.subscribe(() => this.OnAccountChanged())
     }
 
@@ -121,6 +132,19 @@ export class AccountDialog extends Observable implements IDisposable
     public get IsChooseTenantStep(): boolean { return this.step === AccountDialogStep.ChooseTenant }
     public get IsWaitingStep(): boolean { return this.step === AccountDialogStep.Waiting }
     public get IsSignedInStep(): boolean { return this.step === AccountDialogStep.SignedIn }
+    public get IsPlatformOfferStep(): boolean { return this.step === AccountDialogStep.PlatformOffer }
+
+    // The SignedIn panel's "Also sign in for your platform environments" button.
+    public get ShowsPlatformOffer(): boolean
+    {
+        return this.step === AccountDialogStep.SignedIn && this.account.State.Platform === PlatformAccess.Offered
+    }
+
+    // The SignedIn panel's "Also signed in for your platform environments." line.
+    public get ShowsPlatformSignedIn(): boolean
+    {
+        return this.account.State.Platform === PlatformAccess.SignedIn
+    }
 
     public get Email(): string { return this.email }
     public set Email(value: string)
@@ -171,6 +195,8 @@ export class AccountDialog extends Observable implements IDisposable
     public get SignOutCommand(): ICommand { return this.signOutCommand }
     public get UseConsoleAddressCommand(): ICommand { return this.useConsoleAddressCommand }
     public get UsePlatformCommand(): ICommand { return this.usePlatformCommand }
+    public get PlatformSignInCommand(): ICommand { return this.platformSignInCommand }
+    public get SkipPlatformCommand(): ICommand { return this.skipPlatformCommand }
 
     private get CanContinue(): boolean
     {
@@ -195,7 +221,8 @@ export class AccountDialog extends Observable implements IDisposable
         }
     }
 
-    // While waiting on the browser: abandon the sign-in and go back to Email. Otherwise: close.
+    // While waiting on the browser: abandon the sign-in and go back to Email (to SignedIn when it was
+    // the platform sign-in, which leaves the discovery sign-in in place). Otherwise: close.
     public async Cancel(): Promise<void>
     {
         if (this.step !== AccountDialogStep.Waiting)
@@ -204,9 +231,11 @@ export class AccountDialog extends Observable implements IDisposable
             return
         }
         this.signInGeneration++
+        const back = this.waitingOnPlatform ? AccountDialogStep.SignedIn : AccountDialogStep.Email
+        this.waitingOnPlatform = false
         this.SetBusy(false)
         this.SetMessage('')
-        this.SetStep(AccountDialogStep.Email)
+        this.SetStep(back)
         try
         {
             await this.account.CancelSignIn()
@@ -379,8 +408,15 @@ export class AccountDialog extends Observable implements IDisposable
         {
             await this.account.SignIn(this.platformAddress, this.email.trim(), tenantId)
             if (generation !== this.signInGeneration) return
-            this.SetStep(AccountDialogStep.SignedIn)
             this.SaveSetting(() => this.consoleAddressSetting.Forget())
+            // The tenant also has platform environments: offer that sign-in before finishing (and
+            // before closing, so a sign-in request is answered once the offer is taken or skipped).
+            if (this.account.State.Platform === PlatformAccess.Offered)
+            {
+                this.SetStep(AccountDialogStep.PlatformOffer)
+                return
+            }
+            this.SetStep(AccountDialogStep.SignedIn)
             if (this.closeOnSignIn) this.close()
         }
         catch (e)
@@ -395,11 +431,58 @@ export class AccountDialog extends Observable implements IDisposable
         }
     }
 
-    // A sign-in or sign-out from elsewhere moves the dialog to match, except mid-sign-in.
+    // PlatformOffer / SignedIn: sign in once more, at the platform's tenant plane. A failure shows its
+    // sentence on SignedIn (the discovery sign-in still stands).
+    private async SignInAtPlatform(): Promise<void>
+    {
+        if (this.isBusy) return
+        const generation = ++this.signInGeneration
+        this.SetMessage('')
+        this.waitingOnPlatform = true
+        this.SetStep(AccountDialogStep.Waiting)
+        this.SetBusy(true)
+        try
+        {
+            await this.account.SignInAtPlatform()
+            if (generation !== this.signInGeneration) return
+            this.waitingOnPlatform = false
+            this.SetStep(AccountDialogStep.SignedIn)
+            if (this.closeOnSignIn) this.close()
+        }
+        catch (e)
+        {
+            if (generation !== this.signInGeneration) return
+            this.waitingOnPlatform = false
+            this.SetMessage(AccountDialog.SentenceFor(e))
+            this.SetStep(this.account.State.SignedIn ? AccountDialogStep.SignedIn : AccountDialogStep.Email)
+        }
+        finally
+        {
+            if (generation === this.signInGeneration) this.SetBusy(false)
+        }
+    }
+
+    // PlatformOffer: finish without the platform sign-in (the offer stays on the SignedIn panel).
+    private SkipPlatform(): void
+    {
+        if (this.step !== AccountDialogStep.PlatformOffer) return
+        this.SetStep(AccountDialogStep.SignedIn)
+        if (this.closeOnSignIn) this.close()
+    }
+
+    // A sign-in or sign-out from elsewhere moves the dialog to match, except mid-sign-in. PlatformOffer
+    // is left only on a sign-out (-> Email) or once the platform is no longer Offered (-> SignedIn).
     private OnAccountChanged(): void
     {
         this.RaisePropertyChanged(AccountDialogProperty.SignedInText, undefined, this.SignedInText)
+        this.RaisePlatformChanged()
         if (this.step === AccountDialogStep.Waiting) return
+        if (this.step === AccountDialogStep.PlatformOffer)
+        {
+            if (!this.account.State.SignedIn) this.SetStep(AccountDialogStep.Email)
+            else if (this.account.State.Platform !== PlatformAccess.Offered) this.SetStep(AccountDialogStep.SignedIn)
+            return
+        }
         if (this.account.State.SignedIn)
         {
             this.SetMessage('')
@@ -421,8 +504,16 @@ export class AccountDialog extends Observable implements IDisposable
         this.RaisePropertyChanged(AccountDialogProperty.IsChooseTenantStep, undefined, this.IsChooseTenantStep)
         this.RaisePropertyChanged(AccountDialogProperty.IsWaitingStep, undefined, this.IsWaitingStep)
         this.RaisePropertyChanged(AccountDialogProperty.IsSignedInStep, undefined, this.IsSignedInStep)
+        this.RaisePropertyChanged(AccountDialogProperty.IsPlatformOfferStep, undefined, this.IsPlatformOfferStep)
         this.RaisePropertyChanged(AccountDialogProperty.SignedInText, undefined, this.SignedInText)
+        this.RaisePlatformChanged()
         this.continueCommand.RaiseCanExecuteChanged()
+    }
+
+    private RaisePlatformChanged(): void
+    {
+        this.RaisePropertyChanged(AccountDialogProperty.ShowsPlatformOffer, undefined, this.ShowsPlatformOffer)
+        this.RaisePropertyChanged(AccountDialogProperty.ShowsPlatformSignedIn, undefined, this.ShowsPlatformSignedIn)
     }
 
     private SetTenants(value: TenantChoice[]): void
@@ -448,6 +539,7 @@ export class AccountDialog extends Observable implements IDisposable
         this.RaisePropertyChanged(AccountDialogProperty.IsBusy, !value, value)
         this.continueCommand.RaiseCanExecuteChanged()
         this.signOutCommand.RaiseCanExecuteChanged()
+        this.platformSignInCommand.RaiseCanExecuteChanged()
     }
 }
 

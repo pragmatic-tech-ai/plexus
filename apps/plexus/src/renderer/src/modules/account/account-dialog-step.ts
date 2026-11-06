@@ -6,4 +6,5 @@ export enum AccountDialogStep
     ChooseTenant = 'choose-tenant',
     Waiting = 'waiting',
     SignedIn = 'signed-in',
+    PlatformOffer = 'platform-offer',
 }

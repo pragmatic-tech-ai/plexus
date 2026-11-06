@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { AccountError, AccountErrorKind, PlatformAddress } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import {
+    AccountError, AccountErrorKind, PlatformAccess, PlatformAddress,
+} from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog, AccountDialogStep } from '../account-dialog.js'
-import { FakeAccountService } from './fake-account-service.js'
+import { Deferred, FakeAccountService } from './fake-account-service.js'
 import type { IConsoleAddressSetting } from '../console-address-setting.js'
 
 class FakeConsoleSetting implements IConsoleAddressSetting
@@ -30,6 +32,16 @@ class Harness
     public Make(address: string = PlatformAddress.Default, closeOnSignIn = false): AccountDialog
     {
         return new AccountDialog(this.Account, address, this.Setting, () => { this.Closed++ }, closeOnSignIn)
+    }
+
+    // A harness whose discovery sign-in (one tenant, settled) reports the platform as Offered.
+    public static Offered(): Harness
+    {
+        const h = new Harness()
+        h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+        h.Account.SignInPlatform = PlatformAccess.Offered
+        h.Account.SignInGate.Resolve()
+        return h
     }
 
     // Lets queued promise continuations run.
@@ -442,6 +454,201 @@ describe('AccountDialog', () =>
             await vm.Continue()
             expect(vm.Step).toBe(AccountDialogStep.SignedIn)
             expect(h.Setting.ForgetCount).toBe(1)
+        })
+    })
+
+    describe('platform step', () =>
+    {
+        it('an offered sign-in lands on PlatformOffer', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make()
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            expect(vm.Step).toBe(AccountDialogStep.PlatformOffer)
+            expect(vm.IsPlatformOfferStep).toBe(true)
+            expect(vm.IsSignedInStep).toBe(false)
+            expect(vm.ShowsPlatformOffer).toBe(false)
+            expect(h.Closed).toBe(0)
+        })
+
+        it('an offered sign-in does not close even when opened for a sign-in request', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make(PlatformAddress.Default, true)
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            expect(vm.Step).toBe(AccountDialogStep.PlatformOffer)
+            expect(h.Closed).toBe(0)
+        })
+
+        it('PlatformSignInCommand signs in at the platform once and ends on SignedIn', async () =>
+        {
+            const h = Harness.Offered()
+            h.Account.PlatformGate = new Deferred<void>()
+            const vm = h.Make()
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            expect(vm.Step).toBe(AccountDialogStep.Waiting)
+            expect(vm.IsBusy).toBe(true)
+            h.Account.PlatformGate.Resolve()
+            await Harness.Flush()
+            expect(h.Account.CallNames().filter((n) => n === 'SignInAtPlatform')).toHaveLength(1)
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.ShowsPlatformSignedIn).toBe(true)
+            expect(vm.ShowsPlatformOffer).toBe(false)
+            expect(vm.IsBusy).toBe(false)
+            expect(vm.Message).toBe('')
+            expect(h.Closed).toBe(0)
+        })
+
+        it('opened for a sign-in request, the platform sign-in closes the dialog', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make(PlatformAddress.Default, true)
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(h.Closed).toBe(1)
+        })
+
+        it('a failing platform step shows its sentence on SignedIn and stays signed in', async () =>
+        {
+            const h = Harness.Offered()
+            h.Account.PlatformGate = new Deferred<void>()
+            const vm = h.Make(PlatformAddress.Default, true)
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            h.Account.PlatformGate.Reject(new AccountError(AccountErrorKind.SignInFailed))
+            await Harness.Flush()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.Message).toBe(new AccountError(AccountErrorKind.SignInFailed).message)
+            expect(vm.HasMessage).toBe(true)
+            expect(h.Account.State.SignedIn).toBe(true)
+            expect(vm.ShowsPlatformOffer).toBe(true)
+            expect(vm.IsBusy).toBe(false)
+            expect(h.Closed).toBe(0)
+        })
+
+        it('Cancel while waiting on the platform returns to SignedIn and cancels the sign-in', async () =>
+        {
+            const h = Harness.Offered()
+            h.Account.PlatformGate = new Deferred<void>()
+            const vm = h.Make()
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            expect(vm.Step).toBe(AccountDialogStep.Waiting)
+            await vm.Cancel()
+            expect(h.Account.CallNames()).toContain('CancelSignIn')
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(h.Closed).toBe(0)
+            // The pending platform sign-in then fails as cancelled; the dialog stays on SignedIn.
+            h.Account.PlatformGate.Reject(new AccountError(AccountErrorKind.Cancelled))
+            await Harness.Flush()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.Message).toBe('')
+            expect(vm.IsBusy).toBe(false)
+        })
+
+        it('Skip lands on SignedIn with the offer still shown and the platform still Offered', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make()
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            vm.SkipPlatformCommand.Execute()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.ShowsPlatformOffer).toBe(true)
+            expect(vm.ShowsPlatformSignedIn).toBe(false)
+            expect(h.Account.State.Platform).toBe(PlatformAccess.Offered)
+            expect(h.Account.CallNames()).not.toContain('SignInAtPlatform')
+            expect(h.Closed).toBe(0)
+        })
+
+        it('opened for a sign-in request, Skip closes the dialog', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make(PlatformAddress.Default, true)
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            vm.SkipPlatformCommand.Execute()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(h.Closed).toBe(1)
+        })
+
+        it('the offer button on SignedIn signs in at the platform', async () =>
+        {
+            const h = new Harness()
+            h.Account.SetState({ SignedIn: true, Email: 'ada@acme.test', TenantName: 'Acme', Platform: PlatformAccess.Offered })
+            const vm = h.Make()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.ShowsPlatformOffer).toBe(true)
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            expect(h.Account.CallNames()).toEqual(['SignInAtPlatform'])
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.ShowsPlatformSignedIn).toBe(true)
+        })
+
+        it('a non-offered sign-in goes straight to SignedIn with no platform line', async () =>
+        {
+            const h = new Harness()
+            h.Account.Tenants = [{ Id: 't1', DisplayName: 'Acme' }]
+            h.Account.SignInGate.Resolve()
+            const vm = h.Make(PlatformAddress.Default, true)
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.ShowsPlatformOffer).toBe(false)
+            expect(vm.ShowsPlatformSignedIn).toBe(false)
+            expect(h.Closed).toBe(1)
+        })
+
+        it('on PlatformOffer, a change elsewhere moves only on sign-out or a settled platform', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make()
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            h.Account.SetState({ ...h.Account.State })
+            expect(vm.Step).toBe(AccountDialogStep.PlatformOffer)
+            h.Account.SetState({ ...h.Account.State, Platform: PlatformAccess.SignedIn })
+            expect(vm.Step).toBe(AccountDialogStep.SignedIn)
+            expect(vm.ShowsPlatformSignedIn).toBe(true)
+
+            const h2 = Harness.Offered()
+            const vm2 = h2.Make()
+            vm2.Email = 'ada@acme.test'
+            await vm2.Continue()
+            h2.Account.SetState({ SignedIn: false })
+            expect(vm2.Step).toBe(AccountDialogStep.Email)
+        })
+
+        it('raises PropertyChanged for the platform members', async () =>
+        {
+            const h = Harness.Offered()
+            const vm = h.Make()
+            const seen = new Set<string>()
+            for (const name of ['IsPlatformOfferStep', 'ShowsPlatformOffer', 'ShowsPlatformSignedIn'])
+            {
+                vm.PropertyChanged(name).subscribe(() => { seen.add(name) })
+            }
+            vm.Email = 'ada@acme.test'
+            await vm.Continue()
+            expect(seen.has('IsPlatformOfferStep')).toBe(true)
+            vm.SkipPlatformCommand.Execute()
+            expect(seen.has('ShowsPlatformOffer')).toBe(true)
+            vm.PlatformSignInCommand.Execute()
+            await Harness.Flush()
+            expect(seen.has('ShowsPlatformSignedIn')).toBe(true)
         })
     })
 })
