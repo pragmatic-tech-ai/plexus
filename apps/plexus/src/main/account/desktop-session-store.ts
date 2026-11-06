@@ -74,16 +74,18 @@ export class DesktopSessionStore
         return this.encryptor.IsAvailable()
     }
 
-    // Writes both parts as one blob; an account with neither part removes the file.
+    // Writes both parts as one blob. Each part passes the same completeness rule Load applies, so an
+    // incomplete part is never written; with neither part left the file is removed.
     public async Save(account: StoredAccount): Promise<void>
     {
         if (!this.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
-        if (account.Console === undefined && account.Platform === undefined)
+        const kept = DesktopSessionStore.Complete(account)
+        if (kept.Console === undefined && kept.Platform === undefined)
         {
             await this.Clear()
             return
         }
-        const blob = this.encryptor.Encrypt(JSON.stringify(DesktopSessionStore.Encode(account)))
+        const blob = this.encryptor.Encrypt(JSON.stringify(DesktopSessionStore.Encode(kept)))
         await fs.mkdir(this.dir, { recursive: true })
         const target = this.Path()
         const temp = `${target}${DesktopSessionStore.TempSuffix}`
@@ -122,6 +124,15 @@ export class DesktopSessionStore
         }
         if (!DesktopSessionStore.IsRecord(parsed)) return DesktopSessionStore.Empty()
         return { Console: DesktopSessionStore.DecodeConsole(parsed), Platform: DesktopSessionStore.DecodePlatform(parsed[DesktopSessionStore.PlatformField]) }
+    }
+
+    // The parts of `account` that pass the completeness rule (the one Load applies), copied.
+    private static Complete(account: StoredAccount): StoredAccount
+    {
+        return {
+            Console: account.Console === undefined ? undefined : DesktopSessionStore.DecodeConsole(account.Console),
+            Platform: DesktopSessionStore.DecodePlatform(account.Platform),
+        }
     }
 
     private static DecodeConsole(parsed: Record<string, unknown>): DesktopSession | undefined

@@ -154,6 +154,18 @@ describe('DesktopSessionStore', () =>
         expect(await new DesktopSessionStore(dir, encryptor).Load()).toEqual({ Console: undefined, Platform: platform })
     })
 
+    it('Save applies the same completeness rule as Load: an incomplete part is not written, and with none left the file is removed', async () =>
+    {
+        const encryptor = new ReverseEncryptor()
+        const store = new DesktopSessionStore(dir, encryptor)
+        await store.Save({ Console: { ...session, TenantName: '' }, Platform: platform })
+        expect(Object.keys(new BlobFile(dir, encryptor).Read())).toEqual(['Platform'])
+        await store.Save({ Console: session, Platform: { ...platform, Token: '' } })
+        expect(Object.keys(new BlobFile(dir, encryptor).Read()).sort()).toEqual(['ConsoleUrl', 'Email', 'ExpiresAt', 'TenantId', 'TenantName', 'Token'])
+        await store.Save({ Console: { ...session, Token: '' }, Platform: { ...platform, Email: '' } })
+        expect(readdirSync(dir)).toEqual([])
+    })
+
     it('an empty platform sign-in address loads as unset', async () =>
     {
         const encryptor = new ReverseEncryptor()
