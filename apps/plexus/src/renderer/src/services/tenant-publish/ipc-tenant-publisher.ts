@@ -28,8 +28,13 @@ export class IpcTenantPublisher implements ITenantPublisher
 
     public async Publish(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
     {
-        // Only Name and Source cross the bridge, whatever else the caller's object carries.
-        return RelayWire.Unwrap(await this.api.Deploy({ Name: target.Name, Source: target.Source }, outputDir))
+        return RelayWire.Unwrap(await this.api.Deploy(IpcTenantPublisher.Wire(target), outputDir))
+    }
+
+    // Only Name and Source cross the bridge, whatever else the caller's object carries.
+    private static Wire(target: TargetRef): TargetRef
+    {
+        return { Name: target.Name, Source: target.Source }
     }
 }
 
