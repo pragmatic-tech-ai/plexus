@@ -202,10 +202,10 @@ describe('AccountService', () =>
         expect(h.Receiver.ExpectedState).toBe('st-123')
         expect(h.Receiver.Closed).toBe(1)
         expect(h.Changes).toEqual([state])
-        expect(await h.Store.Load()).toEqual({
+        expect((await h.Store.Load()).Console).toEqual({
             ConsoleUrl: Harness.Plane, Token: 'secret-token-t1', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2026-11-11T00:00:00.000Z',
         })
-        expect(await h.Service.Session()).toEqual(await h.Store.Load())
+        expect(await h.Service.Session()).toEqual((await h.Store.Load()).Console)
     })
 
     it('binds the sign-in: the challenge is base64url(sha256(verifier)) and the verifier goes only to Complete', async () =>
@@ -286,7 +286,7 @@ describe('AccountService', () =>
         await h.Service.SignIn(Harness.Platform, 'ada@acme.example', 'a')
         expect(h.Fetch.To('/desktop/sign-in/begin')[0].Url).toBe('https://console-a.example/desktop/sign-in/begin')
         expect(h.Fetch.To('/desktop/sign-in/complete')[0].Url).toBe('https://console-a.example/desktop/sign-in/complete')
-        expect((await h.Store.Load())!.ConsoleUrl).toBe('https://console-a.example')
+        expect((await h.Store.Load()).Console!.ConsoleUrl).toBe('https://console-a.example')
         await h.Service.Targets()
         expect(h.Fetch.To('/desktop/targets')[0].Url).toBe('https://console-a.example/desktop/targets')
     })
@@ -333,7 +333,7 @@ describe('AccountService', () =>
         expect(await h.SignIn()).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
         expect(h.Fetch.To('/tenant-plane/desktop/sign-in/begin')[0].Url).toBe('https://platform.example/tenant-plane/desktop/sign-in/begin')
         expect(h.Fetch.To('/tenant-plane/desktop/sign-in/complete')[0].Url).toBe('https://platform.example/tenant-plane/desktop/sign-in/complete')
-        expect((await h.Store.Load())!.ConsoleUrl).toBe(plane)
+        expect((await h.Store.Load()).Console!.ConsoleUrl).toBe(plane)
     })
 
     it('a cleartext non-loopback tenant plane fallback is refused before Begin', async () =>
@@ -362,7 +362,7 @@ describe('AccountService', () =>
         expect(begin.Url).toBe('https://console-acme.localtest.me/desktop/sign-in/begin')
         expect(begin.Body).toMatchObject({ tenantId: 'acme' })
         expect(begin.Body).not.toHaveProperty('email')
-        expect((await h.Store.Load())!.ConsoleUrl).toBe('https://console-acme.localtest.me')
+        expect((await h.Store.Load()).Console!.ConsoleUrl).toBe('https://console-acme.localtest.me')
         expect(h.Fetch.To('/api/desktop/discover')).toEqual([])
     })
 
@@ -469,7 +469,7 @@ describe('AccountService', () =>
         expect(signOuts).toHaveLength(1)
         expect(signOuts[0].Url).toBe('http://127.0.0.1:7002/desktop/sign-out')
         expect(signOuts[0].Headers['authorization']).toBe('Bearer secret-token-late')
-        expect(await h.Store.Load()).toBeUndefined()
+        expect((await h.Store.Load()).Console).toBeUndefined()
         expect(h.Changes).toEqual([])
     })
 
@@ -522,7 +522,7 @@ describe('AccountService', () =>
         await h.SignIn()
         h.Fetch.Routes.set('/desktop/targets', () => FakeFetch.Json(401, { error: 'signed-out' }))
         expect(await Caught.Kind(h.Service.Targets())).toBe(AccountErrorKind.SignedOut)
-        expect(await h.Store.Load()).toBeUndefined()
+        expect((await h.Store.Load()).Console).toBeUndefined()
         expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
         expect(await h.Service.State()).toEqual({ SignedIn: false })
     })
@@ -541,7 +541,7 @@ describe('AccountService', () =>
         const [signOut] = h.Fetch.To('/desktop/sign-out')
         expect(signOut.Method).toBe('POST')
         expect(signOut.Headers['authorization']).toBe('Bearer secret-token-t1')
-        expect(await h.Store.Load()).toBeUndefined()
+        expect((await h.Store.Load()).Console).toBeUndefined()
         expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
     })
 
@@ -550,7 +550,7 @@ describe('AccountService', () =>
         await h.SignIn()
         expect(await h.Service.SignOut()).toEqual({ SignedIn: false })
         expect(h.Fetch.To('/desktop/sign-out')).toHaveLength(1)
-        expect(await h.Store.Load()).toBeUndefined()
+        expect((await h.Store.Load()).Console).toBeUndefined()
         expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
     })
 

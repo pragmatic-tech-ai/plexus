@@ -222,7 +222,7 @@ describe('DesktopApiClient', () =>
         const encryptor = new ReverseEncryptor()
         const legacy = { TenantPlaneUrl: 'http://127.0.0.1:7002', Token: 'tok-legacy', Email: 'ada@acme.example', TenantId: 't1', TenantName: 'Acme', ExpiresAt: '2099-01-01T00:00:00Z' }
         writeFileSync(join(dir, 'desktop-session.bin'), encryptor.Encrypt(JSON.stringify(legacy)))
-        const loaded = await new DesktopSessionStore(dir, encryptor).Load()
+        const loaded = (await new DesktopSessionStore(dir, encryptor).Load()).Console
         expect(loaded).toBeDefined()
         fake.Answer = () => FakeFetch.Json(200, { contribute: [], publish: [] })
         await client.Targets(loaded!, TargetSource.Console)

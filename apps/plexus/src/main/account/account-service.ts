@@ -7,7 +7,7 @@ import {
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
-import type { DesktopSession, DesktopSessionStore } from './desktop-session-store.js'
+import type { DesktopSession, DesktopSessionStore, SessionAddress } from './desktop-session-store.js'
 import type { IRedirectReceiver } from './loopback-redirect-receiver.js'
 
 // One sign-in attempt, tracked from its first step so a cancel at any point (discovery, Begin, the
@@ -87,13 +87,13 @@ export class AccountService
 
     public async State(): Promise<AccountState>
     {
-        return AccountService.StateOf(await this.store.Load())
+        return AccountService.StateOf((await this.store.Load()).Console)
     }
 
     // Main-process only (the relay connector): the session including its token.
-    public Session(): Promise<DesktopSession | undefined>
+    public async Session(): Promise<DesktopSession | undefined>
     {
-        return this.store.Load()
+        return (await this.store.Load()).Console
     }
 
     public async Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>
@@ -133,7 +133,7 @@ export class AccountService
     // Ends the session at its console when that can be reached; clears locally either way.
     public async SignOut(): Promise<AccountState>
     {
-        const session = await this.store.Load()
+        const session = (await this.store.Load()).Console
         if (session !== undefined) await this.EndQuietly(session)
         await this.Serialised(() => this.Forget())
         return AccountService.StateOf(undefined)
@@ -146,7 +146,7 @@ export class AccountService
     {
         return this.Serialised(async () =>
         {
-            const current = await this.store.Load()
+            const current = (await this.store.Load()).Console
             if (current === undefined || current.Token !== token) return
             await this.Forget()
         })
@@ -154,7 +154,7 @@ export class AccountService
 
     public async Targets(): Promise<AccountTargets>
     {
-        const session = await this.store.Load()
+        const session = (await this.store.Load()).Console
         if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
         try
         {
@@ -169,7 +169,7 @@ export class AccountService
 
     public async LastChoice(kind: TargetKind): Promise<TargetChoice | undefined>
     {
-        const session = await this.store.Load()
+        const session = (await this.store.Load()).Console
         if (session === undefined) return undefined
         const choice = (await this.ReadChoices())[session.TenantId]?.[kind]
         return AccountService.ValidChoice(choice) ? AccountService.CopyChoice(choice) : undefined
@@ -184,7 +184,7 @@ export class AccountService
 
     private async WriteChoice(kind: TargetKind, choice: TargetChoice): Promise<void>
     {
-        const session = await this.store.Load()
+        const session = (await this.store.Load()).Console
         if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
         const choices = await this.ReadChoices()
         choices[session.TenantId] = { ...choices[session.TenantId], [kind]: AccountService.CopyChoice(choice) }
@@ -273,8 +273,8 @@ export class AccountService
         {
             return await this.Serialised(async () =>
             {
-                const previous = await this.store.Load()
-                await this.store.Save(session)
+                const previous = (await this.store.Load()).Console
+                await this.store.Save({ Console: session })
                 return previous
             })
         }
@@ -299,11 +299,11 @@ export class AccountService
         this.Changed.emit(AccountService.StateOf(undefined))
     }
 
-    private async EndQuietly(session: DesktopSession): Promise<void>
+    private async EndQuietly(at: SessionAddress): Promise<void>
     {
         try
         {
-            await this.client.SignOut(session)
+            await this.client.SignOut(at)
         }
         catch
         {

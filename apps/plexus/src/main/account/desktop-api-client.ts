@@ -1,6 +1,6 @@
 import { AccountError, AccountErrorKind, TargetIdentity, TargetSource, TargetStatus, UrlBase, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
-import type { DesktopSession } from './desktop-session-store.js'
+import type { SessionAddress } from './desktop-session-store.js'
 import { ConsoleRetirement } from './console-retirement.js'
 import { TextValue } from './text-value.js'
 
@@ -107,18 +107,18 @@ export class DesktopApiClient
         return { Token: token, ExpiresAt: expiresAt, TenantId: tenantId, TenantName: tenantName, Email: TextValue.Filled(email) ? email : undefined }
     }
 
-    public async Targets(session: Pick<DesktopSession, 'ConsoleUrl' | 'Token'>, source: TargetSource): Promise<AccountTargets>
+    public async Targets(at: SessionAddress, source: TargetSource): Promise<AccountTargets>
     {
-        const res = await this.Send(session.ConsoleUrl, DesktopApiClient.TargetsPath, DesktopApiClient.MethodGet, AccountErrorKind.ConsoleUnreachable, undefined, session.Token)
+        const res = await this.Send(at.ConsoleUrl, DesktopApiClient.TargetsPath, DesktopApiClient.MethodGet, AccountErrorKind.ConsoleUnreachable, undefined, at.Token)
         if (res.status === DesktopApiClient.StatusUnauthorized) throw new AccountError(AccountErrorKind.SignedOut)
         const { contribute, publish } = await DesktopApiClient.Body(res)
         return { Contribute: DesktopApiClient.Targets(contribute, source), Publish: DesktopApiClient.Targets(publish, source) }
     }
 
     // Ends the session at its console. A 401 means it was already over, which is the goal.
-    public async SignOut(session: DesktopSession): Promise<void>
+    public async SignOut(at: SessionAddress): Promise<void>
     {
-        const res = await this.Send(session.ConsoleUrl, DesktopApiClient.SignOutPath, DesktopApiClient.MethodPost, AccountErrorKind.ConsoleUnreachable, undefined, session.Token)
+        const res = await this.Send(at.ConsoleUrl, DesktopApiClient.SignOutPath, DesktopApiClient.MethodPost, AccountErrorKind.ConsoleUnreachable, undefined, at.Token)
         if (res.status === DesktopApiClient.StatusNoContent || res.status === DesktopApiClient.StatusOk || res.status === DesktopApiClient.StatusUnauthorized) return
         throw new AccountError(AccountErrorKind.Unavailable)
     }
