@@ -10,6 +10,7 @@ import { BackgroundWorkService } from '../../background-work/index.js'
 import type { IGraphContributor } from '../../graph-contribute/graph-contributor.js'
 import type { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import type { GraphContributeResult } from '../../../../shared/graph-contribute-api.js'
+import { TargetIdentity, type TargetRef } from '../../../../shared/account-api.js'
 import { InfoDialog } from './info-dialog.js'
 import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 
@@ -83,13 +84,13 @@ export class ContributeToGraphContributor implements IHierarchyContributor
         const work = this.work
         const picker = this.picker
         if (builder === undefined || contributor === undefined || work === undefined || picker === undefined) return
-        let environment: string
+        let target: TargetRef
         let graphName: string
         try
         {
             const choice = await TargetPickerFlow.Choose(picker)
             if (choice === undefined || choice.GraphName === undefined) return
-            environment = choice.Environment
+            target = TargetIdentity.RefOf(choice)
             graphName = choice.GraphName
         }
         catch (e)
@@ -98,11 +99,11 @@ export class ContributeToGraphContributor implements IHierarchyContributor
             return
         }
         const solution = this.solution
-        const where = `${graphName}${ContributeToGraphContributor.InEnvironment}${environment}`
+        const where = `${graphName}${ContributeToGraphContributor.InEnvironment}${target.Name}`
         void work.run(`${ContributeToGraphContributor.TitlePrefix}${solution.Name}${ContributeToGraphContributor.ToGraph}${where}`, async (_ctx): Promise<GraphContributeResult> =>
         {
             const packages = [...await builder.Build()]
-            return contributor.Contribute(environment, graphName, solution.Name, packages)
+            return contributor.Contribute(target, graphName, solution.Name, packages)
         }).done.then(
             (result) =>
             {

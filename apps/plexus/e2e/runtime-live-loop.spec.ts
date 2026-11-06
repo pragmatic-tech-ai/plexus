@@ -33,6 +33,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { RemoteBindMode } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ContosoFixture, CatalogFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
@@ -179,8 +180,9 @@ class RendererOps
     }
 
     // Builds the whole active solution's packages and contributes them to the dev environment's graph
-    // through the real IGraphContributor (the tenant-plane relay, with the app's signed-in session) —
-    // the exact path the Solution row's "Contribute to graph" command runs (minus the target picker).
+    // through the real IGraphContributor (the console relay, with the app's signed-in session) —
+    // the exact path the Solution row's "Contribute to graph" command runs (minus the target picker),
+    // so the environment goes as a console target ({ Name, Source }), never a bare name.
     public static async Contribute(win: Page, environment: string, graphName: string): Promise<ContributeOutcome>
     {
         return win.evaluate(
@@ -203,11 +205,11 @@ class RendererOps
                 const solution = contrib.solution
                 if (contributor === undefined || builder === undefined || solution === undefined) return { ok: false, stage: p.stageContributorMissing }
                 const packages = [...await builder.Build()]
-                const result = await contributor.Contribute(p.environment, p.graphName, solution.Name, packages)
+                const result = await contributor.Contribute(p.target, p.graphName, solution.Name, packages)
                 return { ok: true, packageCount: result?.PackageCount }
             },
             {
-                helpersKey: RendererOps.HelpersKey, environment, graphName,
+                helpersKey: RendererOps.HelpersKey, target: { Name: environment, Source: TargetSource.Console } satisfies TargetRef, graphName,
                 registryName: RendererOps.RegistryName, solutionFamily: RendererOps.SolutionFamily,
                 contributeContributorName: RendererOps.ContributeContributorName,
                 stageResolve: RendererOps.StageResolve, stageContributorMissing: RendererOps.StageContributorMissing,
@@ -287,10 +289,10 @@ class RendererOps
                     }
                 }
                 const origPub = pub.publisher.Publish.bind(pub.publisher)
-                pub.publisher.Publish = async (env: string, dir: string) => {
+                pub.publisher.Publish = async (target: unknown, dir: string) => {
                     try
                     {
-                        const r = await origPub(env, dir)
+                        const r = await origPub(target, dir)
                         state.publishStatus = r?.Status
                         return r
                     }

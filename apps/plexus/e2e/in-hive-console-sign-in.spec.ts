@@ -26,6 +26,7 @@ import { existsSync } from 'node:fs'
 import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
 import { E2eProfile } from './support/e2e-profile'
+import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
 // The contribute outcome as the renderer reports it.
 interface GraphOutcome
@@ -37,8 +38,8 @@ interface GraphOutcome
 }
 
 // Renderer-side graph operations through the preload's graph-contribute bridge (window.api.graphContribute):
-// the IPC the app's own Contribute command uses, so main reaches the environment through the console relay
-// with the account session and no credential crosses into the renderer.
+// the IPC the app's own Contribute command uses, so main reaches the environment through the relay of the
+// target's source with that source's session and no credential crosses into the renderer.
 class RendererGraph
 {
     private static readonly BridgeKey = 'graphContribute'
@@ -49,8 +50,9 @@ class RendererGraph
     private static readonly EntityId = 'ihc-smoke-entity'
     private static readonly PackageVersion = '1.0.0'
 
-    // Contributes a one-entity package to the environment's graph, then lists the environment's graphs.
-    public static async ContributeAndList(win: Page, environment: string, graphName: string, packageId: string): Promise<GraphOutcome>
+    // Contributes a one-entity package to the target environment's graph, then lists its graphs. Only
+    // the target's Name and Source cross IPC (main refuses a bare environment name).
+    public static async ContributeAndList(win: Page, target: TargetRef, graphName: string, packageId: string): Promise<GraphOutcome>
     {
         return win.evaluate(async (p) =>
         {
@@ -73,15 +75,15 @@ class RendererGraph
             }
             const failure = (reply: any): string => String(reply?.Error?.Kind ?? reply?.Error?.Message ?? p.failed)
             const model = JSON.stringify({ id: p.packageId, entities: [{ id: p.entityId }] })
-            const contributed = await bounded(bridge.Contribute(p.environment, p.graphName, p.packageId, [{ id: p.packageId, version: p.version, modelJson: model }]))
+            const contributed = await bounded(bridge.Contribute(p.target, p.graphName, p.packageId, [{ id: p.packageId, version: p.version, modelJson: model }]))
             if (!contributed?.Ok) return { Ok: false, Error: failure(contributed) }
-            const listed = await bounded(bridge.ListGraphs(p.environment))
+            const listed = await bounded(bridge.ListGraphs(p.target))
             if (!listed?.Ok) return { Ok: false, Error: failure(listed) }
             return { Ok: true, PackageCount: contributed.Value?.PackageCount, Graphs: listed.Value }
         }, {
             bridgeKey: RendererGraph.BridgeKey, notFound: RendererGraph.NotFound, failed: RendererGraph.Failed,
             timedOut: RendererGraph.TimedOut, callTimeoutMs: RendererGraph.CallTimeoutMs,
-            entityId: RendererGraph.EntityId, environment, graphName, packageId, version: RendererGraph.PackageVersion,
+            entityId: RendererGraph.EntityId, target: { Name: target.Name, Source: target.Source }, graphName, packageId, version: RendererGraph.PackageVersion,
         })
     }
 }
@@ -200,7 +202,7 @@ test.describe(SmokeConstants.SuiteTitle, () => {
             })
 
             await test.step(SmokeConstants.StepContribute, async () => {
-                const outcome = await RendererGraph.ContributeAndList(l!.win, inputs.Environment, SmokeConstants.GraphName, SmokeConstants.PackageId)
+                const outcome = await RendererGraph.ContributeAndList(l!.win, { Name: inputs.Environment, Source: TargetSource.Console }, SmokeConstants.GraphName, SmokeConstants.PackageId)
                 expect(outcome.Ok, SmokeConstants.ContributeFailedPrefix + (outcome.Error ?? '')).toBeTruthy()
                 expect(outcome.Graphs ?? []).toContain(SmokeConstants.GraphName)
             })

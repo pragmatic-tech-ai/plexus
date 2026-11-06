@@ -43,6 +43,16 @@ describe('TargetIdentity', () =>
         expect(TargetIdentity.IsSource(undefined)).toBe(false)
         expect(TargetIdentity.IsSource('toString')).toBe(false)
     })
+
+    it('RefFrom keeps only Name and Source of a well-formed ref, and refuses anything else', () =>
+    {
+        expect(TargetIdentity.RefFrom({ Name: 'dev', Source: 'platform', Token: 'secret' })).toEqual({ Name: 'dev', Source: TargetSource.Platform })
+        expect(TargetIdentity.RefFrom({ Name: 'dev', Source: 'console' })).toEqual({ Name: 'dev', Source: TargetSource.Console })
+        for (const bad of ['dev', undefined, null, 7, [], { Name: 'dev', Source: 'x' }, { Name: 'dev' }, { Name: '  ', Source: 'console' }, { Name: 3, Source: 'console' }])
+        {
+            expect(TargetIdentity.RefFrom(bad)).toBeUndefined()
+        }
+    })
 })
 
 describe('the console-retired and platform-signed-out kinds', () =>

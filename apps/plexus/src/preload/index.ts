@@ -15,7 +15,7 @@ import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-
 import { TenantPublishChannel, type ITenantPublishBridge } from '../shared/tenant-publish-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
-import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge, type RelayReply } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge, type RelayReply, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TypeCheckChannel } from '@pragmatic-tech-ai/plexus-core/shared/type-check-api.js'
 import type { TypeCheckRequest, TypeCheckResult } from '@pragmatic-tech-ai/todl/build-system-core'
@@ -145,7 +145,8 @@ const previewServer: IPreviewServerApi = {
 }
 
 // Tenant-publish and graph-contribute bridges: the main process reaches the environment through the
-// tenant plane relay with the account session, so no credential is ever passed or returned here.
+// relay of the target's source with that source's session, so no credential is ever passed or
+// returned here: a target is only its Name and Source (main checks it and refuses anything else).
 // Each call resolves to the handler's RelayReply envelope (the context bridge would reduce a
 // rejection to "Error invoking remote method ..." around the sentence); the renderer services
 // unwrap it with RelayWire.Unwrap.
@@ -157,12 +158,12 @@ class RelayBridge
   }
 }
 const tenantPublish: ITenantPublishBridge = {
-  Deploy: (environment: string, outputDir: string) => RelayBridge.Call(TenantPublishChannel.Deploy, environment, outputDir),
+  Deploy: (target: TargetRef, outputDir: string) => RelayBridge.Call(TenantPublishChannel.Deploy, target, outputDir),
 }
 const graphContribute: IGraphContributeBridge = {
-  Contribute: (environment: string, graphName: string, solutionId: string, packages: ContributedPackage[]) =>
-    RelayBridge.Call(GraphContributeChannel.Contribute, environment, graphName, solutionId, packages),
-  ListGraphs: (environment: string) => RelayBridge.Call(GraphContributeChannel.ListGraphs, environment),
+  Contribute: (target: TargetRef, graphName: string, solutionId: string, packages: ContributedPackage[]) =>
+    RelayBridge.Call(GraphContributeChannel.Contribute, target, graphName, solutionId, packages),
+  ListGraphs: (target: TargetRef) => RelayBridge.Call(GraphContributeChannel.ListGraphs, target),
 }
 
 // Account bridge: sign in by email through the system browser. Every call resolves to the main

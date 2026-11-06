@@ -1,5 +1,5 @@
 import { TenantPublisherKey, type ITenantPublisher, type TenantPublishResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/tenant-publish'
-import { RelayWire } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { RelayWire, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { ITenantPublishBridge } from '../../../../shared/tenant-publish-api.js'
 
 // The renderer-side tenant publisher: the concrete ITenantPublisher plexus-core's
@@ -26,9 +26,10 @@ export class IpcTenantPublisher implements ITenantPublisher
         this.api = bridge.tenantPublish
     }
 
-    public async Publish(environment: string, outputDir: string): Promise<TenantPublishResult>
+    public async Publish(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
     {
-        return RelayWire.Unwrap(await this.api.Deploy(environment, outputDir))
+        // Only Name and Source cross the bridge, whatever else the caller's object carries.
+        return RelayWire.Unwrap(await this.api.Deploy({ Name: target.Name, Source: target.Source }, outputDir))
     }
 }
 

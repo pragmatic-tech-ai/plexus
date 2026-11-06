@@ -79,6 +79,16 @@ export class TargetIdentity
     {
         return Object.values(TargetSource).includes(value as TargetSource)
     }
+
+    // A target that arrived over IPC: an object with a non-blank string Name and a known Source,
+    // copied down to just those two fields; undefined for anything else.
+    public static RefFrom(value: unknown): TargetRef | undefined
+    {
+        if (value === null || typeof value !== 'object') return undefined
+        const { Name, Source } = value as { Name?: unknown; Source?: unknown }
+        if (typeof Name !== 'string' || Name.trim() === '' || !TargetIdentity.IsSource(Source)) return undefined
+        return { Name, Source }
+    }
 }
 
 // The one transport rule for every address Plexus dials (the Platform address, a console address,

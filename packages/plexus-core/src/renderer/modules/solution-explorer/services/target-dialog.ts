@@ -4,7 +4,7 @@ import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { IAccountService } from '../../account/account-service.js'
 import {
     AccountError, AccountErrorKind, RelayError, TargetStatus,
-    type AccountTargets, type EnvironmentTarget, type TargetChoice, type TargetKind,
+    type AccountTargets, type EnvironmentTarget, type TargetChoice, type TargetKind, type TargetRef,
 } from '../../../../shared/account-api.js'
 
 // How a picker closed.
@@ -61,6 +61,10 @@ export class EnvironmentChoice extends Observable
     }
 
     public get Name(): string { return this.Target.Name }
+    // Unique across sources (the same name may come from the console and the platform).
+    public get Id(): string { return this.Target.Id }
+    // What the calls route by: the name and the source whose session they go to.
+    public get Ref(): TargetRef { return { Name: this.Target.Name, Source: this.Target.Source } }
     public get Status(): TargetStatus { return this.Target.Status }
     public get IsRunning(): boolean { return this.Target.Status === TargetStatus.Running }
 

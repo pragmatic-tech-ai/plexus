@@ -1,5 +1,5 @@
 import { GraphContributorKey, type IGraphContributor, type ContributedPackage, type GraphContributeResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/graph-contribute'
-import { RelayWire } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { RelayWire, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { IGraphContributeBridge } from '../../../../shared/graph-contribute-api.js'
 
 // The renderer-side graph contributor: the concrete IGraphContributor resolved through
@@ -26,14 +26,20 @@ export class IpcGraphContributor implements IGraphContributor
         this.api = bridge.graphContribute
     }
 
-    public async Contribute(environment: string, graphName: string, solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
+    public async Contribute(target: TargetRef, graphName: string, solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
     {
-        return RelayWire.Unwrap(await this.api.Contribute(environment, graphName, solutionId, packages))
+        return RelayWire.Unwrap(await this.api.Contribute(IpcGraphContributor.Wire(target), graphName, solutionId, packages))
     }
 
-    public async ListGraphs(environment: string): Promise<string[]>
+    public async ListGraphs(target: TargetRef): Promise<string[]>
     {
-        return RelayWire.Unwrap(await this.api.ListGraphs(environment))
+        return RelayWire.Unwrap(await this.api.ListGraphs(IpcGraphContributor.Wire(target)))
+    }
+
+    // Only Name and Source cross the bridge, whatever else the caller's object carries.
+    private static Wire(target: TargetRef): TargetRef
+    {
+        return { Name: target.Name, Source: target.Source }
     }
 }
 

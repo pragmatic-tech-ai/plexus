@@ -3,13 +3,13 @@ import { Solution } from '@pragmatic-tech-ai/todl'
 import { ContributeToGraphContributor } from '../contribute-to-graph-contributor.js'
 import { TargetPickOutcome } from '../target-dialog.js'
 import { ScriptedPicker } from './fake-target-sources.js'
-import type { TargetChoice } from '../../../../../shared/account-api.js'
+import { TargetSource, type TargetChoice, type TargetRef } from '../../../../../shared/account-api.js'
 import type { IGraphContributor } from '../../../graph-contribute/graph-contributor.js'
 import type { ContributedPackage, GraphContributeResult } from '../../../../../shared/graph-contribute-api.js'
 
 class FakeContributor implements IGraphContributor
 {
-    public Contributions: Array<{ environment: string; graphName: string; solutionId: string; packages: ContributedPackage[] }> = []
+    public Contributions: Array<{ target: TargetRef; graphName: string; solutionId: string; packages: ContributedPackage[] }> = []
     private contributeError: Error | undefined
 
     constructor(private readonly result: GraphContributeResult)
@@ -18,14 +18,14 @@ class FakeContributor implements IGraphContributor
 
     public FailContribute(e: Error): this { this.contributeError = e; return this }
 
-    public Contribute(environment: string, graphName: string, solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
+    public Contribute(target: TargetRef, graphName: string, solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
     {
         if (this.contributeError !== undefined) return Promise.reject(this.contributeError)
-        this.Contributions.push({ environment, graphName, solutionId, packages })
+        this.Contributions.push({ target, graphName, solutionId, packages })
         return Promise.resolve(this.result)
     }
 
-    public ListGraphs(_environment: string): Promise<string[]>
+    public ListGraphs(_target: TargetRef): Promise<string[]>
     {
         return Promise.resolve([])
     }
@@ -103,11 +103,24 @@ describe('ContributeToGraphContributor', () =>
         await GraphTestHelper.Flush()
         await expect(work.task).resolves.toEqual(Result)
         expect(builder.Built).toBe(1)
-        expect(contributor.Contributions).toEqual([{ environment: 'dev', graphName: 'main', solutionId: 'S', packages: Packages }])
+        // A choice with no Source (saved before targets carried one) routes as Console.
+        expect(contributor.Contributions).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, graphName: 'main', solutionId: 'S', packages: Packages }])
         expect(work.Title).toBe('Contributing S to graph main in dev')
         await GraphTestHelper.Flush()
         expect(dialogs.Shown.map((d) => d.Title)).toEqual(['Contributed to graph'])
         expect(dialogs.Shown[0]!.Content.Message).toBe('main in dev - packages contributed: 1')
+    })
+
+    it('contributes to the session of the chosen source, titled by the environment name', async () =>
+    {
+        const contributor = new FakeContributor(Result)
+        const work = GraphTestHelper.Work()
+        const c = new ContributeToGraphContributor(new Solution('S'), new FakeBuilder(Packages) as any, work, contributor, undefined, new FakePrompt({ Environment: 'dev', Source: TargetSource.Platform, GraphName: 'main' }))
+        c.Resolve('graph.contribute', {} as any)!.Execute()
+        await GraphTestHelper.Flush()
+        await expect(work.task).resolves.toEqual(Result)
+        expect(contributor.Contributions.map((x) => x.target)).toEqual([{ Name: 'dev', Source: TargetSource.Platform }])
+        expect(work.Title).toBe('Contributing S to graph main in dev')
     })
 
     it('does nothing when the target prompt is cancelled', async () =>
@@ -168,7 +181,7 @@ describe('ContributeToGraphContributor', () =>
         expect(picker.SignInRequests).toBe(1)
         expect(picker.Shows).toBe(2)
         await expect(work.task).resolves.toEqual(Result)
-        expect(contributor.Contributions.map((x) => [x.environment, x.graphName])).toEqual([['dev', 'main']])
+        expect(contributor.Contributions.map((x) => [x.target.Name, x.graphName])).toEqual([['dev', 'main']])
     })
 
     it('stops quietly when the account dialog closes without a sign-in', async () =>

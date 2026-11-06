@@ -93,8 +93,18 @@ describe('PublishTargetDialog', () =>
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         expect(h.Dialog.Message).toBe('')
         h.Dialog.ConfirmCommand.Execute()
-        await expect(shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'stage' } })
-        expect(h.Account.Remembered).toEqual([[TargetKind.Publish, { Environment: 'stage' }]])
+        await expect(shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'stage', Source: TargetSource.Console } })
+        expect(h.Account.Remembered).toEqual([[TargetKind.Publish, { Environment: 'stage', Source: TargetSource.Console }]])
+    })
+
+    it('resolves the platform source for a platform environment', async () =>
+    {
+        const h = new PublishDialogHarness()
+        h.Account.TargetList = { Contribute: [], Publish: [{ Id: 'platform:prod', Name: 'prod', Status: TargetStatus.Running, Source: TargetSource.Platform }] }
+        await h.Open()
+        expect(h.Dialog.SelectedEnvironment?.Ref).toEqual({ Name: 'prod', Source: TargetSource.Platform })
+        h.Dialog.ConfirmCommand.Execute()
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'prod', Source: TargetSource.Platform } })
     })
 
     it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Publish button follows it', async () =>

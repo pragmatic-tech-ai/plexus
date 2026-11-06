@@ -1,7 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { RemoteBuildDirName, TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
-import { TargetKind, TargetSource } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TargetKind, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { ITenantPublishApi, TenantPublishResult } from '../../shared/tenant-publish-api.js'
 import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
@@ -22,7 +22,7 @@ class BuildOutputError extends Error
 // Main-process deploy: takes the output directory of a finished html-bundle-remote build
 // (index.html, servable-manifest.json, packages/<id>/<version>/model.json for the full
 // closure), assembles the protocol's CypherAppDeployParamsDto from it and uploads it to a Runtime
-// environment through the tenant plane's publish relay (the environment credential stays
+// environment through the publish relay of the target's source (the environment credential stays
 // server-side). The renderer does the build; this class only reads its output, so no closure
 // resolution happens here. Trust boundary: outputDir
 // arrives from the renderer, so it must be a remote-build dir (a path segment named build-remote,
@@ -48,14 +48,14 @@ export class TenantDeployService implements ITenantPublishApi
     {
     }
 
-    public async Deploy(environment: string, outputDir: string): Promise<TenantPublishResult>
+    public async Deploy(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
     {
         TenantDeployService.RequireBuildDir(outputDir)
         const params = await TenantDeployService.AssembleOrSentence(outputDir)
-        const client = await this.relay.Connect({ Name: environment, Source: TargetSource.Console }, TargetKind.Publish)
+        const client = await this.relay.Connect(target, TargetKind.Publish)
         try
         {
-            const result = await RelayConnector.Call({ Environment: environment, Client: client }, () => client.DeployApplication(params))
+            const result = await RelayConnector.Call({ Environment: target.Name, Client: client }, () => client.DeployApplication(params))
             return { Status: result.status as string as TenantPublishStatus, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
         }
         finally

@@ -67,7 +67,7 @@ export class ContributeTargetDialog extends TargetDialog
     protected ChoiceFor(environment: EnvironmentChoice): TargetChoice | undefined
     {
         const graph = this.selectedGraph
-        return graph === undefined ? undefined : { Environment: environment.Name, GraphName: graph }
+        return graph === undefined ? undefined : { Environment: environment.Name, Source: environment.Ref.Source, GraphName: graph }
     }
 
     protected override OnEnvironmentSelected(environment: EnvironmentChoice | undefined, load: number): void
@@ -87,7 +87,7 @@ export class ContributeTargetDialog extends TargetDialog
         let graphs: string[]
         try
         {
-            graphs = await this.graphSource.ListGraphs(environment.Name)
+            graphs = await this.graphSource.ListGraphs(environment.Ref)
         }
         catch (e)
         {

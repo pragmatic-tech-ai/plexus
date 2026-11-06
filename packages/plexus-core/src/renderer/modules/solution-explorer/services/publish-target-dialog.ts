@@ -30,7 +30,7 @@ export class PublishTargetDialog extends TargetDialog
 
     protected ChoiceFor(environment: EnvironmentChoice): TargetChoice | undefined
     {
-        return { Environment: environment.Name }
+        return { Environment: environment.Name, Source: environment.Ref.Source }
     }
 }
 

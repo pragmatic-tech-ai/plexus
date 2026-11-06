@@ -2,7 +2,7 @@ import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import { SignInRequest, type IAccountService } from '../../../account/account-service.js'
 import type { IGraphContributor } from '../../../graph-contribute/graph-contributor.js'
 import type {
-    AccountState, AccountTargets, DiscoveredTenant, TargetChoice, TargetKind,
+    AccountState, AccountTargets, DiscoveredTenant, TargetChoice, TargetKind, TargetRef,
 } from '../../../../../shared/account-api.js'
 import type { ContributedPackage, GraphContributeResult } from '../../../../../shared/graph-contribute-api.js'
 import { TargetPickOutcome, type ITargetPicker, type TargetPick } from '../target-dialog.js'
@@ -113,25 +113,26 @@ export class FakeTargetAccount implements IAccountService
     }
 }
 
-// An IGraphContributor whose ListGraphs answers from a per-environment map (or throws ListError).
+// An IGraphContributor whose ListGraphs answers from a per-environment-name map (or throws
+// ListError) and records each target it was asked for.
 export class FakeGraphSource implements IGraphContributor
 {
     public Graphs: Record<string, string[]> = {}
     public ListError: unknown = undefined
     public ListGate: Gate<void> | undefined = undefined
-    public readonly Listed: string[] = []
+    public readonly Listed: TargetRef[] = []
 
-    public async Contribute(_environment: string, graphName: string, _solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
+    public async Contribute(_target: TargetRef, graphName: string, _solutionId: string, packages: ContributedPackage[]): Promise<GraphContributeResult>
     {
         return { GraphName: graphName, PackageCount: packages.length }
     }
 
-    public async ListGraphs(environment: string): Promise<string[]>
+    public async ListGraphs(target: TargetRef): Promise<string[]>
     {
-        this.Listed.push(environment)
+        this.Listed.push(target)
         if (this.ListGate !== undefined) await this.ListGate.Promise
         if (this.ListError !== undefined) throw this.ListError
-        return this.Graphs[environment] ?? []
+        return this.Graphs[target.Name] ?? []
     }
 }
 

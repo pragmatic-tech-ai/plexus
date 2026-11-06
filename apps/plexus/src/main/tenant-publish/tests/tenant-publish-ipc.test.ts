@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { IpcMain } from 'electron'
 import { TenantPublishStatus, type TenantPublishResult } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TenantPublishIpc } from '../tenant-publish-ipc.js'
 import { TenantPublishChannel } from '../../../shared/tenant-publish-api.js'
 import type { TenantDeployService } from '../tenant-deploy-service.js'
@@ -21,9 +22,9 @@ class FakeDeploy
     public Calls: unknown[][] = []
     public Failure: Error | undefined
 
-    public async Deploy(environment: string, outputDir: string): Promise<TenantPublishResult>
+    public async Deploy(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
     {
-        this.Calls.push([environment, outputDir])
+        this.Calls.push([target, outputDir])
         if (this.Failure !== undefined) throw this.Failure
         return { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' }
     }
@@ -54,25 +55,37 @@ describe('TenantPublishIpc', () =>
         expect([...h.Ipc.Handlers.keys()]).toEqual(['tenant-publish:deploy'])
     })
 
-    it('Deploy delegates with the environment and answers an Ok envelope', async () =>
+    const Prod: TargetRef = { Name: 'prod', Source: TargetSource.Console }
+    const Malformed = { Ok: false, Error: { Message: 'The publish request was malformed.' } }
+
+    it('Deploy delegates with the target and answers an Ok envelope', async () =>
     {
         const h = new Harness()
-        expect(await h.Invoke('prod', '/p/build-remote')).toEqual({ Ok: true, Value: { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' } })
-        expect(h.Deploy.Calls).toEqual([['prod', '/p/build-remote']])
+        expect(await h.Invoke(Prod, '/p/build-remote')).toEqual({ Ok: true, Value: { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' } })
+        expect(h.Deploy.Calls).toEqual([[Prod, '/p/build-remote']])
+    })
+
+    it('hands the service only Name and Source of the target', async () =>
+    {
+        const h = new Harness()
+        await h.Invoke({ Name: 'prod', Source: 'platform', Token: 'secret' }, '/p/build-remote')
+        expect(h.Deploy.Calls[0]![0]).toStrictEqual({ Name: 'prod', Source: TargetSource.Platform })
     })
 
     it('answers a failure as its sentence', async () =>
     {
         const h = new Harness()
         h.Deploy.Failure = new Error("Your account can't use this environment.")
-        expect(await h.Invoke('prod', '/p/build-remote')).toEqual({ Ok: false, Error: { Message: "Your account can't use this environment." } })
+        expect(await h.Invoke(Prod, '/p/build-remote')).toEqual({ Ok: false, Error: { Message: "Your account can't use this environment." } })
     })
 
-    it('refuses malformed arguments before the service', async () =>
+    it('refuses an unknown source, a bare environment name and other malformed arguments before the service', async () =>
     {
         const h = new Harness()
-        expect((await h.Invoke('', '/p/build-remote')).Ok).toBe(false)
-        expect((await h.Invoke('prod', 3)).Ok).toBe(false)
+        expect(await h.Invoke({ Name: 'prod', Source: 'x' }, '/p/build-remote')).toEqual(Malformed)
+        expect(await h.Invoke('prod', '/p/build-remote')).toEqual(Malformed)
+        expect(await h.Invoke({ Name: ' ', Source: 'console' }, '/p/build-remote')).toEqual(Malformed)
+        expect(await h.Invoke(Prod, 3)).toEqual(Malformed)
         expect(h.Deploy.Calls).toEqual([])
     })
 })

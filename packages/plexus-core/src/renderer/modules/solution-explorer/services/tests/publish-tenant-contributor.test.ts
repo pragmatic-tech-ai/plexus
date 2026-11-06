@@ -7,7 +7,7 @@ import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.
 import { TenantPublishStatus, type TenantPublishResult } from '../../../../../shared/tenant-publish-api.js'
 import { TargetPickOutcome } from '../target-dialog.js'
 import { ScriptedPicker } from './fake-target-sources.js'
-import type { TargetChoice } from '../../../../../shared/account-api.js'
+import { TargetSource, type TargetChoice, type TargetRef } from '../../../../../shared/account-api.js'
 
 class FakeItem
 {
@@ -20,6 +20,9 @@ class FakeItem
 
 class PublishTestHelper
 {
+    // A choice with no Source (saved before targets carried one) routes as Console.
+    public static readonly Prod: TargetRef = { Name: 'prod', Source: TargetSource.Console }
+
     // A real SolutionMember with fake local storage whose manifest names the project.
     public static Member(): any
     {
@@ -80,22 +83,22 @@ class FakeBuildService
 
 class FakePublisher implements ITenantPublisher
 {
-    public Published: Array<[string, string]> = []
+    public Published: Array<[TargetRef, string]> = []
 
     constructor(private readonly result: TenantPublishResult)
     {
     }
 
-    public Publish(environment: string, outputDir: string): Promise<TenantPublishResult>
+    public Publish(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
     {
-        this.Published.push([environment, outputDir])
+        this.Published.push([target, outputDir])
         return Promise.resolve(this.result)
     }
 }
 
 class FakePrompt extends ScriptedPicker
 {
-    constructor(environment: string | undefined | Error)
+    constructor(environment: string | TargetChoice | undefined | Error)
     {
         super([ScriptedPicker.PickOf(typeof environment === 'string' ? { Environment: environment } : environment)])
     }
@@ -118,7 +121,19 @@ describe('PublishTenantContributor', () =>
         expect(svc.Calls[0].flavorId).toBe('html-bundle-remote')
         expect(svc.Calls[0].progress).toBeInstanceOf(BuildProgressReporter)
         expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build-remote', Remote: { AppName: 'orders', Bind: RemoteBindMode.Application } })
-        expect(publisher.Published).toEqual([['prod', '/out']])
+        expect(publisher.Published).toEqual([[PublishTestHelper.Prod, '/out']])
+        expect(work.Title).toBe('Publishing ./p to prod')
+    })
+
+    it('publishes to the session of the chosen source, titled by the environment name', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const publisher = new FakePublisher(Applied)
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt({ Environment: 'prod', Source: TargetSource.Platform }))
+        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        await expect(work.task).resolves.toEqual(Applied)
+        expect(publisher.Published).toEqual([[{ Name: 'prod', Source: TargetSource.Platform }, '/out']])
         expect(work.Title).toBe('Publishing ./p to prod')
     })
 
@@ -133,7 +148,7 @@ describe('PublishTenantContributor', () =>
         await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).resolves.toEqual(Applied)
         expect(picker.Shows).toBe(2)
-        expect(publisher.Published).toEqual([['prod', '/out']])
+        expect(publisher.Published).toEqual([[PublishTestHelper.Prod, '/out']])
 
         const quietWork = PublishTestHelper.Work()
         const quiet = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf({ Environment: 'prod' })])
@@ -215,7 +230,7 @@ describe('PublishTenantContributor', () =>
         expect(svc.Calls).toHaveLength(1)
         expect(svc.Calls[0].flavorId).toBe('html-bundle-remote')
         expect(svc.Calls[0].options.Remote.Bind).toBe(RemoteBindMode.Environment)
-        expect(publisher.Published).toEqual([['prod', '/out']])
+        expect(publisher.Published).toEqual([[PublishTestHelper.Prod, '/out']])
     })
 
     it('existing_publish_still_application_bind', async () =>

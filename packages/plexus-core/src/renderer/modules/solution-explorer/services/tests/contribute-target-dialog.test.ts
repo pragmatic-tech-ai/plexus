@@ -146,7 +146,7 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         h.Dialog.SelectedEnvironment = h.Dialog.Environments[0]
         await FakePickerDialogs.Flush()
-        expect(h.Graphs.Listed).toEqual(['dev', 'alpha'])
+        expect(h.Graphs.Listed).toEqual([{ Name: 'dev', Source: TargetSource.Console }, { Name: 'alpha', Source: TargetSource.Console }])
         expect(h.Dialog.Graphs).toEqual(['a1'])
         expect(h.Dialog.SelectedGraph).toBe('a1')
         expect(h.Dialog.Message).toBe('')
@@ -201,7 +201,7 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialog.IsBusy).toBe(false)
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         h.Dialog.ConfirmCommand.Execute()
-        await expect(second).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', GraphName: 'main' } })
+        await expect(second).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', Source: TargetSource.Console, GraphName: 'main' } })
     })
 
     it('shows a relay sentence, and a fixed sentence for anything else', async () =>
@@ -226,8 +226,8 @@ describe('ContributeTargetDialog', () =>
         expect(h.Dialogs.Shown.map((s) => s.Title)).toEqual(['Contribute to graph'])
         expect(h.Dialogs.Shown[0]!.Content).toBe(h.Dialog)
         h.Dialog.ConfirmCommand.Execute()
-        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', GraphName: 'main' } })
-        expect(h.Account.Remembered).toEqual([[TargetKind.Contribute, { Environment: 'dev', GraphName: 'main' }]])
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', Source: TargetSource.Console, GraphName: 'main' } })
+        expect(h.Account.Remembered).toEqual([[TargetKind.Contribute, { Environment: 'dev', Source: TargetSource.Console, GraphName: 'main' }]])
         await h.Open()
         h.Dialog.CancelCommand.Execute()
         await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Cancelled })
@@ -235,6 +235,20 @@ describe('ContributeTargetDialog', () =>
         h.Dialogs.Close(undefined)
         await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Cancelled })
         expect(h.Account.Remembered).toHaveLength(1)
+    })
+
+    it('lists graphs with the platform ref and resolves the platform source for a platform environment', async () =>
+    {
+        const h = new ContributeDialogHarness()
+        h.Account.TargetList = { Contribute: [{ Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Platform }], Publish: [] }
+        h.Graphs.Graphs = { dev: ['main'] }
+        await h.Open()
+        expect(h.Graphs.Listed).toEqual([{ Name: 'dev', Source: TargetSource.Platform }])
+        expect(h.Dialog.SelectedEnvironment?.Ref).toEqual({ Name: 'dev', Source: TargetSource.Platform })
+        expect(h.Dialog.SelectedEnvironment?.Id).toBe('platform:dev')
+        expect(h.Dialog.SelectedEnvironment?.Label).toBe('dev')
+        h.Dialog.ConfirmCommand.Execute()
+        await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Chosen, Choice: { Environment: 'dev', Source: TargetSource.Platform, GraphName: 'main' } })
     })
 
     it('stops following the account once closed', async () =>

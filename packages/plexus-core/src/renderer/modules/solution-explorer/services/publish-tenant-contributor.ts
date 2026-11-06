@@ -14,12 +14,13 @@ import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
 import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
 import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
+import { TargetIdentity, type TargetChoice } from '../../../../shared/account-api.js'
 import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 
 // Contributes the Publish to tenant commands to a project row: asks the environment picker
 // (PublishTargetDialog) for the target Runtime environment,
 // builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
-// Open/Serve HTML app), then hands the environment + output dir to the ITenantPublisher, whose
+// Open/Serve HTML app), then hands the target (name + source) + output dir to the ITenantPublisher, whose
 // main-process side uploads it through the tenant plane relay via the protocol deploy method. A
 // non-applied server status fails the task row with the server reason.
 // Action-only (Contribute yields no nodes).
@@ -99,19 +100,19 @@ export class PublishTenantContributor implements IHierarchyContributor
         const publisher = this.publisher
         const picker = this.picker
         if (work === undefined || storage === undefined || publisher === undefined || picker === undefined) return
-        let environment: string | undefined
+        let choice: TargetChoice | undefined
         try
         {
-            environment = (await TargetPickerFlow.Choose(picker))?.Environment
+            choice = await TargetPickerFlow.Choose(picker)
         }
         catch (e)
         {
             void work.run(`${PublishTenantContributor.TitlePrefix}${member.Title}`, () => Promise.reject(e))
             return
         }
-        if (environment === undefined) return
-        const target = environment
-        const title = `${PublishTenantContributor.TitlePrefix}${member.Title}${PublishTenantContributor.ToEnvironment}${target}`
+        if (choice === undefined) return
+        const target = TargetIdentity.RefOf(choice)
+        const title = `${PublishTenantContributor.TitlePrefix}${member.Title}${PublishTenantContributor.ToEnvironment}${target.Name}`
         void work.run(title, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
