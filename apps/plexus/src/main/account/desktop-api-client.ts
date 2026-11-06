@@ -1,13 +1,14 @@
 import { AccountError, AccountErrorKind, TargetIdentity, TargetSource, TargetStatus, UrlBase, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import type { DesktopSession } from './desktop-session-store.js'
+import { ConsoleRetirement } from './console-retirement.js'
 import { TextValue } from './text-value.js'
 
 // A discovered tenant and the console address to sign in at: its own consoleUrl, else the
 // platform's tenant plane (FromTenantPlane; that address may carry a base path, so it is checked
 // with TenantPlaneAddress rather than ConsoleAddress). Main-process only; the renderer sees only Id
 // and DisplayName.
-export type DiscoveredConsole = { Id: string; DisplayName: string; ConsoleUrl: string; FromTenantPlane: boolean }
+export type DiscoveredConsole = { Id: string; DisplayName: string; ConsoleUrl: string; FromTenantPlane: boolean; PlatformEnvironments: boolean }
 export type Discovery = { Tenants: DiscoveredConsole[]; TenantPlaneUrl: string }
 // The tenant a console address serves.
 export type ServedTenant = { TenantId: string; TenantName: string }
@@ -25,6 +26,7 @@ export class DesktopApiClient
     private static readonly CompletePath = '/desktop/sign-in/complete'
     private static readonly TargetsPath = '/desktop/targets'
     private static readonly SignOutPath = '/desktop/sign-out'
+    private static readonly DesktopPathPrefix = '/desktop/'
     private static readonly MethodPost = 'POST'
     private static readonly MethodGet = 'GET'
     private static readonly ContentTypeHeader = 'Content-Type'
@@ -128,12 +130,13 @@ export class DesktopApiClient
         redirect: RequestRedirect = DesktopApiClient.NoRedirects,
     ): Promise<Response>
     {
+        let res: Response
         const headers: Record<string, string> = { [DesktopApiClient.AcceptHeader]: DesktopApiClient.JsonType }
         if (body !== undefined) headers[DesktopApiClient.ContentTypeHeader] = DesktopApiClient.JsonType
         if (token !== undefined) headers[DesktopApiClient.AuthorizationHeader] = `${DesktopApiClient.BearerPrefix}${token}`
         try
         {
-            return await this.fetch(`${UrlBase.Of(base)}${path}`, {
+            res = await this.fetch(`${UrlBase.Of(base)}${path}`, {
                 method,
                 headers,
                 body: body === undefined ? undefined : JSON.stringify(body),
@@ -144,6 +147,20 @@ export class DesktopApiClient
         {
             throw new AccountError(TlsFailure.IsCertificate(e) ? AccountErrorKind.CertificateUntrusted : unreachable)
         }
+        if (path.startsWith(DesktopApiClient.DesktopPathPrefix) && res.status === ConsoleRetirement.Status)
+        {
+            let text = ''
+            try
+            {
+                text = await res.clone().text()
+            }
+            catch
+            {
+                // An unreadable body is not a retired body.
+            }
+            if (ConsoleRetirement.IsBody(text)) throw new AccountError(AccountErrorKind.ConsoleRetired)
+        }
+        return res
     }
 
     // A 2xx JSON object, or Unavailable (throttled, server error, not JSON).
@@ -168,7 +185,7 @@ export class DesktopApiClient
     private static Tenant(raw: unknown, tenantPlaneUrl: string): DiscoveredConsole | undefined
     {
         if (typeof raw !== 'object' || raw === null) return undefined
-        const { id, displayName, consoleUrl } = raw as Record<string, unknown>
+        const { id, displayName, consoleUrl, platformEnvironments } = raw as Record<string, unknown>
         if (!TextValue.Filled(id)) return undefined
         const own = TextValue.Filled(consoleUrl)
         return {
@@ -176,6 +193,7 @@ export class DesktopApiClient
             DisplayName: TextValue.Filled(displayName) ? displayName : id,
             ConsoleUrl: own ? consoleUrl : tenantPlaneUrl,
             FromTenantPlane: !own,
+            PlatformEnvironments: platformEnvironments === true,
         }
     }
 

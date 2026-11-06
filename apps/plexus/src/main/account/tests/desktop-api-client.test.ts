@@ -78,7 +78,7 @@ describe('DesktopApiClient', () =>
         expect(found.Tenants[1]!.ConsoleUrl).toBe('http://127.0.0.1:7002')
         expect(found.Tenants[2]!.ConsoleUrl).toBe('http://127.0.0.1:7002')
         expect(found.Tenants[3]!.ConsoleUrl).toBe('http://127.0.0.1:7002')
-        expect(found.Tenants[0]).toEqual({ Id: 'a', DisplayName: 'A', ConsoleUrl: 'https://console-a.example', FromTenantPlane: false })
+        expect(found.Tenants[0]).toEqual({ Id: 'a', DisplayName: 'A', ConsoleUrl: 'https://console-a.example', FromTenantPlane: false, PlatformEnvironments: false })
         expect(found.Tenants.map(t => t.FromTenantPlane)).toEqual([false, true, true, true])
     })
 
@@ -168,6 +168,40 @@ describe('DesktopApiClient', () =>
         expect(await Caught.Kind(client.Targets(session, TargetSource.Console))).toBe(AccountErrorKind.ConsoleUnreachable)
         expect(await Caught.Kind(client.SignOut(session))).toBe(AccountErrorKind.ConsoleUnreachable)
         expect(await Caught.Kind(client.Discover('http://localhost:7000', 'ada@acme.example'))).toBe(AccountErrorKind.Unreachable)
+    })
+
+    it('a 503 retired body on any desktop call reads as ConsoleRetired', async () =>
+    {
+        const retired = { error: 'console-not-registered', message: 'This console is no longer registered with the platform. Ask your administrator.' }
+        fake.Answer = () => FakeFetch.Json(503, retired)
+        const url = 'https://console-acme.example'
+        expect(await Caught.Kind(client.Begin(url, 'acme', 'http://127.0.0.1:5555/cb', 'ch'))).toBe(AccountErrorKind.ConsoleRetired)
+        expect(await Caught.Kind(client.Complete(url, 'st', 'code', 'ver'))).toBe(AccountErrorKind.ConsoleRetired)
+        expect(await Caught.Kind(client.Targets(session, TargetSource.Console))).toBe(AccountErrorKind.ConsoleRetired)
+        expect(await Caught.Kind(client.SignOut(session))).toBe(AccountErrorKind.ConsoleRetired)
+        expect(await Caught.Kind(client.Console(url))).toBe(AccountErrorKind.ConsoleRetired)
+    })
+
+    it('a 503 with another body stays Unavailable', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(503, { error: 'unavailable' })
+        expect(await Caught.Kind(client.Targets(session, TargetSource.Console))).toBe(AccountErrorKind.Unavailable)
+    })
+
+    it('Discover is never read as a retired console', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(503, { error: 'console-not-registered' })
+        expect(await Caught.Kind(client.Discover('http://localhost:7000', 'ada@acme.example'))).toBe(AccountErrorKind.Unavailable)
+    })
+
+    it('Discover carries the platform-environments bit only when it is exactly true', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, {
+            tenants: [{ id: 'a', platformEnvironments: true }, { id: 'b' }, { id: 'c', platformEnvironments: 'yes' }],
+            tenantPlaneUrl: 'http://127.0.0.1:7002',
+        })
+        const found = await client.Discover('http://localhost:7000', 'ada@acme.example')
+        expect(found.Tenants.map(t => t.PlatformEnvironments)).toEqual([true, false, false])
     })
 
     it('Targets tags each target with its source and a source-unique id', async () =>
