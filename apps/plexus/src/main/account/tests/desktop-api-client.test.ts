@@ -170,16 +170,20 @@ describe('DesktopApiClient', () =>
         expect(await Caught.Kind(client.Discover('http://localhost:7000', 'ada@acme.example'))).toBe(AccountErrorKind.Unreachable)
     })
 
-    it('a 503 retired body on any desktop call reads as ConsoleRetired', async () =>
+    const consoleUrl = 'https://console-acme.example'
+    const retiredCalls: Array<[string, () => Promise<unknown>]> = [
+        ['Begin', () => client.Begin(consoleUrl, 'acme', 'http://127.0.0.1:5555/cb', 'ch')],
+        ['Complete', () => client.Complete(consoleUrl, 'st', 'code', 'ver')],
+        ['Targets', () => client.Targets(session, TargetSource.Console)],
+        ['SignOut', () => client.SignOut(session)],
+        ['Console', () => client.Console(consoleUrl)],
+    ]
+
+    it.each(retiredCalls)('a 503 retired body on %s reads as ConsoleRetired', async (_name, call) =>
     {
         const retired = { error: 'console-not-registered', message: 'This console is no longer registered with the platform. Ask your administrator.' }
         fake.Answer = () => FakeFetch.Json(503, retired)
-        const url = 'https://console-acme.example'
-        expect(await Caught.Kind(client.Begin(url, 'acme', 'http://127.0.0.1:5555/cb', 'ch'))).toBe(AccountErrorKind.ConsoleRetired)
-        expect(await Caught.Kind(client.Complete(url, 'st', 'code', 'ver'))).toBe(AccountErrorKind.ConsoleRetired)
-        expect(await Caught.Kind(client.Targets(session, TargetSource.Console))).toBe(AccountErrorKind.ConsoleRetired)
-        expect(await Caught.Kind(client.SignOut(session))).toBe(AccountErrorKind.ConsoleRetired)
-        expect(await Caught.Kind(client.Console(url))).toBe(AccountErrorKind.ConsoleRetired)
+        expect(await Caught.Kind(call())).toBe(AccountErrorKind.ConsoleRetired)
     })
 
     it('a 503 with another body stays Unavailable', async () =>
