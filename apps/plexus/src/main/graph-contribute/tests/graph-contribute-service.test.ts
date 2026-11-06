@@ -150,6 +150,7 @@ describe('GraphContributeService', () =>
         expect(await Fixture.Message(new GraphContributeService(new FakeRelay(conflict)).Contribute('dev', 'g1', 's1', Fixture.Packages)))
             .toBe('A package version is already in g1 with different content.')
         expect(gone.Closed).toBe(1)
+        expect(conflict.Closed).toBe(1)
     })
 
     it('ListGraphs closes the client on failure', async () =>

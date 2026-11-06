@@ -46,7 +46,6 @@ enum RelayStatus
     Unauthorized = 401,
     Forbidden = 403,
     Conflict = 409,
-    Unavailable = 503,
 }
 
 // Reads the HTTP status of a refused relay upgrade. ws reports a non-101 answer only as an Error whose
@@ -109,7 +108,7 @@ export class RelayAnswer
         ErrorCodes.ParseError, ErrorCodes.MethodNotFound, ErrorCodes.ServerNotInitialized, ErrorCodes.UnknownErrorCode,
     ]
 
-    public static IsServerAnswer(error: unknown): boolean
+    public static IsServerAnswer(error: unknown): error is ResponseError
     {
         return error instanceof ResponseError && !RelayAnswer.ProtocolCodes.includes(error.code)
     }
@@ -212,7 +211,7 @@ export class RelayConnector implements IRelayConnector
                 return new Error(RelayConnector.NotAllowed)
             case RelayStatus.Conflict:
                 return new Error(`${RelayConnector.EnvironmentPrefix}${target.Name}${RelayConnector.NotRunningSuffix}`)
-            case RelayStatus.Unavailable:
+            case ConsoleRetirement.Status:
                 return RelayConnector.IsRetiredBody(RelayRefusal.BodyOf(error)) ? new AccountError(AccountErrorKind.ConsoleRetired) : RelayConnector.Unreachable(target.Name)
             default:
                 return RelayConnector.Unreachable(target.Name)
@@ -263,7 +262,7 @@ export class RelayConnector implements IRelayConnector
             return RelayConnector.Unreachable(call.Environment)
         }
         if (error instanceof AccountError) return error
-        if (RelayAnswer.IsServerAnswer(error)) return RelayConnector.GraphSentence(call, error as ResponseError) ?? error
+        if (RelayAnswer.IsServerAnswer(error)) return RelayConnector.GraphSentence(call, error) ?? error
         return new Error(`${RelayConnector.EnvironmentPrefix}${call.Environment}${RelayConnector.NotHandledSuffix}`)
     }
 
