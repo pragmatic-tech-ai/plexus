@@ -3,11 +3,11 @@ import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind, TargetSource, TenantPlaneAddress, UrlBase,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAccess, PlatformAddress, TargetKind, TargetSource, TenantPlaneAddress, UrlBase,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
-import type { DesktopSession, DesktopSessionStore, SessionAddress } from './desktop-session-store.js'
+import type { CompletedSignIn, DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
+import type { DesktopSession, DesktopSessionStore, PlatformSession, SessionAddress, StoredAccount } from './desktop-session-store.js'
 import type { IRedirectReceiver } from './loopback-redirect-receiver.js'
 
 // One sign-in attempt, tracked from its first step so a cancel at any point (discovery, Begin, the
@@ -41,13 +41,27 @@ class SignInAttempt
 // Last environment picked per action, per tenant: { [tenantId]: { contribute?, publish? } }.
 type ChoiceFile = Record<string, Partial<Record<TargetKind, TargetChoice>>>
 
+// Where a console sign-in goes: the address, its tenant and, for an in-hive tenant that also has
+// platform environments, the tenant plane to offer the platform sign-in at.
+type ConsoleTarget = { ConsoleUrl: string; TenantId: string; PlatformSignInUrl?: string }
+
+// What a console commit replaced: the console part, and a platform part it did not keep.
+type Replaced = { Console?: DesktopSession; Platform?: PlatformSession }
+
 // The Plexus account, main-process side. Sign-in: discover the email's tenant on the platform, begin
 // a sign-in at the tenant's console with a loopback redirect and a binding challenge, open the system
 // browser, wait for the code on the loopback, complete with the binding verifier, store the desktop
-// session encrypted. The token stays here: State() reports only email + tenant name, and every
-// change is raised on Changed for the IPC layer to push. A SignedOut answer from the session's console
-// (targets here, relay connects via HandleSignedOut) clears the session it was given for, and only
-// that one: a late 401 for a session already replaced leaves the newer one alone.
+// session encrypted. The token stays here: State() reports only email + tenant name (and whether
+// the platform step is offered or done), and every change is raised on Changed for the IPC layer to
+// push.
+//
+// An in-hive tenant whose platform also holds environments of it gets a second session, the platform
+// part, signed in at the platform's tenant plane on request (SignInAtPlatform). The two parts live
+// and die apart: a SignedOut answer (targets here, relay connects via HandleSignedOut) clears only
+// the part holding that token, and only while it is still the stored one, so a late 401 for a part
+// already replaced or signed out writes nothing. A platform part outlives a console 401 (dormant) and
+// is reattached by a console sign-in for the same tenant and email. A platform part past its expiry
+// is treated as absent and dropped at the next write.
 export class AccountService
 {
     private static readonly ChoicesFile = 'publish-choices.json'
@@ -64,8 +78,9 @@ export class AccountService
     private static readonly SignedOutState: AccountState = { SignedIn: false }
 
     public readonly Changed = new Signal<AccountState>()
-    // Consoles: tenant id -> the discovered console to sign in at (main-process only).
-    private discovered: { PlatformUrl: string; Email: string; Consoles: ReadonlyMap<string, DiscoveredConsole> } | undefined
+    // Consoles: tenant id -> the discovered console to sign in at; TenantPlaneUrl: the platform's
+    // tenant plane from the same answer (main-process only).
+    private discovered: { PlatformUrl: string; Email: string; TenantPlaneUrl: string; Consoles: ReadonlyMap<string, DiscoveredConsole> } | undefined
     private attempt: SignInAttempt | undefined
     // RememberChoice read-modify-writes run one at a time, so concurrent calls neither share a temp
     // file nor lose each other's update.
@@ -81,13 +96,14 @@ export class AccountService
         private readonly client: DesktopApiClient,
         private readonly receivers: () => IRedirectReceiver,
         private readonly openExternal: (url: string) => Promise<void>,
+        private readonly now: () => number = Date.now,
     )
     {
     }
 
     public async State(): Promise<AccountState>
     {
-        return AccountService.StateOf((await this.store.Load()).Console)
+        return this.StateOf(await this.store.Load())
     }
 
     // Main-process only (the relay connector): the session including its token.
@@ -96,13 +112,22 @@ export class AccountService
         return (await this.store.Load()).Console
     }
 
+    // Main-process only: where a target of `source` is reached and the token that proves it. The
+    // platform part answers only beside a console part, and only while it is live.
+    public async SessionFor(source: TargetSource): Promise<SessionAddress | undefined>
+    {
+        const account = await this.store.Load()
+        const part = source === TargetSource.Platform ? this.PlatformBeside(account) : account.Console
+        return part === undefined ? undefined : { ConsoleUrl: part.ConsoleUrl, Token: part.Token }
+    }
+
     public async Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>
     {
         const platform = AccountService.Platform(platformUrl)
         const address = email.trim()
         const found = await this.client.Discover(platform, address)
         if (!TenantPlaneAddress.IsUsable(found.TenantPlaneUrl)) throw new AccountError(AccountErrorKind.Unavailable)
-        this.discovered = { PlatformUrl: platform, Email: address, Consoles: new Map(found.Tenants.map(t => [t.Id, t])) }
+        this.discovered = { PlatformUrl: platform, Email: address, TenantPlaneUrl: found.TenantPlaneUrl, Consoles: new Map(found.Tenants.map(t => [t.Id, t])) }
         // Exactly the renderer's shape: a console address never crosses IPC.
         return found.Tenants.map(t => ({ Id: t.Id, DisplayName: t.DisplayName }))
     }
@@ -110,19 +135,47 @@ export class AccountService
     public SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>
     {
         const address = email.trim()
-        return this.RunAttempt(async () =>
+        return this.RunConsoleAttempt(async () =>
         {
-            const found = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
-            return { ConsoleUrl: AccountService.SignInAddress(found), TenantId: tenantId }
+            const { Console: found, TenantPlaneUrl } = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
+            const target: ConsoleTarget = { ConsoleUrl: AccountService.SignInAddress(found), TenantId: tenantId }
+            // The platform step is offered only when the tenant signs in somewhere other than the
+            // tenant plane: signed in there, it already sees the platform's environments.
+            if (found.PlatformEnvironments && !found.FromTenantPlane) target.PlatformSignInUrl = UrlBase.Of(TenantPlaneUrl)
+            return target
         }, address)
     }
 
-    // Signs in at a console address the user typed: it names its own tenant, so no email is sent to it.
+    // Signs in at a console address the user typed: it names its own tenant, so no email is sent to
+    // it. Nothing says whether the platform holds environments of it, so no platform step is offered.
     public SignInAtConsole(consoleUrl: string, email: string): Promise<AccountState>
     {
         if (ConsoleAddress.Validate(consoleUrl) !== undefined) return Promise.reject(new AccountError(AccountErrorKind.ConsoleAddressInvalid))
         const normalised = ConsoleAddress.Normalise(consoleUrl)
-        return this.RunAttempt(async () => ({ ConsoleUrl: normalised, TenantId: (await this.client.Console(normalised)).TenantId }), email.trim())
+        return this.RunConsoleAttempt(async () => ({ ConsoleUrl: normalised, TenantId: (await this.client.Console(normalised)).TenantId }), email.trim())
+    }
+
+    // The platform step: the same browser sign-in, at the tenant plane the console part was offered,
+    // for the console part's tenant. Signed out: SignedOut; nothing offered: Unavailable.
+    public SignInAtPlatform(): Promise<AccountState>
+    {
+        return this.RunAttempt(async attempt =>
+        {
+            const owner = (await this.store.Load()).Console
+            if (owner === undefined) throw new AccountError(AccountErrorKind.SignedOut)
+            const address = owner.PlatformSignInUrl
+            if (address === undefined) throw new AccountError(AccountErrorKind.Unavailable)
+            attempt.Check()
+            const done = await this.Authorize(attempt, address, owner.TenantId)
+            const session: PlatformSession = { ConsoleUrl: address, Token: done.Token, ExpiresAt: done.ExpiresAt, TenantId: done.TenantId, Email: done.Email ?? owner.Email }
+            // A session for another tenant is of no use beside this console part: end it at once.
+            if (done.TenantId !== owner.TenantId)
+            {
+                await this.EndQuietly(session)
+                throw new AccountError(AccountErrorKind.SignInFailed)
+            }
+            return this.CommitPlatform(session)
+        })
     }
 
     public async CancelSignIn(): Promise<void>
@@ -130,41 +183,57 @@ export class AccountService
         this.attempt?.Cancel()
     }
 
-    // Ends the session at its console when that can be reached; clears locally either way.
+    // Ends both parts (a dormant platform part too) each at its own address when that can be
+    // reached; clears locally either way.
     public async SignOut(): Promise<AccountState>
     {
-        const session = (await this.store.Load()).Console
-        if (session !== undefined) await this.EndQuietly(session)
+        const { Console: own, Platform: platform } = await this.store.Load()
+        await Promise.all([own, platform].map(part => part === undefined ? undefined : this.EndQuietly(part)))
         await this.Serialised(() => this.Forget())
-        return AccountService.StateOf(undefined)
+        return { ...AccountService.SignedOutState }
     }
 
-    // The session's console said the session holding `token` is over (expired, revoked, signed out
-    // elsewhere). Cleared only while that session is still the stored one: a 401 that arrives after
-    // a sign-out and a new sign-in belongs to the old session and must not end the new one.
+    // A console said the session holding `token` is over (expired, revoked, signed out elsewhere).
+    // Only the part holding it is dropped, and only while it is still the stored one: a 401 that
+    // arrives after a sign-out or a new sign-in belongs to an old session, and writes and emits
+    // nothing. A console 401 leaves the platform part dormant; a platform 401 leaves the console part.
     public HandleSignedOut(token: string): Promise<void>
     {
         return this.Serialised(async () =>
         {
-            const current = (await this.store.Load()).Console
-            if (current === undefined || current.Token !== token) return
-            await this.Forget()
+            const current = await this.store.Load()
+            let next: StoredAccount
+            if (current.Console !== undefined && current.Console.Token === token)
+            {
+                next = { Platform: this.Live(current.Platform) }
+            }
+            else if (current.Platform !== undefined && current.Platform.Token === token)
+            {
+                next = { Console: current.Console }
+            }
+            else
+            {
+                return
+            }
+            await this.store.Save(next)
+            this.Changed.emit(this.StateOf(next))
         })
     }
 
+    // The console's targets, and beside them the platform's when a live platform part exists. A
+    // console failure fails the call; a platform failure only leaves the platform set out (a platform
+    // 401 also drops the platform part).
     public async Targets(): Promise<AccountTargets>
     {
-        const session = (await this.store.Load()).Console
-        if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
-        try
-        {
-            return await this.client.Targets(session, TargetSource.Console)
-        }
-        catch (e)
-        {
-            if (e instanceof AccountError && e.Kind === AccountErrorKind.SignedOut) await this.HandleSignedOut(session.Token)
-            throw e
-        }
+        const account = await this.store.Load()
+        if (account.Console === undefined) throw new AccountError(AccountErrorKind.SignedOut)
+        const platform = this.PlatformBeside(account)
+        const [own, beside] = await Promise.all([
+            this.ConsoleTargets(account.Console),
+            platform === undefined ? Promise.resolve(undefined) : this.PlatformTargets(platform),
+        ])
+        if (beside === undefined) return own
+        return { Contribute: [...own.Contribute, ...beside.Contribute], Publish: [...own.Publish, ...beside.Publish] }
     }
 
     public async LastChoice(kind: TargetKind): Promise<TargetChoice | undefined>
@@ -195,9 +264,9 @@ export class AccountService
         await fs.rename(temp, target)
     }
 
-    // The attempt is created first so a cancel during the resolving step (discovery, console lookup)
-    // is honoured; `resolve` names the console and tenant to sign in at.
-    private async RunAttempt(resolve: () => Promise<{ ConsoleUrl: string; TenantId: string }>, email: string): Promise<AccountState>
+    // The attempt is created first so a cancel during any step (discovery, console lookup, the
+    // browser wait, Complete) is honoured; a failure after a cancel reports Cancelled.
+    private async RunAttempt(run: (attempt: SignInAttempt) => Promise<AccountState>): Promise<AccountState>
     {
         // Without secure storage the session could never be kept: say so before the browser opens.
         if (!this.store.CanStore()) throw new AccountError(AccountErrorKind.SecureStorageUnavailable)
@@ -206,9 +275,7 @@ export class AccountService
         this.attempt = attempt
         try
         {
-            const target = await resolve()
-            attempt.Check()
-            return await this.SignInAt(attempt, target.ConsoleUrl, target.TenantId, email)
+            return await run(attempt)
         }
         catch (e)
         {
@@ -222,67 +289,165 @@ export class AccountService
         }
     }
 
-    // `normalised` is already the validated, final address (see SignInAddress and SignInAtConsole).
-    private async SignInAt(attempt: SignInAttempt, normalised: string, tenantId: string, email: string): Promise<AccountState>
+    // A console sign-in: `resolve` names the console and tenant to sign in at.
+    private RunConsoleAttempt(resolve: () => Promise<ConsoleTarget>, email: string): Promise<AccountState>
+    {
+        return this.RunAttempt(async attempt =>
+        {
+            const target = await resolve()
+            attempt.Check()
+            const done = await this.Authorize(attempt, target.ConsoleUrl, target.TenantId)
+            const session: DesktopSession = {
+                ConsoleUrl: target.ConsoleUrl, Token: done.Token, Email: done.Email ?? email, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
+            }
+            if (target.PlatformSignInUrl !== undefined) session.PlatformSignInUrl = target.PlatformSignInUrl
+            return this.CommitConsole(session)
+        })
+    }
+
+    // The browser sign-in at `address` (already the validated, final address) for `tenantId`: Begin
+    // with a binding challenge, open the browser, wait for the code, Complete with the verifier. The
+    // email is never sent: the caller fills it in when Complete names none.
+    private async Authorize(attempt: SignInAttempt, address: string, tenantId: string): Promise<CompletedSignIn>
     {
         const verifier = randomBytes(AccountService.VerifierBytes).toString(AccountService.Base64Url)
         const challenge = createHash(AccountService.Sha256).update(verifier).digest(AccountService.Base64Url)
         const { RedirectUri } = await attempt.Receiver.Start()
         attempt.Check()
-        const authorizeUrl = await this.client.Begin(normalised, tenantId, RedirectUri, challenge)
+        const authorizeUrl = await this.client.Begin(address, tenantId, RedirectUri, challenge)
         attempt.Check()
         const state = AccountService.StateIn(authorizeUrl)
         const code = attempt.Receiver.WaitForCode(state)
         const [, received] = await Promise.all([this.openExternal(authorizeUrl), code])
         attempt.Check()
-        const done = await this.client.Complete(normalised, state, received, verifier)
-        const session: DesktopSession = {
-            ConsoleUrl: normalised, Token: done.Token, Email: done.Email ?? email, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
-        }
+        const done = await this.client.Complete(address, state, received, verifier)
         // Cancelled while Complete was in flight: the console already issued a session; end it
         // rather than leave a live token nobody holds. Past this point the sign-in is committed.
         if (attempt.Cancelled)
         {
-            await this.EndQuietly(session)
+            await this.EndQuietly({ ConsoleUrl: address, Token: done.Token })
             attempt.Check()
         }
-        const previous = await this.Keep(session)
-        if (previous !== undefined && previous.Token !== session.Token) await this.EndQuietly(previous)
-        const signedIn = AccountService.StateOf(session)
-        this.Changed.emit(signedIn)
-        return signedIn
+        return done
     }
 
-    // From the cached discovery; discovered again when the platform or email differ or the tenant is
-    // not in the cached answer (it may be stale). Still absent afterwards: no such account.
-    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<DiscoveredConsole>
+    // Stores a fresh console part. The stored platform part stays when it is live and of the same
+    // tenant and email; otherwise it is ended and dropped. A replaced console part is ended too.
+    private async CommitConsole(session: DesktopSession): Promise<AccountState>
     {
-        const cached = this.discovered
-        const fresh = cached !== undefined && cached.PlatformUrl === platform && cached.Email === email && cached.Consoles.has(tenantId)
-        if (!fresh) await this.Discover(platform, email)
-        const found = this.discovered!.Consoles.get(tenantId)
-        if (found === undefined) throw new AccountError(AccountErrorKind.NoAccount)
-        return found
+        const { Account, Replaced } = await this.Commit(session, async () =>
+        {
+            const previous = await this.store.Load()
+            const platform = this.Live(previous.Platform)
+            const keep = platform !== undefined && platform.TenantId === session.TenantId && platform.Email === session.Email
+            const account: StoredAccount = { Console: session, Platform: keep ? platform : undefined }
+            await this.store.Save(account)
+            const gone: Replaced = { Console: previous.Console }
+            if (!keep && previous.Platform !== undefined) gone.Platform = previous.Platform
+            return { Account: account, Replaced: gone }
+        })
+        const ended: Promise<void>[] = []
+        if (Replaced.Console !== undefined && Replaced.Console.Token !== session.Token) ended.push(this.EndQuietly(Replaced.Console))
+        if (Replaced.Platform !== undefined) ended.push(this.EndQuietly(Replaced.Platform))
+        await Promise.all(ended)
+        return this.Announce(Account)
     }
 
-    // Stores a freshly issued session and returns the one it replaced. When it cannot be stored the
-    // console has already issued it, so it is ended there before the failure is reported.
-    private async Keep(session: DesktopSession): Promise<DesktopSession | undefined>
+    // Stores a fresh platform part beside the console part it was signed in for, and ends the one it
+    // replaces. The console part gone or changed tenant meanwhile: the fresh part has nothing to sit
+    // beside, so it is ended and the call fails SignedOut.
+    private async CommitPlatform(session: PlatformSession): Promise<AccountState>
+    {
+        const kept = await this.Commit(session, async () =>
+        {
+            const current = await this.store.Load()
+            if (current.Console === undefined || current.Console.TenantId !== session.TenantId) return undefined
+            await this.store.Save({ Console: current.Console, Platform: session })
+            return { Account: { Console: current.Console, Platform: session }, Previous: current.Platform }
+        })
+        if (kept === undefined)
+        {
+            await this.EndQuietly(session)
+            throw new AccountError(AccountErrorKind.SignedOut)
+        }
+        if (kept.Previous !== undefined && kept.Previous.Token !== session.Token) await this.EndQuietly(kept.Previous)
+        return this.Announce(kept.Account)
+    }
+
+    // Runs a store write for a freshly issued session. When it cannot be stored the console has
+    // already issued it, so it is ended there before the failure is reported.
+    private async Commit<T>(session: SessionAddress, write: () => Promise<T>): Promise<T>
     {
         try
         {
-            return await this.Serialised(async () =>
-            {
-                const previous = (await this.store.Load()).Console
-                await this.store.Save({ Console: session })
-                return previous
-            })
+            return await this.Serialised(write)
         }
         catch (e)
         {
             await this.EndQuietly(session)
             throw e
         }
+    }
+
+    private Announce(account: StoredAccount): AccountState
+    {
+        const state = this.StateOf(account)
+        this.Changed.emit(state)
+        return state
+    }
+
+    // From the cached discovery; discovered again when the platform or email differ or the tenant is
+    // not in the cached answer (it may be stale). Still absent afterwards: no such account.
+    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<{ Console: DiscoveredConsole; TenantPlaneUrl: string }>
+    {
+        const cached = this.discovered
+        const fresh = cached !== undefined && cached.PlatformUrl === platform && cached.Email === email && cached.Consoles.has(tenantId)
+        if (!fresh) await this.Discover(platform, email)
+        const discovered = this.discovered!
+        const found = discovered.Consoles.get(tenantId)
+        if (found === undefined) throw new AccountError(AccountErrorKind.NoAccount)
+        return { Console: found, TenantPlaneUrl: discovered.TenantPlaneUrl }
+    }
+
+    private async ConsoleTargets(session: DesktopSession): Promise<AccountTargets>
+    {
+        try
+        {
+            return await this.client.Targets(session, TargetSource.Console)
+        }
+        catch (e)
+        {
+            if (AccountService.IsSignedOut(e)) await this.HandleSignedOut(session.Token)
+            throw e
+        }
+    }
+
+    // Never fails: a platform 401 drops the platform part; any failure answers no platform set.
+    private async PlatformTargets(session: PlatformSession): Promise<AccountTargets | undefined>
+    {
+        try
+        {
+            return await this.client.Targets(session, TargetSource.Platform)
+        }
+        catch (e)
+        {
+            if (AccountService.IsSignedOut(e)) await this.HandleSignedOut(session.Token)
+            return undefined
+        }
+    }
+
+    // The platform part when it is live and sits beside a console part of its tenant.
+    private PlatformBeside(account: StoredAccount): PlatformSession | undefined
+    {
+        const platform = this.Live(account.Platform)
+        if (account.Console === undefined || platform === undefined || platform.TenantId !== account.Console.TenantId) return undefined
+        return platform
+    }
+
+    // Live: present (the store keeps only complete parts) and not yet expired.
+    private Live(platform: PlatformSession | undefined): PlatformSession | undefined
+    {
+        return platform !== undefined && Date.parse(platform.ExpiresAt) > this.now() ? platform : undefined
     }
 
     // Runs `work` after every earlier session write has settled; a failure reaches only its caller.
@@ -296,7 +461,7 @@ export class AccountService
     private async Forget(): Promise<void>
     {
         await this.store.Clear()
-        this.Changed.emit(AccountService.StateOf(undefined))
+        this.Changed.emit({ ...AccountService.SignedOutState })
     }
 
     private async EndQuietly(at: SessionAddress): Promise<void>
@@ -373,10 +538,21 @@ export class AccountService
         return state
     }
 
-    private static StateOf(session: DesktopSession | undefined): AccountState
+    // Signed out without a console part. Beside one, Platform is SignedIn for a live platform part,
+    // Offered when the console part names a platform sign-in address, absent otherwise.
+    private StateOf(account: StoredAccount): AccountState
     {
+        const session = account.Console
         if (session === undefined) return { ...AccountService.SignedOutState }
-        return { SignedIn: true, Email: session.Email, TenantName: session.TenantName }
+        const state: AccountState = { SignedIn: true, Email: session.Email, TenantName: session.TenantName }
+        if (this.PlatformBeside(account) !== undefined) state.Platform = PlatformAccess.SignedIn
+        else if (session.PlatformSignInUrl !== undefined) state.Platform = PlatformAccess.Offered
+        return state
+    }
+
+    private static IsSignedOut(e: unknown): boolean
+    {
+        return e instanceof AccountError && e.Kind === AccountErrorKind.SignedOut
     }
 
     private static ValidChoice(choice: unknown): choice is TargetChoice

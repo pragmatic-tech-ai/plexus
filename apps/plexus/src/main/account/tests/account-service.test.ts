@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AccountError, AccountErrorKind, TargetKind, TargetSource, TargetStatus, type AccountState } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, PlatformAccess, TargetKind, TargetSource, TargetStatus, type AccountState } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountService } from '../account-service.js'
 import { DesktopApiClient } from '../desktop-api-client.js'
 import { DesktopSessionStore } from '../desktop-session-store.js'
@@ -13,8 +13,9 @@ import { ReverseEncryptor } from './reverse-encryptor.js'
 type Recorded = { Url: string; Method: string; Headers: Record<string, string>; Body: Record<string, unknown> | undefined }
 type Route = () => Response | Promise<Response>
 
-// A fetch double keyed by path. A route that is missing answers a network failure, like an
-// unreachable host.
+// A fetch double keyed by path, or by origin + path when one address needs its own answer (a
+// console and the tenant plane share every /desktop/ path). A route that is missing answers a
+// network failure, like an unreachable host.
 class FakeFetch
 {
     public readonly Requests: Recorded[] = []
@@ -26,7 +27,8 @@ class FakeFetch
         const headers = Object.fromEntries(new Headers(init?.headers).entries())
         const body = typeof init?.body === 'string' ? JSON.parse(init.body) as Record<string, unknown> : undefined
         this.Requests.push({ Url: url, Method: init?.method ?? 'GET', Headers: headers, Body: body })
-        const route = this.Routes.get(new URL(url).pathname)
+        const parsed = new URL(url)
+        const route = this.Routes.get(`${parsed.origin}${parsed.pathname}`) ?? this.Routes.get(parsed.pathname)
         if (route === undefined) throw new TypeError('fetch failed')
         return await route()
     }
@@ -39,6 +41,11 @@ class FakeFetch
     public To(path: string): Recorded[]
     {
         return this.Requests.filter(r => new URL(r.Url).pathname === path)
+    }
+
+    public At(url: string): Recorded[]
+    {
+        return this.Requests.filter(r => r.Url === url)
     }
 }
 
@@ -84,6 +91,7 @@ class Harness
 {
     public static readonly Platform = 'http://localhost:7000'
     public static readonly Plane = 'http://127.0.0.1:7002'
+    public static readonly Console = 'https://console-t1.example'
     public static readonly Authorize = 'https://idp.example/realms/t/authorize?client_id=plexus&state=st-123&code_challenge=x'
     public readonly Dir = mkdtempSync(join(tmpdir(), 'account-service-'))
     public readonly Fetch = new FakeFetch()
@@ -93,12 +101,19 @@ class Harness
     public readonly Encryptor = new ReverseEncryptor()
     public readonly Store = new DesktopSessionStore(this.Dir, this.Encryptor)
     public readonly Service: AccountService
+    // The clock the service reads; every issued session expires at 2026-11-11.
+    public Now = Date.parse('2026-11-08T00:00:00.000Z')
+    public Saves = 0
 
     public constructor()
     {
-        this.Service = new AccountService(this.Store, this.Dir, new DesktopApiClient(this.Fetch.Fetch as typeof fetch), () => this.Receiver, async url => { this.Opened.push(url) })
+        this.Service = new AccountService(
+            this.Store, this.Dir, new DesktopApiClient(this.Fetch.Fetch as typeof fetch), () => this.Receiver, async url => { this.Opened.push(url) }, () => this.Now,
+        )
         this.Service.Changed.subscribe(s => this.Changes.push(s))
         this.Tenant('t1', 'Acme', 'ada@acme.example')
+        const save = this.Store.Save.bind(this.Store)
+        this.Store.Save = async account => { this.Saves++; await save(account) }
     }
 
     // Points discovery + sign-in at one tenant; the issued token names the tenant.
@@ -112,6 +127,48 @@ class Harness
     public async SignIn(tenantId = 't1', email = 'ada@acme.example'): Promise<AccountState>
     {
         return this.Service.SignIn(Harness.Platform, email, tenantId)
+    }
+
+    // An in-hive tenant: discovery names its own console and, when `platformEnvironments`, says the
+    // platform also holds environments of it. The console and the tenant plane each issue their own
+    // token for the tenant; both answer sign-out, and each lists its own targets.
+    public InHive(platformEnvironments = true, id = 't1', name = 'Acme', email = 'ada@acme.example'): void
+    {
+        this.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, {
+            tenants: [{ id, displayName: name, consoleUrl: Harness.Console, platformEnvironments }],
+            tenantPlaneUrl: `${Harness.Plane}/`,
+        }))
+        this.Fetch.Routes.set(`${Harness.Console}/desktop/sign-in/complete`, () => FakeFetch.Json(200, {
+            token: `secret-console-${id}`, expiresAt: '2026-11-11T00:00:00.000Z', tenantId: id, tenantName: name, email,
+        }))
+        this.PlatformIssues(id, `secret-platform-${id}`, email)
+        this.Fetch.Routes.set('/desktop/sign-out', () => new Response(null, { status: 204 }))
+        this.Fetch.Routes.set(`${Harness.Console}/desktop/targets`, () => FakeFetch.Json(200, {
+            contribute: [{ name: 'dev', status: 'running' }], publish: [{ name: 'prod', status: 'stopped' }],
+        }))
+        this.Fetch.Routes.set(`${Harness.Plane}/desktop/targets`, () => FakeFetch.Json(200, {
+            contribute: [{ name: 'dev', status: 'stopped' }], publish: [{ name: 'p-prod', status: 'running' }],
+        }))
+    }
+
+    public PlatformIssues(tenantId: string, token: string, email = 'ada@acme.example'): void
+    {
+        this.Fetch.Routes.set(`${Harness.Plane}/desktop/sign-in/complete`, () => FakeFetch.Json(200, {
+            token, expiresAt: '2026-11-11T00:00:00.000Z', tenantId, tenantName: 'Acme (platform)', email,
+        }))
+    }
+
+    // Signs in at the in-hive console, then at the platform.
+    public async SignInBoth(): Promise<AccountState>
+    {
+        this.InHive()
+        await this.SignIn()
+        return this.Service.SignInAtPlatform()
+    }
+
+    public SignOutsWith(token: string): Recorded[]
+    {
+        return this.Fetch.To('/desktop/sign-out').filter(r => r.Headers['authorization'] === `Bearer ${token}`)
     }
 
     public Dispose(): void
@@ -695,5 +752,328 @@ describe('AccountService', () =>
     {
         expect(await h.Service.LastChoice(TargetKind.Publish)).toBeUndefined()
         expect(await Caught.Kind(h.Service.RememberChoice(TargetKind.Publish, { Environment: 'p' }))).toBe(AccountErrorKind.SignedOut)
+    })
+})
+
+describe('AccountService platform session', () =>
+{
+    const ConsoleToken = 'secret-console-t1'
+    const PlatformToken = 'secret-platform-t1'
+    const Offered: AccountState = { SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme', Platform: PlatformAccess.Offered }
+    const BothIn: AccountState = { SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme', Platform: PlatformAccess.SignedIn }
+    const ConsoleSet = {
+        Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }],
+        Publish: [{ Id: 'console:prod', Name: 'prod', Status: TargetStatus.Stopped, Source: TargetSource.Console }],
+    }
+    let h: Harness
+
+    beforeEach(() => { h = new Harness() })
+    afterEach(() => h.Dispose())
+
+    it('a discovery sign-in for a tenant with platform environments offers the platform step', async () =>
+    {
+        h.InHive()
+        expect(await h.SignIn()).toEqual(Offered)
+        expect(await h.Service.State()).toEqual(Offered)
+        expect(h.Changes).toEqual([Offered])
+        expect((await h.Store.Load()).Console).toMatchObject({ ConsoleUrl: Harness.Console, PlatformSignInUrl: Harness.Plane })
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+    })
+
+    it('a cached discovery still offers the platform step', async () =>
+    {
+        h.InHive()
+        await h.Service.Discover(Harness.Platform, 'ada@acme.example')
+        expect(await h.SignIn()).toEqual(Offered)
+        expect(h.Fetch.To('/api/desktop/discover')).toHaveLength(1)
+    })
+
+    it('a tenant without platform environments is not offered the platform step', async () =>
+    {
+        h.InHive(false)
+        expect(await h.SignIn()).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
+        expect((await h.Store.Load()).Console!.PlatformSignInUrl).toBeUndefined()
+    })
+
+    it('a tenant signing in at the tenant plane itself is not offered the platform step', async () =>
+    {
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, { tenants: [{ id: 't1', displayName: 'Acme', platformEnvironments: true }], tenantPlaneUrl: Harness.Plane }))
+        expect(await h.SignIn()).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
+        expect((await h.Store.Load()).Console!.PlatformSignInUrl).toBeUndefined()
+    })
+
+    it('a typed-console sign-in is never offered the platform step', async () =>
+    {
+        h.InHive()
+        h.Fetch.Routes.set('/desktop/console', () => FakeFetch.Json(200, { tenantId: 't1', tenantName: 'Acme' }))
+        expect(await h.Service.SignInAtConsole(Harness.Console, 'ada@acme.example')).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
+        expect((await h.Store.Load()).Console!.PlatformSignInUrl).toBeUndefined()
+    })
+
+    it('SignInAtPlatform signs in at the tenant plane for the console tenant and stores the part', async () =>
+    {
+        h.InHive()
+        await h.SignIn()
+        expect(await h.Service.SignInAtPlatform()).toEqual(BothIn)
+        const begins = h.Fetch.To('/desktop/sign-in/begin')
+        expect(begins.map(b => b.Url)).toEqual([`${Harness.Console}/desktop/sign-in/begin`, `${Harness.Plane}/desktop/sign-in/begin`])
+        expect(begins[1].Body).toMatchObject({ tenantId: 't1', redirectUri: FakeReceiver.Uri })
+        expect(h.Fetch.At(`${Harness.Plane}/desktop/sign-in/complete`)).toHaveLength(1)
+        expect(h.Opened).toEqual([Harness.Authorize, Harness.Authorize])
+        expect(await h.Service.State()).toEqual(BothIn)
+        expect(h.Changes.at(-1)).toEqual(BothIn)
+        expect(JSON.stringify(h.Changes)).not.toContain('secret')
+        const stored = await h.Store.Load()
+        expect(stored.Console!.Token).toBe(ConsoleToken)
+        expect(stored.Platform).toEqual({ ConsoleUrl: Harness.Plane, Token: PlatformToken, ExpiresAt: '2026-11-11T00:00:00.000Z', TenantId: 't1', Email: 'ada@acme.example' })
+        expect(h.Receiver.Closed).toBe(2)
+    })
+
+    it('SessionFor answers each source with its own address and token', async () =>
+    {
+        await h.SignInBoth()
+        expect(await h.Service.SessionFor(TargetSource.Console)).toEqual({ ConsoleUrl: Harness.Console, Token: ConsoleToken })
+        expect(await h.Service.SessionFor(TargetSource.Platform)).toEqual({ ConsoleUrl: Harness.Plane, Token: PlatformToken })
+    })
+
+    it('a platform Complete for another tenant is ended at once and fails SignInFailed', async () =>
+    {
+        h.InHive()
+        await h.SignIn()
+        h.PlatformIssues('t-other', 'secret-platform-other')
+        expect(await Caught.Kind(h.Service.SignInAtPlatform())).toBe(AccountErrorKind.SignInFailed)
+        const ended = h.SignOutsWith('secret-platform-other')
+        expect(ended.map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+        expect(await h.Service.State()).toEqual(Offered)
+    })
+
+    it('SignInAtPlatform signed out is SignedOut, and without a platform address Unavailable, never dialling', async () =>
+    {
+        expect(await Caught.Kind(h.Service.SignInAtPlatform())).toBe(AccountErrorKind.SignedOut)
+        h.InHive(false)
+        await h.SignIn()
+        const requests = h.Fetch.Requests.length
+        expect(await Caught.Kind(h.Service.SignInAtPlatform())).toBe(AccountErrorKind.Unavailable)
+        expect(h.Fetch.Requests).toHaveLength(requests)
+        expect(h.Opened).toHaveLength(1)
+    })
+
+    it('a second platform sign-in ends the platform part it replaces', async () =>
+    {
+        await h.SignInBoth()
+        h.PlatformIssues('t1', 'secret-platform-t1-again')
+        expect(await h.Service.SignInAtPlatform()).toEqual(BothIn)
+        expect(h.SignOutsWith(PlatformToken).map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect((await h.Store.Load()).Platform!.Token).toBe('secret-platform-t1-again')
+    })
+
+    it('a cancel while the platform Complete is in flight ends the fresh platform session', async () =>
+    {
+        h.InHive()
+        await h.SignIn()
+        const gate = new Gate()
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/sign-in/complete`, async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(200, { token: 'secret-platform-late', expiresAt: '2026-11-11T00:00:00.000Z', tenantId: 't1', tenantName: 'Acme', email: 'ada@acme.example' })
+        })
+        const signIn = Caught.Kind(h.Service.SignInAtPlatform())
+        while (h.Fetch.At(`${Harness.Plane}/desktop/sign-in/complete`).length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.CancelSignIn()
+        gate.Release()
+        expect(await signIn).toBe(AccountErrorKind.Cancelled)
+        expect(h.SignOutsWith('secret-platform-late').map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+        expect(await h.Service.State()).toEqual(Offered)
+    })
+
+    it('Targets merges the console and platform sets, each with its source', async () =>
+    {
+        await h.SignInBoth()
+        expect(await h.Service.Targets()).toEqual({
+            Contribute: [
+                { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console },
+                { Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Stopped, Source: TargetSource.Platform },
+            ],
+            Publish: [
+                { Id: 'console:prod', Name: 'prod', Status: TargetStatus.Stopped, Source: TargetSource.Console },
+                { Id: 'platform:p-prod', Name: 'p-prod', Status: TargetStatus.Running, Source: TargetSource.Platform },
+            ],
+        })
+        expect(h.Fetch.At(`${Harness.Console}/desktop/targets`)[0].Headers['authorization']).toBe(`Bearer ${ConsoleToken}`)
+        expect(h.Fetch.At(`${Harness.Plane}/desktop/targets`)[0].Headers['authorization']).toBe(`Bearer ${PlatformToken}`)
+    })
+
+    it('a platform 401 clears only the platform part and answers the console set', async () =>
+    {
+        await h.SignInBoth()
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/targets`, () => FakeFetch.Json(401, { error: 'signed-out' }))
+        expect(await h.Service.Targets()).toEqual(ConsoleSet)
+        const stored = await h.Store.Load()
+        expect(stored.Console!.Token).toBe(ConsoleToken)
+        expect(stored.Platform).toBeUndefined()
+        expect(await h.Service.State()).toEqual(Offered)
+        expect(h.Changes.at(-1)).toEqual(Offered)
+    })
+
+    it('an unreachable platform answers the console set and keeps the platform part', async () =>
+    {
+        await h.SignInBoth()
+        h.Fetch.Routes.delete(`${Harness.Plane}/desktop/targets`)
+        h.Fetch.Routes.delete('/desktop/targets')
+        const changes = h.Changes.length
+        expect(await h.Service.Targets()).toEqual(ConsoleSet)
+        expect((await h.Store.Load()).Platform!.Token).toBe(PlatformToken)
+        expect(await h.Service.State()).toEqual(BothIn)
+        expect(h.Changes).toHaveLength(changes)
+    })
+
+    it('an expired platform part reads as Offered and Targets makes no platform call (Review Focus 1)', async () =>
+    {
+        await h.SignInBoth()
+        h.Now = Date.parse('2026-11-11T00:00:00.001Z')
+        expect(await h.Service.State()).toEqual(Offered)
+        expect(await h.Service.SessionFor(TargetSource.Platform)).toBeUndefined()
+        expect(await h.Service.Targets()).toEqual(ConsoleSet)
+        expect(h.Fetch.At(`${Harness.Plane}/desktop/targets`)).toEqual([])
+    })
+
+    it('an expired platform part is dropped at the next write', async () =>
+    {
+        await h.SignInBoth()
+        h.Now = Date.parse('2026-11-12T00:00:00.000Z')
+        await h.Service.HandleSignedOut(ConsoleToken)
+        expect(await h.Store.Load()).toEqual({ Console: undefined, Platform: undefined })
+    })
+
+    it('a console 401 keeps the platform part dormant: signed out, the part still stored', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.HandleSignedOut(ConsoleToken)
+        const stored = await h.Store.Load()
+        expect(stored.Console).toBeUndefined()
+        expect(stored.Platform!.Token).toBe(PlatformToken)
+        expect(await h.Service.State()).toEqual({ SignedIn: false })
+        expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
+        expect(await h.Service.SessionFor(TargetSource.Platform)).toBeUndefined()
+        expect(h.SignOutsWith(PlatformToken)).toEqual([])
+    })
+
+    it('a console sign-in for the same tenant and email reattaches the dormant platform part', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.HandleSignedOut(ConsoleToken)
+        expect(await h.SignIn()).toEqual(BothIn)
+        expect(h.Fetch.At(`${Harness.Plane}/desktop/sign-in/begin`)).toHaveLength(1)
+        expect((await h.Store.Load()).Platform!.Token).toBe(PlatformToken)
+        expect(h.SignOutsWith(PlatformToken)).toEqual([])
+    })
+
+    it('a console sign-in for another tenant ends and drops the platform part', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.HandleSignedOut(ConsoleToken)
+        h.InHive(false, 't2', 'Globex', 'ada@acme.example')
+        expect(await h.SignIn('t2')).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Globex' })
+        expect(h.SignOutsWith(PlatformToken).map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+    })
+
+    it('a console sign-in for another email ends and drops the platform part', async () =>
+    {
+        await h.SignInBoth()
+        h.InHive(true, 't1', 'Acme', 'bob@acme.example')
+        expect(await h.SignIn('t1', 'bob@acme.example')).toEqual({ SignedIn: true, Email: 'bob@acme.example', TenantName: 'Acme', Platform: PlatformAccess.Offered })
+        expect(h.SignOutsWith(PlatformToken).map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+    })
+
+    it('SignOut ends both parts at their own addresses and leaves nothing stored', async () =>
+    {
+        await h.SignInBoth()
+        expect(await h.Service.SignOut()).toEqual({ SignedIn: false })
+        expect(h.SignOutsWith(ConsoleToken).map(r => r.Url)).toEqual([`${Harness.Console}/desktop/sign-out`])
+        expect(h.SignOutsWith(PlatformToken).map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect(await h.Store.Load()).toEqual({ Console: undefined, Platform: undefined })
+        expect(h.Changes.at(-1)).toEqual({ SignedIn: false })
+    })
+
+    it('SignOut ends a dormant platform part too', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.HandleSignedOut(ConsoleToken)
+        await h.Service.SignOut()
+        expect(h.SignOutsWith(PlatformToken).map(r => r.Url)).toEqual([`${Harness.Plane}/desktop/sign-out`])
+        expect(await h.Store.Load()).toEqual({ Console: undefined, Platform: undefined })
+    })
+
+    it('a stale platform 401 after a sign-out writes and emits nothing (Review Focus 5)', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.SignOut()
+        const saves = h.Saves
+        const changes = h.Changes.length
+        await h.Service.HandleSignedOut(PlatformToken)
+        expect(h.Saves).toBe(saves)
+        expect(h.Changes).toHaveLength(changes)
+    })
+
+    it('a stale platform 401 after a sign-out and a new sign-in writes and emits nothing (Review Focus 5)', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.SignOut()
+        // The new sign-in is issued its own platform token; the stale 401 names the old one.
+        h.PlatformIssues('t1', 'secret-platform-t1-new')
+        await h.SignIn()
+        await h.Service.SignInAtPlatform()
+        const saves = h.Saves
+        const changes = h.Changes.length
+        await h.Service.HandleSignedOut(PlatformToken)
+        expect(h.Saves).toBe(saves)
+        expect(h.Changes).toHaveLength(changes)
+        expect(await h.Service.State()).toEqual(BothIn)
+        expect((await h.Store.Load()).Platform!.Token).toBe('secret-platform-t1-new')
+    })
+
+    it('a platform 401 held in flight across a sign-out writes and emits nothing when it lands (Review Focus 5)', async () =>
+    {
+        await h.SignInBoth()
+        const gate = new Gate()
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/targets`, async () =>
+        {
+            await gate.Opened
+            return FakeFetch.Json(401, { error: 'signed-out' })
+        })
+        const targets = h.Service.Targets()
+        while (h.Fetch.At(`${Harness.Plane}/desktop/targets`).length === 0) await new Promise(r => setTimeout(r, 1))
+        await h.Service.SignOut()
+        const saves = h.Saves
+        const changes = h.Changes.length
+        gate.Release()
+        expect(await targets).toEqual(ConsoleSet)
+        expect(h.Saves).toBe(saves)
+        expect(h.Changes).toHaveLength(changes)
+        expect(await h.Store.Load()).toEqual({ Console: undefined, Platform: undefined })
+    })
+
+    it('a console 401 from Targets (an Owner reset on the console) leaves the platform part untouched', async () =>
+    {
+        await h.SignInBoth()
+        h.Fetch.Routes.set(`${Harness.Console}/desktop/targets`, () => FakeFetch.Json(401, { error: 'signed-out' }))
+        expect(await Caught.Kind(h.Service.Targets())).toBe(AccountErrorKind.SignedOut)
+        const stored = await h.Store.Load()
+        expect(stored.Console).toBeUndefined()
+        expect(stored.Platform).toEqual({ ConsoleUrl: Harness.Plane, Token: PlatformToken, ExpiresAt: '2026-11-11T00:00:00.000Z', TenantId: 't1', Email: 'ada@acme.example' })
+        expect(h.SignOutsWith(PlatformToken)).toEqual([])
+    })
+
+    it('a platform 401 leaves the console part untouched', async () =>
+    {
+        await h.SignInBoth()
+        const before = (await h.Store.Load()).Console
+        await h.Service.HandleSignedOut(PlatformToken)
+        expect((await h.Store.Load()).Console).toEqual(before)
+        expect(h.SignOutsWith(ConsoleToken)).toEqual([])
     })
 })
