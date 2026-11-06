@@ -26,7 +26,9 @@
 //                                   platform step; read inside ScriptedDesktopSignIn, never printed)
 //   PLEXUS_IHC_EXPECT_RETIRED=1     the console is retired: only the retired-console test runs (the
 //                                   typed console sign-in fails with console-retired before any browser
-//                                   opens), and the live test skips
+//                                   opens), and the live test skips; that test needs only
+//                                   PLEXUS_E2E_OWNER_EMAIL, PLEXUS_E2E_OWNER_PASSWORD_FILE and
+//                                   PLEXUS_IHC_CONSOLE_URL of the required inputs
 //
 // Secret hygiene: the password lives only inside ScriptedDesktopSignIn. Tracing, screenshots and video
 // are disabled for this spec, and no step title or assertion message carries a secret.
@@ -132,8 +134,12 @@ class SmokeInputs
     public static readonly RetiredSelected = `${SmokeInputs.ExpectRetiredEnv}=1 selects the retired-console test only`
     public static readonly RetiredNotSelected = `runs only with ${SmokeInputs.ExpectRetiredEnv}=1 (a retired console)`
     public static readonly NoGraph = `set ${SmokeInputs.GraphEnv} (a graph created on the console environment) to contribute to a console graph`
+    public static readonly RetiredSkipMessage =
+        `needs a retired in-hive console: set ${ScriptedDesktopSignIn.EmailEnv}, ${ScriptedDesktopSignIn.PasswordFileEnv} `
+        + `and ${SmokeInputs.ConsoleUrlEnv}`
     public static readonly NoPlatform =
-        `set ${SmokeInputs.PlatformEnvironmentEnv} and ${ScriptedDesktopSignIn.PlatformPasswordFileEnv} to sign in at the platform; Skip was pressed instead`
+        `the platform step did not run: set ${SmokeInputs.PlatformEnvironmentEnv} and ${ScriptedDesktopSignIn.PlatformPasswordFileEnv} `
+        + 'to sign in at the platform (a platform offer, if the tenant had one, was skipped)'
     private static readonly RetiredValue = '1'
 
     private constructor(
@@ -157,6 +163,22 @@ class SmokeInputs
             && SmokeInputs.Value(env, ScriptedDesktopSignIn.PlatformAddressEnv) !== undefined
             && SmokeInputs.Value(env, SmokeInputs.ConsoleUrlEnv) !== undefined
             && SmokeInputs.Value(env, SmokeInputs.EnvironmentEnv) !== undefined
+    }
+
+    // Whether the retired-console test's inputs are set: the sign-in's email and password file, and
+    // the console address (no platform address or environment is used).
+    public static IsRetiredConfigured(env: NodeJS.ProcessEnv = process.env): boolean
+    {
+        return ScriptedDesktopSignIn.IsConfigured(env)
+            && SmokeInputs.Value(env, SmokeInputs.ConsoleUrlEnv) !== undefined
+    }
+
+    // The console address the retired-console test signs in at.
+    public static RetiredConsoleUrl(env: NodeJS.ProcessEnv = process.env): string
+    {
+        const consoleUrl = SmokeInputs.Value(env, SmokeInputs.ConsoleUrlEnv)
+        if (consoleUrl === undefined) throw new Error(SmokeInputs.RetiredSkipMessage)
+        return consoleUrl
     }
 
     public static FromEnvironment(env: NodeJS.ProcessEnv = process.env): SmokeInputs
@@ -231,6 +253,7 @@ class SmokeConstants
     public static readonly TargetsRefusedPrefix = 'targets refused: '
     public static readonly ContributeFailedPrefix = 'contribute failed: '
     public static readonly ListFailedPrefix = 'graph listing failed: '
+    public static readonly PlatformListNotArray = 'the graph listing for the platform target did not answer a list'
 
     public static BuiltAppMissing(main: string): string
     {
@@ -256,11 +279,11 @@ class SmokeSignIn
 test.use({ trace: 'off', screenshot: 'off', video: 'off' })
 
 test.describe(SmokeConstants.SuiteTitle, () => {
-    test.skip(!SmokeInputs.IsConfigured(), SmokeInputs.SkipMessage)
     test.setTimeout(600_000)
 
     test(SmokeConstants.TestTitle, async () => {
         test.skip(SmokeInputs.ExpectRetired(), SmokeInputs.RetiredSelected)
+        test.skip(!SmokeInputs.IsConfigured(), SmokeInputs.SkipMessage)
         expect(existsSync(MAIN), SmokeConstants.BuiltAppMissing(MAIN)).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), SmokeConstants.ElectronMissing).toBeTruthy()
         test.info().annotations.push({ type: SmokeConstants.NotCoveredType, description: SmokeConstants.OperatorNote })
@@ -307,7 +330,7 @@ test.describe(SmokeConstants.SuiteTitle, () => {
                     expect(platform, SmokeConstants.PlatformListed).toBeDefined()
                     const listed = await RendererGraph.List(l!.win, { Name: platform!.Name, Source: TargetSource.Platform })
                     expect(listed.Ok, SmokeConstants.ListFailedPrefix + (listed.Error ?? '')).toBeTruthy()
-                    expect(Array.isArray(listed.Graphs), SmokeConstants.ListFailedPrefix).toBeTruthy()
+                    expect(Array.isArray(listed.Graphs), SmokeConstants.PlatformListNotArray).toBeTruthy()
                 })
             }
             else
@@ -372,10 +395,11 @@ test.describe(SmokeConstants.SuiteTitle, () => {
 
     test(SmokeConstants.RetiredTestTitle, async () => {
         test.skip(!SmokeInputs.ExpectRetired(), SmokeInputs.RetiredNotSelected)
+        test.skip(!SmokeInputs.IsRetiredConfigured(), SmokeInputs.RetiredSkipMessage)
         expect(existsSync(MAIN), SmokeConstants.BuiltAppMissing(MAIN)).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), SmokeConstants.ElectronMissing).toBeTruthy()
 
-        const inputs = SmokeInputs.FromEnvironment()
+        const consoleUrl = SmokeInputs.RetiredConsoleUrl()
         const signIn = SmokeSignIn.Create()
         let profile: E2eProfile | undefined
         let l: Launched | undefined
@@ -390,7 +414,7 @@ test.describe(SmokeConstants.SuiteTitle, () => {
             })
 
             await test.step(SmokeConstants.StepRetired, async () => {
-                const kind = await signIn.AttemptConsoleSignIn(l!.app, l!.win, isolated, inputs.ConsoleUrl)
+                const kind = await signIn.AttemptConsoleSignIn(l!.app, l!.win, isolated, consoleUrl)
                 expect(kind).toBe(SmokeConstants.ConsoleRetiredKind)
                 expect(signIn.LastAttemptOpenedBrowser, SmokeConstants.NoBrowserOpened).toBeFalsy()
             })
