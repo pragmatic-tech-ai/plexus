@@ -1,5 +1,6 @@
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import { SignInRequest, type IAccountService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
+import { PlatformAccess } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type {
     AccountState, AccountTargets, DiscoveredTenant, TargetChoice, TargetKind,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
@@ -69,6 +70,12 @@ export class FakeAccountService implements IAccountService
         await this.SignInGate.Promise
         const tenant = this.Tenants.find((t) => t.Id === tenantId)
         this.SetState({ SignedIn: true, Email: email, TenantName: tenant?.DisplayName })
+    }
+
+    public async SignInAtPlatform(): Promise<void>
+    {
+        this.Calls.push(['SignInAtPlatform'])
+        this.SetState({ ...this.State, Platform: PlatformAccess.SignedIn })
     }
 
     public async SignInAtConsole(consoleUrl: string, email: string): Promise<void>

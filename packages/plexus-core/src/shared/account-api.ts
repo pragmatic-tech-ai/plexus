@@ -9,6 +9,7 @@ export enum AccountChannel
     Discover = 'account:discover',
     SignIn = 'account:sign-in',
     SignInAtConsole = 'account:sign-in-at-console',
+    SignInAtPlatform = 'account:sign-in-at-platform',
     CancelSignIn = 'account:cancel-sign-in',
     SignOut = 'account:sign-out',
     Targets = 'account:targets',
@@ -339,6 +340,7 @@ export interface IAccountBridge
     Discover(platformUrl: string, email: string): Promise<AccountReply<DiscoveredTenant[]>>;
     SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountReply<AccountState>>;
     SignInAtConsole(consoleUrl: string, email: string): Promise<AccountReply<AccountState>>;
+    SignInAtPlatform(): Promise<AccountReply<AccountState>>;
     CancelSignIn(): Promise<AccountReply<void>>;
     SignOut(): Promise<AccountReply<AccountState>>;
     Targets(): Promise<AccountReply<AccountTargets>>;
@@ -356,6 +358,8 @@ export interface IAccountApi
     SignIn(platformUrl: string, email: string, tenantId: string): Promise<AccountState>;
     // Signs in at an organization's console whose address the user typed.
     SignInAtConsole(consoleUrl: string, email: string): Promise<AccountState>;
+    // Signs in a second time, at the platform, for the platform environments. No arguments.
+    SignInAtPlatform(): Promise<AccountState>;
     CancelSignIn(): Promise<void>;
     SignOut(): Promise<AccountState>;
     Targets(): Promise<AccountTargets>;

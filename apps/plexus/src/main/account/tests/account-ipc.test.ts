@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import type { IpcMain } from 'electron'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountChannel, AccountError, AccountErrorKind, TargetKind,
+    AccountChannel, AccountError, AccountErrorKind, PlatformAccess, TargetKind,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountIpc, type IAccountChangeSink } from '../account-ipc.js'
@@ -30,6 +30,7 @@ class FakeService
     public async Discover(p: string, e: string): Promise<DiscoveredTenant[]> { return this.Run(['Discover', p, e], [{ Id: 't', DisplayName: 'T' }]) }
     public async SignIn(p: string, e: string, t: string): Promise<AccountState> { return this.Run(['SignIn', p, e, t], { SignedIn: true }) }
     public async SignInAtConsole(c: string, e: string): Promise<AccountState> { return this.Run(['SignInAtConsole', c, e], { SignedIn: true }) }
+    public async SignInAtPlatform(): Promise<AccountState> { return this.Run(['SignInAtPlatform'], { SignedIn: true, Platform: PlatformAccess.SignedIn }) }
     public async CancelSignIn(): Promise<void> { return this.Run(['CancelSignIn'], undefined) }
     public async SignOut(): Promise<AccountState> { return this.Run(['SignOut'], { SignedIn: false }) }
     public async Targets(): Promise<AccountTargets> { return this.Run(['Targets'], { Contribute: [], Publish: [] }) }
@@ -118,6 +119,22 @@ describe('AccountIpc', () =>
         const h = new Harness()
         expect(await h.Invoke(AccountChannel.SignInAtConsole, 'https://c.example', 'a@b.c')).toEqual({ Ok: true, Value: { SignedIn: true } })
         expect(h.Service.Calls).toEqual([['SignInAtConsole', 'https://c.example', 'a@b.c']])
+    })
+
+    it('sign-in-at-platform calls the service with no arguments and answers the state envelope', async () =>
+    {
+        const h = new Harness()
+        expect(await h.Invoke(AccountChannel.SignInAtPlatform, 'ignored', 'extra')).toEqual({ Ok: true, Value: { SignedIn: true, Platform: PlatformAccess.SignedIn } })
+        expect(h.Service.Calls).toEqual([['SignInAtPlatform']])
+    })
+
+    it('sign-in-at-platform turns a non-AccountError into Unavailable', async () =>
+    {
+        const log = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+        const h = new Harness()
+        h.Service.Failure = new Error('boom http://secret.example')
+        expect(await h.Invoke(AccountChannel.SignInAtPlatform)).toEqual({ Ok: false, Error: { Kind: AccountErrorKind.Unavailable } })
+        expect(JSON.stringify(log.mock.calls)).not.toContain('secret.example')
     })
 
     it('a non-string console address is refused as malformed', async () =>

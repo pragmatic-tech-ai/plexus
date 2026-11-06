@@ -181,6 +181,7 @@ const account: IAccountBridge = {
   Discover: (platformUrl, email) => AccountBridge.Call(AccountChannel.Discover, platformUrl, email),
   SignIn: (platformUrl, email, tenantId) => AccountBridge.Call(AccountChannel.SignIn, platformUrl, email, tenantId),
   SignInAtConsole: (consoleUrl, email) => AccountBridge.Call(AccountChannel.SignInAtConsole, consoleUrl, email),
+  SignInAtPlatform: () => AccountBridge.Call(AccountChannel.SignInAtPlatform),
   CancelSignIn: () => AccountBridge.Call(AccountChannel.CancelSignIn),
   SignOut: () => AccountBridge.Call(AccountChannel.SignOut),
   Targets: () => AccountBridge.Call(AccountChannel.Targets),

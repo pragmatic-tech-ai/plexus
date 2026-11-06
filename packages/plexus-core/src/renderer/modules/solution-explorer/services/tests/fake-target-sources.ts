@@ -82,6 +82,10 @@ export class FakeTargetAccount implements IAccountService
     {
     }
 
+    public async SignInAtPlatform(): Promise<void>
+    {
+    }
+
     public async CancelSignIn(): Promise<void>
     {
     }

@@ -65,6 +65,11 @@ export class IpcAccountService implements IAccountService, IDisposable
         this.Apply(AccountWire.Unwrap(await this.api.SignInAtConsole(consoleUrl, email)))
     }
 
+    public async SignInAtPlatform(): Promise<void>
+    {
+        this.Apply(AccountWire.Unwrap(await this.api.SignInAtPlatform()))
+    }
+
     public async CancelSignIn(): Promise<void>
     {
         AccountWire.Unwrap(await this.api.CancelSignIn())
@@ -100,7 +105,8 @@ export class IpcAccountService implements IAccountService, IDisposable
     private Apply(state: AccountState): void
     {
         const current = this.state
-        if (current.SignedIn === state.SignedIn && current.Email === state.Email && current.TenantName === state.TenantName)
+        if (current.SignedIn === state.SignedIn && current.Email === state.Email && current.TenantName === state.TenantName
+            && current.Platform === state.Platform)
         {
             return
         }

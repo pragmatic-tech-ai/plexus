@@ -60,6 +60,8 @@ export interface IAccountService
     Discover(platformUrl: string, email: string): Promise<DiscoveredTenant[]>;
     SignIn(platformUrl: string, email: string, tenantId: string): Promise<void>;
     SignInAtConsole(consoleUrl: string, email: string): Promise<void>;
+    // The second sign-in, at the platform, for the platform environments.
+    SignInAtPlatform(): Promise<void>;
     CancelSignIn(): Promise<void>;
     SignOut(): Promise<void>;
     Targets(): Promise<AccountTargets>;

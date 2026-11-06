@@ -26,6 +26,11 @@ class FakeAccountBridge
         this.Calls.push(['SignInAtConsole', u, e])
         return Promise.resolve(this.Reply)
     }
+    public SignInAtPlatform(): Promise<unknown>
+    {
+        this.Calls.push(['SignInAtPlatform'])
+        return Promise.resolve(this.Reply)
+    }
     public CancelSignIn(): Promise<unknown> { this.Calls.push(['Cancel']); return Promise.resolve({ Ok: true, Value: undefined }) }
     public SignOut(): Promise<unknown> { return Promise.resolve({ Ok: true, Value: { SignedIn: false } }) }
     public Targets(): Promise<unknown> { return Promise.resolve({ Ok: true, Value: { Contribute: [], Publish: [] } }) }
@@ -101,6 +106,21 @@ describe('IpcAccountService', () =>
         await Service.SignInAtConsole('https://c.example', 'a@b.c')
         expect(Bridge.Calls).toEqual([['SignInAtConsole', 'https://c.example', 'a@b.c']])
         expect(Service.State).toEqual({ SignedIn: true, Email: 'a@b.c', TenantName: 'T' })
+    })
+
+    it('SignInAtPlatform sends no arguments, updates State.Platform and raises Changed once', async () =>
+    {
+        const bridge = new FakeAccountBridge()
+        bridge.Reply = { Ok: true, Value: { SignedIn: true, Email: 'a@b.c', TenantName: 'T', Platform: 'signed-in' } }
+        const { Bridge, Service } = Make(bridge)
+        Bridge.Listener!({ SignedIn: true, Email: 'a@b.c', TenantName: 'T', Platform: 'offered' })
+        let count = 0
+        Service.Changed.subscribe(() => { count++ })
+        await Service.SignInAtPlatform()
+        Bridge.Listener!({ SignedIn: true, Email: 'a@b.c', TenantName: 'T', Platform: 'signed-in' })
+        expect(Bridge.Calls).toEqual([['SignInAtPlatform']])
+        expect(Service.State.Platform).toBe('signed-in')
+        expect(count).toBe(1)
     })
 
     it('keeps the AccountError kind from a failed reply', async () =>
