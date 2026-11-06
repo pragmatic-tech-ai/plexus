@@ -39,6 +39,9 @@ describe('TargetIdentity', () =>
         expect(TargetIdentity.IsSource('platform')).toBe(true)
         expect(TargetIdentity.IsSource('console')).toBe(true)
         expect(TargetIdentity.IsSource('x')).toBe(false)
+        expect(TargetIdentity.IsSource(42)).toBe(false)
+        expect(TargetIdentity.IsSource(undefined)).toBe(false)
+        expect(TargetIdentity.IsSource('toString')).toBe(false)
     })
 })
 

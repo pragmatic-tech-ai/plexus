@@ -172,10 +172,10 @@ describe('DesktopApiClient', () =>
 
     it('Targets tags each target with its source and a source-unique id', async () =>
     {
-        fake.Answer = () => FakeFetch.Json(200, { contribute: [{ name: 'dev', status: 'running' }], publish: [] })
+        fake.Answer = () => FakeFetch.Json(200, { contribute: [{ name: 'dev', status: 'running' }], publish: [{ name: 'prod', status: 'stopped' }] })
         expect(await client.Targets(session, TargetSource.Platform)).toEqual({
             Contribute: [{ Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Platform }],
-            Publish: [],
+            Publish: [{ Id: 'platform:prod', Name: 'prod', Status: TargetStatus.Stopped, Source: TargetSource.Platform }],
         })
     })
 
