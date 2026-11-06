@@ -97,46 +97,6 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
     }, { fromId, toId })
 }
 
-// Count VISIBLE RichTextBox editors on screen (non-zero rect).
-async function visibleEditors(l: Launched): Promise<number>
-{
-    return l.win.evaluate(() => {
-        const S = Symbol.for('mural:visual-backref')
-        let n = 0
-        for (const el of document.querySelectorAll('*'))
-        {
-            const v = (el as any)[S]
-            if (v?.constructor?.name === 'RichTextBox') { const r = el.getBoundingClientRect(); if (r.width > 0 && r.height > 0) n++ }
-        }
-        return n
-    })
-}
-
-// Screen midpoint of an EMPTY-label connector's route (index-selected).
-async function emptyRoutePoint(l: Launched): Promise<any>
-{
-    return l.win.evaluate(() => {
-        const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
-        const conns = diagram.Connectors?.ToArray?.() ?? []
-        const c = conns.find((x: any) => (x.LabelText ?? '') === '')
-        if (!c) return { ok: false, reason: 'no empty-label connector' }
-        let cEl: Element | undefined
-        for (const el of document.querySelectorAll('*')) { if ((el as any)[S] === c) { cEl = el; break } }
-        if (!cEl) return { ok: false }
-        const pts = (c.CurrentRoutePoints ?? []).map((p: any) => ({ X: p.X, Y: p.Y }))
-        if (pts.length < 2) return { ok: false }
-        const xs = pts.map((p: any) => p.X), ys = pts.map((p: any) => p.Y)
-        const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys)
-        const r = cEl.getBoundingClientRect()
-        const sx = (maxX - minX) > 0.5 ? r.width / (maxX - minX) : 0
-        const sy = (maxY - minY) > 0.5 ? r.height / (maxY - minY) : 0
-        const mid = pts[Math.floor(pts.length / 2)]
-        return { ok: true, x: r.x + (mid.X - minX) * sx, y: r.y + (mid.Y - minY) * sy }
-    })
-}
-
 // Simulate a committed label edit on the A↔B connector (mirrors CommitEdit's
 // order: set Content, then end editing → the binding's write-back listener fires).
 async function editLabel(l: Launched, fromId: string, toId: string, text: string): Promise<string | undefined>
@@ -198,8 +158,6 @@ test.describe.serial('connector inline edit', () => {
     {
         return l.win.evaluate(({ fromId, toId }) => {
             const S = Symbol.for('mural:visual-backref')
-            let diagram: any
-            for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
             const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
             let c: any, cEl: Element | undefined
             for (const el of document.querySelectorAll('*'))

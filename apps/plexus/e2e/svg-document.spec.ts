@@ -39,7 +39,6 @@ test.describe.serial('svg-document', () => {
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1500)
     await l.win.evaluate(async () => {
-      const S = Symbol.for('mural:visual-backref')
       let ex: any
       { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
       let ws: any, mgr: any
@@ -100,7 +99,7 @@ test.describe.serial('svg-document', () => {
       return { inForeign }
     })
     expect(marker, 'the tagged rect is present in the DOM').not.toBeNull()
-    expect(marker.inForeign).toBe(true)
+    expect(marker!.inForeign).toBe(true)
   })
 
   test('the bottom-tab commands swap views', async () => {
@@ -223,7 +222,6 @@ test.describe.serial('svg-document editing', () => {
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1500)
     await l.win.evaluate(async () => {
-      const S = Symbol.for('mural:visual-backref')
       let ex: any
       { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
       let ws: any, mgr: any

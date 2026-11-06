@@ -34,7 +34,6 @@ function makeCopy(): string
 async function openDiagram(l: Launched): Promise<void>
 {
   await l.win.evaluate(async () => {
-    const S = Symbol.for('mural:visual-backref')
     let explorer: any
     { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
     let ws: any, mgr: any

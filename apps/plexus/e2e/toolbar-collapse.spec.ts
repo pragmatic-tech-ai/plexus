@@ -18,7 +18,7 @@ test('command toolbar is collapsed when no document is active', async () => {
             const S = Symbol.for('mural:visual-backref')
             for (const el of document.querySelectorAll('*'))
             {
-                const v = (el as { [k: symbol]: { Name?: string } })[S]
+                const v = (el as unknown as { [k: symbol]: { Name?: string } })[S]
                 if (v && v.Name === 'PART_CommandHost')
                 {
                     return (el as Element).getBoundingClientRect().height

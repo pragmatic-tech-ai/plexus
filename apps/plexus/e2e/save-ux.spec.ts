@@ -166,7 +166,6 @@ async function closeAllDocs(l: Launched): Promise<void>
 async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void>
 {
     await l.win.evaluate(async (relPath) => {
-        const S = Symbol.for('mural:visual-backref')
         let explorer: any
         { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
         let ws: any, mgr: any

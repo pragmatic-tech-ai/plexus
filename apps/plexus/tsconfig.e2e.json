@@ -1,12 +1,7 @@
 {
-  // Type-checks the Playwright e2e files the in-hive sign-in plan added (the in-hive smoke, the
-  // scripted sign-in helper and e2e/support); the older specs are not yet clean under it.
+  // Type-checks every Playwright e2e file (specs, helpers, fixtures and support).
   "extends": "./tsconfig.node.json",
-  "include": [
-    "e2e/in-hive-console-sign-in.spec.ts",
-    "e2e/scripted-desktop-sign-in.ts",
-    "e2e/support/**/*"
-  ],
+  "include": ["e2e/**/*.ts"],
   "compilerOptions": {
     "composite": false,
     "noEmit": true,

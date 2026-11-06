@@ -32,7 +32,6 @@ test.describe.serial('arch-go-to-definition', () => {
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1500)
     await l.win.evaluate(async () => {
-      const S = Symbol.for('mural:visual-backref')
       let ex: any
       { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
       let ws: any, mgr: any
@@ -57,7 +56,6 @@ test.describe.serial('arch-go-to-definition', () => {
   async function reopenDiagram(): Promise<void>
   {
     await l.win.evaluate(async () => {
-      const S = Symbol.for('mural:visual-backref')
       let ex: any
       { const SB = Symbol.for('mural:visual-backref'); let rt: any; for (const el of document.querySelectorAll('*')) { const v = (el as any)[SB]; if (v) { rt = v; break } }
       let ws: any, mgr: any

@@ -29,9 +29,6 @@ const ART = path.join(__dirname, '.artifacts')
 const shot = (l: Launched, name: string) =>
     l.win.screenshot({ path: path.join(ART, `${name}.png`) }).catch(() => {})
 
-// Known corpus project names (member captions in the Solution Explorer).
-const KNOWN_PROJECTS = ['aws', 'microsoft', 'tech-architecture', 'test_architecture', 'architecture']
-
 // Viewport rect of the first VISIBLE tree row rendering `caption` — via getByText
 // (the exact path the P2 spec proves reaches file rows), or null if unreachable.
 async function rowRect(l: Launched, caption: string): Promise<{ x: number; y: number; w: number; h: number } | null>
