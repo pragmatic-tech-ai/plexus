@@ -70,6 +70,12 @@ export class EnvironmentChoice extends Observable
         return targets.map((t) => new EnvironmentChoice(t, t.Source === TargetSource.Platform && consoleNames.has(t.Name)))
     }
 
+    // True when `choice` (a remembered choice; no Source means the console) names this environment.
+    public IsRememberedAs(choice: TargetChoice | undefined): boolean
+    {
+        return choice !== undefined && this.Id === TargetIdentity.Id(choice.Source ?? TargetSource.Console, choice.Environment)
+    }
+
     public get Name(): string { return this.Target.Name }
     // Unique across sources (the same name may come from the console and the platform).
     public get Id(): string { return this.Target.Id }
@@ -328,8 +334,7 @@ export abstract class TargetDialog extends Observable implements ITargetPicker
             return
         }
         this.lastChoice = last
-        const rememberedId = last === undefined ? undefined : TargetIdentity.Id(last.Source ?? TargetSource.Console, last.Environment)
-        this.SelectedEnvironment = environments.find((e) => e.Id === rememberedId) ?? environments[0]
+        this.SelectedEnvironment = environments.find((e) => e.IsRememberedAs(last)) ?? environments[0]
     }
 
     private ShowSignedOut(): void
