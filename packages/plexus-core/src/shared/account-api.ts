@@ -18,7 +18,14 @@ export enum AccountChannel
 }
 
 // What the renderer may know about the account. Never a token.
-export type AccountState = { SignedIn: boolean; Email?: string; TenantName?: string }
+export type AccountState = { SignedIn: boolean; Email?: string; TenantName?: string; Platform?: PlatformAccess }
+
+// Whether the platform environments are offered to the account, or already signed in for.
+export enum PlatformAccess
+{
+    Offered = 'offered',
+    SignedIn = 'signed-in',
+}
 
 export type DiscoveredTenant = { Id: string; DisplayName: string }
 
@@ -31,7 +38,16 @@ export enum TargetStatus
     Unknown = 'unknown',
 }
 
-export type EnvironmentTarget = { Name: string; Status: TargetStatus }
+// Where an environment target comes from. The id is unique across sources.
+export enum TargetSource
+{
+    Console = 'console',
+    Platform = 'platform',
+}
+
+export type EnvironmentTarget = { Id: string; Name: string; Status: TargetStatus; Source: TargetSource }
+
+export type TargetRef = { Name: string; Source: TargetSource }
 
 export type AccountTargets = { Contribute: EnvironmentTarget[]; Publish: EnvironmentTarget[] }
 
@@ -41,7 +57,28 @@ export enum TargetKind
     Publish = 'publish',
 }
 
-export type TargetChoice = { Environment: string; GraphName?: string }
+// An absent Source reads as Console: choices saved before targets carried a source.
+export type TargetChoice = { Environment: string; Source?: TargetSource; GraphName?: string }
+
+export class TargetIdentity
+{
+    private static readonly Separator = ':'
+
+    public static Id(source: TargetSource, name: string): string
+    {
+        return `${source}${TargetIdentity.Separator}${name}`
+    }
+
+    public static RefOf(choice: TargetChoice): TargetRef
+    {
+        return { Name: choice.Environment, Source: choice.Source ?? TargetSource.Console }
+    }
+
+    public static IsSource(value: unknown): value is TargetSource
+    {
+        return Object.values(TargetSource).includes(value as TargetSource)
+    }
+}
 
 // The one transport rule for every address Plexus dials (the Platform address, a console address,
 // the platform's tenant plane): https anywhere, cleartext http only to a loopback host.
@@ -168,6 +205,8 @@ export enum AccountErrorKind
     NotAConsole = 'not-a-console',
     ConsoleUnreachable = 'console-unreachable',
     CertificateUntrusted = 'certificate-untrusted',
+    ConsoleRetired = 'console-retired',
+    PlatformSignedOut = 'platform-signed-out',
 }
 
 // An account failure the user can act on. The message is a fixed plain sentence per kind, so it
@@ -189,6 +228,8 @@ export class AccountError extends Error
         [AccountErrorKind.NotAConsole]: 'That address is not a Pragmatic tenant console.',
         [AccountErrorKind.ConsoleUnreachable]: "Your organization's console could not be reached. Try again later, or check the console address.",
         [AccountErrorKind.CertificateUntrusted]: "This computer doesn't trust the server's certificate. Ask your administrator to install it, then restart Plexus.",
+        [AccountErrorKind.ConsoleRetired]: "Your organization's console is no longer registered with the platform. Ask your administrator.",
+        [AccountErrorKind.PlatformSignedOut]: "You're signed out of your platform environments. Sign in for them again from your account.",
     }
 
     public constructor(public readonly Kind: AccountErrorKind)

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AccountError, AccountErrorKind, TargetKind, TargetStatus, type AccountState } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetKind, TargetSource, TargetStatus, type AccountState } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountService } from '../account-service.js'
 import { DesktopApiClient } from '../desktop-api-client.js'
 import { DesktopSessionStore } from '../desktop-session-store.js'
@@ -506,8 +506,11 @@ describe('AccountService', () =>
             publish: [{ name: 'prod', status: 'stopped' }, { name: 'odd', status: 'weird' }],
         }))
         expect(await h.Service.Targets()).toEqual({
-            Contribute: [{ Name: 'dev', Status: TargetStatus.Running }],
-            Publish: [{ Name: 'prod', Status: TargetStatus.Stopped }, { Name: 'odd', Status: TargetStatus.Unknown }],
+            Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }],
+            Publish: [
+                { Id: 'console:prod', Name: 'prod', Status: TargetStatus.Stopped, Source: TargetSource.Console },
+                { Id: 'console:odd', Name: 'odd', Status: TargetStatus.Unknown, Source: TargetSource.Console },
+            ],
         })
         const [targets] = h.Fetch.To('/desktop/targets')
         expect(targets.Url).toBe('http://127.0.0.1:7002/desktop/targets')

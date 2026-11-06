@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { createHash, randomBytes } from 'node:crypto'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind, TenantPlaneAddress, UrlBase,
+    AccountError, AccountErrorKind, ConsoleAddress, PlatformAddress, TargetKind, TargetSource, TenantPlaneAddress, UrlBase,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
@@ -158,7 +158,7 @@ export class AccountService
         if (session === undefined) throw new AccountError(AccountErrorKind.SignedOut)
         try
         {
-            return await this.client.Targets(session)
+            return await this.client.Targets(session, TargetSource.Console)
         }
         catch (e)
         {

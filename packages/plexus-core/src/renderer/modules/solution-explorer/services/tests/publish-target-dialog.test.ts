@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { PublishTargetDialog } from '../publish-target-dialog.js'
 import { TargetPickOutcome } from '../target-dialog.js'
 import { FakePickerDialogs, FakeTargetAccount } from './fake-target-sources.js'
-import { AccountError, AccountErrorKind, TargetKind, TargetStatus } from '../../../../../shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetKind, TargetSource, TargetStatus } from '../../../../../shared/account-api.js'
 
 class PublishDialogHarness
 {
@@ -50,7 +50,7 @@ describe('PublishTargetDialog', () =>
     it('says when the account has no runtime environments', async () =>
     {
         const h = new PublishDialogHarness()
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         await h.Open()
         expect(h.Dialog.Message).toBe('Your account has no runtime environments to publish to.')
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -59,7 +59,7 @@ describe('PublishTargetDialog', () =>
     it('says a selected stopped environment cannot be published to', async () =>
     {
         const h = new PublishDialogHarness()
-        h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: TargetStatus.Stopped }] }
+        h.Account.TargetList = { Contribute: [], Publish: [{ Id: 'console:prod', Name: 'prod', Status: TargetStatus.Stopped, Source: TargetSource.Console }] }
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment is stopped. Start it from the tenant console.')
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -71,7 +71,7 @@ describe('PublishTargetDialog', () =>
         for (const status of [TargetStatus.Failed, TargetStatus.Unknown])
         {
             const h = new PublishDialogHarness()
-            h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: status }] }
+            h.Account.TargetList = { Contribute: [], Publish: [{ Id: 'console:prod', Name: 'prod', Status: status, Source: TargetSource.Console }] }
             await h.Open()
             expect(h.Dialog.Message).toBe('This environment is not running. Check it in the tenant console.')
             expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -83,7 +83,7 @@ describe('PublishTargetDialog', () =>
         const h = new PublishDialogHarness()
         h.Account.TargetList = {
             Contribute: [],
-            Publish: [{ Name: 'prod', Status: TargetStatus.Running }, { Name: 'stage', Status: TargetStatus.Running }],
+            Publish: [{ Id: 'console:prod', Name: 'prod', Status: TargetStatus.Running, Source: TargetSource.Console }, { Id: 'console:stage', Name: 'stage', Status: TargetStatus.Running, Source: TargetSource.Console }],
         }
         h.Account.Last = { [TargetKind.Publish]: { Environment: 'stage' } }
         await h.Open()
@@ -100,7 +100,7 @@ describe('PublishTargetDialog', () =>
     it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Publish button follows it', async () =>
     {
         const h = new PublishDialogHarness(false)
-        h.Account.TargetList = { Contribute: [], Publish: [{ Name: 'prod', Status: TargetStatus.Running }] }
+        h.Account.TargetList = { Contribute: [], Publish: [{ Id: 'console:prod', Name: 'prod', Status: TargetStatus.Running, Source: TargetSource.Console }] }
         const seen: boolean[] = []
         h.Dialog.ConfirmCommand.AddCanExecuteChangedListener(() => seen.push(h.Dialog.ConfirmCommand.CanExecute(undefined)))
         await h.Open()

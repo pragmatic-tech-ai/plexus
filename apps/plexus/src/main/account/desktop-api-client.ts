@@ -1,4 +1,4 @@
-import { AccountError, AccountErrorKind, TargetStatus, UrlBase, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetIdentity, TargetSource, TargetStatus, UrlBase, type AccountTargets, type EnvironmentTarget } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import type { DesktopSession } from './desktop-session-store.js'
 import { TextValue } from './text-value.js'
@@ -105,12 +105,12 @@ export class DesktopApiClient
         return { Token: token, ExpiresAt: expiresAt, TenantId: tenantId, TenantName: tenantName, Email: TextValue.Filled(email) ? email : undefined }
     }
 
-    public async Targets(session: DesktopSession): Promise<AccountTargets>
+    public async Targets(session: Pick<DesktopSession, 'ConsoleUrl' | 'Token'>, source: TargetSource): Promise<AccountTargets>
     {
         const res = await this.Send(session.ConsoleUrl, DesktopApiClient.TargetsPath, DesktopApiClient.MethodGet, AccountErrorKind.ConsoleUnreachable, undefined, session.Token)
         if (res.status === DesktopApiClient.StatusUnauthorized) throw new AccountError(AccountErrorKind.SignedOut)
         const { contribute, publish } = await DesktopApiClient.Body(res)
-        return { Contribute: DesktopApiClient.Targets(contribute), Publish: DesktopApiClient.Targets(publish) }
+        return { Contribute: DesktopApiClient.Targets(contribute, source), Publish: DesktopApiClient.Targets(publish, source) }
     }
 
     // Ends the session at its console. A 401 means it was already over, which is the goal.
@@ -179,7 +179,7 @@ export class DesktopApiClient
         }
     }
 
-    private static Targets(raw: unknown): EnvironmentTarget[]
+    private static Targets(raw: unknown, source: TargetSource): EnvironmentTarget[]
     {
         if (!Array.isArray(raw)) return []
         const targets: EnvironmentTarget[] = []
@@ -188,7 +188,7 @@ export class DesktopApiClient
             if (typeof entry !== 'object' || entry === null) continue
             const { name, status } = entry as Record<string, unknown>
             if (typeof name !== 'string' || name === '') continue
-            targets.push({ Name: name, Status: DesktopApiClient.Status(status) })
+            targets.push({ Id: TargetIdentity.Id(source, name), Name: name, Status: DesktopApiClient.Status(status), Source: source })
         }
         return targets
     }

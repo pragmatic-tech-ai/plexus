@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire, TenantPlaneAddress, TransportRule, UrlBase } from '../account-api.js'
+import { AccountError, AccountErrorKind, AccountWire, ConsoleAddress, PlatformAddress, RelayError, RelayWire, TargetIdentity, TargetSource, TenantPlaneAddress, TransportRule, UrlBase } from '../account-api.js'
 
 describe('PlatformAddress.Validate', () =>
 {
@@ -17,6 +17,37 @@ describe('PlatformAddress.Validate', () =>
         expect(PlatformAddress.Validate('http://p.example')).toMatch(/https/)
         expect(PlatformAddress.Validate('ftp://x')).toMatch(/https/)
         expect(PlatformAddress.Validate('not an address')).toMatch(/not a valid/)
+    })
+})
+
+describe('TargetIdentity', () =>
+{
+    it('Id differs per source for the same name', () =>
+    {
+        expect(TargetIdentity.Id(TargetSource.Platform, 'dev')).toBe('platform:dev')
+        expect(TargetIdentity.Id(TargetSource.Platform, 'dev')).not.toBe(TargetIdentity.Id(TargetSource.Console, 'dev'))
+    })
+
+    it('RefOf reads an absent Source as Console and keeps a given one', () =>
+    {
+        expect(TargetIdentity.RefOf({ Environment: 'dev' })).toEqual({ Name: 'dev', Source: TargetSource.Console })
+        expect(TargetIdentity.RefOf({ Environment: 'dev', Source: TargetSource.Platform })).toEqual({ Name: 'dev', Source: TargetSource.Platform })
+    })
+
+    it('IsSource accepts only the known sources', () =>
+    {
+        expect(TargetIdentity.IsSource('platform')).toBe(true)
+        expect(TargetIdentity.IsSource('console')).toBe(true)
+        expect(TargetIdentity.IsSource('x')).toBe(false)
+    })
+})
+
+describe('the console-retired and platform-signed-out kinds', () =>
+{
+    it('carry their fixed sentences', () =>
+    {
+        expect(new AccountError(AccountErrorKind.ConsoleRetired).message).toBe("Your organization's console is no longer registered with the platform. Ask your administrator.")
+        expect(new AccountError(AccountErrorKind.PlatformSignedOut).message).toBe("You're signed out of your platform environments. Sign in for them again from your account.")
     })
 })
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ContributeTargetDialog } from '../contribute-target-dialog.js'
 import { TargetPickOutcome } from '../target-dialog.js'
 import { FakeGraphSource, FakePickerDialogs, FakeTargetAccount, Gate } from './fake-target-sources.js'
-import { AccountError, AccountErrorKind, RelayError, TargetKind, TargetStatus } from '../../../../../shared/account-api.js'
+import { AccountError, AccountErrorKind, RelayError, TargetKind, TargetSource, TargetStatus } from '../../../../../shared/account-api.js'
 
 class ContributeDialogHarness
 {
@@ -61,7 +61,7 @@ describe('ContributeTargetDialog', () =>
     it('reloads its targets when the account signs in while it is open', async () =>
     {
         const h = new ContributeDialogHarness(false)
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         h.Graphs.Graphs = { dev: ['main'] }
         await h.Open()
         expect(h.Dialog.NeedsSignIn).toBe(true)
@@ -85,7 +85,7 @@ describe('ContributeTargetDialog', () =>
     it('says a selected stopped environment cannot take a contribution', async () =>
     {
         const h = new ContributeDialogHarness()
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Stopped }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Stopped, Source: TargetSource.Console }], Publish: [] }
         h.Graphs.Graphs = { dev: ['main'] }
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment is stopped. Start it from the tenant console.')
@@ -98,7 +98,7 @@ describe('ContributeTargetDialog', () =>
         for (const status of [TargetStatus.Failed, TargetStatus.Unknown])
         {
             const h = new ContributeDialogHarness()
-            h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: status }], Publish: [] }
+            h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: status, Source: TargetSource.Console }], Publish: [] }
             await h.Open()
             expect(h.Dialog.Message).toBe('This environment is not running. Check it in the tenant console.')
             expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -110,10 +110,10 @@ describe('ContributeTargetDialog', () =>
         const h = new ContributeDialogHarness()
         h.Account.TargetList = {
             Contribute: [
-                { Name: 'dev', Status: TargetStatus.Running },
-                { Name: 'qa', Status: TargetStatus.Stopped },
-                { Name: 'old', Status: TargetStatus.Failed },
-                { Name: 'odd', Status: TargetStatus.Unknown },
+                { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console },
+                { Id: 'console:qa', Name: 'qa', Status: TargetStatus.Stopped, Source: TargetSource.Console },
+                { Id: 'console:old', Name: 'old', Status: TargetStatus.Failed, Source: TargetSource.Console },
+                { Id: 'console:odd', Name: 'odd', Status: TargetStatus.Unknown, Source: TargetSource.Console },
             ],
             Publish: [],
         }
@@ -124,7 +124,7 @@ describe('ContributeTargetDialog', () =>
     it('says when the running environment has no graphs yet', async () =>
     {
         const h = new ContributeDialogHarness()
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         await h.Open()
         expect(h.Dialog.Message).toBe('This environment has no graphs yet. Create one in the tenant console.')
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -134,7 +134,7 @@ describe('ContributeTargetDialog', () =>
     {
         const h = new ContributeDialogHarness()
         h.Account.TargetList = {
-            Contribute: [{ Name: 'alpha', Status: TargetStatus.Running }, { Name: 'dev', Status: TargetStatus.Running }],
+            Contribute: [{ Id: 'console:alpha', Name: 'alpha', Status: TargetStatus.Running, Source: TargetSource.Console }, { Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }],
             Publish: [],
         }
         h.Account.Last = { [TargetKind.Contribute]: { Environment: 'dev', GraphName: 'second' } }
@@ -172,7 +172,7 @@ describe('ContributeTargetDialog', () =>
     {
         const h = new ContributeDialogHarness()
         h.Account.TargetList = {
-            Contribute: [{ Name: 'dev', Status: TargetStatus.Running }, { Name: 'qa', Status: TargetStatus.Stopped }],
+            Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }, { Id: 'console:qa', Name: 'qa', Status: TargetStatus.Stopped, Source: TargetSource.Console }],
             Publish: [],
         }
         h.Graphs.ListGate = new Gate<void>()
@@ -190,7 +190,7 @@ describe('ContributeTargetDialog', () =>
     it('a newer Show keeps its own load when the superseded Show finishes', async () =>
     {
         const h = new ContributeDialogHarness()
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         h.Graphs.Graphs = { dev: ['main'] }
         const first = h.Dialog.Show()
         const second = h.Dialog.Show()
@@ -207,7 +207,7 @@ describe('ContributeTargetDialog', () =>
     it('shows a relay sentence, and a fixed sentence for anything else', async () =>
     {
         const h = new ContributeDialogHarness()
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         h.Graphs.ListError = new RelayError('The environment dev could not be reached.')
         await h.Open()
         expect(h.Dialog.Message).toBe('The environment dev could not be reached.')
@@ -220,7 +220,7 @@ describe('ContributeTargetDialog', () =>
     it('resolves the chosen target on Contribute and remembers it; Cancel and a dismiss resolve Cancelled', async () =>
     {
         const h = new ContributeDialogHarness()
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         h.Graphs.Graphs = { dev: ['main'] }
         await h.Open()
         expect(h.Dialogs.Shown.map((s) => s.Title)).toEqual(['Contribute to graph'])
@@ -251,7 +251,7 @@ describe('ContributeTargetDialog', () =>
     it('raises ConfirmCommand.CanExecuteChanged on every readiness change, so the Contribute button follows it', async () =>
     {
         const h = new ContributeDialogHarness(false)
-        h.Account.TargetList = { Contribute: [{ Name: 'dev', Status: TargetStatus.Running }], Publish: [] }
+        h.Account.TargetList = { Contribute: [{ Id: 'console:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Console }], Publish: [] }
         h.Graphs.Graphs = { dev: ['main'] }
         const seen: boolean[] = []
         h.Dialog.ConfirmCommand.AddCanExecuteChangedListener(() => seen.push(h.Dialog.ConfirmCommand.CanExecute(undefined)))

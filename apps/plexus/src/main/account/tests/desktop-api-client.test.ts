@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetSource, TargetStatus } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { DesktopApiClient } from '../desktop-api-client.js'
 import { DesktopSessionStore, type DesktopSession } from '../desktop-session-store.js'
 import { ReverseEncryptor } from './reverse-encryptor.js'
@@ -136,7 +136,7 @@ describe('DesktopApiClient', () =>
         await client.Begin('https://console-acme.example', 'acme', 'http://127.0.0.1:5555/cb', 'ch')
         fake.Answer = () => FakeFetch.Json(500, {})
         await Caught.Kind(client.Complete('https://console-acme.example', 'st', 'code', 'ver'))
-        await Caught.Kind(client.Targets(session))
+        await Caught.Kind(client.Targets(session, TargetSource.Console))
         await Caught.Kind(client.Discover('http://localhost:7000', 'ada@acme.example'))
         expect(fake.Requests).toHaveLength(4)
         expect(fake.Requests.every(r => r.Redirect === 'error')).toBe(true)
@@ -156,7 +156,7 @@ describe('DesktopApiClient', () =>
         fake.Answer = () => { throw FakeFetch.Failed('SELF_SIGNED_CERT_IN_CHAIN') }
         expect(await Caught.Kind(client.Console('https://console-acme.example'))).toBe(AccountErrorKind.CertificateUntrusted)
         expect(await Caught.Kind(client.Discover('https://platform.example', 'ada@acme.example'))).toBe(AccountErrorKind.CertificateUntrusted)
-        expect(await Caught.Kind(client.Targets(session))).toBe(AccountErrorKind.CertificateUntrusted)
+        expect(await Caught.Kind(client.Targets(session, TargetSource.Console))).toBe(AccountErrorKind.CertificateUntrusted)
     })
 
     it('console calls that cannot connect are ConsoleUnreachable', async () =>
@@ -165,9 +165,18 @@ describe('DesktopApiClient', () =>
         expect(await Caught.Kind(client.Begin('https://console-acme.example', 'acme', 'http://127.0.0.1:5555/cb', 'ch'))).toBe(AccountErrorKind.ConsoleUnreachable)
         expect(await Caught.Kind(client.Complete('https://console-acme.example', 'st', 'code', 'ver'))).toBe(AccountErrorKind.ConsoleUnreachable)
         expect(await Caught.Kind(client.Console('https://console-acme.example'))).toBe(AccountErrorKind.ConsoleUnreachable)
-        expect(await Caught.Kind(client.Targets(session))).toBe(AccountErrorKind.ConsoleUnreachable)
+        expect(await Caught.Kind(client.Targets(session, TargetSource.Console))).toBe(AccountErrorKind.ConsoleUnreachable)
         expect(await Caught.Kind(client.SignOut(session))).toBe(AccountErrorKind.ConsoleUnreachable)
         expect(await Caught.Kind(client.Discover('http://localhost:7000', 'ada@acme.example'))).toBe(AccountErrorKind.Unreachable)
+    })
+
+    it('Targets tags each target with its source and a source-unique id', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { contribute: [{ name: 'dev', status: 'running' }], publish: [] })
+        expect(await client.Targets(session, TargetSource.Platform)).toEqual({
+            Contribute: [{ Id: 'platform:dev', Name: 'dev', Status: TargetStatus.Running, Source: TargetSource.Platform }],
+            Publish: [],
+        })
     })
 
     it('targets and sign-out of a legacy session go to the platform tenant plane', async () =>
@@ -178,7 +187,7 @@ describe('DesktopApiClient', () =>
         const loaded = await new DesktopSessionStore(dir, encryptor).Load()
         expect(loaded).toBeDefined()
         fake.Answer = () => FakeFetch.Json(200, { contribute: [], publish: [] })
-        await client.Targets(loaded!)
+        await client.Targets(loaded!, TargetSource.Console)
         fake.Answer = () => new Response(null, { status: 204 })
         await client.SignOut(loaded!)
         expect(fake.Requests.map(r => r.Url)).toEqual(['http://127.0.0.1:7002/desktop/targets', 'http://127.0.0.1:7002/desktop/sign-out'])
