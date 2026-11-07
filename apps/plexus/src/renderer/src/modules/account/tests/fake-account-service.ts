@@ -37,6 +37,8 @@ export class FakeAccountService implements IAccountService
     // The Platform access a discovery sign-in reports (Offered when the tenant has platform environments).
     public SignInPlatform: PlatformAccess | undefined = undefined
     public RefreshCount = 0
+    // The state main holds, when it has moved on without a push (an expired platform part): Refresh applies it.
+    public MainState: AccountState | undefined = undefined
 
     private state: AccountState = { SignedIn: false }
 
@@ -54,6 +56,7 @@ export class FakeAccountService implements IAccountService
     public async Refresh(): Promise<void>
     {
         this.RefreshCount++
+        if (this.MainState !== undefined) this.SetState(this.MainState)
     }
 
     public RequestSignIn(): Promise<boolean>

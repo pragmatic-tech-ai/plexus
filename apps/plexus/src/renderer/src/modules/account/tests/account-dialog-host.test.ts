@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { AccountServiceKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
+import { PlatformAccess } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountDialog } from '../account-dialog.js'
 import { AccountDialogHost } from '../account-dialog-host.js'
 import { AccountSignInModule } from '../account-sign-in-module.js'
@@ -43,6 +44,49 @@ describe('AccountSignInModule', () =>
 
 describe('AccountDialogHost', () =>
 {
+    it('reloads the account state each time the dialog opens, and the open dialog shows the reloaded state (I1)', async () =>
+    {
+        const h = new AccountShellHarness()
+        h.Account.SetState({ SignedIn: true, Email: 'ada@acme.test', TenantName: 'Acme', Platform: PlatformAccess.SignedIn })
+        const host = new AccountDialogHost(h.Provider)
+        await AccountShellHarness.Flush()
+        expect(h.Account.RefreshCount).toBe(1)
+        // Main dropped the expired platform part meanwhile: it offers the platform step again.
+        h.Account.MainState = { SignedIn: true, Email: 'ada@acme.test', TenantName: 'Acme', Platform: PlatformAccess.Offered }
+        void host.OpenDialog()
+        expect(h.Dialogs.Shown).toHaveLength(1)
+        await AccountShellHarness.Flush()
+        expect(h.Account.RefreshCount).toBe(2)
+        const vm = host.CurrentDialog!
+        expect(vm.ShowsPlatformSignedIn).toBe(false)
+        expect(vm.ShowsPlatformOffer).toBe(true)
+        h.Dialogs.Pending.Resolve(undefined)
+        await AccountShellHarness.Flush()
+        h.Dialogs.Pending = new Deferred<unknown>()
+        h.Account.RequestSignIn()
+        expect(h.Account.RefreshCount).toBe(3)
+    })
+
+    it('a failed reload on open leaves the dialog open and logs only the error name (I1)', async () =>
+    {
+        const h = new AccountShellHarness()
+        const host = new AccountDialogHost(h.Provider)
+        await AccountShellHarness.Flush()
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+        try
+        {
+            h.Account.Refresh = async () => { throw new TypeError('secret https://c.example') }
+            void host.OpenDialog()
+            await AccountShellHarness.Flush()
+            expect(host.CurrentDialog).toBeDefined()
+            expect(warn).toHaveBeenCalledWith('AccountDialogHost: loading the account state failed:', 'TypeError')
+        }
+        finally
+        {
+            warn.mockRestore()
+        }
+    })
+
     it('the dialog reads the console address setting', async () =>
     {
         const h = new AccountShellHarness()

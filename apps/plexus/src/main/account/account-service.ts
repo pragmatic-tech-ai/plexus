@@ -61,7 +61,8 @@ type Replaced = { Console?: DesktopSession; Platform?: PlatformSession }
 // the part holding that token, and only while it is still the stored one, so a late 401 for a part
 // already replaced or signed out writes nothing. A platform part outlives a console 401 (dormant) and
 // is reattached by a console sign-in for the same tenant and email. A platform part past its expiry
-// is treated as absent and dropped at the next write.
+// is treated as absent; Targets and SessionFor drop it (ending it at the platform) and announce the
+// offer again on Changed, as does any other write.
 export class AccountService
 {
     private static readonly ChoicesFile = 'publish-choices.json'
@@ -77,6 +78,7 @@ export class AccountService
     private static readonly JsonIndent = 2
     private static readonly SignedOutState: AccountState = { SignedIn: false }
     private static readonly DropPlatformFailedLog = '[account] could not drop the signed-out platform session:'
+    private static readonly DropExpiredFailedLog = '[account] could not drop the expired platform session:'
 
     public readonly Changed = new Signal<AccountState>()
     // Consoles: tenant id -> the discovered console to sign in at; TenantPlaneUrl: the platform's
@@ -112,6 +114,7 @@ export class AccountService
     public async SessionFor(source: TargetSource): Promise<SessionAddress | undefined>
     {
         const account = await this.store.Load()
+        if (source === TargetSource.Platform) await this.DropExpiredPlatform(account)
         const part = source === TargetSource.Platform ? this.PlatformBeside(account) : account.Console
         return part === undefined ? undefined : { ConsoleUrl: part.ConsoleUrl, Token: part.Token }
     }
@@ -229,6 +232,7 @@ export class AccountService
     {
         const account = await this.store.Load()
         if (account.Console === undefined) throw new AccountError(AccountErrorKind.SignedOut)
+        await this.DropExpiredPlatform(account)
         const platform = this.PlatformBeside(account)
         const [own, beside] = await Promise.all([
             this.ConsoleTargets(account.Console),
@@ -449,6 +453,35 @@ export class AccountService
         catch (e)
         {
             console.warn(AccountService.DropPlatformFailedLog, { name: e instanceof Error ? e.name : typeof e })
+        }
+    }
+
+    // A stored platform part past its expiry (as read in `account`): dropped while it is still the
+    // stored one, and ended at its own address, since no one holds it any more. The renderer last saw
+    // it signed in when it sat beside the console part of its tenant, so only then is the new state
+    // (the offer again) announced; a dormant part changes nothing the user sees. Never fails: a store
+    // failure is logged by name only and leaves the part to the next look.
+    private async DropExpiredPlatform(account: StoredAccount): Promise<void>
+    {
+        const expired = account.Platform
+        if (expired === undefined || this.Live(expired) !== undefined) return
+        try
+        {
+            const next = await this.Serialised(async () =>
+            {
+                const current = await this.store.Load()
+                if (current.Platform === undefined || current.Platform.Token !== expired.Token) return undefined
+                const kept: StoredAccount = { Console: current.Console }
+                await this.store.Save(kept)
+                return { Account: kept, Shown: current.Console !== undefined && current.Console.TenantId === current.Platform.TenantId }
+            })
+            if (next === undefined) return
+            await this.EndQuietly(expired)
+            if (next.Shown) this.Changed.emit(this.StateOf(next.Account))
+        }
+        catch (e)
+        {
+            console.warn(AccountService.DropExpiredFailedLog, { name: e instanceof Error ? e.name : typeof e })
         }
     }
 

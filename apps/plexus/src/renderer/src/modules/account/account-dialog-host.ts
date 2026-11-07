@@ -31,9 +31,8 @@ export class AccountDialogHost implements IDisposable
         this.account = provider.getRequired(AccountServiceKey)
         this.requests = this.account.SignInRequested.subscribe((request) => { void this.OpenDialog(request) })
         // The account state lives in main; load it once at launch so the status cell and the pickers
-        // are right from boot. A failure leaves the account signed out and logs only the error's name
-        // (never its message).
-        this.account.Refresh().catch((e: unknown) => console.warn(AccountDialogHost.RefreshFailedLog, AccountDialog.ErrorName(e)))
+        // are right from boot. A failure leaves the account signed out.
+        this.Refresh()
     }
 
     // Shows the account dialog; a request while it is already open leaves that one in place. A
@@ -59,6 +58,9 @@ export class AccountDialogHost implements IDisposable
             dialog = new AccountDialog(this.account, this.PlatformAddress(),
                 new ConsoleAddressSetting(this.provider.get(ApplicationSettings.Key)), () => dialogs.Close(undefined), request !== undefined)
             this.openDialog = dialog
+            // Main may have moved on without a push (it treats an expired platform part as absent):
+            // reload the state, and the open dialog follows it on Changed.
+            this.Refresh()
             await dialogs.Show({ Title: AccountDialogHost.DialogTitle, Content: dialog })
         }
         catch (e)
@@ -85,6 +87,13 @@ export class AccountDialogHost implements IDisposable
     public dispose(): void
     {
         this.requests.dispose()
+    }
+
+    // Reloads the account state from main without waiting for it. A failure keeps the state as it was
+    // and logs only the error's name (never its message).
+    private Refresh(): void
+    {
+        this.account.Refresh().catch((e: unknown) => console.warn(AccountDialogHost.RefreshFailedLog, AccountDialog.ErrorName(e)))
     }
 
     // The "Platform address" setting, or the default when it is unset or blank.

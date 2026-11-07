@@ -956,6 +956,59 @@ describe('AccountService platform session', () =>
         expect(h.Fetch.At(`${Harness.Plane}/desktop/targets`)).toEqual([])
     })
 
+    it('an expired platform part found during Targets is dropped, ended and announced once as Offered (I1)', async () =>
+    {
+        await h.SignInBoth()
+        h.Now = Date.parse('2026-11-11T00:00:00.001Z')
+        const changes = h.Changes.length
+        expect(await h.Service.Targets()).toEqual(ConsoleSet)
+        expect(h.Changes.slice(changes)).toEqual([Offered])
+        const stored = await h.Store.Load()
+        expect(stored.Console!.Token).toBe(ConsoleToken)
+        expect(stored.Platform).toBeUndefined()
+        expect(h.SignOutsWith(PlatformToken)).toHaveLength(1)
+        expect(h.SignOutsWith(PlatformToken)[0].Url.startsWith(Harness.Plane)).toBe(true)
+        expect(h.SignOutsWith(ConsoleToken)).toEqual([])
+        // Already dropped: a second look changes nothing visible and emits nothing.
+        expect(await h.Service.Targets()).toEqual(ConsoleSet)
+        expect(await h.Service.SessionFor(TargetSource.Platform)).toBeUndefined()
+        expect(h.Changes.slice(changes)).toEqual([Offered])
+    })
+
+    it('an expired platform part found by SessionFor is dropped and announced once as Offered (I1)', async () =>
+    {
+        await h.SignInBoth()
+        h.Now = Date.parse('2026-11-11T00:00:00.001Z')
+        const changes = h.Changes.length
+        expect(await h.Service.SessionFor(TargetSource.Platform)).toBeUndefined()
+        expect(h.Changes.slice(changes)).toEqual([Offered])
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+        expect((await h.Service.SessionFor(TargetSource.Console))!.Token).toBe(ConsoleToken)
+        expect(h.Changes.slice(changes)).toEqual([Offered])
+    })
+
+    it('a live platform part is neither dropped nor announced by Targets or SessionFor (I1)', async () =>
+    {
+        await h.SignInBoth()
+        const changes = h.Changes.length
+        await h.Service.Targets()
+        await h.Service.SessionFor(TargetSource.Platform)
+        expect(h.Changes).toHaveLength(changes)
+        expect((await h.Store.Load()).Platform!.Token).toBe(PlatformToken)
+        expect(h.SignOutsWith(PlatformToken)).toEqual([])
+    })
+
+    it('an expired dormant platform part dropped while signed out emits nothing (I1)', async () =>
+    {
+        await h.SignInBoth()
+        await h.Service.HandleSignedOut(ConsoleToken)
+        h.Now = Date.parse('2026-11-11T00:00:00.001Z')
+        const changes = h.Changes.length
+        expect(await h.Service.SessionFor(TargetSource.Platform)).toBeUndefined()
+        expect(h.Changes).toHaveLength(changes)
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+    })
+
     it('an expired platform part is dropped at the next write', async () =>
     {
         await h.SignInBoth()

@@ -40,7 +40,7 @@ export enum GraphErrorCode
     PackageMissing = -32045,
 }
 
-// The HTTP answers the tenant plane refuses a relay upgrade with.
+// The HTTP answers the relay end (a console or the platform's tenant plane) refuses an upgrade with.
 enum RelayStatus
 {
     Unauthorized = 401,

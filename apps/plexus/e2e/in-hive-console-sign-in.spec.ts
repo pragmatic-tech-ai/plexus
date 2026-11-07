@@ -41,7 +41,7 @@ import { existsSync } from 'node:fs'
 import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
 import { E2eProfile } from './support/e2e-profile'
-import { PlatformAccess, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountErrorKind, PlatformAccess, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
 // The contribute outcome as the renderer reports it.
 interface GraphOutcome
@@ -213,8 +213,6 @@ class SmokeConstants
 {
     public static readonly TenantId = 'pragmatic-default'
     public static readonly RunningStatus = 'running'
-    public static readonly SignedOutKind = 'signed-out'
-    public static readonly ConsoleRetiredKind = 'console-retired'
     public static readonly PackageId = 'ihc-smoke'
     public static readonly MissingSuffix = '-missing'
     // RelayConnector's graph-gone sentence: The graph <graph> no longer exists in <environment>. ...
@@ -371,7 +369,7 @@ test.describe(SmokeConstants.SuiteTitle, () => {
                 expect(state.SignedIn).toBeFalsy()
                 expect(state.Platform, SmokeConstants.PlatformGone).toBeUndefined()
                 const result = await signIn.Targets(l!.win)
-                expect(result.ErrorKind).toBe(SmokeConstants.SignedOutKind)
+                expect(result.ErrorKind).toBe(AccountErrorKind.SignedOut)
             })
 
             await test.step(SmokeConstants.StepTypedSignIn, async () => {
@@ -415,7 +413,7 @@ test.describe(SmokeConstants.SuiteTitle, () => {
 
             await test.step(SmokeConstants.StepRetired, async () => {
                 const kind = await signIn.AttemptConsoleSignIn(l!.app, l!.win, isolated, consoleUrl)
-                expect(kind).toBe(SmokeConstants.ConsoleRetiredKind)
+                expect(kind).toBe(AccountErrorKind.ConsoleRetired)
                 expect(signIn.LastAttemptOpenedBrowser, SmokeConstants.NoBrowserOpened).toBeFalsy()
             })
         }

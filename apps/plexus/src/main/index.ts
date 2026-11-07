@@ -199,8 +199,9 @@ app.whenReady().then(async () => {
   AccountIpc.Register(ipcMain, account, () => BrowserWindow.getAllWindows().map((w) => w.webContents))
   app.on('will-quit', () => void account.CancelSignIn())
 
-  // Contribute and publish go through the tenant plane's desktop relay: main dials it with the
-  // desktop session token (RelayConnector), and the tenant plane holds the environment credential.
+  // Contribute and publish go through the desktop relay of the target's source: main dials the
+  // console or the platform's tenant plane with that source's session token (RelayConnector), and
+  // the relay end holds the environment credential.
   // Nothing secret crosses to the renderer; the handlers answer sentences in a RelayReply envelope.
   const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
   TenantPublishIpc.Register(ipcMain, new TenantDeployService(relay))

@@ -21,7 +21,7 @@ import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 // (PublishTargetDialog) for the target Runtime environment,
 // builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
 // Open/Serve HTML app), then hands the target (name + source) + output dir to the ITenantPublisher, whose
-// main-process side uploads it through the tenant plane relay via the protocol deploy method. A
+// main-process side uploads it through the relay of the target's source (console or platform) via the protocol deploy method. A
 // non-applied server status fails the task row with the server reason.
 // Action-only (Contribute yields no nodes).
 export class PublishTenantContributor implements IHierarchyContributor

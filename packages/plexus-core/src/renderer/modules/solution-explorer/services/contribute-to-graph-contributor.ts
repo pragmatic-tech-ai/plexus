@@ -17,7 +17,7 @@ import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 // Contributes the "Contribute to graph…" command to the Solution root row. Contribute asks the
 // environment picker (ContributeTargetDialog) for the target environment + graph, builds the whole active solution's packages via
 // SolutionPackageBuilder, then hands them to IGraphContributor.Contribute (whose main-process side
-// posts them through the tenant plane relay; no credential ever reaches the renderer). A build /
+// posts them through the relay of the target's source, console or platform; no credential ever reaches the renderer). A build /
 // sign-in / refusal / conflict failure throws inside the background task and fails that row with
 // its sentence. Action-only (Contribute yields no nodes); closes over the solution.
 export class ContributeToGraphContributor implements IHierarchyContributor

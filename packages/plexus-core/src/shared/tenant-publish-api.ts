@@ -1,5 +1,5 @@
 // Shared (renderer + main) contract for the "Publish to tenant" feature: the remote build dir, the
-// publish status enum and the result shape. Publishing goes through the tenant plane relay, which
+// publish status enum and the result shape. Publishing goes through the relay of the target's source (console or platform), which
 // keeps the environment credentials server-side; no credentials ever appear in these types.
 
 // Directory (under the project root) the remote flavor builds into; the renderer builds there and

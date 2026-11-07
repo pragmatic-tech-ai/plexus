@@ -155,7 +155,7 @@ class RelayFixture
 
 describe('RelayConnector', () =>
 {
-    it('dials the tenant plane relay for the environment and action with the desktop token', async () =>
+    it('dials the console relay for a console target\'s environment and action with the console token', async () =>
     {
         const dial = new FakeDial()
         const sessions = new FakeSessions(RelayFixture.Session())
