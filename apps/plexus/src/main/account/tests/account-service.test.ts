@@ -975,6 +975,21 @@ describe('AccountService platform session', () =>
         expect(h.Changes.slice(changes)).toEqual([Offered])
     })
 
+    it('a hanging platform sign-out delays neither the Offered announcement nor Targets (I1)', async () =>
+    {
+        await h.SignInBoth()
+        let release!: () => void
+        const held = new Promise<void>(resolve => { release = resolve })
+        h.Fetch.Routes.set(`${Harness.Plane}/desktop/sign-out`, async () => { await held; return new Response(null, { status: 204 }) })
+        h.Now = Date.parse('2026-11-11T00:00:00.001Z')
+        const changes = h.Changes.length
+        expect(await h.Service.Targets()).toEqual(ConsoleSet)
+        expect(h.Changes.slice(changes)).toEqual([Offered])
+        expect((await h.Store.Load()).Platform).toBeUndefined()
+        await vi.waitFor(() => expect(h.SignOutsWith(PlatformToken)).toHaveLength(1))
+        release()
+    })
+
     it('an expired platform part found by SessionFor is dropped and announced once as Offered (I1)', async () =>
     {
         await h.SignInBoth()

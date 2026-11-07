@@ -457,7 +457,7 @@ export class AccountService
     }
 
     // A stored platform part past its expiry (as read in `account`): dropped while it is still the
-    // stored one, and ended at its own address, since no one holds it any more. The renderer last saw
+    // stored one, and ended at its own address in the background, since no one holds it any more. The renderer last saw
     // it signed in when it sat beside the console part of its tenant, so only then is the new state
     // (the offer again) announced; a dormant part changes nothing the user sees. Never fails: a store
     // failure is logged by name only and leaves the part to the next look.
@@ -476,8 +476,9 @@ export class AccountService
                 return { Account: kept, Shown: current.Console !== undefined && current.Console.TenantId === current.Platform.TenantId }
             })
             if (next === undefined) return
-            await this.EndQuietly(expired)
             if (next.Shown) this.Changed.emit(this.StateOf(next.Account))
+            // Not awaited: a hanging platform address must not delay the offer or the caller's targets.
+            void this.EndQuietly(expired)
         }
         catch (e)
         {
