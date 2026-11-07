@@ -55,6 +55,9 @@
 //   PLEXUS_IHC_PLATFORM_PASSWORD_FILE  path of a file holding the platform account's password
 //                                   (optional; SignInAtPlatform needs it; read, never printed). The
 //                                   platform IdP is not the in-hive IdP, so its password differs.
+//   PLEXUS_IHC_PLATFORM_IDP_CERT_FILE  the platform IdP's server certificate, PEM (optional; browser
+//                                   login only). When set, the platform leg's Chromium pins exactly that
+//                                   certificate's public key; the console leg and the OS store are unchanged.
 // SignIn takes an optional ConsoleAddress: the dialog then signs in at that in-hive console address
 // (the typed path) instead of discovering tenants from the platform address.
 import { readFileSync } from 'node:fs'
@@ -134,6 +137,7 @@ export class ScriptedDesktopSignIn
     public static readonly IdpLoginBrowser = IdpLoginKind.Browser
     public static readonly PlatformEmailEnv = 'PLEXUS_IHC_PLATFORM_EMAIL'
     public static readonly PlatformPasswordFileEnv = 'PLEXUS_IHC_PLATFORM_PASSWORD_FILE'
+    public static readonly PlatformIdpCertFileEnv = 'PLEXUS_IHC_PLATFORM_IDP_CERT_FILE'
     public static readonly SkipMessage =
         `needs a scripted desktop sign-in: set ${ScriptedDesktopSignIn.EmailEnv} (account email) and `
         + `${ScriptedDesktopSignIn.PasswordFileEnv} (path of a file holding its password)`
@@ -187,6 +191,7 @@ export class ScriptedDesktopSignIn
         private readonly login: IIdpLogin,
         private readonly platformEmail: string,
         private readonly platformPassword: string | undefined,
+        private readonly platformLogin: IIdpLogin,
     )
     {
     }
@@ -226,8 +231,14 @@ export class ScriptedDesktopSignIn
         const platformPasswordFile = S.Value(env, S.PlatformPasswordFileEnv)
         const platformPassword = platformPasswordFile === undefined ? undefined : readFileSync(platformPasswordFile, S.Utf8).trim()
         if (platformPassword === '') throw new Error(S.EmptyPlatformPassword)
+        // The platform leg pins the platform IdP's server certificate when given (browser login only);
+        // the console leg keeps relying on the OS trust store.
+        const platformCertFile = S.Value(env, S.PlatformIdpCertFileEnv)
+        const platformLogin: IIdpLogin = platformCertFile !== undefined && login instanceof IdpBrowserLogin
+            ? new IdpBrowserLogin([IdpBrowserLogin.SpkiPinFromPemFile(platformCertFile)])
+            : login
         return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login,
-            S.Value(env, S.PlatformEmailEnv) ?? email, platformPassword)
+            S.Value(env, S.PlatformEmailEnv) ?? email, platformPassword, platformLogin)
     }
 
     // Signs the app (launched on `profile`) in; resolves once the account reports signed in.
@@ -275,7 +286,7 @@ export class ScriptedDesktopSignIn
             }, { stateKey: S.StateKey, noOffer: S.NoPlatformOffer })
             if (fault !== undefined) throw new Error(fault)
             const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
-            await this.login.Run(authorizeUrl, this.platformEmail, this.platformPassword)
+            await this.platformLogin.Run(authorizeUrl, this.platformEmail, this.platformPassword)
             await this.AwaitDone(win, S.NotPlatformSignedIn, (probe) => probe.Platform === PlatformAccess.SignedIn)
         }
         finally

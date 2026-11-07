@@ -24,7 +24,9 @@
 //   PLEXUS_IHC_PLATFORM_EMAIL       the platform account's email (default: PLEXUS_E2E_OWNER_EMAIL)
 //   PLEXUS_IHC_PLATFORM_PASSWORD_FILE  path of a file holding the platform account's password (the
 //                                   platform step; read inside ScriptedDesktopSignIn, never printed)
-//   PLEXUS_IHC_EXPECT_RETIRED=1     the console is retired: only the retired-console test runs (the
+//   PLEXUS_IHC_PLATFORM_IDP_CERT_FILE  the platform IdP's server certificate (PEM); when the platform CA
+//                                   is not in the OS store, the platform leg's browser pins this one key
+//   PLEXUS_IHC_EXPECT_RETIRED=1    the console is retired: only the retired-console test runs (the
 //                                   typed console sign-in fails with console-retired before any browser
 //                                   opens), and the live test skips; that test needs only
 //                                   PLEXUS_E2E_OWNER_EMAIL, PLEXUS_E2E_OWNER_PASSWORD_FILE and
