@@ -295,6 +295,11 @@ export default defineConfig({
     // MuralRendererConfig.optimizeDepsExclude for the rationale).
     optimizeDeps: {
       exclude: MuralRendererConfig.optimizeDepsExclude(),
+      // mural is excluded above, so Vite never crawls into it to discover its
+      // CJS leaf deps (highlight.js). Force-bundle those so esbuild gives them a
+      // real ESM default export; otherwise the markdown highlighter's
+      // `import hljs from 'highlight.js'` crashes the renderer at boot.
+      include: MuralRendererConfig.optimizeDepsInclude(),
     },
     build: {
       rollupOptions: {

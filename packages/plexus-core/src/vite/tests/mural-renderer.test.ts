@@ -15,4 +15,8 @@ describe('MuralRendererConfig', () => {
         expect(ex).toContain('@pragmatic-tech-ai/mural/resources/pragmatic')
         expect(ex).toContain('@pragmatic-tech-ai/fresco')
     })
+
+    test('optimizeDeps force-includes highlight.js (CJS leaf of excluded mural)', () => {
+        expect(MuralRendererConfig.optimizeDepsInclude()).toContain('highlight.js')
+    })
 })

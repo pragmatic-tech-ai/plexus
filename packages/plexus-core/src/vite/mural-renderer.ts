@@ -73,4 +73,22 @@ export class MuralRendererConfig
             '@pragmatic-tech-ai/todl-runtime',
         ];
     }
+
+    // Third-party CommonJS leaf deps of mural that Vite must PRE-BUNDLE even
+    // though mural itself is excluded from the optimizer. Excluding mural stops
+    // Vite's dep scanner from crawling into it, so a CJS package mural imports is
+    // never discovered and gets served raw — raw CJS exposes no ESM named exports
+    // in dev. highlight.js is the case: its `import` condition resolves to
+    // es/index.js, but that file re-imports the CommonJS ../lib/index.js
+    // (`module.exports = hljs`) by relative path, bypassing the exports map.
+    // Served raw, lib/index.js provides no `default`, so mural's markdown
+    // code-highlighter (`import hljs from 'highlight.js'`) dies at boot with
+    // "does not provide an export named 'default'". Listing it forces esbuild to
+    // interop it into one ESM module with a real default export. (marked resolves
+    // to a genuine ESM build and opentype.js is imported via its explicit .mjs
+    // path, so neither needs this.)
+    public static optimizeDepsInclude(): string[]
+    {
+        return ['highlight.js'];
+    }
 }
