@@ -14,7 +14,7 @@ import { PlexusPackageStore } from '../storage-service-backends.js'
 // This is the integration claim the unit tests don't cover on their own: the
 // dangling cross-references in own-only docs reassemble correctly at consume time.
 
-const META = 'namespace ea { concept Location { label : string; } concept Technology { label : string; } }'
+const META = 'namespace ea { concept Location { } concept Technology { } }'
 const LIB = `namespace lib {
   import ea;
   taxonomy Microsoft : represents Location, Technology {

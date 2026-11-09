@@ -21,8 +21,8 @@ import { check, checkAgainst, toJSON, type TodlDocument } from '@pragmatic-tech-
 const RUN = process.env.PLEXUS_BENCH === '1'
 
 const META = `namespace ea {
-  concept Technology { label : string; }
-  concept Component { label : string; realisedBy : Technology?; deployedTo : Technology[]; }
+  concept Technology { }
+  concept Component { realisedBy : Technology?; deployedTo : Technology[]; }
 }`
 
 // A library = one taxonomy of N `technology` terms under `stack`.

@@ -7,7 +7,7 @@ import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/render
 import { LibraryProjectFactory } from '../library-project-factory.js'
 
 // The base meta-model defines `category`; the library extends it.
-const META = 'namespace ea { concept category { label : string; } }'
+const META = 'namespace ea { concept category { } }'
 
 async function libraryProject(text: string): Promise<FakeStorage>
 {
@@ -19,7 +19,7 @@ async function libraryProject(text: string): Promise<FakeStorage>
 }
 
 // A library source that extends a base concept — resolves only when the base is present.
-const LIB = 'namespace acme { import ea; concept special : category { label : string; } }'
+const LIB = 'namespace acme { import ea; concept special : category { } }'
 
 test('compileToDocument compiles the library sources against the given base', async () => {
     const factory = new LibraryProjectFactory(new ServiceProvider())

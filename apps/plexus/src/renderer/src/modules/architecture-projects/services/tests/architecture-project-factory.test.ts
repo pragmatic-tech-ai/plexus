@@ -52,7 +52,7 @@ test('requiresMetaModel + offersLibraries are true; the factory is not publishab
 test('openProject tags .todl files as openable todl nodes; the manifest is hidden', async () => {
     const storage = new FakeStorage('fake://Acme')
     await factory().createProject(storage, 'Acme')
-    await storage.WriteText('model.todl', 'namespace a { concept x { label : string; } }')
+    await storage.WriteText('model.todl', 'namespace a { concept x { } }')
     await storage.WriteText('notes.md', '# notes')
 
     const project = await factory().openProject(storage)

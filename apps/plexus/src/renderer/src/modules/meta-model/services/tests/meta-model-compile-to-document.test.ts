@@ -15,7 +15,7 @@ async function project(text: string): Promise<FakeStorage>
 
 test('compileToDocument returns a document with the compiled nodes and no problems', async () => {
     const factory = new MetaModelProjectFactory(new ServiceProvider())
-    const storage = await project('namespace d { concept location { label : string; } }')
+    const storage = await project('namespace d { concept location { } }')
     const { doc, problems } = await factory.compileToDocument(storage, [], new ServiceProvider())
     expect(problems).toEqual([])
     expect(doc.nodes.some((n) => n.id === 'd.location')).toBe(true)
@@ -24,7 +24,7 @@ test('compileToDocument returns a document with the compiled nodes and no proble
 test('compileToDocument reports compile errors as problems', async () => {
     const factory = new MetaModelProjectFactory(new ServiceProvider())
     // `ghost` is an undefined supertype → a TODL error.
-    const storage = await project('namespace d { concept location : ghost { label : string; } }')
+    const storage = await project('namespace d { concept location : ghost { } }')
     const { problems } = await factory.compileToDocument(storage, [], new ServiceProvider())
     expect(problems.length).toBeGreaterThan(0)
 })

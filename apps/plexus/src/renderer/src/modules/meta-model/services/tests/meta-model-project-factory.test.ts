@@ -33,11 +33,11 @@ function publishEnv(): { provider: ServiceProvider; dest: FakeStorage }
 
 // Verified-clean TODL (see the empirical probe): concepts in one file, a
 // meta-model referencing them in another — check() returns zero diagnostics.
-const CONCEPTS = 'namespace d { concept model { label : string; } concept component { label : string; } concept location { label : string; } }'
+const CONCEPTS = 'namespace d { concept model { } concept component { } concept location { } }'
 // A missing concept name is a syntax error.
 const BAD = 'namespace d { concept { label : string; } }'
 // A clean package with a declared annotation applied at package level (0.5.0).
-const PKG_ANN = 'namespace d { annotation author { name : string; } package { annotate author { name = "Acme Corp"; } } concept widget { label : string; } }'
+const PKG_ANN = 'namespace d { annotation author { name : string; } package { annotate author { name = "Acme Corp"; } } concept widget { } }'
 
 test('getVersion/setVersion round-trips packageVersion, preserving other fields', async () => {
     const storage = new FakeStorage('fake://Acme')

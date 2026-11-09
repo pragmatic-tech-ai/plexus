@@ -16,7 +16,7 @@ function factory(): LibraryProjectFactory { return new LibraryProjectFactory(new
 
 // A meta-model with the concepts a library references, published to a fake
 // meta-models backend; plus a fake libraries backend to receive the publish.
-const META = 'namespace ea { concept Location { label : string; } concept Technology { label : string; } }'
+const META = 'namespace ea { concept Location { } concept Technology { } }'
 function publishEnv(): { provider: ServiceProvider; meta: FakeStorage; libs: FakeStorage }
 {
   const provider = new ServiceProvider()
@@ -128,7 +128,7 @@ test('samples/*.todl is excluded from the compiled model', async () => {
 
 // A meta-model whose `location` concept a taxonomy term can be a class of, so the
 // library can declare an iconful class.
-const META_ICON = 'namespace ea { concept location { label : string; } concept technology { label : string; } }'
+const META_ICON = 'namespace ea { concept location { } concept technology { } }'
 async function seedMetaIcon(meta: FakeStorage): Promise<void>
 {
   await meta.WriteText('ea/5/model.json', JSON.stringify(toJSON(check([{ uri: 'm.todl', text: META_ICON }]).model)))

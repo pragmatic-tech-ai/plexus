@@ -4,7 +4,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 
 const MM = `namespace m {
-  concept service { label : string; }
+  concept service { }
   viewpoint V : frames service
 }`
 
@@ -33,7 +33,7 @@ test('capture then restore round-trips own entities', () => {
 // local name, so it survives a save -> reload and the diagram node re-binds.
 test('a minted instance id is project-namespaced + bare-based and survives save/reload', async () => {
     const TECH = `namespace tech_architecture {
-  concept component { label : string; }
+  concept component { }
   viewpoint V : frames component
 }`
     const baseRepo = new Repository(graphFromJSON(toJSON(load([{ uri: 'tech.todl', text: TECH }]).model)))
