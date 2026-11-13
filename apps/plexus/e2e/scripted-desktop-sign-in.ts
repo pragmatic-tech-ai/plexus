@@ -43,8 +43,15 @@
 //   PLEXUS_E2E_TENANT               tenant id or display name to pick when the email belongs to
 //                                   several tenants (optional; default: the first one listed; a value
 //                                   matching no listed tenant fails the sign-in)
+//   PLEXUS_E2E_STACK                path of the pragmatic-server e2e stack descriptor (stack.json,
+//                                   written by live-loop-stack.ts up); when set, the owner email, password
+//                                   file, platform address, tenant and IdP CA file come from it (any of the
+//                                   variables here, when set, still wins)
 //   PLEXUS_E2E_IDP_CA_FILE          the IdP's dev CA certificate (optional; for an https IdP with a
 //                                   private CA, added to Node's default trust)
+//   PLEXUS_E2E_IDP_CERT_FILE        the IdP's server certificate, PEM (optional; browser login only):
+//                                   that Chromium then trusts exactly this certificate's public key
+//                                   besides the OS store, so a private dev CA needs no OS trust
 //   PLEXUS_E2E_IDP_LOGIN            how the IdP login runs: `http` (default; Node http(s) against a
 //                                   server-rendered login form, as the control-plane IdP serves) or
 //                                   `browser` (a separate headless Chromium that types into a
@@ -67,6 +74,7 @@ import { AccountDialogStep } from '../src/renderer/src/modules/account/account-d
 import { IdpBrowserLogin } from './support/idp-browser-login'
 import { IdpPasswordLogin } from './support/idp-password-login'
 import type { E2eProfile } from './support/e2e-profile'
+import { E2eStackInputs } from './support/e2e-stack-inputs'
 import { IdpLoginKind, SignInChecks, type TenantRow } from './support/sign-in-checks'
 
 // The dialog's progress as the renderer reports it to the node side.
@@ -134,13 +142,15 @@ export class ScriptedDesktopSignIn
     public static readonly TenantEnv = 'PLEXUS_E2E_TENANT'
     public static readonly IdpCaFileEnv = 'PLEXUS_E2E_IDP_CA_FILE'
     public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
+    public static readonly IdpCertFileEnv = 'PLEXUS_E2E_IDP_CERT_FILE'
+    public static readonly StackEnv = E2eStackInputs.StackEnv
     public static readonly IdpLoginBrowser = IdpLoginKind.Browser
     public static readonly PlatformEmailEnv = 'PLEXUS_IHC_PLATFORM_EMAIL'
     public static readonly PlatformPasswordFileEnv = 'PLEXUS_IHC_PLATFORM_PASSWORD_FILE'
     public static readonly PlatformIdpCertFileEnv = 'PLEXUS_IHC_PLATFORM_IDP_CERT_FILE'
     public static readonly SkipMessage =
-        `needs a scripted desktop sign-in: set ${ScriptedDesktopSignIn.EmailEnv} (account email) and `
-        + `${ScriptedDesktopSignIn.PasswordFileEnv} (path of a file holding its password)`
+        `needs a scripted desktop sign-in: set ${ScriptedDesktopSignIn.StackEnv} (the e2e stack descriptor), or `
+        + `${ScriptedDesktopSignIn.EmailEnv} (account email) and ${ScriptedDesktopSignIn.PasswordFileEnv} (path of a file holding its password)`
 
     private static readonly UnknownErrorKind = 'unknown'
     private static readonly TimedOutKind = 'timed-out'
@@ -209,24 +219,28 @@ export class ScriptedDesktopSignIn
     }
 
     // Whether the required inputs are set (the specs skip with SkipMessage otherwise).
-    public static IsConfigured(env: NodeJS.ProcessEnv = process.env): boolean
+    public static IsConfigured(raw: NodeJS.ProcessEnv = process.env): boolean
     {
+        const env = E2eStackInputs.Apply(raw)
         return ScriptedDesktopSignIn.Value(env, ScriptedDesktopSignIn.EmailEnv) !== undefined
             && ScriptedDesktopSignIn.Value(env, ScriptedDesktopSignIn.PasswordFileEnv) !== undefined
     }
 
     // Reads the inputs; the password file is read here, into this instance only.
-    public static FromEnvironment(env: NodeJS.ProcessEnv = process.env): ScriptedDesktopSignIn
+    public static FromEnvironment(raw: NodeJS.ProcessEnv = process.env): ScriptedDesktopSignIn
     {
         const S = ScriptedDesktopSignIn
+        const env = E2eStackInputs.Apply(raw)
         const email = S.Value(env, S.EmailEnv)
         const passwordFile = S.Value(env, S.PasswordFileEnv)
         if (email === undefined || passwordFile === undefined) throw new Error(S.SkipMessage)
         const password = readFileSync(passwordFile, S.Utf8).trim()
         if (password === '') throw new Error(S.EmptyPassword)
         const caFile = S.Value(env, S.IdpCaFileEnv)
+        // A browser login pins the IdP's server certificate when given, so a private dev CA needs no OS trust.
+        const idpCertFile = S.Value(env, S.IdpCertFileEnv)
         const login: IIdpLogin = SignInChecks.IdpLoginKindOf(S.Value(env, S.IdpLoginEnv)) === IdpLoginKind.Browser
-            ? new IdpBrowserLogin()
+            ? new IdpBrowserLogin(idpCertFile === undefined ? [] : [IdpBrowserLogin.SpkiPinFromPemFile(idpCertFile)])
             : new IdpPasswordLogin(caFile === undefined ? undefined : readFileSync(caFile))
         const platformPasswordFile = S.Value(env, S.PlatformPasswordFileEnv)
         const platformPassword = platformPasswordFile === undefined ? undefined : readFileSync(platformPasswordFile, S.Utf8).trim()

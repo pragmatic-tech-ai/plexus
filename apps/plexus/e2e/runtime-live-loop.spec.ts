@@ -2,9 +2,10 @@
 // author -> contribute -> promote -> publish-env loop and asserts a real browser reads the promoted
 // data from the served app. The capstone of the runtime-publishing-live-loop slice.
 //
-// Gated by SP_RUNTIME_LOOP_E2E=1 — it needs Docker, a built `pragmatic-server:dev` image, a built
-// Plexus (`out/main/index.js`), chromium, and the Task 2 orchestrator reachable at SP_SERVER_REPO
-// (default sibling ../../../pragmatic-server). It is operator-run; see the runbook.
+// Gated by SP_RUNTIME_LOOP_E2E=1 — it needs the RUNNING e2e stack (pragmatic-server
+// admin/control-plane/live-loop/live-loop-stack.ts up: a control plane, a tenant with its IdP and a
+// kind hive), a built Plexus (`out/main/index.js`), chromium, and the orchestrator reachable at
+// SP_SERVER_REPO (default sibling ../../../pragmatic-server). It is operator-run; see the runbook.
 //
 // The renderer is driven exactly as sp1-plexus-smoke.spec.ts does: reach the live service container
 // through the mural visual backref, resolve the real hierarchy contributors via the contributor
@@ -362,7 +363,7 @@ interface BrowserLogEntry
 class BrowserReader
 {
     private static readonly BrowserLoginPath = '/auth/browser-login'
-    private static readonly TenantQuery = '?tenant='
+    private static readonly EnvironmentQuery = '?environment='
     private static readonly AppPathPrefix = '/app/'
     private static readonly PathSep = '/'
     private static readonly RenderTimeoutMs = 60_000
@@ -413,7 +414,7 @@ class BrowserReader
         // Fires for every page created in this context (including the spec's own context.newPage()),
         // synchronously before navigation — so load-time exceptions are caught too.
         context.on(BrowserReader.PageEvent, (page) => this.WirePage(page))
-        const loginUrl = `${appOriginBase}${BrowserReader.BrowserLoginPath}${BrowserReader.TenantQuery}${encodeURIComponent(tenant)}`
+        const loginUrl = `${appOriginBase}${BrowserReader.BrowserLoginPath}${BrowserReader.EnvironmentQuery}${encodeURIComponent(tenant)}`
         const response = await context.request.post(loginUrl, { data: { [BrowserReader.EmailKey]: email, [BrowserReader.PasswordKey]: password } })
         expect(response.ok(), `browser-login failed (HTTP ${response.status()})`).toBeTruthy()
         return context
@@ -562,7 +563,6 @@ const ProjectMatch = 'contoso'
 // The .todl is named after the project id (Task 3 fixture convention).
 const TodlFileName = `${ContosoFixture.appId}.todl`
 const PrePromoteCypher = 'MATCH (n) RETURN n LIMIT 1'
-const NoEnvironmentGraphPattern = /no environment graph is loaded/i
 // The readTenant/RBAC gate's deny reason for a principal with no covering grant.
 const PermissionDeniedPattern = /no grant covers this action on this resource/i
 const GraphName = 'loop-graph'
@@ -635,15 +635,15 @@ test.describe('runtime publishing live loop', () => {
                 rt = await orchestrator.CreateRuntime()
             })
 
-            // Step 5: pre-promote read assertion (Review focus) — UNCONDITIONAL. A read against the
-            // runtime's environment graph before anything is promoted must surface the clear
-            // NoEnvironmentGraphError to the client, not a crash/blank. Driven node-side over the real
-            // PragmaticClient: log in as the reader, connect, run one Cypher read WITHOUT
-            // OpenApplication so it resolves to the (empty) environment graph.
-            await test.step('pre-promote: NoEnvironmentGraphError surfaces cleanly', async () => {
+            // Step 5: pre-promote read assertion (Review focus) — UNCONDITIONAL. Every runtime runs on
+            // the one environment engine (server 35ea1495 retired the old no-environment-graph error),
+            // so a read before anything is promoted must succeed cleanly with NO rows — not a crash, an
+            // error, or stale data. Driven node-side over the real PragmaticClient: log in as the
+            // reader, connect, run one Cypher read WITHOUT OpenApplication (the environment scope).
+            await test.step('pre-promote: the empty runtime answers with no rows', async () => {
                 const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.reader.email, rt!.reader.password, PrePromoteCypher)
-                expect(outcome.Ok, 'a runtime with nothing promoted must reject the env read, not return rows').toBeFalsy()
-                expect(outcome.ErrorMessage ?? '').toMatch(NoEnvironmentGraphPattern)
+                expect(outcome.Ok, `a runtime with nothing promoted must answer the env read cleanly: ${outcome.ErrorMessage ?? ''}`).toBeTruthy()
+                expect(outcome.RowCount, 'a runtime with nothing promoted must hold no rows').toBe(0)
             })
 
             // Step 6: promote the dev graph into the existing runtime env.
@@ -671,15 +671,14 @@ test.describe('runtime publishing live loop', () => {
                 await reader.ProbeFonts(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId)
             })
 
-            // Step 9: ungranted-denied assertion (Review focus) — a REAL denial proof. A graph IS
-            // loaded now, so an env-graph read as the ungranted account must be refused by the
-            // readTenant/RBAC gate (a permission denial), NOT the no-graph error. Driven node-side
+            // Step 9: ungranted-denied assertion (Review focus) — a REAL denial proof. Data IS promoted
+            // now, so an env-graph read as the ungranted account must be refused by the readTenant/RBAC
+            // gate (a permission denial), never answered. Driven node-side
             // over PragmaticClient (symmetric with step 5) so the proof does not depend on SPA timing.
             await test.step('ungranted read is denied by RBAC', async () => {
                 const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.ungranted.email, rt!.ungranted.password, PrePromoteCypher)
                 expect(outcome.Ok, 'an ungranted principal must be refused the env read').toBeFalsy()
                 expect(outcome.ErrorMessage ?? '').toMatch(PermissionDeniedPattern)
-                expect(outcome.ErrorMessage ?? '', 'denial must be a permission refusal, not the no-graph error').not.toMatch(NoEnvironmentGraphPattern)
             })
 
             // Step 10: re-promote assertion (Review focus) — UNCONDITIONAL. Change the one seeded
@@ -738,7 +737,7 @@ test.describe('runtime publishing live loop', () => {
             // Step 12: teardown — each step is independent so a throw in one never skips the costly
             // container/env cleanup (orchestrator.Teardown). Any descriptor secret that could, in
             // principle, appear in a captured error is redacted before anything is written out.
-            const secrets = [dev?.makerToken, rt?.deployToken, rt?.reader.password, rt?.ungranted.password]
+            const secrets = [rt?.reader.password, rt?.ungranted.password]
                 .filter((s): s is string => typeof s === 'string' && s.length > 0)
             const redact = (text: string): string => secrets.reduce((acc, s) => acc.split(s).join('***'), text)
 

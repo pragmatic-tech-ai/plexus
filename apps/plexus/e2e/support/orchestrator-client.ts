@@ -2,11 +2,12 @@
 // control-plane orchestrator CLI, plus a runtime environment-graph reader used by the pre-promote
 // review assertion.
 //
-// The orchestrator (pragmatic-server/admin/control-plane/loop-orchestrator.ts) composes the real
-// control-plane in-process and exposes FOUR subcommands, each printing ONE JSON descriptor to
-// stdout; stderr carries only redacted logs. Separate invocations share state through the
-// --data-root directory, so the SAME data root (captured from create-dev) is passed to every call.
-// Descriptors carry tokens and passwords: this client NEVER logs stdout.
+// The orchestrator (pragmatic-server/admin/control-plane/live-loop/loop-orchestrator.ts) drives the
+// RUNNING e2e stack (pragmatic-server live-loop-stack.ts up): the tenant owner creates the environments
+// on the tenant's hive and provisions them, the operator promotes. Each subcommand prints ONE JSON
+// descriptor to stdout; stderr carries only redacted logs. The stack descriptor is passed with --stack
+// when PLEXUS_E2E_STACK is set (else the orchestrator's default, ~/.pragmatic/e2e-stack/stack.json).
+// Descriptors carry passwords: this client NEVER logs stdout.
 //
 //   create-dev                -> DevDescriptor
 //   create-runtime            -> RuntimeDescriptor   (creates + provisions; env graph still EMPTY)
@@ -14,15 +15,13 @@
 //   teardown                  -> TeardownDescriptor
 //   db-exec --sql <sql>       -> DbExecDescriptor    (runs SQL against the runtime env's provisioned Postgres)
 import { spawn } from 'node:child_process'
-import { mkdtempSync } from 'node:fs'
-import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { PLEXUS_ROOT } from '../plexus-app'
 
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
 //
 // SOURCE OF TRUTH: these interfaces hand-mirror the ones EXPORTED by
-// pragmatic-server/admin/control-plane/loop-orchestrator.ts — `CredentialDescriptor`,
+// pragmatic-server/admin/control-plane/live-loop/loop-orchestrator.ts — `CredentialDescriptor`,
 // `DevDescriptor`, `RuntimeDescriptor`, `PromoteDescriptor`, `TeardownDescriptor`. Keep them in
 // sync with that module (they are the only cross-process channel for these shapes).
 
@@ -35,11 +34,8 @@ export interface CredentialDescriptor
 /** Output of create-dev. */
 export interface DevDescriptor
 {
-    dataRoot: string
     devEnv: string
-    devWsUrl: string
     graphName: string
-    makerToken: string
 }
 
 /** Output of create-runtime: the runtime exists and reader/ungranted accounts are provisioned, but
@@ -49,9 +45,7 @@ export interface RuntimeDescriptor
     runtimeEnv: string
     tenant: string
     runtimeWsUrl: string
-    runtimeHostPort: number
     appOriginBase: string
-    deployToken: string
     reader: CredentialDescriptor
     ungranted: CredentialDescriptor
 }
@@ -83,7 +77,11 @@ export class OrchestratorClient
     private static readonly ServerRepoEnv = 'SP_SERVER_REPO'
     // pragmatic-server is a sibling of the Plexus repo: apps/plexus -> apps -> Plexus -> architecture-agent.
     private static readonly DefaultServerRepoRel = '../../../pragmatic-server'
-    private static readonly OrchestratorRel = 'admin/control-plane/loop-orchestrator.ts'
+    private static readonly OrchestratorRel = 'admin/control-plane/live-loop/loop-orchestrator.ts'
+    private static readonly StackEnv = 'PLEXUS_E2E_STACK'
+    private static readonly StackFlag = '--stack'
+    private static readonly KeepEnv = 'SP_RUNTIME_LOOP_KEEP'
+    private static readonly KeepValue = '1'
     private static readonly TsxBin = 'tsx'
     private static readonly ImportFlag = '--import'
     private static readonly CreateDevCommand = 'create-dev'
@@ -92,24 +90,21 @@ export class OrchestratorClient
     private static readonly TeardownCommand = 'teardown'
     private static readonly DbExecCommand = 'db-exec'
     private static readonly SqlFlag = '--sql'
-    private static readonly DataRootFlag = '--data-root'
     private static readonly GraphFlag = '--graph'
-    private static readonly TmpPrefix = 'plexus-loop-'
     private static readonly SpawnTimeoutMs = 600_000
     private static readonly Utf8 = 'utf8'
     private static readonly CloseEvent = 'close'
     private static readonly ErrorEvent = 'error'
     private static readonly DataEvent = 'data'
-    private static readonly NoDataRootMessage = 'CreateDev must run before CreateRuntime/Promote/Teardown (no data root captured yet)'
     private static readonly NoJsonMessage = 'orchestrator produced no JSON descriptor on stdout'
     private static readonly FailedPrefix = 'orchestrator '
     private static readonly FailedExit = ' exited with code '
     private static readonly StderrSep = ': '
     private static readonly NewlinePattern = /\r?\n/
 
-    private dataRoot: string | undefined
+    private started = false
 
-    public constructor(private readonly serverRepo: string)
+    public constructor(private readonly serverRepo: string, private readonly stack: string | undefined)
     {
     }
 
@@ -118,13 +113,14 @@ export class OrchestratorClient
     {
         const fromEnv = process.env[OrchestratorClient.ServerRepoEnv]
         const repo = fromEnv !== undefined && fromEnv !== '' ? fromEnv : path.resolve(PLEXUS_ROOT, OrchestratorClient.DefaultServerRepoRel)
-        return new OrchestratorClient(repo)
+        const stack = process.env[OrchestratorClient.StackEnv]
+        return new OrchestratorClient(repo, stack !== undefined && stack !== '' ? stack : undefined)
     }
 
     public async CreateDev(graph?: string): Promise<DevDescriptor>
     {
-        this.dataRoot = mkdtempSync(path.join(tmpdir(), OrchestratorClient.TmpPrefix))
-        const args = [OrchestratorClient.CreateDevCommand, OrchestratorClient.DataRootFlag, this.dataRoot]
+        this.started = true
+        const args = [OrchestratorClient.CreateDevCommand]
         if (graph !== undefined)
         {
             args.push(OrchestratorClient.GraphFlag, graph)
@@ -134,36 +130,29 @@ export class OrchestratorClient
 
     public async CreateRuntime(): Promise<RuntimeDescriptor>
     {
-        return this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot()])
+        return this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand])
     }
 
     public async Promote(graph: string): Promise<PromoteDescriptor>
     {
-        return this.Run<PromoteDescriptor>([OrchestratorClient.PromoteCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot(), OrchestratorClient.GraphFlag, graph])
+        return this.Run<PromoteDescriptor>([OrchestratorClient.PromoteCommand, OrchestratorClient.GraphFlag, graph])
     }
 
     /** Runs arbitrary SQL against the runtime env's provisioned Postgres (the SQL is never logged by the orchestrator). */
     public async DbExec(sql: string): Promise<void>
     {
-        await this.Run<DbExecDescriptor>([OrchestratorClient.DbExecCommand, OrchestratorClient.DataRootFlag, this.RequireDataRoot(), OrchestratorClient.SqlFlag, sql])
+        await this.Run<DbExecDescriptor>([OrchestratorClient.DbExecCommand, OrchestratorClient.SqlFlag, sql])
     }
 
     public async Teardown(): Promise<TeardownDescriptor>
     {
-        if (this.dataRoot === undefined)
+        // SP_RUNTIME_LOOP_KEEP=1 keeps the environments for inspection after a run; clean up later with the
+        // orchestrator's own teardown command.
+        if (!this.started || process.env[OrchestratorClient.KeepEnv] === OrchestratorClient.KeepValue)
         {
             return { ok: true }
         }
-        return this.Run<TeardownDescriptor>([OrchestratorClient.TeardownCommand, OrchestratorClient.DataRootFlag, this.dataRoot])
-    }
-
-    private RequireDataRoot(): string
-    {
-        if (this.dataRoot === undefined)
-        {
-            throw new Error(OrchestratorClient.NoDataRootMessage)
-        }
-        return this.dataRoot
+        return this.Run<TeardownDescriptor>([OrchestratorClient.TeardownCommand])
     }
 
     // Spawns `node --import tsx <orchestrator> <subcommand> ...` in the server repo and parses the single
@@ -173,8 +162,9 @@ export class OrchestratorClient
     {
         const orchestrator = path.join(this.serverRepo, OrchestratorClient.OrchestratorRel)
         const command = args[0]
+        const stackArgs = this.stack === undefined ? [] : [OrchestratorClient.StackFlag, this.stack]
         return new Promise<T>((resolve, reject) => {
-            const child = spawn(process.execPath, [OrchestratorClient.ImportFlag, OrchestratorClient.TsxBin, orchestrator, ...args], {
+            const child = spawn(process.execPath, [OrchestratorClient.ImportFlag, OrchestratorClient.TsxBin, orchestrator, ...args, ...stackArgs], {
                 cwd: this.serverRepo,
                 timeout: OrchestratorClient.SpawnTimeoutMs,
             })
@@ -228,15 +218,15 @@ export interface WireReadOutcome
 // Reads a runtime tenant's ENVIRONMENT graph node-side over the same PragmaticClient the real Node
 // clients use (control-plane-smoke / the sp1 capstone read this way). A Cypher read issued WITHOUT
 // OpenApplication resolves to the environment graph. Used by two symmetric review assertions:
-//   - pre-promote (as the reader): nothing promoted yet, so the server surfaces a clean
-//     NoEnvironmentGraphError ("no environment graph is loaded") rather than crashing;
-//   - ungranted (after promote): a graph IS loaded, so the readTenant/RBAC gate refuses the
+//   - pre-promote (as the reader): nothing promoted yet, so the environment engine answers the read
+//     cleanly with no rows;
+//   - ungranted (after promote): data IS promoted, so the readTenant/RBAC gate refuses the
 //     ungranted principal with a permission denial ("no grant covers this action on this resource").
 // No raw `ws` dependency: importing the protocol barrel installs its Node dialer for ConnectAsync.
 export class RuntimeEnvGraphReader
 {
     private static readonly LoginPath = '/auth/login'
-    private static readonly TenantQuery = '?tenant='
+    private static readonly EnvironmentQuery = '?environment='
     private static readonly PostMethod = 'POST'
     private static readonly ContentTypeHeader = 'content-type'
     private static readonly JsonContentType = 'application/json'
@@ -269,7 +259,7 @@ export class RuntimeEnvGraphReader
 
     private async Login(appOriginBase: string, tenant: string, email: string, password: string): Promise<string>
     {
-        const url = `${appOriginBase}${RuntimeEnvGraphReader.LoginPath}${RuntimeEnvGraphReader.TenantQuery}${encodeURIComponent(tenant)}`
+        const url = `${appOriginBase}${RuntimeEnvGraphReader.LoginPath}${RuntimeEnvGraphReader.EnvironmentQuery}${encodeURIComponent(tenant)}`
         const response = await fetch(url, {
             method: RuntimeEnvGraphReader.PostMethod,
             headers: { [RuntimeEnvGraphReader.ContentTypeHeader]: RuntimeEnvGraphReader.JsonContentType },
