@@ -17,6 +17,7 @@
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { PLEXUS_ROOT } from '../plexus-app'
+import { E2eStackInputs } from './e2e-stack-inputs'
 
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
 //
@@ -78,7 +79,7 @@ export class OrchestratorClient
     // pragmatic-server is a sibling of the Plexus repo: apps/plexus -> apps -> Plexus -> architecture-agent.
     private static readonly DefaultServerRepoRel = '../../../pragmatic-server'
     private static readonly OrchestratorRel = 'admin/control-plane/live-loop/loop-orchestrator.ts'
-    private static readonly StackEnv = 'PLEXUS_E2E_STACK'
+    private static readonly StackEnv = E2eStackInputs.StackEnv
     private static readonly StackFlag = '--stack'
     private static readonly KeepEnv = 'SP_RUNTIME_LOOP_KEEP'
     private static readonly KeepValue = '1'

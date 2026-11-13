@@ -136,13 +136,14 @@ export interface ScriptedSignInOptions
 
 export class ScriptedDesktopSignIn
 {
-    public static readonly EmailEnv = 'PLEXUS_E2E_OWNER_EMAIL'
-    public static readonly PasswordFileEnv = 'PLEXUS_E2E_OWNER_PASSWORD_FILE'
-    public static readonly PlatformAddressEnv = 'PLEXUS_E2E_PLATFORM_ADDRESS'
-    public static readonly TenantEnv = 'PLEXUS_E2E_TENANT'
-    public static readonly IdpCaFileEnv = 'PLEXUS_E2E_IDP_CA_FILE'
-    public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
-    public static readonly IdpCertFileEnv = 'PLEXUS_E2E_IDP_CERT_FILE'
+    // The sign-in variable names have one home, E2eStackInputs (which maps them from the stack descriptor).
+    public static readonly EmailEnv = E2eStackInputs.EmailEnv
+    public static readonly PasswordFileEnv = E2eStackInputs.PasswordFileEnv
+    public static readonly PlatformAddressEnv = E2eStackInputs.PlatformAddressEnv
+    public static readonly TenantEnv = E2eStackInputs.TenantEnv
+    public static readonly IdpCaFileEnv = E2eStackInputs.IdpCaFileEnv
+    public static readonly IdpLoginEnv = E2eStackInputs.IdpLoginEnv
+    public static readonly IdpCertFileEnv = E2eStackInputs.IdpCertFileEnv
     public static readonly StackEnv = E2eStackInputs.StackEnv
     public static readonly IdpLoginBrowser = IdpLoginKind.Browser
     public static readonly PlatformEmailEnv = 'PLEXUS_IHC_PLATFORM_EMAIL'

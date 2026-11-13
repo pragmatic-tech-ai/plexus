@@ -31,6 +31,11 @@ describe('E2eStackInputs.Merge', () => {
         expect(merged.PLEXUS_E2E_OWNER_EMAIL).toBe('o@t.io')
     })
 
+    it('adds nothing when PLEXUS_E2E_STACK names a missing file, so the specs skip instead of erroring', () => {
+        const env = { PLEXUS_E2E_STACK: 'C:/no/such/stack.json' }
+        expect(E2eStackInputs.Apply(env)).toBe(env)
+    })
+
     it('leaves the environment alone without PLEXUS_E2E_STACK', () => {
         const env = { PLEXUS_E2E_OWNER_EMAIL: 'a@b.c' }
         expect(E2eStackInputs.Apply(env)).toBe(env)
