@@ -7,8 +7,8 @@ import { ArchitectureProjectFactory } from '../architecture-project-factory.js'
 
 function factory(): ArchitectureProjectFactory { return new ArchitectureProjectFactory(new ServiceProvider()) }
 
-test('architecture is not versioned', () => {
-    expect(isVersioned(factory())).toBe(false)
+test('architecture is versioned: its packageVersion is the published app version, bumped on each publish', () => {
+    expect(isVersioned(factory())).toBe(true)
 })
 
 test('createProject writes an architecture manifest with meta-model + libraries bindings', async () => {

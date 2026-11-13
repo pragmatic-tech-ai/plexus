@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { Solution } from '@pragmatic-tech-ai/todl'
 import { PublishTenantContributor } from '../publish-tenant-contributor.js'
+import { VersionPart } from '../../../../projects/semver-bump.js'
 import { BuildProgressReporter } from '../build-progress-reporter.js'
 import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.js'
 import { TenantPublishStatus, type TenantPublishResult } from '../../../../../shared/tenant-publish-api.js'
@@ -50,7 +51,7 @@ class PublishTestHelper
 
     public static Mutations(): any
     {
-        return { EnsureMemberGenerated: () => Promise.resolve() }
+        return { EnsureMemberGenerated: () => Promise.resolve(), IsVersionedMember: () => false }
     }
 
     // Runs the command and waits past the environment prompt, so work.task is set when publishing.
@@ -63,6 +64,32 @@ class PublishTestHelper
     public static ActionById(c: PublishTenantContributor, id: string): any
     {
         return c.Actions.find((a) => a.Id === id)!
+    }
+}
+
+// Content mutations that record each version bump and how many builds had run when it happened.
+class RecordingMutations
+{
+    public readonly Bumps: Array<{ part: VersionPart; buildsBefore: number }> = []
+
+    constructor(private readonly versioned: boolean, private readonly builds: FakeBuildService)
+    {
+    }
+
+    public EnsureMemberGenerated(): Promise<void>
+    {
+        return Promise.resolve()
+    }
+
+    public IsVersionedMember(): boolean
+    {
+        return this.versioned
+    }
+
+    public BumpMemberVersion(_member: unknown, part: VersionPart): Promise<void>
+    {
+        this.Bumps.push({ part, buildsBefore: this.builds.Calls.length })
+        return Promise.resolve()
     }
 }
 
@@ -123,6 +150,34 @@ describe('PublishTenantContributor', () =>
         expect(svc.Calls[0].options).toEqual({ OutputRootOverride: '/proj/build-remote', Remote: { AppName: 'orders' } })
         expect(publisher.Published).toEqual([[PublishTestHelper.Prod, '/out']])
         expect(work.Title).toBe('Publishing ./p to prod')
+    })
+
+    it('bumps a versioned project\'s patch version before it builds, so every publish deploys a new app version', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const mutations = new RecordingMutations(true, svc)
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, mutations as any, new FakePublisher(Applied), new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        await expect(work.task).resolves.toEqual(Applied)
+        expect(mutations.Bumps).toEqual([{ part: VersionPart.Patch, buildsBefore: 0 }])
+        expect(svc.Calls).toHaveLength(1)
+    })
+
+    it('bumps nothing for a project without a version, or when the environment pick is cancelled', async () =>
+    {
+        const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
+        const unversioned = new RecordingMutations(false, svc)
+        const work = PublishTestHelper.Work()
+        const c = new PublishTenantContributor(svc as any, work, unversioned as any, new FakePublisher(Applied), new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        await work.task
+        expect(unversioned.Bumps).toEqual([])
+
+        const cancelled = new RecordingMutations(true, svc)
+        const quiet = new PublishTenantContributor(svc as any, PublishTestHelper.Work(), cancelled as any, new FakePublisher(Applied), new FakePrompt(undefined))
+        await PublishTestHelper.Execute(quiet, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        expect(cancelled.Bumps).toEqual([])
     })
 
     it('publishes to the session of the chosen source, titled by the environment name', async () =>

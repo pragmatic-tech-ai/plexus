@@ -16,9 +16,11 @@ import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
 import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
 import { TargetIdentity, type TargetChoice } from '../../../../shared/account-api.js'
 import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
+import { VersionPart } from '../../../projects/semver-bump.js'
 
 // Contributes the Publish to tenant command to a project row: asks the environment picker
 // (PublishTargetDialog) for the target Runtime environment,
+// bumps a versioned project's patch version (deployed app versions are immutable), then
 // builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
 // Open/Serve HTML app), then hands the target (name + source) + output dir to the ITenantPublisher, whose
 // main-process side uploads it through the relay of the target's source (console or platform) via the protocol deploy method. A
@@ -112,6 +114,9 @@ export class PublishTenantContributor implements IHierarchyContributor
         void work.run(title, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
+            // The server keeps app versions immutable, so each publish deploys the next patch version; the
+            // bump is written to the project before the build stamps it.
+            if (this.mutations.IsVersionedMember(member)) await this.mutations.BumpMemberVersion(member, VersionPart.Patch)
             const outputPath = await this.buildRemote(storage, ctx)
             const result = await publisher.Publish(target, outputPath)
             return PublishTenantContributor.RequireApplied(result)
