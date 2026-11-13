@@ -5,7 +5,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition, type CommandContext } from '@pragmatic-tech-ai/mural/framework'
-import { BuildService, RemoteBindMode, parseManifest, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { BuildService, parseManifest, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
@@ -17,7 +17,7 @@ import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } fro
 import { TargetIdentity, type TargetChoice } from '../../../../shared/account-api.js'
 import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 
-// Contributes the Publish to tenant commands to a project row: asks the environment picker
+// Contributes the Publish to tenant command to a project row: asks the environment picker
 // (PublishTargetDialog) for the target Runtime environment,
 // builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
 // Open/Serve HTML app), then hands the target (name + source) + output dir to the ITenantPublisher, whose
@@ -29,7 +29,6 @@ export class PublishTenantContributor implements IHierarchyContributor
     public static readonly Key = new ServiceKey<PublishTenantContributor>('PublishTenantContributor')
 
     public static readonly PublishCommandId = 'tenant.publish'
-    public static readonly PublishEnvCommandId = 'tenant.publish-env'
 
     private static readonly SystemId = 'html-bundle'
     private static readonly FlavorId = 'html-bundle-remote'
@@ -37,7 +36,6 @@ export class PublishTenantContributor implements IHierarchyContributor
     // local Open/Serve HTML app output (and vice versa).
     public static readonly BuildDir = RemoteBuildDirName
     private static readonly PublishLabel = 'Publish to tenant'
-    private static readonly PublishEnvLabel = 'Publish to tenant (environment graph)'
     private static readonly TitlePrefix = 'Publishing '
     private static readonly ToEnvironment = ' to '
     private static readonly BuildFailedPrefix = 'Build failed: '
@@ -60,7 +58,6 @@ export class PublishTenantContributor implements IHierarchyContributor
     {
         this.Actions = [
             PublishTenantContributor.command(PublishTenantContributor.PublishCommandId, PublishTenantContributor.PublishLabel, 54),
-            PublishTenantContributor.command(PublishTenantContributor.PublishEnvCommandId, PublishTenantContributor.PublishEnvLabel, 56),
         ]
     }
 
@@ -81,11 +78,10 @@ export class PublishTenantContributor implements IHierarchyContributor
 
     public Resolve(commandId: string, context: CommandContext): ICommand | undefined
     {
-        if (commandId !== PublishTenantContributor.PublishCommandId && commandId !== PublishTenantContributor.PublishEnvCommandId) return undefined
+        if (commandId !== PublishTenantContributor.PublishCommandId) return undefined
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return undefined
-        const bind = commandId === PublishTenantContributor.PublishEnvCommandId ? RemoteBindMode.Environment : RemoteBindMode.Application
-        return new RelayCommand(() => void this.publish(member, bind), () => this.work !== undefined && this.publisher !== undefined && this.picker !== undefined)
+        return new RelayCommand(() => void this.publish(member),() => this.work !== undefined && this.publisher !== undefined && this.picker !== undefined)
     }
 
     // Asks the picker for the environment first (signing in first when the maker asks to, see
@@ -93,7 +89,7 @@ export class PublishTenantContributor implements IHierarchyContributor
     // uploads under a background task so a build / sign-in / refusal failure fails that row with its
     // sentence. A picker failure fails a task row too (this contributor has no dialog surface), so
     // it is never an unhandled rejection.
-    private async publish(member: SolutionMember, bind: RemoteBindMode): Promise<void>
+    private async publish(member: SolutionMember): Promise<void>
     {
         const work = this.work
         const storage = member.Storage
@@ -116,7 +112,7 @@ export class PublishTenantContributor implements IHierarchyContributor
         void work.run(title, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
-            const outputPath = await this.buildRemote(storage, ctx, bind)
+            const outputPath = await this.buildRemote(storage, ctx)
             const result = await publisher.Publish(target, outputPath)
             return PublishTenantContributor.RequireApplied(result)
         })
@@ -124,13 +120,13 @@ export class PublishTenantContributor implements IHierarchyContributor
 
     // Builds the remote flavor into <project>/build-remote and returns its output dir. The remote
     // target AppName is the project manifest id (falling back to its name).
-    private async buildRemote(storage: IStorage, ctx: ITaskProgressSink, bind: RemoteBindMode): Promise<string>
+    private async buildRemote(storage: IStorage, ctx: ITaskProgressSink): Promise<string>
     {
         const manifest = parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
         const options =
         {
             OutputRootOverride: (storage as unknown as ILocalFileAccess).ResolveOsPath(PublishTenantContributor.BuildDir),
-            Remote: { AppName: manifest.id ?? manifest.name, Bind: bind },
+            Remote: { AppName: manifest.id ?? manifest.name },
         }
         const result = await this.buildService.Build(storage, PublishTenantContributor.SystemId, PublishTenantContributor.FlavorId, new BuildProgressReporter(ctx), options)
         if (!result.Result.Ok)

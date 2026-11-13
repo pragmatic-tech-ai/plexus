@@ -1,5 +1,5 @@
 // Runtime-publishing live-loop e2e (Task 5): drives the REAL Plexus Electron app through the full
-// author -> contribute -> promote -> publish-env loop and asserts a real browser reads the promoted
+// author -> contribute -> promote -> publish loop and asserts a real browser reads the promoted
 // data from the served app. The capstone of the runtime-publishing-live-loop slice.
 //
 // Gated by SP_RUNTIME_LOOP_E2E=1 — it needs the RUNNING e2e stack (pragmatic-server
@@ -32,7 +32,6 @@ import { chromium, type Browser, type BrowserContext } from 'playwright'
 import { existsSync, mkdtempSync, cpSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { RemoteBindMode } from '@pragmatic-tech-ai/todl/build-system-core'
 import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
 import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
@@ -58,7 +57,7 @@ interface ContributeOutcome
     packageCount?: number
 }
 
-// Terminal state captured from the wrapped build + publisher during a publish-env run.
+// Terminal state captured from the wrapped build + publisher during a publish run.
 interface PublishOutcome
 {
     buildOk?: boolean
@@ -254,11 +253,11 @@ class RendererOps
         )
     }
 
-    // Drives the real Publish-env command (html-bundle-remote build with RemoteBindMode.Environment ->
-    // IPC deploy through the tenant-plane relay, with the real signed-in session) with the environment picker stubbed to choose `environment`. Mirrors sp1-plexus-smoke: wrap the build
+    // Drives the real Publish command (html-bundle-remote build -> IPC deploy through the tenant-plane
+    // relay, with the real signed-in session) with the environment picker stubbed to choose `environment`. Mirrors sp1-plexus-smoke: wrap the build
     // service + publisher to capture outcomes into a window state object, invoke, then wait for a
-    // terminal signal. `bind` is RemoteBindMode.Environment (the `tenant.publish-env` path).
-    public static async PublishEnv(win: Page, environment: string, projectMatch: string, bind: RemoteBindMode): Promise<PublishOutcome>
+    // terminal signal.
+    public static async Publish(win: Page, environment: string, projectMatch: string): Promise<PublishOutcome>
     {
         await win.evaluate(
             async (p) => {
@@ -303,12 +302,12 @@ class RendererOps
                         throw e
                     }
                 }
-                // Drive the private publish(member, bind) directly (TS-private; reachable at runtime),
-                // the same call the resolved `tenant.publish-env` RelayCommand makes.
-                pub.publish(member, p.bind).catch((e: unknown) => { state.invokeError = String((e as any)?.message ?? e) })
+                // Drive the private publish(member) directly (TS-private; reachable at runtime),
+                // the same call the resolved `tenant.publish` RelayCommand makes.
+                pub.publish(member).catch((e: unknown) => { state.invokeError = String((e as any)?.message ?? e) })
             },
             {
-                helpersKey: RendererOps.HelpersKey, environment, projectMatch, bind,
+                helpersKey: RendererOps.HelpersKey, environment, projectMatch,
                 solutionManagerName: RendererOps.SolutionManagerName, registryName: RendererOps.RegistryName,
                 projectFamily: RendererOps.ProjectFamily, publishContributorName: RendererOps.PublishContributorName,
                 stateKey: RendererOps.PublishStateKey,
@@ -584,7 +583,7 @@ test.describe('runtime publishing live loop', () => {
     test.skip(!ScriptedDesktopSignIn.IsConfigured(), ScriptedDesktopSignIn.SkipMessage)
     test.setTimeout(900_000)
 
-    test('real app contribute -> promote -> publish-env -> browser read', async () => {
+    test('real app contribute -> promote -> publish -> browser read', async () => {
         expect(existsSync(MAIN), `built app missing at ${MAIN} — run npm run build`).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), 'electron binary missing').toBeTruthy()
 
@@ -652,9 +651,9 @@ test.describe('runtime publishing live loop', () => {
                 expect(promoted.packageCount, 'promote contributed zero packages').toBeGreaterThan(0)
             })
 
-            // Step 7: Publish-env the Contoso app (RemoteBindMode.Environment).
-            await test.step('Publish-env', async () => {
-                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeEnv, ProjectMatch, RemoteBindMode.Environment)
+            // Step 7: Publish the Contoso app.
+            await test.step('Publish', async () => {
+                const published = await RendererOps.Publish(l!.win, rt!.runtimeEnv, ProjectMatch)
                 expect(published.buildError, published.buildError).toBeUndefined()
                 expect(published.buildOk, 'html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
@@ -716,7 +715,7 @@ test.describe('runtime publishing live loop', () => {
                 expect(contributed, `catalog contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
                 await orchestrator.Promote(dev!.graphName)
 
-                const published = await RendererOps.PublishEnv(l!.win, rt!.runtimeEnv, CatalogProjectMatch, RemoteBindMode.Environment)
+                const published = await RendererOps.Publish(l!.win, rt!.runtimeEnv, CatalogProjectMatch)
                 expect(published.buildError, published.buildError).toBeUndefined()
                 expect(published.buildOk, 'catalog html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
