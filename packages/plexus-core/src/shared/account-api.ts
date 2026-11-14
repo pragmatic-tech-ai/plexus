@@ -294,7 +294,7 @@ export class AccountWire
 // are plain sentences that never carry a URL or token), plus the account kind when it is one.
 export type RelayWireError = { Message: string; Kind?: AccountErrorKind }
 
-// The envelope the graph-contribute and tenant-publish handlers answer with and their preload bridges
+// The envelope the graph-contribute and environment-publish handlers answer with and their preload bridges
 // resolve to: ipc.handle would otherwise reject with "Error invoking remote method ..." around the
 // sentence, and the context bridge would drop an AccountError's class and Kind.
 export type RelayReply<T> = { Ok: true; Value: T } | { Ok: false; Error: RelayWireError }

@@ -44,7 +44,8 @@ export interface DevDescriptor
 export interface RuntimeDescriptor
 {
     runtimeEnv: string
-    tenant: string
+    /** The runtime environment's id. */
+    environment: string
     runtimeWsUrl: string
     appOriginBase: string
     reader: CredentialDescriptor
@@ -87,6 +88,8 @@ export class OrchestratorClient
     private static readonly ImportFlag = '--import'
     private static readonly CreateDevCommand = 'create-dev'
     private static readonly CreateRuntimeCommand = 'create-runtime'
+    private static readonly LegacyEnvironmentKey = 'tenant'
+    private static readonly Empty = ''
     private static readonly PromoteCommand = 'promote'
     private static readonly TeardownCommand = 'teardown'
     private static readonly DbExecCommand = 'db-exec'
@@ -131,7 +134,10 @@ export class OrchestratorClient
 
     public async CreateRuntime(): Promise<RuntimeDescriptor>
     {
-        return this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand])
+        // An orchestrator from before the rename names the environment id `tenant` (read for one release).
+        const raw = await this.Run<Omit<RuntimeDescriptor, 'environment'> & { environment?: string; [OrchestratorClient.LegacyEnvironmentKey]?: string }>([OrchestratorClient.CreateRuntimeCommand])
+        const { [OrchestratorClient.LegacyEnvironmentKey]: legacy, ...descriptor } = raw
+        return { ...descriptor, environment: raw.environment ?? legacy ?? OrchestratorClient.Empty }
     }
 
     public async Promote(graph: string): Promise<PromoteDescriptor>
@@ -238,9 +244,9 @@ export class RuntimeEnvGraphReader
     // Logs in (bearer), connects node-side, runs one environment-graph read without binding an app,
     // and returns the outcome. A ResponseError (the server's clean rejection) is an Error, so its
     // message is captured by the single catch. The bearer token never leaves this method.
-    public async ReadEnvGraph(appOriginBase: string, runtimeWsUrl: string, tenant: string, email: string, password: string, cypher: string): Promise<WireReadOutcome>
+    public async ReadEnvGraph(appOriginBase: string, runtimeWsUrl: string, environment: string, email: string, password: string, cypher: string): Promise<WireReadOutcome>
     {
-        const token = await this.Login(appOriginBase, tenant, email, password)
+        const token = await this.Login(appOriginBase, environment, email, password)
         const { PragmaticClient } = await import('@pragmatic-tech-ai/pragmatic-protocol')
         const client = await PragmaticClient.ConnectAsync(runtimeWsUrl, { bearerToken: token })
         try
@@ -258,9 +264,9 @@ export class RuntimeEnvGraphReader
         }
     }
 
-    private async Login(appOriginBase: string, tenant: string, email: string, password: string): Promise<string>
+    private async Login(appOriginBase: string, environment: string, email: string, password: string): Promise<string>
     {
-        const url = `${appOriginBase}${RuntimeEnvGraphReader.LoginPath}${RuntimeEnvGraphReader.EnvironmentQuery}${encodeURIComponent(tenant)}`
+        const url = `${appOriginBase}${RuntimeEnvGraphReader.LoginPath}${RuntimeEnvGraphReader.EnvironmentQuery}${encodeURIComponent(environment)}`
         const response = await fetch(url, {
             method: RuntimeEnvGraphReader.PostMethod,
             headers: { [RuntimeEnvGraphReader.ContentTypeHeader]: RuntimeEnvGraphReader.JsonContentType },

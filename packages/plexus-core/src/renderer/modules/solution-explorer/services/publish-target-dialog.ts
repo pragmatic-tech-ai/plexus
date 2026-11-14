@@ -5,11 +5,11 @@ import {
 } from '../../../../shared/account-api.js'
 import { TargetDialog, type EnvironmentChoice } from './target-dialog.js'
 
-// "Publish to tenant": one of the account's Runtime environments. ConfirmCommand can execute once
+// "Publish to environment": one of the account's Runtime environments. ConfirmCommand can execute once
 // signed in with a running environment chosen (TargetDialog.IsReady).
 export class PublishTargetDialog extends TargetDialog
 {
-    private static readonly DialogTitle = 'Publish to tenant'
+    private static readonly DialogTitle = 'Publish to environment'
     private static readonly SignIn = 'Sign in to publish to an environment.'
     private static readonly NoEnvironments = 'Your account has no runtime environments to publish to.'
 

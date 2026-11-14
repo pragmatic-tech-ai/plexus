@@ -88,7 +88,7 @@ describe('PublishTargetDialog', () =>
         h.Account.Last = { [TargetKind.Publish]: { Environment: 'stage' } }
         await h.Open()
         const shown = h.Shown
-        expect(h.Dialogs.Shown.map((s) => s.Title)).toEqual(['Publish to tenant'])
+        expect(h.Dialogs.Shown.map((s) => s.Title)).toEqual(['Publish to environment'])
         expect(h.Dialog.SelectedEnvironment?.Name).toBe('stage')
         expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(true)
         expect(h.Dialog.Message).toBe('')

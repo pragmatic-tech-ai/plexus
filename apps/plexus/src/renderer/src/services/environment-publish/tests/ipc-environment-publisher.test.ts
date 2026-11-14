@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import IpcTenantPublisher from '../ipc-tenant-publisher.js'
+import IpcEnvironmentPublisher from '../ipc-environment-publisher.js'
 
-class FakeTenantPublish
+class FakeEnvironmentPublish
 {
     public readonly Calls: unknown[][] = []
     public Reply: unknown = { Ok: true, Value: { Status: 'applied', AppName: 'orders', AppVersion: '1' } }
@@ -22,7 +22,7 @@ class Targets
     public static readonly PlatformRef: TargetRef = { Name: 'prod', Source: TargetSource.Platform }
 }
 
-describe('IpcTenantPublisher', () =>
+describe('IpcEnvironmentPublisher', () =>
 {
     afterEach(() =>
     {
@@ -32,30 +32,30 @@ describe('IpcTenantPublisher', () =>
     it('throws when the bridge is unavailable', () =>
     {
         (globalThis as any).api = {}
-        expect(() => new IpcTenantPublisher()).toThrow(/tenantPublish is unavailable/)
+        expect(() => new IpcEnvironmentPublisher()).toThrow(/environmentPublish is unavailable/)
     })
 
     it('forwards Publish with the target and unwraps the result', async () =>
     {
-        const fake = new FakeTenantPublish();
-        (globalThis as any).api = { tenantPublish: fake }
-        expect(await new IpcTenantPublisher().Publish(Targets.Prod, '/p/build-remote')).toEqual({ Status: 'applied', AppName: 'orders', AppVersion: '1' })
+        const fake = new FakeEnvironmentPublish();
+        (globalThis as any).api = { environmentPublish: fake }
+        expect(await new IpcEnvironmentPublisher().Publish(Targets.Prod, '/p/build-remote')).toEqual({ Status: 'applied', AppName: 'orders', AppVersion: '1' })
         expect(fake.Calls).toEqual([[Targets.Prod, '/p/build-remote']])
     })
 
     it('sends only Name and Source across the bridge', async () =>
     {
-        const fake = new FakeTenantPublish();
-        (globalThis as any).api = { tenantPublish: fake }
-        await new IpcTenantPublisher().Publish(Targets.PlatformTarget, '/p/build-remote')
+        const fake = new FakeEnvironmentPublish();
+        (globalThis as any).api = { environmentPublish: fake }
+        await new IpcEnvironmentPublisher().Publish(Targets.PlatformTarget, '/p/build-remote')
         expect(fake.Calls[0]![0]).toStrictEqual(Targets.PlatformRef)
     })
 
     it('rejects with the failure sentence', async () =>
     {
-        const fake = new FakeTenantPublish();
-        (globalThis as any).api = { tenantPublish: fake }
+        const fake = new FakeEnvironmentPublish();
+        (globalThis as any).api = { environmentPublish: fake }
         fake.Reply = { Ok: false, Error: { Message: "Your account can't use this environment." } }
-        await expect(new IpcTenantPublisher().Publish(Targets.Prod, '/p/build-remote')).rejects.toThrow("Your account can't use this environment.")
+        await expect(new IpcEnvironmentPublisher().Publish(Targets.Prod, '/p/build-remote')).rejects.toThrow("Your account can't use this environment.")
     })
 })

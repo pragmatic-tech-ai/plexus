@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
 import type { IpcMain } from 'electron'
-import { TenantPublishStatus, type TenantPublishResult } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { EnvironmentPublishStatus, type EnvironmentPublishResult } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
 import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import { TenantPublishIpc } from '../tenant-publish-ipc.js'
-import { TenantPublishChannel } from '../../../shared/tenant-publish-api.js'
-import type { TenantDeployService } from '../tenant-deploy-service.js'
+import { EnvironmentPublishIpc } from '../environment-publish-ipc.js'
+import { EnvironmentPublishChannel } from '../../../shared/environment-publish-api.js'
+import type { EnvironmentDeployService } from '../environment-deploy-service.js'
 
 type Handler = (event: unknown, ...args: any[]) => unknown
 
@@ -22,11 +22,11 @@ class FakeDeploy
     public Calls: unknown[][] = []
     public Failure: Error | undefined
 
-    public async Deploy(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
+    public async Deploy(target: TargetRef, outputDir: string): Promise<EnvironmentPublishResult>
     {
         this.Calls.push([target, outputDir])
         if (this.Failure !== undefined) throw this.Failure
-        return { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' }
+        return { Status: EnvironmentPublishStatus.Applied, AppName: 'orders', AppVersion: '1' }
     }
 }
 
@@ -37,22 +37,22 @@ class Harness
 
     public constructor()
     {
-        TenantPublishIpc.Register(this.Ipc as unknown as IpcMain, this.Deploy as unknown as TenantDeployService)
+        EnvironmentPublishIpc.Register(this.Ipc as unknown as IpcMain, this.Deploy as unknown as EnvironmentDeployService)
     }
 
     public Invoke(...args: unknown[]): Promise<any>
     {
-        return Promise.resolve(this.Ipc.Handlers.get(TenantPublishChannel.Deploy)!({}, ...args))
+        return Promise.resolve(this.Ipc.Handlers.get(EnvironmentPublishChannel.Deploy)!({}, ...args))
     }
 }
 
-describe('TenantPublishIpc', () =>
+describe('EnvironmentPublishIpc', () =>
 {
     it('binds only the deploy channel', () =>
     {
         const h = new Harness()
-        expect(Object.values(TenantPublishChannel)).toEqual(['tenant-publish:deploy'])
-        expect([...h.Ipc.Handlers.keys()]).toEqual(['tenant-publish:deploy'])
+        expect(Object.values(EnvironmentPublishChannel)).toEqual(['environment-publish:deploy'])
+        expect([...h.Ipc.Handlers.keys()]).toEqual(['environment-publish:deploy'])
     })
 
     const Prod: TargetRef = { Name: 'prod', Source: TargetSource.Console }
@@ -61,7 +61,7 @@ describe('TenantPublishIpc', () =>
     it('Deploy delegates with the target and answers an Ok envelope', async () =>
     {
         const h = new Harness()
-        expect(await h.Invoke(Prod, '/p/build-remote')).toEqual({ Ok: true, Value: { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' } })
+        expect(await h.Invoke(Prod, '/p/build-remote')).toEqual({ Ok: true, Value: { Status: EnvironmentPublishStatus.Applied, AppName: 'orders', AppVersion: '1' } })
         expect(h.Deploy.Calls).toEqual([[Prod, '/p/build-remote']])
     })
 

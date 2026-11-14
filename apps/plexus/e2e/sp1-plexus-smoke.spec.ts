@@ -101,7 +101,7 @@ test.describe('SP1 Plexus smoke', () =>
                         {
                             const projContribs = reg.For('project') ?? []
                             genContrib = byCtor(projContribs, 'GenerateUiContributor')
-                            pubContrib = byCtor(projContribs, 'PublishTenantContributor')
+                            pubContrib = byCtor(projContribs, 'PublishToEnvironmentContributor')
                         }
                         if (member && genContrib && pubContrib) break
                         if (Date.now() > deadline) return { ok: false, stage: 'resolve', have: Object.keys(svc), memberFound: !!member, gen: !!genContrib, pub: !!pubContrib }
@@ -152,7 +152,7 @@ test.describe('SP1 Plexus smoke', () =>
                 const member = (mgr?.ActiveSolution?.Members?.ToArray?.() ?? []).filter((m: any) => m.Storage)
                     .find((m: any) => String(m.Storage.Root ?? '').toLowerCase().includes('sp1-smoke'))
                 const projContribs = svc['HierarchyContributorRegistry'].For('project') ?? []
-                const pub = projContribs.find((c: any) => c?.constructor?.name === 'PublishTenantContributor')
+                const pub = projContribs.find((c: any) => c?.constructor?.name === 'PublishToEnvironmentContributor')
                 const state: any = (window as any).__sp1smoke = { log: [] }
                 const origBuild = pub.buildService.Build.bind(pub.buildService)
                 pub.buildService.Build = async (...a: any[]) =>

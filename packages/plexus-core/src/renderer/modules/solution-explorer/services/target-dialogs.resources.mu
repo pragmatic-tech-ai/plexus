@@ -1,7 +1,7 @@
 // target-dialogs.resources.mu -- the environment pickers shown by DialogService.
 //
 // DataTemplate[ContributeTargetDialog]: Contribute to graph -- a Development environment and one
-// of its graphs. DataTemplate[PublishTargetDialog]: Publish to tenant -- a Runtime environment.
+// of its graphs. DataTemplate[PublishTargetDialog]: Publish to environment -- a Runtime environment.
 // One template per picker, its parts shown by the VM's flags through ToVisibility (as the account
 // dialog). Signed out, only the Message sentence and a Sign in button (which asks the account
 // module to open its dialog) are shown; signed in, the choosers and the confirm button. The

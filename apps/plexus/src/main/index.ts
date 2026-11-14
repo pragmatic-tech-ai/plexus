@@ -24,8 +24,8 @@ import { ConnectionsIpc } from './connections/register-connections-ipc.js'
 import { PreviewServerManager } from './preview-server/preview-server-manager.js'
 import { registerPreviewServerIpc } from './preview-server/register-preview-server-ipc.js'
 import { BundleIpc } from './build/bundle-ipc.js'
-import { TenantDeployService } from './tenant-publish/tenant-deploy-service.js'
-import { TenantPublishIpc } from './tenant-publish/tenant-publish-ipc.js'
+import { EnvironmentDeployService } from './environment-publish/environment-deploy-service.js'
+import { EnvironmentPublishIpc } from './environment-publish/environment-publish-ipc.js'
 import { GraphContributeService } from './graph-contribute/graph-contribute-service.js'
 import { GraphContributeIpc } from './graph-contribute/graph-contribute-ipc.js'
 import { TypeCheckIpc } from './build/type-check-ipc.js'
@@ -204,7 +204,7 @@ app.whenReady().then(async () => {
   // the relay end holds the environment credential.
   // Nothing secret crosses to the renderer; the handlers answer sentences in a RelayReply envelope.
   const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
-  TenantPublishIpc.Register(ipcMain, new TenantDeployService(relay))
+  EnvironmentPublishIpc.Register(ipcMain, new EnvironmentDeployService(relay))
   GraphContributeIpc.Register(ipcMain, new GraphContributeService(relay))
 
   // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.

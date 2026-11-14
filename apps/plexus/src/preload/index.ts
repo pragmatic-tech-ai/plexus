@@ -12,7 +12,7 @@ import { WindowChannel, type IWindowApi, type OverlayColors } from '@pragmatic-t
 import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServerEntry } from '../shared/mcp-client-api.js'
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
-import { TenantPublishChannel, type ITenantPublishBridge } from '../shared/tenant-publish-api.js'
+import { EnvironmentPublishChannel, type IEnvironmentPublishBridge } from '../shared/environment-publish-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
 import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge, type RelayReply, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
@@ -157,8 +157,8 @@ class RelayBridge
     return ipcRenderer.invoke(channel, ...args) as Promise<RelayReply<T>>
   }
 }
-const tenantPublish: ITenantPublishBridge = {
-  Deploy: (target: TargetRef, outputDir: string) => RelayBridge.Call(TenantPublishChannel.Deploy, target, outputDir),
+const environmentPublish: IEnvironmentPublishBridge = {
+  Deploy: (target: TargetRef, outputDir: string) => RelayBridge.Call(EnvironmentPublishChannel.Deploy, target, outputDir),
 }
 const graphContribute: IGraphContributeBridge = {
   Contribute: (target: TargetRef, graphName: string, solutionId: string, packages: ContributedPackage[]) =>
@@ -207,7 +207,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, tenantPublish, graphContribute, account, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {

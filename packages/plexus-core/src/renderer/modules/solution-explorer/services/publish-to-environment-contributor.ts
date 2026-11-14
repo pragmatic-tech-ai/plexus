@@ -12,37 +12,37 @@ import { FileTreeContributor } from './file-tree-contributor.js'
 import { BuildProgressReporter, type ITaskProgressSink } from './build-progress-reporter.js'
 import type { IContentMutations } from './content-mutations.js'
 import { BackgroundWorkService } from '../../background-work/index.js'
-import type { ITenantPublisher } from '../../tenant-publish/tenant-publisher.js'
-import { RemoteBuildDirName, TenantPublishStatus, type TenantPublishResult } from '../../../../shared/tenant-publish-api.js'
+import type { IEnvironmentPublisher } from '../../environment-publish/environment-publisher.js'
+import { RemoteBuildDirName, EnvironmentPublishStatus, type EnvironmentPublishResult } from '../../../../shared/environment-publish-api.js'
 import { TargetIdentity, type TargetChoice } from '../../../../shared/account-api.js'
 import { TargetPickerFlow, type ITargetPicker } from './target-dialog.js'
 import { VersionPart } from '../../../projects/semver-bump.js'
 
-// Contributes the Publish to tenant command to a project row: asks the environment picker
+// Contributes the Publish to environment command to a project row: asks the environment picker
 // (PublishTargetDialog) for the target Runtime environment,
 // bumps a versioned project's patch version (deployed app versions are immutable), then
 // builds the html-bundle-remote flavor to <project>/build-remote/ (renderer BuildService, like
-// Open/Serve HTML app), then hands the target (name + source) + output dir to the ITenantPublisher, whose
+// Open/Serve HTML app), then hands the target (name + source) + output dir to the IEnvironmentPublisher, whose
 // main-process side uploads it through the relay of the target's source (console or platform) via the protocol deploy method. A
 // non-applied server status fails the task row with the server reason.
 // Action-only (Contribute yields no nodes).
-export class PublishTenantContributor implements IHierarchyContributor
+export class PublishToEnvironmentContributor implements IHierarchyContributor
 {
-    public static readonly Key = new ServiceKey<PublishTenantContributor>('PublishTenantContributor')
+    public static readonly Key = new ServiceKey<PublishToEnvironmentContributor>('PublishToEnvironmentContributor')
 
-    public static readonly PublishCommandId = 'tenant.publish'
+    public static readonly PublishCommandId = 'environment.publish'
 
     private static readonly SystemId = 'html-bundle'
     private static readonly FlavorId = 'html-bundle-remote'
     // Its own dir, distinct from HtmlAppContributor build/, so publishing never clobbers the
     // local Open/Serve HTML app output (and vice versa).
     public static readonly BuildDir = RemoteBuildDirName
-    private static readonly PublishLabel = 'Publish to tenant'
+    private static readonly PublishLabel = 'Publish to environment'
     private static readonly TitlePrefix = 'Publishing '
     private static readonly ToEnvironment = ' to '
     private static readonly BuildFailedPrefix = 'Build failed: '
     private static readonly NoOutputPathError = 'Build produced no output path to publish'
-    private static readonly PublishFailedPrefix = 'Publish to tenant failed ('
+    private static readonly PublishFailedPrefix = 'Publish to environment failed ('
     private static readonly PublishFailedSeparator = '): '
     private static readonly NoReason = 'no reason given'
 
@@ -55,11 +55,11 @@ export class PublishTenantContributor implements IHierarchyContributor
         private readonly buildService: BuildService,
         private readonly work: BackgroundWorkService | undefined,
         private readonly mutations: IContentMutations,
-        private readonly publisher: ITenantPublisher | undefined,
+        private readonly publisher: IEnvironmentPublisher | undefined,
         private readonly picker: ITargetPicker | undefined = undefined)
     {
         this.Actions = [
-            PublishTenantContributor.command(PublishTenantContributor.PublishCommandId, PublishTenantContributor.PublishLabel, 54),
+            PublishToEnvironmentContributor.command(PublishToEnvironmentContributor.PublishCommandId, PublishToEnvironmentContributor.PublishLabel, 54),
         ]
     }
 
@@ -80,7 +80,7 @@ export class PublishTenantContributor implements IHierarchyContributor
 
     public Resolve(commandId: string, context: CommandContext): ICommand | undefined
     {
-        if (commandId !== PublishTenantContributor.PublishCommandId) return undefined
+        if (commandId !== PublishToEnvironmentContributor.PublishCommandId) return undefined
         const member = FileTreeContributor.MemberOf((context as HierarchyActionContext).Anchor)
         if (member === undefined) return undefined
         return new RelayCommand(() => void this.publish(member),() => this.work !== undefined && this.publisher !== undefined && this.picker !== undefined)
@@ -105,12 +105,12 @@ export class PublishTenantContributor implements IHierarchyContributor
         }
         catch (e)
         {
-            void work.run(`${PublishTenantContributor.TitlePrefix}${member.Title}`, () => Promise.reject(e))
+            void work.run(`${PublishToEnvironmentContributor.TitlePrefix}${member.Title}`, () => Promise.reject(e))
             return
         }
         if (choice === undefined) return
         const target = TargetIdentity.RefOf(choice)
-        const title = `${PublishTenantContributor.TitlePrefix}${member.Title}${PublishTenantContributor.ToEnvironment}${target.Name}`
+        const title = `${PublishToEnvironmentContributor.TitlePrefix}${member.Title}${PublishToEnvironmentContributor.ToEnvironment}${target.Name}`
         void work.run(title, async (ctx) =>
         {
             await this.mutations.EnsureMemberGenerated(member)
@@ -119,7 +119,7 @@ export class PublishTenantContributor implements IHierarchyContributor
             if (this.mutations.IsVersionedMember(member)) await this.mutations.BumpMemberVersion(member, VersionPart.Patch)
             const outputPath = await this.buildRemote(storage, ctx)
             const result = await publisher.Publish(target, outputPath)
-            return PublishTenantContributor.RequireApplied(result)
+            return PublishToEnvironmentContributor.RequireApplied(result)
         })
     }
 
@@ -130,27 +130,27 @@ export class PublishTenantContributor implements IHierarchyContributor
         const manifest = parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
         const options =
         {
-            OutputRootOverride: (storage as unknown as ILocalFileAccess).ResolveOsPath(PublishTenantContributor.BuildDir),
+            OutputRootOverride: (storage as unknown as ILocalFileAccess).ResolveOsPath(PublishToEnvironmentContributor.BuildDir),
             Remote: { AppName: manifest.id ?? manifest.name },
         }
-        const result = await this.buildService.Build(storage, PublishTenantContributor.SystemId, PublishTenantContributor.FlavorId, new BuildProgressReporter(ctx), options)
+        const result = await this.buildService.Build(storage, PublishToEnvironmentContributor.SystemId, PublishToEnvironmentContributor.FlavorId, new BuildProgressReporter(ctx), options)
         if (!result.Result.Ok)
         {
-            throw new Error(`${PublishTenantContributor.BuildFailedPrefix}${BuildService.FormatErrors(result.Result.Diagnostics)}`)
+            throw new Error(`${PublishToEnvironmentContributor.BuildFailedPrefix}${BuildService.FormatErrors(result.Result.Diagnostics)}`)
         }
-        if (result.Result.OutputPath === undefined) throw new Error(PublishTenantContributor.NoOutputPathError)
+        if (result.Result.OutputPath === undefined) throw new Error(PublishToEnvironmentContributor.NoOutputPathError)
         return result.Result.OutputPath
     }
 
-    private static RequireApplied(result: TenantPublishResult): TenantPublishResult
+    private static RequireApplied(result: EnvironmentPublishResult): EnvironmentPublishResult
     {
-        if (result.Status !== TenantPublishStatus.Applied)
+        if (result.Status !== EnvironmentPublishStatus.Applied)
         {
-            const reason = result.Reason ?? PublishTenantContributor.NoReason
-            throw new Error(`${PublishTenantContributor.PublishFailedPrefix}${result.Status}${PublishTenantContributor.PublishFailedSeparator}${reason}`)
+            const reason = result.Reason ?? PublishToEnvironmentContributor.NoReason
+            throw new Error(`${PublishToEnvironmentContributor.PublishFailedPrefix}${result.Status}${PublishToEnvironmentContributor.PublishFailedSeparator}${reason}`)
         }
         return result
     }
 }
 
-export default PublishTenantContributor
+export default PublishToEnvironmentContributor

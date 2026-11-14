@@ -27,7 +27,7 @@ import { SolutionRootContributor } from './solution-root-contributor.js'
 import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, ConnectionEditorLauncherKey } from './connection-actions-contributor.js'
 import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contributor.js'
 import { HtmlAppContributor } from './html-app-contributor.js'
-import { PublishTenantContributor } from './publish-tenant-contributor.js'
+import { PublishToEnvironmentContributor } from './publish-to-environment-contributor.js'
 import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
 import { ContributeTargetDialog } from './contribute-target-dialog.js'
@@ -36,7 +36,7 @@ import { SolutionPackageBuilder } from '../../graph-contribute/solution-package-
 import { GraphContributorKey } from '../../graph-contribute/graph-contributor.js'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { PreviewServerKey } from '../../preview-server/preview-server.js'
-import { TenantPublisherKey } from '../../tenant-publish/tenant-publisher.js'
+import { EnvironmentPublisherKey } from '../../environment-publish/environment-publisher.js'
 import { FileSystemService } from '../../storage/file-system-service.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
@@ -228,8 +228,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const dialogs = this.provider.get(DialogService.Key)
             const account = this.provider.get(AccountServiceKey)
             const publishPicker = dialogs === undefined || account === undefined ? undefined : new PublishTargetDialog(account, dialogs)
-            const publishTenant = new PublishTenantContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(TenantPublisherKey), publishPicker)
-            this.handles.push(registry.RegisterInstance(publishTenant, publishTenant.Actions))
+            const publishToEnvironment = new PublishToEnvironmentContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentPublisherKey), publishPicker)
+            this.handles.push(registry.RegisterInstance(publishToEnvironment, publishToEnvironment.Actions))
             // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
             // registry + storage provider + package store (absent in headless/unit contexts): only
             // wire the graph contributor when all three resolve, mirroring the undefined-safe spirit.

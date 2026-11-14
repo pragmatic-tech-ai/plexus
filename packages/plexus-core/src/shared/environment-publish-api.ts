@@ -1,4 +1,4 @@
-// Shared (renderer + main) contract for the "Publish to tenant" feature: the remote build dir, the
+// Shared (renderer + main) contract for the "Publish to environment" feature: the remote build dir, the
 // publish status enum and the result shape. Publishing goes through the relay of the target's source (console or platform), which
 // keeps the environment credentials server-side; no credentials ever appear in these types.
 
@@ -8,7 +8,7 @@ export const RemoteBuildDirName = 'build-remote'
 
 // Mirrors the protocol AppWriteStatus wire values (a local enum because the renderer cannot
 // import the protocol package).
-export enum TenantPublishStatus
+export enum EnvironmentPublishStatus
 {
     Applied = 'applied',
     Conflict = 'conflict',
@@ -17,9 +17,9 @@ export enum TenantPublishStatus
     Failed = 'failed',
 }
 
-export interface TenantPublishResult
+export interface EnvironmentPublishResult
 {
-    Status: TenantPublishStatus;
+    Status: EnvironmentPublishStatus;
     Reason?: string;
     AppName: string;
     AppVersion: string;

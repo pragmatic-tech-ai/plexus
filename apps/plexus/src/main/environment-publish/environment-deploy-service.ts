@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
-import { RemoteBuildDirName, TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { RemoteBuildDirName, EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
 import { TargetKind, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import type { ITenantPublishApi, TenantPublishResult } from '../../shared/tenant-publish-api.js'
+import type { IEnvironmentPublishApi, EnvironmentPublishResult } from '../../shared/environment-publish-api.js'
 import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
 // A failure reading the build output that this service wrote the sentence for (no manifest, a
@@ -26,9 +26,9 @@ class BuildOutputError extends Error
 // server-side). The renderer does the build; this class only reads its output, so no closure
 // resolution happens here. Trust boundary: outputDir
 // arrives from the renderer, so it must be a remote-build dir (a path segment named build-remote,
-// the dir PublishTenantContributor builds into) and every file read stays confined inside it. The
+// the dir PublishToEnvironmentContributor builds into) and every file read stays confined inside it. The
 // build output is read before the relay is opened, so a bad output never connects.
-export class TenantDeployService implements ITenantPublishApi
+export class EnvironmentDeployService implements IEnvironmentPublishApi
 {
     private static readonly ManifestFile = 'servable-manifest.json'
     private static readonly PackagesDir = 'packages'
@@ -42,25 +42,25 @@ export class TenantDeployService implements ITenantPublishApi
     private static readonly UnsafePath = 'Manifest references a path outside the build output: '
     private static readonly NotABuildDir = 'Refusing to publish a directory that is not a remote build output: '
     private static readonly Unreadable = 'The build output could not be read.'
-    private static readonly UnreadableLog = 'TenantDeployService: reading the build output failed:'
+    private static readonly UnreadableLog = 'EnvironmentDeployService: reading the build output failed:'
 
     constructor(private readonly relay: IRelayConnector)
     {
     }
 
-    public async Deploy(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
+    public async Deploy(target: TargetRef, outputDir: string): Promise<EnvironmentPublishResult>
     {
-        TenantDeployService.RequireBuildDir(outputDir)
-        const params = await TenantDeployService.AssembleOrSentence(outputDir)
+        EnvironmentDeployService.RequireBuildDir(outputDir)
+        const params = await EnvironmentDeployService.AssembleOrSentence(outputDir)
         const client = await this.relay.Connect(target, TargetKind.Publish)
         try
         {
             const result = await RelayConnector.Call({ Environment: target.Name, Client: client }, () => client.DeployApplication(params))
-            return { Status: result.status as string as TenantPublishStatus, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
+            return { Status: result.status as string as EnvironmentPublishStatus, Reason: result.reason, AppName: result.appName, AppVersion: result.appVersion }
         }
         finally
         {
-            await TenantDeployService.Close(client)
+            await EnvironmentDeployService.Close(client)
         }
     }
 
@@ -78,12 +78,12 @@ export class TenantDeployService implements ITenantPublishApi
     }
 
     // A lightweight sanity gate only. The real trust boundary is ReadFile's path confinement
-    // (resolved path must start with root + sep) plus tenant-scoping on the server.
+    // (resolved path must start with root + sep) plus environment-scoping on the server.
     private static RequireBuildDir(outputDir: string): void
     {
         if (!resolve(outputDir).split(sep).includes(RemoteBuildDirName))
         {
-            throw new Error(`${TenantDeployService.NotABuildDir}${outputDir}`)
+            throw new Error(`${EnvironmentDeployService.NotABuildDir}${outputDir}`)
         }
     }
 
@@ -94,33 +94,33 @@ export class TenantDeployService implements ITenantPublishApi
     {
         try
         {
-            return await TenantDeployService.Assemble(outputDir)
+            return await EnvironmentDeployService.Assemble(outputDir)
         }
         catch (e)
         {
             if (e instanceof BuildOutputError) throw e
             const { name, code } = (e ?? {}) as { name?: unknown; code?: unknown }
-            console.warn(TenantDeployService.UnreadableLog, String(name ?? typeof e), String(code ?? ''))
-            throw new Error(TenantDeployService.Unreadable)
+            console.warn(EnvironmentDeployService.UnreadableLog, String(name ?? typeof e), String(code ?? ''))
+            throw new Error(EnvironmentDeployService.Unreadable)
         }
     }
 
     private static async Assemble(outputDir: string): Promise<CypherAppDeployParamsDto>
     {
-        const manifest = await TenantDeployService.ReadManifest(outputDir)
+        const manifest = await EnvironmentDeployService.ReadManifest(outputDir)
         const packages: CypherAppDeployParamsDto['packages'] = []
         for (const ref of manifest.packages)
         {
-            const path = join(TenantDeployService.PackagesDir, ref.id, ref.version, TenantDeployService.ModelFile)
-            const modelJson = (await TenantDeployService.ReadFile(outputDir, path)).toString(TenantDeployService.Utf8)
+            const path = join(EnvironmentDeployService.PackagesDir, ref.id, ref.version, EnvironmentDeployService.ModelFile)
+            const modelJson = (await EnvironmentDeployService.ReadFile(outputDir, path)).toString(EnvironmentDeployService.Utf8)
             packages.push({ id: ref.id, version: ref.version, modelJson })
         }
         const uiBundle: CypherAppDeployParamsDto['uiBundle'] = []
         const paths = manifest.ui.assets.includes(manifest.ui.entry) ? manifest.ui.assets : [manifest.ui.entry, ...manifest.ui.assets]
         for (const path of paths)
         {
-            const bytes = await TenantDeployService.ReadFile(outputDir, path)
-            uiBundle.push({ path, contentBase64: bytes.toString(TenantDeployService.Base64) })
+            const bytes = await EnvironmentDeployService.ReadFile(outputDir, path)
+            uiBundle.push({ path, contentBase64: bytes.toString(EnvironmentDeployService.Base64) })
         }
         return { appName: manifest.name, appVersion: manifest.version, packages, uiBundle, manifest }
     }
@@ -130,11 +130,11 @@ export class TenantDeployService implements ITenantPublishApi
         let text: string
         try
         {
-            text = await fs.readFile(join(outputDir, TenantDeployService.ManifestFile), TenantDeployService.Utf8)
+            text = await fs.readFile(join(outputDir, EnvironmentDeployService.ManifestFile), EnvironmentDeployService.Utf8)
         }
         catch
         {
-            throw new BuildOutputError(`${TenantDeployService.NoManifest}${outputDir}`)
+            throw new BuildOutputError(`${EnvironmentDeployService.NoManifest}${outputDir}`)
         }
         let m: Partial<ServableAppManifestDto>
         try
@@ -143,12 +143,12 @@ export class TenantDeployService implements ITenantPublishApi
         }
         catch
         {
-            throw new BuildOutputError(TenantDeployService.ManifestNotJson)
+            throw new BuildOutputError(EnvironmentDeployService.ManifestNotJson)
         }
         if (m === null || typeof m !== 'object' || typeof m.name !== 'string' || typeof m.version !== 'string' || !Array.isArray(m.packages)
             || m.ui === undefined || typeof m.ui.entry !== 'string' || !Array.isArray(m.ui.assets))
         {
-            throw new BuildOutputError(TenantDeployService.BadManifest)
+            throw new BuildOutputError(EnvironmentDeployService.BadManifest)
         }
         return m as ServableAppManifestDto
     }
@@ -156,14 +156,14 @@ export class TenantDeployService implements ITenantPublishApi
     private static async ReadFile(root: string, relative: string): Promise<Buffer>
     {
         const full = resolve(root, relative)
-        if (!full.startsWith(resolve(root) + sep)) throw new BuildOutputError(`${TenantDeployService.UnsafePath}${relative}`)
+        if (!full.startsWith(resolve(root) + sep)) throw new BuildOutputError(`${EnvironmentDeployService.UnsafePath}${relative}`)
         try
         {
             return await fs.readFile(full)
         }
         catch
         {
-            throw new BuildOutputError(`${TenantDeployService.MissingFile}${relative}`)
+            throw new BuildOutputError(`${EnvironmentDeployService.MissingFile}${relative}`)
         }
     }
 }

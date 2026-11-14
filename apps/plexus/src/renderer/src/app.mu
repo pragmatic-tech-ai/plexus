@@ -118,9 +118,9 @@ import ClipboardService from "@pragmatic-tech-ai/mural/framework"
 // static Key) so HtmlAppContributor's Serve HTML app command resolves it.
 import IpcPreviewServer from "./services/preview-server/ipc-preview-server.js"
 
-// Tenant publish — the concrete ITenantPublisher (plexus-core capability) over the
-// window.api.tenantPublish preload bridge. Registered under TenantPublisherKey.
-import IpcTenantPublisher from "./services/tenant-publish/ipc-tenant-publisher.js"
+// Environment publish — the concrete IEnvironmentPublisher (plexus-core capability) over the
+// window.api.environmentPublish preload bridge. Registered under EnvironmentPublisherKey.
+import IpcEnvironmentPublisher from "./services/environment-publish/ipc-environment-publisher.js"
 // Graph contribute — the concrete IGraphContributor (plexus-core capability) over the
 // window.api.graphContribute preload bridge. Registered under GraphContributorKey.
 import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contributor.js"
@@ -185,7 +185,7 @@ import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.
 
 // The New/Open project, references, set-version and shared Confirm DIALOG templates.
 import SolutionDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-dialogs.resources.mu.js"
-// The Contribute to graph / Publish to tenant environment pickers (ContributeTargetDialog, PublishTargetDialog).
+// The Contribute to graph / Publish to environment pickers (ContributeTargetDialog, PublishTargetDialog).
 import TargetDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/target-dialogs.resources.mu.js"
 // Solution Explorer panel view: DataTemplate[SolutionExplorerService] (command bar
 // + empty state + one virtualized TreeView) and the single HierarchicalDataTemplate
@@ -331,9 +331,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Preview server over the preload bridge (PreviewServerKey): HtmlAppContributor's
         // Serve HTML app command resolves it to serve the built html-bundle locally.
         IpcPreviewServer
-        // Tenant publish over the preload bridge (TenantPublisherKey): PublishTenantContributor's
-        // Publish to tenant command resolves it to upload the remote build via the main process.
-        IpcTenantPublisher
+        // Environment publish over the preload bridge (EnvironmentPublisherKey): PublishToEnvironmentContributor's
+        // Publish to environment command resolves it to upload the remote build via the main process.
+        IpcEnvironmentPublisher
         // Graph contribute over the preload bridge (GraphContributorKey): ContributeToGraphContributor
         // resolves it to contribute a built solution to a dev graph via the main process.
         IpcGraphContributor
@@ -663,7 +663,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Solution dialog templates (New/Open project, references, set-version, confirm).
         merge SolutionDialogsResources
 
-        // Environment pickers for Contribute to graph and Publish to tenant.
+        // Environment pickers for Contribute to graph and Publish to environment.
         merge TargetDialogsResources
 
         // Solution Explorer panel view: DataTemplate[SolutionExplorerService] +

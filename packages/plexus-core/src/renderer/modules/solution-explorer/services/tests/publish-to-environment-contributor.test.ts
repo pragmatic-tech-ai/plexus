@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { NodeKey, HierarchyActionContext, type HierarchyItem } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { Solution } from '@pragmatic-tech-ai/todl'
-import { PublishTenantContributor } from '../publish-tenant-contributor.js'
+import { PublishToEnvironmentContributor } from '../publish-to-environment-contributor.js'
 import { VersionPart } from '../../../../projects/semver-bump.js'
 import { BuildProgressReporter } from '../build-progress-reporter.js'
-import type { ITenantPublisher } from '../../../tenant-publish/tenant-publisher.js'
-import { TenantPublishStatus, type TenantPublishResult } from '../../../../../shared/tenant-publish-api.js'
+import type { IEnvironmentPublisher } from '../../../environment-publish/environment-publisher.js'
+import { EnvironmentPublishStatus, type EnvironmentPublishResult } from '../../../../../shared/environment-publish-api.js'
 import { TargetPickOutcome } from '../target-dialog.js'
 import { ScriptedPicker } from './fake-target-sources.js'
 import { TargetSource, type TargetChoice, type TargetRef } from '../../../../../shared/account-api.js'
@@ -55,13 +55,13 @@ class PublishTestHelper
     }
 
     // Runs the command and waits past the environment prompt, so work.task is set when publishing.
-    public static async Execute(c: PublishTenantContributor, id: string, ctx: HierarchyActionContext): Promise<void>
+    public static async Execute(c: PublishToEnvironmentContributor, id: string, ctx: HierarchyActionContext): Promise<void>
     {
         c.Resolve(id, ctx)!.Execute()
         await new Promise((res) => setTimeout(res, 0))
     }
 
-    public static ActionById(c: PublishTenantContributor, id: string): any
+    public static ActionById(c: PublishToEnvironmentContributor, id: string): any
     {
         return c.Actions.find((a) => a.Id === id)!
     }
@@ -108,15 +108,15 @@ class FakeBuildService
     }
 }
 
-class FakePublisher implements ITenantPublisher
+class FakePublisher implements IEnvironmentPublisher
 {
     public Published: Array<[TargetRef, string]> = []
 
-    constructor(private readonly result: TenantPublishResult)
+    constructor(private readonly result: EnvironmentPublishResult)
     {
     }
 
-    public Publish(target: TargetRef, outputDir: string): Promise<TenantPublishResult>
+    public Publish(target: TargetRef, outputDir: string): Promise<EnvironmentPublishResult>
     {
         this.Published.push([target, outputDir])
         return Promise.resolve(this.result)
@@ -131,17 +131,17 @@ class FakePrompt extends ScriptedPicker
     }
 }
 
-describe('PublishTenantContributor', () =>
+describe('PublishToEnvironmentContributor', () =>
 {
-    const Applied: TenantPublishResult = { Status: TenantPublishStatus.Applied, AppName: 'orders', AppVersion: '1' }
+    const Applied: EnvironmentPublishResult = { Status: EnvironmentPublishStatus.Applied, AppName: 'orders', AppVersion: '1' }
 
     it('builds the html-bundle-remote flavor with the remote target, then publishes the output dir', async () =>
     {
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt('prod'))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).resolves.toEqual(Applied)
         expect(svc.Calls).toHaveLength(1)
         expect(svc.Calls[0].systemId).toBe('html-bundle')
@@ -157,8 +157,8 @@ describe('PublishTenantContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const mutations = new RecordingMutations(true, svc)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, mutations as any, new FakePublisher(Applied), new FakePrompt('prod'))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, mutations as any, new FakePublisher(Applied), new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).resolves.toEqual(Applied)
         expect(mutations.Bumps).toEqual([{ part: VersionPart.Patch, buildsBefore: 0 }])
         expect(svc.Calls).toHaveLength(1)
@@ -169,14 +169,14 @@ describe('PublishTenantContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const unversioned = new RecordingMutations(false, svc)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, unversioned as any, new FakePublisher(Applied), new FakePrompt('prod'))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, unversioned as any, new FakePublisher(Applied), new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await work.task
         expect(unversioned.Bumps).toEqual([])
 
         const cancelled = new RecordingMutations(true, svc)
-        const quiet = new PublishTenantContributor(svc as any, PublishTestHelper.Work(), cancelled as any, new FakePublisher(Applied), new FakePrompt(undefined))
-        await PublishTestHelper.Execute(quiet, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const quiet = new PublishToEnvironmentContributor(svc as any, PublishTestHelper.Work(), cancelled as any, new FakePublisher(Applied), new FakePrompt(undefined))
+        await PublishTestHelper.Execute(quiet, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         expect(cancelled.Bumps).toEqual([])
     })
 
@@ -185,8 +185,8 @@ describe('PublishTenantContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt({ Environment: 'prod', Source: TargetSource.Platform }))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt({ Environment: 'prod', Source: TargetSource.Platform }))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).resolves.toEqual(Applied)
         expect(publisher.Published).toEqual([[{ Name: 'prod', Source: TargetSource.Platform }, '/out']])
         expect(work.Title).toBe('Publishing ./p to prod')
@@ -199,16 +199,16 @@ describe('PublishTenantContributor', () =>
         const work = PublishTestHelper.Work()
         const picker = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf({ Environment: 'prod' })])
         picker.SignInResult = true
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, picker)
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, picker)
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).resolves.toEqual(Applied)
         expect(picker.Shows).toBe(2)
         expect(publisher.Published).toEqual([[PublishTestHelper.Prod, '/out']])
 
         const quietWork = PublishTestHelper.Work()
         const quiet = new ScriptedPicker([{ Outcome: TargetPickOutcome.SignIn }, ScriptedPicker.PickOf({ Environment: 'prod' })])
-        const q = new PublishTenantContributor(svc as any, quietWork, PublishTestHelper.Mutations(), publisher, quiet)
-        await PublishTestHelper.Execute(q, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const q = new PublishToEnvironmentContributor(svc as any, quietWork, PublishTestHelper.Mutations(), publisher, quiet)
+        await PublishTestHelper.Execute(q, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         expect(quiet.SignInRequests).toBe(1)
         expect(quiet.Shows).toBe(1)
         expect(quietWork.task).toBeUndefined()
@@ -219,8 +219,8 @@ describe('PublishTenantContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: false, OutputPath: '/x', Diagnostics: [{ severity: 'error', message: 'boom' }] } })
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt('prod'))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).rejects.toThrow('Build failed: boom')
         expect(publisher.Published).toEqual([])
     })
@@ -228,11 +228,11 @@ describe('PublishTenantContributor', () =>
     it('fails the task with the server status and reason when the deploy is not applied', async () =>
     {
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
-        const publisher = new FakePublisher({ Status: TenantPublishStatus.Denied, Reason: 'not an admin', AppName: 'orders', AppVersion: '1' })
+        const publisher = new FakePublisher({ Status: EnvironmentPublishStatus.Denied, Reason: 'not an admin', AppName: 'orders', AppVersion: '1' })
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt('prod'))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
-        await expect(work.task).rejects.toThrow('Publish to tenant failed (denied): not an admin')
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt('prod'))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        await expect(work.task).rejects.toThrow('Publish to environment failed (denied): not an admin')
     })
 
     it('publishes nothing when the environment prompt is cancelled', async () =>
@@ -240,8 +240,8 @@ describe('PublishTenantContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt(undefined))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt(undefined))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         expect(work.task).toBeUndefined()
         expect(svc.Calls).toHaveLength(0)
         expect(publisher.Published).toEqual([])
@@ -252,8 +252,8 @@ describe('PublishTenantContributor', () =>
         const svc = new FakeBuildService({ Result: { Ok: true, OutputPath: '/out', Diagnostics: [] } })
         const publisher = new FakePublisher(Applied)
         const work = PublishTestHelper.Work()
-        const c = new PublishTenantContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt(new Error('prompt broke')))
-        await PublishTestHelper.Execute(c, 'tenant.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
+        const c = new PublishToEnvironmentContributor(svc as any, work, PublishTestHelper.Mutations(), publisher, new FakePrompt(new Error('prompt broke')))
+        await PublishTestHelper.Execute(c, 'environment.publish', PublishTestHelper.CtxFor(PublishTestHelper.Member()))
         await expect(work.task).rejects.toThrow('prompt broke')
         expect(svc.Calls).toHaveLength(0)
         expect(publisher.Published).toEqual([])
@@ -261,25 +261,25 @@ describe('PublishTenantContributor', () =>
 
     it('offers no configure command', () =>
     {
-        const c = new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), new FakePublisher(Applied), new FakePrompt('prod'))
-        expect(c.Actions.map((a) => a.Id)).toEqual(['tenant.publish'])
+        const c = new PublishToEnvironmentContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), new FakePublisher(Applied), new FakePrompt('prod'))
+        expect(c.Actions.map((a) => a.Id)).toEqual(['environment.publish'])
         expect(c.Resolve('tenant.configure', PublishTestHelper.CtxFor(PublishTestHelper.Member()))).toBeUndefined()
     })
 
     it('is disabled without a publisher and ignores other command ids', () =>
     {
-        const c = new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), undefined)
+        const c = new PublishToEnvironmentContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), undefined)
         const ctx = PublishTestHelper.CtxFor(PublishTestHelper.Member())
-        expect(c.Resolve('tenant.publish', ctx)!.CanExecute()).toBe(false)
+        expect(c.Resolve('environment.publish', ctx)!.CanExecute()).toBe(false)
         expect(c.Resolve('html.open', ctx)).toBeUndefined()
     })
 
     it('lists the one publish command with its id, label and order; the retired environment command resolves to nothing', () =>
     {
-        const c = new PublishTenantContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), undefined)
-        const publish = PublishTestHelper.ActionById(c, PublishTenantContributor.PublishCommandId)
+        const c = new PublishToEnvironmentContributor({} as any, PublishTestHelper.Work(), PublishTestHelper.Mutations(), undefined)
+        const publish = PublishTestHelper.ActionById(c, PublishToEnvironmentContributor.PublishCommandId)
         expect(publish.Order).toBe(54)
-        expect(publish.Title).toBe('Publish to tenant')
-        expect(c.Resolve('tenant.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))).toBeUndefined()
+        expect(publish.Title).toBe('Publish to environment')
+        expect(c.Resolve('environment.publish-env', PublishTestHelper.CtxFor(PublishTestHelper.Member()))).toBeUndefined()
     })
 })

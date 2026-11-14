@@ -32,7 +32,7 @@ import { chromium, type Browser, type BrowserContext } from 'playwright'
 import { existsSync, mkdtempSync, cpSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { TenantPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/tenant-publish-api.js'
+import { EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
 import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from './plexus-app'
 import { ContosoFixture, CatalogFixture } from './fixtures/fixture-manifest'
@@ -81,7 +81,7 @@ class RendererOps
     private static readonly WorkspaceName = 'SolutionWorkspaceService'
     private static readonly GenerateContributorName = 'GenerateUiContributor'
     private static readonly ContributeContributorName = 'ContributeToGraphContributor'
-    private static readonly PublishContributorName = 'PublishTenantContributor'
+    private static readonly PublishContributorName = 'PublishToEnvironmentContributor'
     private static readonly ProjectFamily = 'project'
     private static readonly SolutionFamily = 'solution'
     private static readonly StageResolve = 'resolve'
@@ -303,7 +303,7 @@ class RendererOps
                     }
                 }
                 // Drive the private publish(member) directly (TS-private; reachable at runtime),
-                // the same call the resolved `tenant.publish` RelayCommand makes.
+                // the same call the resolved `environment.publish` RelayCommand makes.
                 pub.publish(member).catch((e: unknown) => { state.invokeError = String((e as any)?.message ?? e) })
             },
             {
@@ -406,29 +406,29 @@ class BrowserReader
         this.browser = await chromium.launch({ headless: false, args: [DisplayPlacement.ChromiumWindowPositionArg(origin)] })
     }
 
-    public async NewSignedInContext(appOriginBase: string, tenant: string, email: string, password: string): Promise<BrowserContext>
+    public async NewSignedInContext(appOriginBase: string, environment: string, email: string, password: string): Promise<BrowserContext>
     {
         if (this.browser === undefined) throw new Error('BrowserReader.Launch must run first')
         const context = await this.browser.newContext()
         // Fires for every page created in this context (including the spec's own context.newPage()),
         // synchronously before navigation — so load-time exceptions are caught too.
         context.on(BrowserReader.PageEvent, (page) => this.WirePage(page))
-        const loginUrl = `${appOriginBase}${BrowserReader.BrowserLoginPath}${BrowserReader.EnvironmentQuery}${encodeURIComponent(tenant)}`
+        const loginUrl = `${appOriginBase}${BrowserReader.BrowserLoginPath}${BrowserReader.EnvironmentQuery}${encodeURIComponent(environment)}`
         const response = await context.request.post(loginUrl, { data: { [BrowserReader.EmailKey]: email, [BrowserReader.PasswordKey]: password } })
         expect(response.ok(), `browser-login failed (HTTP ${response.status()})`).toBeTruthy()
         return context
     }
 
-    public static AppUrl(appOriginBase: string, tenant: string, appId: string): string
+    public static AppUrl(appOriginBase: string, environment: string, appId: string): string
     {
-        return `${appOriginBase}${BrowserReader.AppPathPrefix}${tenant}${BrowserReader.PathSep}${appId}${BrowserReader.PathSep}`
+        return `${appOriginBase}${BrowserReader.AppPathPrefix}${environment}${BrowserReader.PathSep}${appId}${BrowserReader.PathSep}`
     }
 
     // Opens the served app and asserts the expected value renders.
-    public async AssertRenders(context: BrowserContext, appOriginBase: string, tenant: string, appId: string, value: string): Promise<Page>
+    public async AssertRenders(context: BrowserContext, appOriginBase: string, environment: string, appId: string, value: string): Promise<Page>
     {
         const page = await context.newPage()
-        await page.goto(BrowserReader.AppUrl(appOriginBase, tenant, appId))
+        await page.goto(BrowserReader.AppUrl(appOriginBase, environment, appId))
         await expect(page.getByText(value, { exact: false })).toBeVisible({ timeout: BrowserReader.RenderTimeoutMs })
         return page
     }
@@ -471,9 +471,9 @@ class BrowserReader
     // decisive check for "are the fonts actually served": the AppServingEndpoint serves a path only if
     // the app manifest lists it in ui.assets, so 404 here means the woff2 was never emitted/listed
     // (which collapses mural's glyph-geometry text measurement to NaN), while 200 means it is served.
-    public async ProbeFonts(context: BrowserContext, appOriginBase: string, tenant: string, appId: string): Promise<void>
+    public async ProbeFonts(context: BrowserContext, appOriginBase: string, environment: string, appId: string): Promise<void>
     {
-        const base = appOriginBase + BrowserReader.AppPathPrefix + tenant + BrowserReader.PathSep + appId + BrowserReader.PathSep
+        const base = appOriginBase + BrowserReader.AppPathPrefix + environment + BrowserReader.PathSep + appId + BrowserReader.PathSep
         for (const rel of BrowserReader.FontProbePaths)
         {
             const url = base + rel
@@ -640,7 +640,7 @@ test.describe('runtime publishing live loop', () => {
             // error, or stale data. Driven node-side over the real PragmaticClient: log in as the
             // reader, connect, run one Cypher read WITHOUT OpenApplication (the environment scope).
             await test.step('pre-promote: the empty runtime answers with no rows', async () => {
-                const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.reader.email, rt!.reader.password, PrePromoteCypher)
+                const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.environment, rt!.reader.email, rt!.reader.password, PrePromoteCypher)
                 expect(outcome.Ok, `a runtime with nothing promoted must answer the env read cleanly: ${outcome.ErrorMessage ?? ''}`).toBeTruthy()
                 expect(outcome.RowCount, 'a runtime with nothing promoted must hold no rows').toBe(0)
             })
@@ -658,16 +658,16 @@ test.describe('runtime publishing live loop', () => {
                 expect(published.buildOk, 'html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
                 expect(published.publishError, published.publishError).toBeUndefined()
-                expect(published.publishStatus, `publish status: ${published.publishStatus ?? ''}`).toBe(TenantPublishStatus.Applied)
+                expect(published.publishStatus, `publish status: ${published.publishStatus ?? ''}`).toBe(EnvironmentPublishStatus.Applied)
             })
 
             // Step 8: the milestone — a real browser on the second monitor reads the promoted value.
             await test.step('browser read (milestone)', async () => {
                 await reader.Launch(origin)
-                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
-                await reader.AssertRenders(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId, ContosoFixture.assertValue)
+                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.environment, rt!.reader.email, rt!.reader.password)
+                await reader.AssertRenders(context, rt!.appOriginBase, rt!.environment, ContosoFixture.appId, ContosoFixture.assertValue)
                 // Decisive "are the fonts served?" check (smoke): HEAD the theme woff2s at the app route.
-                await reader.ProbeFonts(context, rt!.appOriginBase, rt!.tenant, ContosoFixture.appId)
+                await reader.ProbeFonts(context, rt!.appOriginBase, rt!.environment, ContosoFixture.appId)
             })
 
             // Step 9: ungranted-denied assertion (Review focus) — a REAL denial proof. Data IS promoted
@@ -675,7 +675,7 @@ test.describe('runtime publishing live loop', () => {
             // gate (a permission denial), never answered. Driven node-side
             // over PragmaticClient (symmetric with step 5) so the proof does not depend on SPA timing.
             await test.step('ungranted read is denied by RBAC', async () => {
-                const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.tenant, rt!.ungranted.email, rt!.ungranted.password, PrePromoteCypher)
+                const outcome = await new RuntimeEnvGraphReader().ReadEnvGraph(rt!.appOriginBase, rt!.runtimeWsUrl, rt!.environment, rt!.ungranted.email, rt!.ungranted.password, PrePromoteCypher)
                 expect(outcome.Ok, 'an ungranted principal must be refused the env read').toBeFalsy()
                 expect(outcome.ErrorMessage ?? '').toMatch(PermissionDeniedPattern)
             })
@@ -693,9 +693,9 @@ test.describe('runtime publishing live loop', () => {
                 expect(recontributed, `re-contribute stage: ${recontributed.stage ?? ''}`).toMatchObject({ ok: true })
                 await orchestrator.Promote(dev!.graphName)
 
-                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
+                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.environment, rt!.reader.email, rt!.reader.password)
                 const page = await context.newPage()
-                await page.goto(BrowserReader.AppUrl(rt!.appOriginBase, rt!.tenant, ContosoFixture.appId))
+                await page.goto(BrowserReader.AppUrl(rt!.appOriginBase, rt!.environment, ContosoFixture.appId))
                 await page.reload()
                 await expect(page.getByText(V2Value, { exact: false })).toBeVisible({ timeout: ReloadTimeoutMs })
                 // exact:false substring match — a stale render of the original inside any node fails this.
@@ -720,10 +720,10 @@ test.describe('runtime publishing live loop', () => {
                 expect(published.buildOk, 'catalog html-bundle-remote build failed').toBeTruthy()
                 expect(published.invokeError, published.invokeError).toBeUndefined()
                 expect(published.publishError, published.publishError).toBeUndefined()
-                expect(published.publishStatus, `catalog publish status: ${published.publishStatus ?? ''}`).toBe(TenantPublishStatus.Applied)
+                expect(published.publishStatus, `catalog publish status: ${published.publishStatus ?? ''}`).toBe(EnvironmentPublishStatus.Applied)
 
-                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.tenant, rt!.reader.email, rt!.reader.password)
-                const page = await reader.AssertRenders(context, rt!.appOriginBase, rt!.tenant, CatalogFixture.appId, CatalogFixture.assertValue)
+                const context = await reader.NewSignedInContext(rt!.appOriginBase, rt!.environment, rt!.reader.email, rt!.reader.password)
+                const page = await reader.AssertRenders(context, rt!.appOriginBase, rt!.environment, CatalogFixture.appId, CatalogFixture.assertValue)
 
                 await orchestrator.DbExec(UpdateProductSql)
                 await page.reload()
