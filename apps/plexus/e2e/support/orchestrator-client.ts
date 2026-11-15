@@ -88,8 +88,6 @@ export class OrchestratorClient
     private static readonly ImportFlag = '--import'
     private static readonly CreateDevCommand = 'create-dev'
     private static readonly CreateRuntimeCommand = 'create-runtime'
-    private static readonly LegacyEnvironmentKey = 'tenant'
-    private static readonly Empty = ''
     private static readonly PromoteCommand = 'promote'
     private static readonly TeardownCommand = 'teardown'
     private static readonly DbExecCommand = 'db-exec'
@@ -134,10 +132,7 @@ export class OrchestratorClient
 
     public async CreateRuntime(): Promise<RuntimeDescriptor>
     {
-        // An orchestrator from before the rename names the environment id `tenant` (read for one release).
-        const raw = await this.Run<Omit<RuntimeDescriptor, 'environment'> & { environment?: string; [OrchestratorClient.LegacyEnvironmentKey]?: string }>([OrchestratorClient.CreateRuntimeCommand])
-        const { [OrchestratorClient.LegacyEnvironmentKey]: legacy, ...descriptor } = raw
-        return { ...descriptor, environment: raw.environment ?? legacy ?? OrchestratorClient.Empty }
+        return this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand])
     }
 
     public async Promote(graph: string): Promise<PromoteDescriptor>
