@@ -55,7 +55,7 @@
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "@pragmatic-tech-ai/mural": "^0.66.2",
-    "@pragmatic-tech-ai/todl": "^0.66.0",
+    "@pragmatic-tech-ai/todl": "^0.66.1",
     "@pragmatic-tech-ai/todl-platform-node": "file:../../../todl-platform-node",
     "@pragmatic-tech-ai/todl-runtime": "^0.7.0",
     "chokidar": "^5.0.0",
@@ -63,7 +63,7 @@
   },
   "devDependencies": {
     "@pragmatic-tech-ai/mural": "^0.66.2",
-    "@pragmatic-tech-ai/todl": "^0.66.0",
+    "@pragmatic-tech-ai/todl": "^0.66.1",
     "@pragmatic-tech-ai/todl-runtime": "^0.7.0",
     "@types/node": "^26.0.0",
     "electron": "^43.0.0",
