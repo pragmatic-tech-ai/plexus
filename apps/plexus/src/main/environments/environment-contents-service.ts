@@ -18,9 +18,11 @@ export class EnvironmentContentsService implements IEnvironmentsApi
     {
         return this.With(target, async (client) =>
         {
-            const apps = await EnvironmentContentsService.Tolerate(() => client.ListApplications(), [])
-            const named = await EnvironmentContentsService.Tolerate(() => client.ListGraphs(), [])
-            const loaded = await EnvironmentContentsService.Tolerate(() => client.GetLoadedGraph(), null)
+            const [apps, named, loaded] = await Promise.all([
+                EnvironmentContentsService.Tolerate(() => client.ListApplications(), []),
+                EnvironmentContentsService.Tolerate(() => client.ListGraphs(), []),
+                EnvironmentContentsService.Tolerate(() => client.GetLoadedGraph(), null),
+            ])
             return EnvironmentContentsService.Merge(apps, named, loaded)
         })
     }

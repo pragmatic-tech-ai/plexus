@@ -9,6 +9,7 @@ type Read<T> = T | Error
 class FakeClient
 {
     public Closed = 0
+    public DisposeFails = false
 
     constructor(
         private readonly apps: Read<any[]> = [],
@@ -35,6 +36,7 @@ class FakeClient
     public async DisposeAsync(): Promise<void>
     {
         this.Closed++
+        if (this.DisposeFails) throw new Error('dispose failed')
     }
 
     public CloseCode(): number | undefined
@@ -112,10 +114,26 @@ describe('EnvironmentContentsService', () =>
         expect(await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).toEqual({ Applications: [], Graphs: [{ Name: 'sales', PackageCount: 2 }] })
     })
 
-    it('de-dupes graphs by name', async () =>
+    it('de-dupes graphs by name keeping the named graph first', async () =>
     {
-        const client = new FakeClient([], [{ name: 'g', description: '', packageCount: 1, createdAt: '' }], { name: 'g', packages: [], promotedAt: '' })
-        expect((await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).Graphs).toHaveLength(1)
+        const client = new FakeClient([], [{ name: 'g', description: '', packageCount: 5, createdAt: '' }], { name: 'g', packages: [{ id: 'a', version: '1' }], promotedAt: '' })
+        expect((await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).Graphs).toEqual([{ Name: 'g', PackageCount: 5 }])
+    })
+
+    it('does not tolerate a ResponseError other than method-not-found', async () =>
+    {
+        const client = new FakeClient([], new ResponseError(ErrorCodes.InternalError, 'boom'))
+        const message = await Fixture.Message(new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev))
+        expect(message).toBe('boom')
+        expect(client.Closed).toBe(1)
+    })
+
+    it('keeps the result when closing the client throws', async () =>
+    {
+        const client = new FakeClient([{ name: 'a', version: '1' }])
+        client.DisposeFails = true
+        expect(await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).toEqual({ Applications: [{ Name: 'a', Version: '1' }], Graphs: [] })
+        expect(client.Closed).toBe(1)
     })
 
     it('answers empty lists for an empty environment', async () =>
