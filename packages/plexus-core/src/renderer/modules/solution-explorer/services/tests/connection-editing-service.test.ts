@@ -55,6 +55,7 @@ class FakeClient implements IConnectionsClient
     Test(): Promise<ConnectionTestResult> { return Promise.resolve({ ok: true }) }
     Inspect(): Promise<ConnectionInspection> { return Promise.resolve(this.InspectResult) }
     EnvVars(): Promise<readonly string[]> { return Promise.resolve([]) }
+    Providers(): Promise<readonly never[]> { return Promise.resolve([]) }
 }
 
 const MEMBER = { Ref: { path: 'projA' }, Storage: {} } as unknown as SolutionMember

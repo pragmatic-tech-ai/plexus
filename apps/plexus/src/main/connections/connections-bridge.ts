@@ -11,6 +11,7 @@
  */
 import { PackageRegistryClient, TarReader } from '@pragmatic-tech-ai/todl/package-manager'
 import type { PackageManagerService, ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager'
+import type { ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import type { SourcedPackage, PackageResource } from '@pragmatic-tech-ai/todl'
 
 export interface ConnectionTestResult
@@ -88,6 +89,12 @@ export class ConnectionsBridge
     public EnvVars(): Promise<readonly string[]>
     {
         return Promise.resolve(this.service.ListEnvVars())
+    }
+
+    /** The registry-provider presets the engine offers (relayed so the renderer never hard-codes them). */
+    public Providers(): Promise<readonly ConnectionProvider[]>
+    {
+        return Promise.resolve(this.service.ConnectionProviders())
     }
 
     /** Test a connection via the engine; surfaces the auth/reachability outcome. */

@@ -7,7 +7,7 @@
  * never returned (only `ConnectionView.HasToken`).
  */
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import type { ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import type { ConnectionView, ConnectionSpec, ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
 
 export interface ConnectionTestResult
 {
@@ -38,6 +38,7 @@ export interface IConnectionsClient
     Test(id: string): Promise<ConnectionTestResult>
     Inspect(id: string): Promise<ConnectionInspection>
     EnvVars(): Promise<readonly string[]>
+    Providers(): Promise<readonly ConnectionProvider[]>
 }
 
 // DI token the connection consumers (ConnectionEditingService, via SolutionWorkspaceService)

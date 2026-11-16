@@ -1,6 +1,6 @@
 import { ServiceBase, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ConnectionsClientKey, type IConnectionsClient, type ConnectionTestResult, type ConnectionInspection } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
-import type { ConnectionView, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import type { ConnectionView, ConnectionSpec, ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import type { IConnectionsApi } from '../../../../shared/connections-api.js'
 
 // The renderer-side connections client: the concrete IConnectionsClient plexus-core's
@@ -38,6 +38,7 @@ export class ConnectionsClient extends ServiceBase implements IConnectionsClient
     public Test(id: string): Promise<ConnectionTestResult> { return this.api.Test(id) }
     public Inspect(id: string): Promise<ConnectionInspection> { return this.api.Inspect(id) }
     public EnvVars(): Promise<readonly string[]> { return this.api.EnvVars() }
+    public Providers(): Promise<readonly ConnectionProvider[]> { return this.api.Providers() }
 }
 
 export default ConnectionsClient

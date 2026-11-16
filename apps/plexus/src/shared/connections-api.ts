@@ -6,6 +6,7 @@
 // subpath; a token never crosses.
 import type { IConnectionsClient } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 import type { SourcedPackage } from '@pragmatic-tech-ai/todl'
+export type { ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
 export type { IConnectionsClient, ConnectionTestResult, ConnectionInspection } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 
 export interface IConnectionsApi extends IConnectionsClient
@@ -29,4 +30,5 @@ export enum ConnectionChannel
     Inspect    = 'connections:inspect',
     EnvVars    = 'connections:env-vars',
     Resolve    = 'connections:resolve',
+    Providers  = 'connections:providers',
 }

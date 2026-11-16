@@ -33,3 +33,19 @@ describe('ConnectionsClient.Inspect', () =>
         expect(result).toBe(inspection)
     })
 })
+
+describe('ConnectionsClient.Providers', () =>
+{
+    afterEach(() =>
+    {
+        delete (globalThis as unknown as { api?: unknown }).api
+    })
+
+    it('returns the preload bridge providers unchanged', async () =>
+    {
+        const providers = [{ RegistryType: 'npm', PresetId: 'npm-public', DisplayName: 'npm (public)', Settings: {} }]
+        ;(globalThis as unknown as { api: unknown }).api = { connections: { Providers: async () => providers } }
+        const provider = { get: () => undefined } as unknown as IServiceProvider
+        expect(await new ConnectionsClient(provider).Providers()).toBe(providers)
+    })
+})

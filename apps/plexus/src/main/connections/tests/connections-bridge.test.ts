@@ -100,4 +100,12 @@ describe('ConnectionsBridge', () =>
             scopes: [], scopesSupported: false, packages: [], packagesSupported: false,
         })
     })
+
+    it('Providers relays the engine connection providers unchanged', async () =>
+    {
+        const provider = { RegistryType: 'npm', PresetId: 'npm-public', DisplayName: 'npm (public)', Settings: { Url: 'https://registry.npmjs.org' } }
+        const service = { ConnectionProviders: () => [provider] } as unknown as PackageManagerService
+        const providers = await new ConnectionsBridge(service).Providers()
+        expect(providers).toEqual([provider])
+    })
 })

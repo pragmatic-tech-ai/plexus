@@ -24,6 +24,7 @@ function fakeView(over: Partial<IConnectionView> = {}): IConnectionView & { remo
     const base: IConnectionView = {
         ConnectionsView: async () => list,
         EnvVars: async () => [],
+        Providers: async () => [],
         AddConnection: async () => {},
         UpdateConnection: async () => {},
         SetToken: async () => {},

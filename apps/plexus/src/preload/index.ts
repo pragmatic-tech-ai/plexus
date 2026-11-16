@@ -133,6 +133,7 @@ const connections: IConnectionsApi = {
   Test: (id) => ipcRenderer.invoke(ConnectionChannel.Test, id),
   Inspect: (id) => ipcRenderer.invoke(ConnectionChannel.Inspect, id),
   EnvVars: () => ipcRenderer.invoke(ConnectionChannel.EnvVars),
+  Providers: () => ipcRenderer.invoke(ConnectionChannel.Providers),
   Resolve: (id, version, connectionId) => ipcRenderer.invoke(ConnectionChannel.Resolve, id, version, connectionId),
 }
 
