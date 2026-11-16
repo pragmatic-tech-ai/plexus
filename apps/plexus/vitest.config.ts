@@ -71,6 +71,11 @@ export default defineConfig({
                     // extends mural values; inline it so Vite routes its mural imports
                     // through the dist aliases instead of Node picking mural's src.
                     /@pragmatic-tech-ai\/plexus-core/,
+                    // pragmatic-protocol does `import { WebSocket } from 'ws'`. Left external (installed from the
+                    // registry under node_modules), Node resolves `ws` with the CONDITIONS above, and `browser`
+                    // wins: ws's browser entry is a CommonJS stub with no named WebSocket export. Inlined, Vite
+                    // resolves it as it did when the package was a sibling-folder link.
+                    /@pragmatic-tech-ai\/pragmatic-protocol/,
                     // mural's compiled markup (build/**/*.mu.js) self-imports its own
                     // `@pragmatic-tech-ai/mural/basic|runtime`. Left external, Node
                     // resolves that self-reference with vitest's injected
