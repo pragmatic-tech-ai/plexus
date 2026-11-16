@@ -13,35 +13,35 @@ describe('TenantExplorerNode', () =>
 {
     it('factories set the expected kind and leaves start empty', () =>
     {
-        expect(TenantExplorerNode.tenant('t').Kind).toBe(TenantExplorerNodeKind.Tenant)
-        expect(TenantExplorerNode.application('a').Kind).toBe(TenantExplorerNodeKind.Application)
-        expect(TenantExplorerNode.graph('g').Kind).toBe(TenantExplorerNodeKind.Graph)
-        expect(TenantExplorerNode.message('m').Kind).toBe(TenantExplorerNodeKind.Message)
-        for (const n of [TenantExplorerNode.application('a'), TenantExplorerNode.graph('g'), TenantExplorerNode.message('m')])
+        expect(TenantExplorerNode.Tenant('t').Kind).toBe(TenantExplorerNodeKind.Tenant)
+        expect(TenantExplorerNode.Application('a').Kind).toBe(TenantExplorerNodeKind.Application)
+        expect(TenantExplorerNode.Graph('g').Kind).toBe(TenantExplorerNodeKind.Graph)
+        expect(TenantExplorerNode.Message('m').Kind).toBe(TenantExplorerNodeKind.Message)
+        for (const n of [TenantExplorerNode.Application('a'), TenantExplorerNode.Graph('g'), TenantExplorerNode.Message('m')])
         {
             expect(n.Children.Count).toBe(0)
         }
-        expect(TenantExplorerNode.graph('g').Label).toBe('g')
+        expect(TenantExplorerNode.Graph('g').Label).toBe('g')
     })
 
     it('environment starts with a Loading sentinel and carries status', () =>
     {
-        const env = TenantExplorerNode.environment('e', 'Running', async () => [])
+        const env = TenantExplorerNode.Environment('e', 'Running', async () => [])
         expect(env.Kind).toBe(TenantExplorerNodeKind.Environment)
         expect(env.Status).toBe('Running')
         expect(env.Children.Count).toBe(1)
         expect(env.Children.Get(0)!.Kind).toBe(TenantExplorerNodeKind.Message)
         expect(env.Children.Get(0)!.Label).toBe('Loading…')
-        expect(TenantExplorerNode.tenant('t').Status).toBe('')
+        expect(TenantExplorerNode.Tenant('t').Status).toBe('')
     })
 
     it('OnExpand runs the loader once and swaps the sentinel', async () =>
     {
         let calls = 0
-        const env = TenantExplorerNode.environment('e', 'Running', async () =>
+        const env = TenantExplorerNode.Environment('e', 'Running', async () =>
         {
             calls++
-            return [TenantExplorerNode.application('a1'), TenantExplorerNode.graph('g1')]
+            return [TenantExplorerNode.Application('a1'), TenantExplorerNode.Graph('g1')]
         })
         env.OnExpand()
         env.OnExpand()
@@ -55,7 +55,7 @@ describe('TenantExplorerNode', () =>
 
     it('a rejecting loader leaves a single Failed to load message', async () =>
     {
-        const env = TenantExplorerNode.environment('e', 'Stopped', async () => { throw new Error('x') })
+        const env = TenantExplorerNode.Environment('e', 'Stopped', async () => { throw new Error('x') })
         env.OnExpand()
         await Flush.Run()
         expect(env.Children.Count).toBe(1)
@@ -65,7 +65,7 @@ describe('TenantExplorerNode', () =>
 
     it('OnExpand on a non-lazy node is a no-op', () =>
     {
-        const t = TenantExplorerNode.tenant('t')
+        const t = TenantExplorerNode.Tenant('t')
         t.OnExpand()
         expect(t.Children.Count).toBe(0)
     })

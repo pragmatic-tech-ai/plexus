@@ -39,32 +39,32 @@ export class TenantExplorerNode extends Observable
     public get Status(): string { return this.status }
     public get Children(): ObservableCollection<TenantExplorerNode> { return this.children }
 
-    public static tenant(label: string): TenantExplorerNode
+    public static Tenant(label: string): TenantExplorerNode
     {
         return new TenantExplorerNode(TenantExplorerNodeKind.Tenant, label)
     }
 
-    public static environment(
+    public static Environment(
         label: string, status: string, loader: () => Promise<TenantExplorerNode[]>,
     ): TenantExplorerNode
     {
         const node = new TenantExplorerNode(TenantExplorerNodeKind.Environment, label, status)
         node.loader = loader
-        node.children.Add(TenantExplorerNode.message(TenantExplorerNode.LoadingLabel))
+        node.children.Add(TenantExplorerNode.Message(TenantExplorerNode.LoadingLabel))
         return node
     }
 
-    public static application(label: string): TenantExplorerNode
+    public static Application(label: string): TenantExplorerNode
     {
         return new TenantExplorerNode(TenantExplorerNodeKind.Application, label)
     }
 
-    public static graph(label: string): TenantExplorerNode
+    public static Graph(label: string): TenantExplorerNode
     {
         return new TenantExplorerNode(TenantExplorerNodeKind.Graph, label)
     }
 
-    public static message(label: string): TenantExplorerNode
+    public static Message(label: string): TenantExplorerNode
     {
         return new TenantExplorerNode(TenantExplorerNodeKind.Message, label)
     }
@@ -81,7 +81,7 @@ export class TenantExplorerNode extends Observable
     {
         let produced: TenantExplorerNode[]
         try { produced = await loader() }
-        catch { produced = [TenantExplorerNode.message(TenantExplorerNode.FailedLabel)] }
+        catch { produced = [TenantExplorerNode.Message(TenantExplorerNode.FailedLabel)] }
         this.children.Clear()
         for (const c of produced) this.children.Add(c)
     }
