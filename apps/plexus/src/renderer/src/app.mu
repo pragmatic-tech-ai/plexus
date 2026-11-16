@@ -76,6 +76,7 @@ import BuildHostModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/bui
 // BuildService.Key instead of each constructing its own.
 import BuildService from "@pragmatic-tech-ai/todl"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
+import TenantExplorerModule from "./modules/tenant-explorer/tenant-explorer.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
 import SkillsModule from "./modules/skills/skills.module.mu.js"
@@ -198,6 +199,7 @@ import ConnectionInspectionResources from "./modules/connections/connection-insp
 // Meta-models capability panel: the published-meta-models virtualized tree
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
 import MetaModelResources from "./modules/meta-model/meta-model.resources.mu.js"
+import TenantExplorerResources from "./modules/tenant-explorer/tenant-explorer.resources.mu.js"
 
 // Libraries capability panel (DataTemplate[LibrariesPanelService] + rows).
 import LibraryResources from "./modules/library/library.resources.mu.js"
@@ -548,6 +550,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Hierarchy of the active solution's members + file trees.
         SolutionExplorerModule
         MetaModelModule
+        TenantExplorerModule
         LibraryModule
         McpClientModule
         SkillsModule
@@ -674,6 +677,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
 
         // Meta-models capability panel (DataTemplate[MetaModelsService] + rows).
         merge MetaModelResources
+
+        // Tenant Explorer capability panel (DataTemplate[TenantExplorerService] + rows).
+        merge TenantExplorerResources
 
         // Libraries capability panel (DataTemplate[LibrariesPanelService] + rows).
         merge LibraryResources

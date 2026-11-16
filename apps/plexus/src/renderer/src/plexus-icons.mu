@@ -14,6 +14,7 @@ resources PlexusIcons {
     include "icons/tool-box.svg"                 as ToolBox
     include "icons/project-explorer.svg"         as ProjectExplorer
     include "icons/meta-models.svg"              as MetaModels
+    include "icons/ServerEnvironment.svg"        as ServerEnvironment
     include "icons/libraries.svg"                as Libraries
     include "icons/mcp.svg"                       as Mcp
 

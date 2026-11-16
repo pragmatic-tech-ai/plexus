@@ -18,6 +18,7 @@ export enum TenantExplorerProperty
 {
     SignedIn = 'SignedIn',
     IsEmpty = 'IsEmpty',
+    SignedOut = 'SignedOut',
 }
 
 // The Tenant Explorer panel's content service: the signed-in tenant as a root node with its
@@ -55,6 +56,7 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
     public get Nodes(): ObservableCollection<TenantExplorerNode> { return this._nodes }
     public get SignedIn(): boolean { return this._signedIn }
     public get IsEmpty(): boolean { return this._isEmpty }
+    public get SignedOut(): boolean { return !this._signedIn }
 
     // IActivatable: re-read whenever this panel becomes the active capability.
     public OnActivated(): void { void this.reload() }
@@ -137,7 +139,11 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
         const wasEmpty = this._isEmpty
         this._signedIn = signedIn
         this._isEmpty = isEmpty
-        if (wasSignedIn !== signedIn) this.RaisePropertyChanged(TenantExplorerProperty.SignedIn, wasSignedIn, signedIn)
+        if (wasSignedIn !== signedIn)
+        {
+            this.RaisePropertyChanged(TenantExplorerProperty.SignedIn, wasSignedIn, signedIn)
+            this.RaisePropertyChanged(TenantExplorerProperty.SignedOut, !wasSignedIn, !signedIn)
+        }
         if (wasEmpty !== isEmpty) this.RaisePropertyChanged(TenantExplorerProperty.IsEmpty, wasEmpty, isEmpty)
     }
 
