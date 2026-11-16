@@ -10,7 +10,8 @@ export class ConnectionProviderMap
 
     private static readonly RegistryKey = 'registry'
     private static readonly DirectoryKey = 'directory'
-    private static readonly DuplicateFormat = '{0} ({1})'
+    private static readonly SuffixOpen = ' ('
+    private static readonly SuffixClose = ')'
 
     private readonly labelled: { label: string; provider: ConnectionProvider }[] = []
 
@@ -22,7 +23,7 @@ export class ConnectionProviderMap
             let label = provider.DisplayName
             for (let n = 2; used.has(label); n++)
             {
-                label = ConnectionProviderMap.DuplicateFormat.replace('{0}', provider.DisplayName).replace('{1}', String(n))
+                label = provider.DisplayName + ConnectionProviderMap.SuffixOpen + n + ConnectionProviderMap.SuffixClose
             }
             used.add(label)
             this.labelled.push({ label, provider })

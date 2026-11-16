@@ -62,6 +62,14 @@ describe('ConnectionProviderMap', () =>
         expect(map.SettingsFor('GitHub Packages')!.registry).toBe(Fixtures.GithubUrl)
     })
 
+    it('suffixes a provider named Custom so the real Custom entry stays last and unique', () =>
+    {
+        const p: ConnectionProvider = { RegistryType: 'npm', PresetId: 'x', DisplayName: 'Custom', Settings: { registry: 'https://x' } }
+        const map = new ConnectionProviderMap([p])
+        expect(map.Labels()).toEqual(['Custom (2)', 'Custom'])
+        expect(map.LabelForSettings({ registry: 'https://x' })).toBe('Custom (2)')
+    })
+
     it('de-duplicates repeated display names', () =>
     {
         const p = Fixtures.Providers()
