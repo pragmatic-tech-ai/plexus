@@ -28,7 +28,7 @@ resources ConnectionInspectionResources {
             }
 
             StackPanel [ Orientation = Vertical, Visibility = $Ok << ToVisibility ] {
-                TextBlock [ Style = @H4, Text = "Scopes", Foreground = @Fg1, Margin = (0,0,0,4) ]
+                TextBlock [ Style = @H4, Text = "Scopes", Foreground = @AccentCyan, Margin = (0,0,0,4) ]
                 ScrollViewer [ MaxHeight = 200, HorizontalScrollEnabled = false ] {
                     ItemsControl [ ItemsSource = $Scopes, ItemsPanel = @VerticalStackPanel, TextBlock.Foreground = @Fg1 ]
                 }
@@ -36,7 +36,7 @@ resources ConnectionInspectionResources {
             }
 
             StackPanel [ Orientation = Vertical, Visibility = $Ok << ToVisibility ] {
-                TextBlock [ Style = @H4, Text = "Packages", Foreground = @Fg1, Margin = (0,10,0,4) ]
+                TextBlock [ Style = @H4, Text = "Packages", Foreground = @AccentCyan, Margin = (0,10,0,4) ]
                 ScrollViewer [ MaxHeight = 200, HorizontalScrollEnabled = false ] {
                     ItemsControl [ ItemsSource = $Packages, ItemsPanel = @VerticalStackPanel, TextBlock.Foreground = @Fg1 ]
                 }
