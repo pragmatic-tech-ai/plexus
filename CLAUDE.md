@@ -2,7 +2,7 @@
 
 Plexus — a diagram editor built on mural, packaged as an Electron desktop app
 (electron-vite). Consumes `@pragmatic-tech-ai/mural` and `@pragmatic-tech-ai/fresco` from
-GitHub Packages (`https://npm.pkg.github.com`, auth via `${PACKAGES_TOKEN}` in the
+GitHub Packages (`https://npm.pkg.github.com`, auth via `${PACKAGES_TOKEN_READONLY}` (a read:packages-only user variable) in the
 gitignored `.npmrc`); no relative `../src` imports into the framework.
 
 ## Work tracking
