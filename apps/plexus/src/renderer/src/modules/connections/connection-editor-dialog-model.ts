@@ -181,7 +181,9 @@ export class ConnectionEditorDialogModel extends MuralBase
         const preset = this.providerMap.SettingsFor(label)
         if (preset === undefined)
         {
-            this.stash = {}
+            // Only an explicit Custom pick clears the stash; an empty/unknown label (the ComboBox
+            // can write one back while binding attaches) is a no-op.
+            if (label === ConnectionProviderMap.CustomLabel) this.stash = {}
             return
         }
         this.Registry = preset[ConnectionEditorDialogModel.RegistryKey] ?? ''

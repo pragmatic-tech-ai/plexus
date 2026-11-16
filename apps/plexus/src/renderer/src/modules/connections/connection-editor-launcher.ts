@@ -4,7 +4,7 @@ import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/rendere
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { ConnectionsClientKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
 import type { IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
-import type { ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import type { ConnectionProvider, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import { ConnectionInspectionViewModel } from './connection-inspection-dialog-model.js'
 import { ConnectionEditorDialogModel, type ConnectionEditorResult } from './connection-editor-dialog-model.js'
 
@@ -38,7 +38,15 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
     {
         const existing = id === undefined ? undefined : (await this.Provider.getRequired(ConnectionsClientKey).List()).find((c) => c.Id === id)
         if (id !== undefined && existing === undefined) return   // removed between menu-open and click
-        const providers = await this.Provider.getRequired(ConnectionsClientKey).Providers()
+        let providers: readonly ConnectionProvider[] = []
+        try
+        {
+            providers = await this.Provider.getRequired(ConnectionsClientKey).Providers()
+        }
+        catch
+        {
+            // Relay failure: open the editor Custom-only rather than not at all.
+        }
         const vm = new ConnectionEditorDialogModel(existing, providers, (r) => this.dialogs.Close(r))
         const title = existing === undefined ? ConnectionEditorLauncher.NewTitle : ConnectionEditorLauncher.EditTitle
         const result = await this.dialogs.Show<ConnectionEditorResult>({ Title: title, Content: vm, Width: ConnectionEditorLauncher.DialogWidth })

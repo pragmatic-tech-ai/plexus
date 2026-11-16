@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { TokenSource, type ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
-import type { ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import { TokenSource, type ConnectionProvider, type ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import { ConnectionEditorDialogModel, type ConnectionEditorResult } from '../connection-editor-dialog-model.js'
 
 // Captures the close(result) call so a test can assert what Confirm/Cancel emitted.
@@ -165,5 +164,34 @@ describe('ConnectionEditorDialogModel provider presets', () =>
         expect(vm2.SelectedProvider).toBe('GitHub Packages')
         vm2.ConfirmCommand.Execute(undefined)
         expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' })
+    })
+
+    it('an empty provider write-back after an Edit seed leaves the registry and stashed keys intact', () =>
+    {
+        const cap = capture()
+        const gh: ConnectionView = {
+            Id: 'x', DisplayName: 'Mine', RegistryType: 'npm',
+            Settings: { registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' },
+            TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: false, IsDefault: false,
+        }
+        const vm = new ConnectionEditorDialogModel(gh, ProviderFixtures.Providers(), cap.close)
+        vm.SelectedProvider = ''
+        expect(vm.Registry).toBe(ProviderFixtures.GithubUrl)
+        vm.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' })
+    })
+
+    it('edit of a Custom-matched connection round-trips its extra keys', () =>
+    {
+        const cap = capture()
+        const view: ConnectionView = {
+            Id: 'x', DisplayName: 'Mine', RegistryType: 'npm',
+            Settings: { registry: 'https://custom.example', org: 'acme' },
+            TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: false, IsDefault: false,
+        }
+        const vm = new ConnectionEditorDialogModel(view, ProviderFixtures.Providers(), cap.close)
+        expect(vm.SelectedProvider).toBe('Custom')
+        vm.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: 'https://custom.example', org: 'acme' })
     })
 })
