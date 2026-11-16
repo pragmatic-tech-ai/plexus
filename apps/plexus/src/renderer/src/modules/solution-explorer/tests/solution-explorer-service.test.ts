@@ -58,7 +58,6 @@ class FakeWorkspace
     private static readonly connections: IConnectionView = {
         ConnectionsView: async () => [],
         EnvVars: async () => [],
-        Providers: async () => [],
         AddConnection: async () => {},
         UpdateConnection: async () => {},
         SetToken: async () => {},
