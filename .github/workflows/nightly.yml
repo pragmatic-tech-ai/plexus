@@ -1,0 +1,47 @@
+# Report-only nightly build on the hive laptop's self-hosted runner
+# (dev-kit/docs/superpowers/specs/2026-11-16-hive-ci-design.md). Nothing is published.
+# Steps mirror release.yml (install/build steps); keep them in step when it changes.
+name: nightly
+on:
+  schedule:
+    - cron: '0 2 * * *'   # 03:00 Central European time (laptop's zone)
+  workflow_dispatch:
+permissions:
+  contents: read
+  packages: read
+concurrency:
+  group: nightly-${{ github.repository }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: [self-hosted, hive-windows]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      # CI registry wiring (the repo's committed .npmrc is gitignored and points
+      # at local Verdaccio; this writes a CI-only one): public npm for OSS deps,
+      # GitHub Packages for the @pragmatic-tech-ai scope.
+      - name: Configure npm registries
+        shell: bash
+        run: |
+          {
+            printf 'registry=https://registry.npmjs.org/\n'
+            printf '@pragmatic-tech-ai:registry=https://npm.pkg.github.com\n'
+            printf '//npm.pkg.github.com/:_authToken=%s\n' "${PACKAGES_TOKEN}"
+          } > .npmrc
+        env:
+          PACKAGES_TOKEN: ${{ secrets.PACKAGES_TOKEN }}
+      # `npm ci` (NOT `npm install`): the committed lock's @pragmatic-tech-ai
+      # entries have no resolved URL, so a plain `npm install` re-resolves the
+      # scope and drifts the dependency tree out from under plexus-core's tsc
+      # (BuildStorageProviderKey / arg-count type errors). `npm ci` installs the
+      # exact, build-correct locked tree.
+      - name: Install (npm ci)
+        run: npm ci
+      - run: npm run build
+      - run: npm test
