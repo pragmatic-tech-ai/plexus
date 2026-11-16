@@ -53,6 +53,15 @@ describe('IconKeyGlyphs.For', () =>
         }
     })
 
+    it('a GitHub connection leaf maps to the GitHub glyph, distinct from the generic file glyph', () =>
+    {
+        for (const suffix of ['-default', '-ready', '-nocreds', '-unreachable'])
+        {
+            expect(IconKeyGlyphs.For(ConnectionNodeKey.GithubLeaf + suffix)).toBe('Github')
+            expect(IconKeyGlyphs.For(ConnectionNodeKey.GithubLeaf + suffix)).not.toBe(IconKeyGlyphs.For(ConnectionNodeKey.Leaf + suffix))
+        }
+    })
+
     it('tolerates an undefined icon key (the tree binds it before some rows have one)', () =>
     {
         // The row template converts HierarchyItemVM.IconKey, which is undefined for some

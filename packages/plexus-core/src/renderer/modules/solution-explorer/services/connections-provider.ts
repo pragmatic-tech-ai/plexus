@@ -5,6 +5,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { Disposable, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import { ConnectionNodeKey } from './connection-node-key.js'
+import { ConnectionProviderIcon } from './connection-provider-icon.js'
 import { ConnectionHealth, type IConnectionView, type ConnectionLeafView } from './connection-view.js'
 
 // Provides the global Connections subtree (one instance per open solution, not per member):
@@ -127,7 +128,7 @@ export class ConnectionsProvider implements IHierarchyProvider
     {
         return {
             Caption: ConnectionsProvider.captionOf(v),
-            IconKey: ConnectionNodeKey.Leaf + ConnectionsProvider.iconSuffix(v.Health),
+            IconKey: ConnectionsProvider.iconKeyOf(v),
             Severity: ConnectionsProvider.severityOf(v),
             Error: ConnectionsProvider.errorOf(v),
             IsExpandable: false,
@@ -139,7 +140,7 @@ export class ConnectionsProvider implements IHierarchyProvider
     private static applyLeaf(leaf: HierarchyItem, v: ConnectionLeafView): void
     {
         leaf.Caption = ConnectionsProvider.captionOf(v)
-        leaf.IconKey = ConnectionNodeKey.Leaf + ConnectionsProvider.iconSuffix(v.Health)
+        leaf.IconKey = ConnectionsProvider.iconKeyOf(v)
         leaf.Severity = ConnectionsProvider.severityOf(v)
         leaf.Error = ConnectionsProvider.errorOf(v)
         leaf.ExtObject = Object.freeze({ id: v.Id, isDefault: v.IsDefault, isSolutionDefault: v.IsSolutionDefault })
@@ -161,6 +162,15 @@ export class ConnectionsProvider implements IHierarchyProvider
         if (v.Health === ConnectionHealth.Unreachable) return v.Message
         if (v.Health === ConnectionHealth.NoCredentials) return ConnectionsProvider.NoCredentialsMessage
         return undefined
+    }
+
+    // The leaf's icon key: a provider-specific prefix (GitHub leaves get the GitHub mark) plus the
+    // health suffix. The suffix is retained for a future per-health icon split; today the glyph
+    // mapping keys only off the prefix and health rides the row's severity decoration.
+    private static iconKeyOf(v: ConnectionLeafView): string
+    {
+        const base = v.Provider === ConnectionProviderIcon.GitHub ? ConnectionNodeKey.GithubLeaf : ConnectionNodeKey.Leaf
+        return base + ConnectionsProvider.iconSuffix(v.Health)
     }
 
     private static iconSuffix(health: ConnectionHealth): string

@@ -21,6 +21,7 @@ import {
 import type { ConnectionSpec, ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import type { IConnectionsClient, ConnectionInspection, ConnectionTestResult } from './connections-client.js'
 import { ConnectionHealth, ConnectionScope, type IConnectionView, type ConnectionLeafView } from './connection-view.js'
+import { ConnectionProviderIcon } from './connection-provider-icon.js'
 
 // A project the host resolves for a member — only the factory flag the consumer gate needs.
 // requiresMetaModel is optional to match IProjectFactory (an OpenProject.Factory); the gate
@@ -197,6 +198,7 @@ export class ConnectionEditingService implements IConnectionView
             IsSolutionDefault: v.Id === solutionDefaultId,
             HasToken: v.HasToken,
             Health: health,
+            Provider: ConnectionProviderIcon.For(v.Settings),
         }
         return health === ConnectionHealth.Unreachable && test?.message !== undefined ? { ...base, Message: test.message } : base
     }
@@ -215,6 +217,7 @@ export class ConnectionEditingService implements IConnectionView
             IsSolutionDefault: isSolutionDefault,
             HasToken: hasToken,
             Health: isSolutionDefault ? ConnectionHealth.Default : (hasToken ? ConnectionHealth.Ready : ConnectionHealth.NoCredentials),
+            Provider: ConnectionProviderIcon.For(bag.Settings),
         }
     }
 

@@ -17,6 +17,7 @@ export class IconKeyGlyphs
     // glyph (and the resolution/health split) is a theme concern.
     private static readonly ReferenceLeafGlyph = 'File'
     private static readonly ConnectionLeafGlyph = 'File'
+    private static readonly GithubGlyph = 'Github'
 
     public static For(iconKey: string): string
     {
@@ -25,6 +26,8 @@ export class IconKeyGlyphs
         // Guard the type: the row template binds HierarchyItem.IconKey, which is undefined
         // for some rows — a bare .startsWith there would throw and crash every row's render.
         if (typeof iconKey === 'string' && iconKey.startsWith(ReferenceNodeKey.Leaf)) return IconKeyGlyphs.ReferenceLeafGlyph
+        // GithubLeaf is a superstring of Leaf — check it first so the GitHub mark wins.
+        if (typeof iconKey === 'string' && iconKey.startsWith(ConnectionNodeKey.GithubLeaf)) return IconKeyGlyphs.GithubGlyph
         if (typeof iconKey === 'string' && iconKey.startsWith(ConnectionNodeKey.Leaf)) return IconKeyGlyphs.ConnectionLeafGlyph
         switch (iconKey)
         {

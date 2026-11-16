@@ -5,5 +5,9 @@
 export class ConnectionNodeKey
 {
     public static readonly Leaf = 'connection-leaf'
+    // GitHub-provider leaves carry a distinct icon-key prefix (a superstring of Leaf) so the
+    // glyph mapping paints the GitHub mark instead of the generic file glyph; health still rides
+    // the severity decoration, not the icon.
+    public static readonly GithubLeaf = 'connection-leaf-github'
     public static readonly Active = 'connection-active'
 }

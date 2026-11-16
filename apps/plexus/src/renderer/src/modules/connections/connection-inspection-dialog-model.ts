@@ -13,16 +13,24 @@ export class ConnectionInspectionViewModel extends Observable
     private static readonly PackagesNotSupportedNote = 'Package listing is not supported for this registry.'
 
     private readonly inspection: ConnectionInspection
+    private readonly isGitHub: boolean
     private readonly close: () => void
 
     public readonly OkCommand: ICommand
 
-    public constructor(inspection: ConnectionInspection, close: () => void)
+    public constructor(inspection: ConnectionInspection, close: () => void, isGitHub = false)
     {
         super()
         this.inspection = inspection
+        this.isGitHub = isGitHub
         this.close = close
         this.OkCommand = new RelayCommand(() => this.close())
+    }
+
+    // Whether the inspected connection is a GitHub Packages store — the view shows its mark.
+    public get IsGitHub(): boolean
+    {
+        return this.isGitHub
     }
 
     public get Ok(): boolean

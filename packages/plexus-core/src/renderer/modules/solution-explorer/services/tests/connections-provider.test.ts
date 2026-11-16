@@ -121,6 +121,14 @@ describe('ConnectionsProvider', () =>
         expect(ctx.Children.find((c) => c.Caption === 'b (npm)')!.IconKey).toBe(ConnectionNodeKey.Leaf + '-nocreds')
     })
 
+    it('a GitHub-provider leaf gets the GitHub icon-key prefix (still carrying its health suffix)', async () =>
+    {
+        const gh: ConnectionLeafView = { ...leaf('gh', ConnectionHealth.Ready), Provider: 'github' }
+        const p = new ConnectionsProvider(fakeView([gh]))
+        const ctx = await realizeRoot(p)
+        expect(ctx.Children[0].IconKey).toBe(ConnectionNodeKey.GithubLeaf + '-ready')
+    })
+
     it('on change: an edit to the same id mutates the SAME leaf in place; a removal drops it', async () =>
     {
         const view = fakeView([leaf('a', ConnectionHealth.NoCredentials), leaf('b', ConnectionHealth.Ready)])

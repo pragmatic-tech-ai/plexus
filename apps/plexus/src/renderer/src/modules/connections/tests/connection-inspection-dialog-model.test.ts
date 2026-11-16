@@ -62,4 +62,11 @@ describe('ConnectionInspectionViewModel', () =>
         vm.OkCommand.Execute(undefined)
         expect(closed).toBe(1)
     })
+
+    it('defaults to not a GitHub store, and surfaces the flag when the launcher passes it', () =>
+    {
+        const i: ConnectionInspection = { ok: true, identity: 'octocat', scopes: [], scopesSupported: true, packages: [], packagesSupported: true, message: '' }
+        expect(new ConnectionInspectionViewModel(i, () => {}).IsGitHub).toBe(false)
+        expect(new ConnectionInspectionViewModel(i, () => {}, true).IsGitHub).toBe(true)
+    })
 })

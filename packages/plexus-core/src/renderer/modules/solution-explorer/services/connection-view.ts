@@ -42,6 +42,7 @@ export interface ConnectionLeafView
     readonly IsSolutionDefault: boolean    // the active solution's default (solution-scope IsDefault)
     readonly HasToken: boolean
     readonly Health: ConnectionHealth
+    readonly Provider?: string   // provider-icon id (e.g. 'github') from the registry URL; '' / absent = generic
     readonly Message?: string   // the Test error, when Unreachable
 }
 

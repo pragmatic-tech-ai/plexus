@@ -3,6 +3,7 @@ import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-workspace-service.js'
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { ConnectionsClientKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connections-client.js'
+import { ConnectionProviderIcon } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-provider-icon.js'
 import type { IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
 import type { ConnectionProvider, ConnectionSpec } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import { ConnectionInspectionViewModel } from './connection-inspection-dialog-model.js'
@@ -60,7 +61,8 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
         const existing = (await this.Provider.getRequired(ConnectionsClientKey).List()).find((c) => c.Id === id)
         if (existing === undefined) return   // removed between menu-open and click
         const inspection = await this.connections.InspectConnection(id)
-        const vm = new ConnectionInspectionViewModel(inspection, () => this.dialogs.Close(undefined))
+        const isGitHub = ConnectionProviderIcon.For(existing.Settings) === ConnectionProviderIcon.GitHub
+        const vm = new ConnectionInspectionViewModel(inspection, () => this.dialogs.Close(undefined), isGitHub)
         const title = `${ConnectionEditorLauncher.InspectTitle}: ${existing.DisplayName}`
         await this.dialogs.Show({ Title: title, Content: vm, Width: ConnectionEditorLauncher.InspectWidth })
     }

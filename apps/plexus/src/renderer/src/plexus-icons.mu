@@ -51,6 +51,10 @@ resources PlexusIcons {
     include "icons/todl.svg"                     as Todl
     include "icons/file.svg"                     as File
 
+    // Package-store provider glyph — the GitHub Packages connection's tree leaf and
+    // its inspection-dialog header (connections whose registry is npm.pkg.github.com).
+    include "icons/github.svg"                   as Github
+
     // Copy glyph — the Problems popup's copy-all + per-row copy buttons.
     include "icons/copy.svg"                     as Copy
     // Filter-off glyph — the Problems popup's Clear (reset filters) button.
