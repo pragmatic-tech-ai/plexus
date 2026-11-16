@@ -15,8 +15,8 @@ export function iconKeyForKind(kind: TenantExplorerNodeKind): string
     {
         case TenantExplorerNodeKind.Tenant:      return 'Folder'
         case TenantExplorerNodeKind.Environment: return 'ServerEnvironment'
-        case TenantExplorerNodeKind.Application: return 'Publish'
-        case TenantExplorerNodeKind.Graph:       return 'Diagram'
+        case TenantExplorerNodeKind.Application: return 'AppGeneric'
+        case TenantExplorerNodeKind.Graph:       return 'GraphNode'
         case TenantExplorerNodeKind.Message:     return 'File'
         default:                                 return 'File'
     }

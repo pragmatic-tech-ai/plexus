@@ -52,6 +52,10 @@ resources PlexusIcons {
     include "icons/todl.svg"                     as Todl
     include "icons/file.svg"                     as File
 
+    // Tenant Explorer tree leading glyphs (graph + application nodes).
+    include "icons/graph-node.svg"               as GraphNode
+    include "icons/app-generic.svg"              as AppGeneric
+
     // Package-store provider glyph — the GitHub Packages connection's tree leaf and
     // its inspection-dialog header (connections whose registry is npm.pkg.github.com).
     include "icons/github.svg"                   as Github

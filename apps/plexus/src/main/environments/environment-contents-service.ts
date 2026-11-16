@@ -6,8 +6,11 @@ import { RelayAction, RelayConnector, type IRelayConnector, type RelayClient } f
 // Main-process environment listing: opens a read-only inspect relay to the target's environment
 // through the session of its source (the environment credential never leaves the server), reads its
 // applications, named graphs and loaded graph, merges them into one EnvironmentContents and always
-// closes the connection. An environment type that does not serve one of the reads (-32601) simply
-// contributes nothing for it; every other failure surfaces as the relay's plain sentence.
+// closes the connection. An environment that does not serve one of the reads — because the method is
+// unknown (-32601) or because the read is wrong for the environment's purpose (a development
+// environment has no application registry; a runtime environment has no named-graph list, so the
+// server answers InvalidRequest) — simply contributes nothing for it; every other failure surfaces
+// as the relay's plain sentence.
 export class EnvironmentContentsService implements IEnvironmentsApi
 {
     constructor(private readonly relay: IRelayConnector)
@@ -40,7 +43,10 @@ export class EnvironmentContentsService implements IEnvironmentsApi
         }
     }
 
-    // Only "method not found" is tolerated: that environment type does not serve this read.
+    // "This environment does not serve this read" is tolerated: the method is unknown (-32601), or the
+    // read does not apply to the environment's purpose (the server answers InvalidRequest). The reads
+    // take no caller-supplied input, so an InvalidRequest here means environment shape, not a malformed
+    // call. Every other failure (InternalError, a dropped connection, auth) propagates.
     private static async Tolerate<T>(read: () => Promise<T>, fallback: T): Promise<T>
     {
         try
@@ -49,9 +55,14 @@ export class EnvironmentContentsService implements IEnvironmentsApi
         }
         catch (e)
         {
-            if (e instanceof ResponseError && e.code === ErrorCodes.MethodNotFound) return fallback
+            if (EnvironmentContentsService.IsUnserved(e)) return fallback
             throw e
         }
+    }
+
+    private static IsUnserved(e: unknown): boolean
+    {
+        return e instanceof ResponseError && (e.code === ErrorCodes.MethodNotFound || e.code === ErrorCodes.InvalidRequest)
     }
 
     private static Merge(

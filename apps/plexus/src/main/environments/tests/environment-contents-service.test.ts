@@ -76,6 +76,11 @@ class Fixture
         return new ResponseError(ErrorCodes.MethodNotFound, 'Unhandled method')
     }
 
+    public static WrongPurpose(message: string): ResponseError<void>
+    {
+        return new ResponseError(ErrorCodes.InvalidRequest, message)
+    }
+
     public static async Message(promise: Promise<unknown>): Promise<string>
     {
         try
@@ -112,6 +117,18 @@ describe('EnvironmentContentsService', () =>
     {
         const client = new FakeClient(Fixture.NotServed(), [{ name: 'sales', description: '', packageCount: 2, createdAt: '' }])
         expect(await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).toEqual({ Applications: [], Graphs: [{ Name: 'sales', PackageCount: 2 }] })
+    })
+
+    it('tolerates a dev environment rejecting the application list by purpose', async () =>
+    {
+        const client = new FakeClient(Fixture.WrongPurpose('operation requires a runtime environment'), [{ name: 'sales', description: '', packageCount: 2, createdAt: '' }], null)
+        expect(await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).toEqual({ Applications: [], Graphs: [{ Name: 'sales', PackageCount: 2 }] })
+    })
+
+    it('tolerates a runtime environment rejecting the graph list by purpose', async () =>
+    {
+        const client = new FakeClient([{ name: 'northwind', version: '2.0.0' }], Fixture.WrongPurpose('operation requires a development environment'), { name: 'promoted', packages: [{ id: 'a', version: '1' }], promotedAt: '' })
+        expect(await new EnvironmentContentsService(new FakeRelay(client)).Contents(Fixture.Dev)).toEqual({ Applications: [{ Name: 'northwind', Version: '2.0.0' }], Graphs: [{ Name: 'promoted', PackageCount: 1 }] })
     })
 
     it('de-dupes graphs by name keeping the named graph first', async () =>

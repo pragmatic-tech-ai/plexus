@@ -9,8 +9,8 @@ describe('iconKeyForKind', () =>
     {
         expect(iconKeyForKind(TenantExplorerNodeKind.Tenant)).toBe('Folder')
         expect(iconKeyForKind(TenantExplorerNodeKind.Environment)).toBe('ServerEnvironment')
-        expect(iconKeyForKind(TenantExplorerNodeKind.Application)).toBe('Publish')
-        expect(iconKeyForKind(TenantExplorerNodeKind.Graph)).toBe('Diagram')
+        expect(iconKeyForKind(TenantExplorerNodeKind.Application)).toBe('AppGeneric')
+        expect(iconKeyForKind(TenantExplorerNodeKind.Graph)).toBe('GraphNode')
         expect(iconKeyForKind(TenantExplorerNodeKind.Message)).toBe('File')
     })
 
