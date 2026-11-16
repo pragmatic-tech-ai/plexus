@@ -80,8 +80,14 @@ export class TenantExplorerNode extends Observable
     private async runLoader(loader: () => Promise<TenantExplorerNode[]>): Promise<void>
     {
         let produced: TenantExplorerNode[]
-        try { produced = await loader() }
-        catch { produced = [TenantExplorerNode.Message(TenantExplorerNode.FailedLabel)] }
+        try
+        {
+            produced = await loader()
+        }
+        catch
+        {
+            produced = [TenantExplorerNode.Message(TenantExplorerNode.FailedLabel)]
+        }
         this.children.Clear()
         for (const c of produced) this.children.Add(c)
     }

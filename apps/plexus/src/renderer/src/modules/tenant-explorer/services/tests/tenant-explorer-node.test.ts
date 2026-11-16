@@ -1,13 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { TenantExplorerNode, TenantExplorerNodeKind } from '../tenant-explorer-node'
-
-class Flush
-{
-    public static async Run(): Promise<void>
-    {
-        for (let i = 0; i < 5; i++) await Promise.resolve()
-    }
-}
 
 describe('TenantExplorerNode', () =>
 {
@@ -45,7 +37,7 @@ describe('TenantExplorerNode', () =>
         })
         env.OnExpand()
         env.OnExpand()
-        await Flush.Run()
+        await vi.waitFor(() => expect(env.Children.Count).toBe(2))
         env.OnExpand()
         expect(calls).toBe(1)
         expect(env.Children.Count).toBe(2)
@@ -57,10 +49,23 @@ describe('TenantExplorerNode', () =>
     {
         const env = TenantExplorerNode.Environment('e', 'Stopped', async () => { throw new Error('x') })
         env.OnExpand()
-        await Flush.Run()
+        await vi.waitFor(() => expect(env.Children.Get(0)!.Label).toBe('Failed to load'))
         expect(env.Children.Count).toBe(1)
         expect(env.Children.Get(0)!.Kind).toBe(TenantExplorerNodeKind.Message)
         expect(env.Children.Get(0)!.Label).toBe('Failed to load')
+    })
+
+    it('an empty loader result leaves Children empty', async () =>
+    {
+        const env = TenantExplorerNode.Environment('e', 'Running', async () => [])
+        env.OnExpand()
+        await vi.waitFor(() => expect(env.Children.Count).toBe(0))
+    })
+
+    it('application and graph nodes have empty Status', () =>
+    {
+        expect(TenantExplorerNode.Application('a').Status).toBe('')
+        expect(TenantExplorerNode.Graph('g').Status).toBe('')
     })
 
     it('OnExpand on a non-lazy node is a no-op', () =>
