@@ -1,4 +1,5 @@
 import type { ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import { ConnectionSettingKeys } from './connection-setting-keys.js'
 
 /**
  * Pure label <-> provider-preset mapping for the connection editor's provider dropdown.
@@ -8,8 +9,6 @@ export class ConnectionProviderMap
 {
     public static readonly CustomLabel = 'Custom'
 
-    private static readonly RegistryKey = 'registry'
-    private static readonly DirectoryKey = 'directory'
     private static readonly SuffixOpen = ' ('
     private static readonly SuffixClose = ')'
 
@@ -43,7 +42,7 @@ export class ConnectionProviderMap
 
     public LabelForSettings(settings: Record<string, string>): string
     {
-        const keys = [ConnectionProviderMap.RegistryKey, ConnectionProviderMap.DirectoryKey]
+        const keys = [ConnectionSettingKeys.Registry, ConnectionSettingKeys.Directory]
         for (const key of keys)
         {
             const value = settings[key]

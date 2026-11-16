@@ -62,7 +62,6 @@ function fakeView(list: ConnectionLeafView[]): IConnectionView & { fire: () => v
         set: (l) => { current = l },
         ConnectionsView: async () => current,
         EnvVars: async () => [],
-        Providers: async () => [],
         AddConnection: async () => {},
         UpdateConnection: async () => {},
         SetToken: async () => {},

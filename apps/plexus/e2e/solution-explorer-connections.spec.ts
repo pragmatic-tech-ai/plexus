@@ -180,6 +180,33 @@ test.describe.serial('Solution Explorer — Connections branch (P5b)', () =>
         const added = appErrors(l.errors).slice(before)
         expect(added.length, added.join('\n')).toBe(0)
     })
+})
+
+// Independent of the serial group above (Playwright serial mode skips the rest of a group after
+// a failure): launches its own app against its own corpus clone.
+test.describe('Connections — Package Store provider dialog', () =>
+{
+    let l: Launched
+    let restoreSession: () => void
+    let clone: { root: string; projects: string[]; archDir: string }
+
+    test.beforeAll(async () =>
+    {
+        test.skip(!corpusAvailable(), 'built app (out/) or test corpus not available')
+        fs.mkdirSync(ART, { recursive: true })
+        clone = cloneCorpus()
+        restoreSession = seedSession(clone.projects)
+        l = await launchPlexus()
+        await l.win.waitForTimeout(12_000)
+    })
+
+    test.afterAll(async () =>
+    {
+        restoreSession?.()
+        await l?.app.close()
+        await new Promise((r) => setTimeout(r, 2000))
+        if (clone?.root) try { fs.rmSync(clone.root, { recursive: true, force: true }) } catch { /* best-effort */ }
+    })
 
     // The New dialog is retitled "New Package Store Connection" and offers a Provider ComboBox fed
     // by the live connections:providers relay (window.api is a frozen contextBridge object, so the

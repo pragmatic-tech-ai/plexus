@@ -1,6 +1,7 @@
 import { MetaData, MuralBase, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { TokenSource, type ConnectionProvider, type ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import { ConnectionProviderMap } from './connection-provider-map.js'
+import { ConnectionSettingKeys } from './connection-setting-keys.js'
 
 // What the connection editor emits on Confirm: the non-secret spec fields the connection
 // authority needs, plus (Stored mode only) the write-only secret. `id` is present when editing
@@ -26,8 +27,6 @@ export interface ConnectionEditorResult
 export class ConnectionEditorDialogModel extends MuralBase
 {
     private static readonly NpmRegistryType = 'npm'
-    private static readonly RegistryKey = 'registry'
-    private static readonly ScopeKey = 'scope'
     private static readonly NewHeader = 'New Package Store Connection'
     private static readonly EditHeader = 'Edit Package Store Connection'
     private static readonly DefaultProviderLabel = 'GitHub Packages'
@@ -80,8 +79,8 @@ export class ConnectionEditorDialogModel extends MuralBase
         if (existing !== undefined)
         {
             this.set_property_value(ConnectionEditorDialogModel.DisplayNameKey, existing.DisplayName)
-            this.set_property_value(ConnectionEditorDialogModel.RegistryKeyProp, existing.Settings[ConnectionEditorDialogModel.RegistryKey] ?? '')
-            this.set_property_value(ConnectionEditorDialogModel.ScopeKeyProp, existing.Settings[ConnectionEditorDialogModel.ScopeKey] ?? '')
+            this.set_property_value(ConnectionEditorDialogModel.RegistryKeyProp, existing.Settings[ConnectionSettingKeys.Registry] ?? '')
+            this.set_property_value(ConnectionEditorDialogModel.ScopeKeyProp, existing.Settings[ConnectionSettingKeys.Scope] ?? '')
             this.set_property_value(ConnectionEditorDialogModel.UseEnvTokenKey, existing.TokenSource === TokenSource.Env)
             this.set_property_value(ConnectionEditorDialogModel.EnvVarKey, existing.TokenEnvVar ?? '')
             // Seed the provider from the stored settings WITHOUT re-applying its preset (the
@@ -151,9 +150,9 @@ export class ConnectionEditorDialogModel extends MuralBase
     // entered (blank leaves an existing token untouched); Env mode carries the variable name.
     public get Result(): ConnectionEditorResult
     {
-        const settings: Record<string, string> = { [ConnectionEditorDialogModel.RegistryKey]: this.Registry.trim() }
+        const settings: Record<string, string> = { [ConnectionSettingKeys.Registry]: this.Registry.trim() }
         const scope = this.Scope.trim()
-        if (scope.length > 0) settings[ConnectionEditorDialogModel.ScopeKey] = scope
+        if (scope.length > 0) settings[ConnectionSettingKeys.Scope] = scope
         for (const [key, value] of Object.entries(this.stash)) settings[key] = value
         const result: ConnectionEditorResult = {
             displayName: this.DisplayName.trim(),
@@ -186,8 +185,8 @@ export class ConnectionEditorDialogModel extends MuralBase
             if (label === ConnectionProviderMap.CustomLabel) this.stash = {}
             return
         }
-        this.Registry = preset[ConnectionEditorDialogModel.RegistryKey] ?? ''
-        this.Scope = preset[ConnectionEditorDialogModel.ScopeKey] ?? ''
+        this.Registry = preset[ConnectionSettingKeys.Registry] ?? ''
+        this.Scope = preset[ConnectionSettingKeys.Scope] ?? ''
         this.stash = this.NonDisplayed(preset)
     }
 
@@ -196,7 +195,7 @@ export class ConnectionEditorDialogModel extends MuralBase
         const rest: Record<string, string> = {}
         for (const [key, value] of Object.entries(settings))
         {
-            if (key !== ConnectionEditorDialogModel.RegistryKey && key !== ConnectionEditorDialogModel.ScopeKey) rest[key] = value
+            if (key !== ConnectionSettingKeys.Registry && key !== ConnectionSettingKeys.Scope) rest[key] = value
         }
         return rest
     }
