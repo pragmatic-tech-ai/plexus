@@ -49,6 +49,11 @@ export class ConnectionEditorDialogModel extends MuralBase
     // visibility (there is no inverse-boolean converter; ToVisibility only maps truthy→Visible).
     static readonly UseStoredTokenKey = MuralBase.RegisterProperty<boolean>(
         ConnectionEditorDialogModel, 'UseStoredToken', true, MetaData.None)
+    // The environment variables discovered in the host process — the editable env-var ComboBox's
+    // suggestion list. The field stays free-entry (a var absent here but present in CI/prod is valid),
+    // so EnvVar binds the ComboBox's two-way Text, not its SelectedItem.
+    static readonly EnvVarsKey = MuralBase.RegisterProperty<readonly string[]>(
+        ConnectionEditorDialogModel, 'EnvVars', [], MetaData.None)
     static readonly EnvVarKey = MuralBase.RegisterProperty<string>(
         ConnectionEditorDialogModel, 'EnvVar', '', MetaData.None)
     static readonly SecretKey = MuralBase.RegisterProperty<string>(
@@ -68,12 +73,13 @@ export class ConnectionEditorDialogModel extends MuralBase
 
     // `existing` seeds Edit; undefined is New. `close` resolves the host dialog (a result on
     // Confirm, undefined on Cancel).
-    constructor(existing: ConnectionView | undefined, providers: readonly ConnectionProvider[], private readonly close: (result: ConnectionEditorResult | undefined) => void)
+    constructor(existing: ConnectionView | undefined, providers: readonly ConnectionProvider[], envVars: readonly string[], private readonly close: (result: ConnectionEditorResult | undefined) => void)
     {
         super()
         this.id = existing?.Id
         this.providerMap = new ConnectionProviderMap(providers)
         this.set_property_value(ConnectionEditorDialogModel.ProviderLabelsKey, this.providerMap.Labels())
+        this.set_property_value(ConnectionEditorDialogModel.EnvVarsKey, envVars)
         this.set_property_value(ConnectionEditorDialogModel.HeaderLabelKey,
             existing === undefined ? ConnectionEditorDialogModel.NewHeader : ConnectionEditorDialogModel.EditHeader)
         if (existing !== undefined)
@@ -135,6 +141,8 @@ export class ConnectionEditorDialogModel extends MuralBase
     public set UseEnvToken(v: boolean) { this.set_property_value(ConnectionEditorDialogModel.UseEnvTokenKey, v) }
 
     public get UseStoredToken(): boolean { return this.get_property_value(ConnectionEditorDialogModel.UseStoredTokenKey) }
+
+    public get EnvVars(): readonly string[] { return this.get_property_value(ConnectionEditorDialogModel.EnvVarsKey) }
 
     public get EnvVar(): string { return this.get_property_value(ConnectionEditorDialogModel.EnvVarKey) }
     public set EnvVar(v: string) { this.set_property_value(ConnectionEditorDialogModel.EnvVarKey, v) }

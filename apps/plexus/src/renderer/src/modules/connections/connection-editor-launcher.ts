@@ -38,16 +38,16 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
     {
         const existing = id === undefined ? undefined : (await this.Provider.getRequired(ConnectionsClientKey).List()).find((c) => c.Id === id)
         if (id !== undefined && existing === undefined) return   // removed between menu-open and click
+        // Fetch the provider presets and the env-var suggestions independently: a relay failure
+        // in one must not drop the other, and the editor still opens (Custom-only / no suggestions)
+        // if a lookup fails entirely.
         let providers: readonly ConnectionProvider[] = []
-        try
-        {
-            providers = await this.Provider.getRequired(ConnectionsClientKey).Providers()
-        }
-        catch
-        {
-            // Relay failure: open the editor Custom-only rather than not at all.
-        }
-        const vm = new ConnectionEditorDialogModel(existing, providers, (r) => this.dialogs.Close(r))
+        let envVars: readonly string[] = []
+        const client = this.Provider.getRequired(ConnectionsClientKey)
+        const [providersResult, envVarsResult] = await Promise.allSettled([client.Providers(), client.EnvVars()])
+        if (providersResult.status === 'fulfilled') providers = providersResult.value
+        if (envVarsResult.status === 'fulfilled') envVars = envVarsResult.value
+        const vm = new ConnectionEditorDialogModel(existing, providers, envVars, (r) => this.dialogs.Close(r))
         const title = existing === undefined ? ConnectionEditorLauncher.NewTitle : ConnectionEditorLauncher.EditTitle
         const result = await this.dialogs.Show<ConnectionEditorResult>({ Title: title, Content: vm, Width: ConnectionEditorLauncher.DialogWidth })
         if (result === undefined) return

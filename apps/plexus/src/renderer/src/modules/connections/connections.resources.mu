@@ -29,7 +29,7 @@ resources ConnectionsResources {
             Border [ Visibility = $UseEnvToken << ToVisibility ] {
                 StackPanel [ Orientation = Vertical ] {
                     TextBlock [ Style = @BodySm, Text = "Environment variable", Foreground = @Fg2, Margin = (0,0,0,2) ]
-                    TextBox [ Text = $EnvVar, Margin = (0,0,0,10) ]
+                    ComboBox [ IsEditable = true, ItemsSource = $EnvVars, Text = $EnvVar, Placeholder = "Pick or type a variable…", Margin = (0,0,0,10) ]
                 }
             }
             Border [ Visibility = $UseStoredToken << ToVisibility ] {

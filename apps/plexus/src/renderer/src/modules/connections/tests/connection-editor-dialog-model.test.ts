@@ -13,7 +13,7 @@ describe('ConnectionEditorDialogModel', () =>
 {
     it('is not confirmable until a name and registry are entered', () =>
     {
-        const vm = new ConnectionEditorDialogModel(undefined, [], () => {})
+        const vm = new ConnectionEditorDialogModel(undefined, [], [], () => {})
         expect(vm.CanConfirm).toBe(false)
         vm.DisplayName = 'GitHub'
         expect(vm.CanConfirm).toBe(false)
@@ -24,7 +24,7 @@ describe('ConnectionEditorDialogModel', () =>
     it('confirm produces a stored-token npm spec with the secret and scope', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, [], cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, [], [], cap.close)
         vm.DisplayName = 'GitHub'
         vm.Registry = 'https://npm.pkg.github.com'
         vm.Scope = '@acme'
@@ -44,7 +44,7 @@ describe('ConnectionEditorDialogModel', () =>
     it('env-token mode requires an env var and omits the secret', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, [], cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, [], [], cap.close)
         vm.DisplayName = 'GH'
         vm.Registry = 'https://r'
         vm.UseEnvToken = true
@@ -71,7 +71,7 @@ describe('ConnectionEditorDialogModel', () =>
             Settings: { registry: 'https://r', scope: '@acme' },
             TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: true, IsDefault: false,
         }
-        const vm = new ConnectionEditorDialogModel(view, [], cap.close)
+        const vm = new ConnectionEditorDialogModel(view, [], [], cap.close)
         expect(vm.DisplayName).toBe('GitHub')
         expect(vm.Registry).toBe('https://r')
         expect(vm.Scope).toBe('@acme')
@@ -85,7 +85,7 @@ describe('ConnectionEditorDialogModel', () =>
     it('cancel closes with undefined', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, [], cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, [], [], cap.close)
         vm.CancelCommand.Execute(undefined)
         expect(cap.result).toBeUndefined()
     })
@@ -97,7 +97,7 @@ describe('ConnectionEditorDialogModel ConfirmCommand', () =>
 {
     it('CanExecute follows CanConfirm and raises CanExecuteChanged on each flip', () =>
     {
-        const vm = new ConnectionEditorDialogModel(undefined, [], () => {})
+        const vm = new ConnectionEditorDialogModel(undefined, [], [], () => {})
         let raised = 0
         vm.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
         expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -129,7 +129,7 @@ describe('ConnectionEditorDialogModel provider presets', () =>
     it('new defaults to GitHub Packages, prefills the registry and carries githubApi into the result', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, ProviderFixtures.Providers(), cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, ProviderFixtures.Providers(), [], cap.close)
         expect(vm.ProviderLabels).toEqual(['GitHub Packages', 'Custom'])
         expect(vm.SelectedProvider).toBe('GitHub Packages')
         expect(vm.Registry).toBe(ProviderFixtures.GithubUrl)
@@ -141,7 +141,7 @@ describe('ConnectionEditorDialogModel provider presets', () =>
     it('switching to Custom clears the stash and keeps the fields', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, ProviderFixtures.Providers(), cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, ProviderFixtures.Providers(), [], cap.close)
         vm.DisplayName = 'GH'
         vm.SelectedProvider = 'Custom'
         vm.ConfirmCommand.Execute(undefined)
@@ -156,11 +156,11 @@ describe('ConnectionEditorDialogModel provider presets', () =>
             Settings: { registry: 'https://custom.example', scope: '@a' },
             TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: false, IsDefault: false,
         }
-        const vm = new ConnectionEditorDialogModel(view, ProviderFixtures.Providers(), cap.close)
+        const vm = new ConnectionEditorDialogModel(view, ProviderFixtures.Providers(), [], cap.close)
         expect(vm.SelectedProvider).toBe('Custom')
         expect(vm.Registry).toBe('https://custom.example')
         const gh: ConnectionView = { ...view, Settings: { registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' } }
-        const vm2 = new ConnectionEditorDialogModel(gh, ProviderFixtures.Providers(), cap.close)
+        const vm2 = new ConnectionEditorDialogModel(gh, ProviderFixtures.Providers(), [], cap.close)
         expect(vm2.SelectedProvider).toBe('GitHub Packages')
         vm2.ConfirmCommand.Execute(undefined)
         expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' })
@@ -174,7 +174,7 @@ describe('ConnectionEditorDialogModel provider presets', () =>
             Settings: { registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' },
             TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: false, IsDefault: false,
         }
-        const vm = new ConnectionEditorDialogModel(gh, ProviderFixtures.Providers(), cap.close)
+        const vm = new ConnectionEditorDialogModel(gh, ProviderFixtures.Providers(), [], cap.close)
         vm.SelectedProvider = ''
         expect(vm.Registry).toBe(ProviderFixtures.GithubUrl)
         vm.ConfirmCommand.Execute(undefined)
@@ -189,9 +189,57 @@ describe('ConnectionEditorDialogModel provider presets', () =>
             Settings: { registry: 'https://custom.example', org: 'acme' },
             TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: false, IsDefault: false,
         }
-        const vm = new ConnectionEditorDialogModel(view, ProviderFixtures.Providers(), cap.close)
+        const vm = new ConnectionEditorDialogModel(view, ProviderFixtures.Providers(), [], cap.close)
         expect(vm.SelectedProvider).toBe('Custom')
         vm.ConfirmCommand.Execute(undefined)
         expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: 'https://custom.example', org: 'acme' })
+    })
+})
+
+describe('ConnectionEditorDialogModel env-var picker', () =>
+{
+    const vars = ['GITHUB_TOKEN', 'NPM_TOKEN', 'CI']
+
+    it('exposes the discovered environment variables as the picker list', () =>
+    {
+        const vm = new ConnectionEditorDialogModel(undefined, [], vars, () => {})
+        expect(vm.EnvVars).toEqual(vars)
+    })
+
+    it('a picked variable round-trips into the env-token result', () =>
+    {
+        const cap = capture()
+        const vm = new ConnectionEditorDialogModel(undefined, [], vars, cap.close)
+        vm.DisplayName = 'GH'
+        vm.Registry = 'https://r'
+        vm.UseEnvToken = true
+        vm.EnvVar = 'NPM_TOKEN'   // as picking from the ComboBox would set Text/EnvVar
+        expect(vm.CanConfirm).toBe(true)
+        vm.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).tokenEnvVar).toBe('NPM_TOKEN')
+    })
+
+    it('still accepts a free-typed variable name that is not in the discovered list', () =>
+    {
+        const cap = capture()
+        const vm = new ConnectionEditorDialogModel(undefined, [], vars, cap.close)
+        vm.DisplayName = 'GH'
+        vm.Registry = 'https://r'
+        vm.UseEnvToken = true
+        vm.EnvVar = 'PROD_ONLY_TOKEN'   // not present locally, but valid for CI/prod
+        vm.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).tokenEnvVar).toBe('PROD_ONLY_TOKEN')
+    })
+
+    it('edit seeds the env-var field from the existing connection', () =>
+    {
+        const view: ConnectionView = {
+            Id: 'gh', DisplayName: 'GitHub', RegistryType: 'npm',
+            Settings: { registry: 'https://r' },
+            TokenSource: TokenSource.Env, TokenEnvVar: 'GITHUB_TOKEN', HasToken: true, IsDefault: false,
+        }
+        const vm = new ConnectionEditorDialogModel(view, [], vars, () => {})
+        expect(vm.UseEnvToken).toBe(true)
+        expect(vm.EnvVar).toBe('GITHUB_TOKEN')
     })
 })
