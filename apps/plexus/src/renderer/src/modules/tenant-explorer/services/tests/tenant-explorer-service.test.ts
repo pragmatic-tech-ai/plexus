@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { AccountServiceKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import {
-    TargetSource, TargetStatus, type AccountTargets, type EnvironmentTarget, type TargetRef,
+    RelayError, TargetSource, TargetStatus, type AccountTargets, type EnvironmentTarget, type TargetRef,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { EnvironmentContents, IEnvironmentsApi } from '../../../../../shared/environment-contents-api.js'
 import { FakeAccountService, Deferred } from '../../../account/tests/fake-account-service.js'
@@ -49,9 +49,10 @@ class Fixture
         return new TenantExplorerService(provider)
     }
 
-    public static async Settle(): Promise<void>
+    // Lets every already-resolved fake promise chain finish: a macrotask turn drains all microtasks.
+    public static Settle(): Promise<void>
     {
-        for (let i = 0; i < 10; i++) await Promise.resolve()
+        return new Promise((resolve) => setTimeout(resolve, 0))
     }
 
     public static Labels(nodes: { Count: number; Get(i: number): TenantExplorerNode }): string[]
@@ -144,7 +145,7 @@ describe('TenantExplorerService', () =>
         account.Next = () => Promise.resolve({ Contribute: [Fixture.Env('c:s', 'staging')], Publish: [] })
         const api = new FakeEnvApi()
         const sentence = 'The environment staging is not running. Start it from the tenant console.'
-        api.Result = () => Promise.reject(new Error(sentence))
+        api.Result = () => Promise.reject(new RelayError(sentence))
         const svc = Fixture.Make(account, api)
         await Fixture.Settle()
         const env = svc.Nodes.Get(0).Children.Get(0)
@@ -183,5 +184,55 @@ describe('TenantExplorerService', () =>
         slow.Resolve({ Contribute: [Fixture.Env('c:old', 'older')], Publish: [] })
         await Fixture.Settle()
         expect(Fixture.Labels(svc.Nodes.Get(0).Children)).toEqual(['newer'])
+    })
+
+    it('a raw non-relay error is replaced by the generic sentence', async () =>
+    {
+        const account = new TargetAccount()
+        account.SetState({ SignedIn: true, TenantName: 'Acme' })
+        account.Next = () => Promise.resolve({ Contribute: [Fixture.Env('c:a', 'alpha')], Publish: [] })
+        const api = new FakeEnvApi()
+        api.Result = () => Promise.reject(new Error('Error invoking remote method: secret'))
+        const svc = Fixture.Make(account, api)
+        await Fixture.Settle()
+        const env = svc.Nodes.Get(0).Children.Get(0)
+        env.OnExpand()
+        await Fixture.Settle()
+        expect(Fixture.Labels(env.Children)).toEqual(["Could not load this environment's contents."])
+    })
+
+    it('a Targets() failure shows one message node, and a later reload recovers', async () =>
+    {
+        const account = new TargetAccount()
+        account.SetState({ SignedIn: true, TenantName: 'Acme' })
+        const sentence = 'The platform could not be reached.'
+        account.Next = () => Promise.reject(new RelayError(sentence))
+        const svc = Fixture.Make(account)
+        await vi.waitFor(() => expect(svc.Nodes.Count).toBe(1))
+        expect(svc.Nodes.Get(0).Kind).toBe(TenantExplorerNodeKind.Message)
+        expect(svc.Nodes.Get(0).Label).toBe(sentence)
+        expect(svc.SignedIn).toBe(true)
+        expect(svc.IsEmpty).toBe(false)
+        account.Next = () => Promise.resolve({ Contribute: [Fixture.Env('c:a', 'alpha')], Publish: [] })
+        account.Changed.emit()
+        await vi.waitFor(() => expect(svc.Nodes.Get(0).Kind).toBe(TenantExplorerNodeKind.Tenant))
+        expect(Fixture.Labels(svc.Nodes.Get(0).Children)).toEqual(['alpha'])
+    })
+
+    it('after dispose, Changed does not rebuild and an in-flight reload does not mutate Nodes', async () =>
+    {
+        const account = new TargetAccount()
+        account.SetState({ SignedIn: true, TenantName: 'Acme' })
+        const slow = new Deferred<AccountTargets>()
+        account.Next = () => slow.Promise
+        const svc = Fixture.Make(account)
+        await Fixture.Settle()
+        const calls = account.TargetsCalls
+        svc.dispose()
+        account.Changed.emit()
+        slow.Resolve({ Contribute: [Fixture.Env('c:a', 'alpha')], Publish: [] })
+        await Fixture.Settle()
+        expect(account.TargetsCalls).toBe(calls)
+        expect(svc.Nodes.Count).toBe(0)
     })
 })

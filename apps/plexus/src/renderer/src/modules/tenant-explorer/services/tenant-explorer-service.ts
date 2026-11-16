@@ -8,7 +8,7 @@ import type { IActivatable } from '@pragmatic-tech-ai/mural/framework'
 import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import { AccountServiceKey } from '@pragmatic-tech-ai/plexus-core/renderer/modules/account'
 import {
-    TargetStatus, type EnvironmentTarget, type TargetRef,
+    AccountError, RelayError, TargetStatus, type EnvironmentTarget, type TargetRef,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { EnvironmentsApiKey } from '../../../services/environments/environments-contents-source.js'
 import { TenantExplorerNode } from './tenant-explorer-node.js'
@@ -30,7 +30,7 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
     private static readonly FallbackTenantLabel = 'Tenant'
     private static readonly NothingDeployed = 'Nothing deployed'
     private static readonly Unavailable = 'Environment contents are not available right now.'
-    private static readonly GenericFailure = 'The environment could not be read. Try again.'
+    private static readonly GenericFailure = "Could not load this environment's contents."
     private static readonly StatusLabels: Readonly<Record<TargetStatus, string>> = {
         [TargetStatus.Running]: 'Running',
         [TargetStatus.Stopped]: 'Stopped',
@@ -62,6 +62,7 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
     public override dispose(): void
     {
         this.accountChanged?.dispose()
+        this.reloadSeq++   // an in-flight reload now fails its staleness check
         super.dispose()
     }
 
@@ -76,25 +77,39 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
             return
         }
         const tenantName = account.State.TenantName
-        const targets = await account.Targets()
-        if (seq !== this.reloadSeq) return   // a newer reload superseded this one
-
-        const unioned = new Map<string, EnvironmentTarget>()
-        for (const t of [...targets.Contribute, ...targets.Publish]) unioned.set(t.Id, t)
-        const envs = [...unioned.values()].sort((a, b) => a.Name.localeCompare(b.Name))
-
-        const root = TenantExplorerNode.Tenant(tenantName ?? TenantExplorerService.FallbackTenantLabel)
-        for (const t of envs)
+        let root: TenantExplorerNode
+        let envCount: number
+        try
         {
-            root.Children.Add(TenantExplorerNode.Environment(
-                t.Name,
-                TenantExplorerService.StatusLabel(t.Status),
-                () => this.LoadContents({ Name: t.Name, Source: t.Source }),
-            ))
+            const targets = await account.Targets()
+            if (seq !== this.reloadSeq) return   // a newer reload superseded this one
+
+            const unioned = new Map<string, EnvironmentTarget>()
+            for (const t of [...targets.Contribute, ...targets.Publish]) unioned.set(t.Id, t)
+            const envs = [...unioned.values()].sort((a, b) => a.Name.localeCompare(b.Name))
+
+            root = TenantExplorerNode.Tenant(tenantName ?? TenantExplorerService.FallbackTenantLabel)
+            for (const t of envs)
+            {
+                root.Children.Add(TenantExplorerNode.Environment(
+                    t.Name,
+                    TenantExplorerService.StatusLabel(t.Status),
+                    () => this.LoadContents({ Name: t.Name, Source: t.Source }),
+                ))
+            }
+            envCount = envs.length
+        }
+        catch (e)
+        {
+            if (seq !== this.reloadSeq) return
+            this._nodes.Clear()
+            this._nodes.Add(TenantExplorerNode.Message(TenantExplorerService.SentenceOf(e)))
+            this.SetFlags(true, false)
+            return
         }
         this._nodes.Clear()
         this._nodes.Add(root)
-        this.SetFlags(true, envs.length === 0)
+        this.SetFlags(true, envCount === 0)
     }
 
     private async LoadContents(target: TargetRef): Promise<TenantExplorerNode[]>
@@ -133,6 +148,6 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
 
     private static SentenceOf(e: unknown): string
     {
-        return e instanceof Error ? e.message : TenantExplorerService.GenericFailure
+        return e instanceof RelayError || e instanceof AccountError ? e.message : TenantExplorerService.GenericFailure
     }
 }
