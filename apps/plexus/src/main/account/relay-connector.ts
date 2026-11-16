@@ -7,7 +7,6 @@ import type { SessionAddress } from './desktop-session-store.js'
 // The methods the contribute, publish and inspect flows call on a relay connection (PragmaticClient has them).
 export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'>
 
-// Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).
 // The wire `action` the relay end parses (the server's DesktopAction).
 export enum RelayAction
 {
@@ -16,6 +15,7 @@ export enum RelayAction
     Inspect = 'inspect',
 }
 
+// Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).
 export type RelayDial = (url: string, token: string) => Promise<RelayClient>
 
 // The slice of AccountService the connector needs (AccountService satisfies it).

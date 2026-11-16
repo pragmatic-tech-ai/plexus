@@ -39,15 +39,15 @@ class FakeClient
 
 class FakeRelay implements IRelayConnector
 {
-    public Connects: Array<{ target: TargetRef; kind: RelayAction }> = []
+    public Connects: Array<{ target: TargetRef; action: RelayAction }> = []
 
     constructor(public readonly Client: FakeClient, private readonly failWith?: Error)
     {
     }
 
-    public Connect(target: TargetRef, kind: RelayAction): Promise<RelayClient>
+    public Connect(target: TargetRef, action: RelayAction): Promise<RelayClient>
     {
-        this.Connects.push({ target, kind })
+        this.Connects.push({ target, action })
         if (this.failWith !== undefined) return Promise.reject(this.failWith)
         return Promise.resolve(this.Client as unknown as RelayClient)
     }
@@ -88,7 +88,7 @@ describe('EnvironmentDeployService', () =>
     {
         const relay = new FakeRelay(new FakeClient())
         await new EnvironmentDeployService(relay).Deploy({ Name: 'prod', Source: TargetSource.Platform }, dir)
-        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Platform }, kind: RelayAction.Publish }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Platform }, action: RelayAction.Publish }])
     })
 
     it('assembles the deploy payload and deploys once through a publish relay to the environment', async () =>
@@ -96,7 +96,7 @@ describe('EnvironmentDeployService', () =>
         const client = new FakeClient()
         const relay = new FakeRelay(client)
         const result = await new EnvironmentDeployService(relay).Deploy(Fixture.Prod,dir)
-        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Console }, kind: RelayAction.Publish }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Console }, action: RelayAction.Publish }])
         expect(client.Deployed).toHaveLength(1)
         const sent = client.Deployed[0]
         expect(sent.appName).toBe('orders')
