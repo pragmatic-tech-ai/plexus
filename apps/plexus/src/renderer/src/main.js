@@ -18,6 +18,7 @@ import { confirmCloseDocs } from './services/documents/confirm-close-docs.js'
 import { ChatSessionsService } from './modules/agent-chat/services/chat-sessions-service.js'
 import { ProjectAgentCatalog } from './modules/agent-chat/services/project-agent-catalog.js'
 import { TemplateGalleryService } from './modules/agent-chat/services/template-gallery-service.js'
+import { TenantExplorerService } from './modules/tenant-explorer/services/tenant-explorer-service.js'
 import { attachAutoOpenInspector } from './modules/diagram/behaviors/auto-open-inspector-behavior.js'
 import { HelpOverlayController } from '@pragmatic-tech-ai/plexus-core/renderer/help/help-overlay-behavior.js'
 import { HelpDocumentStore } from '@pragmatic-tech-ai/plexus-core/renderer/help/help-document-store.js'
@@ -278,6 +279,10 @@ try {
     if (solutionExplorer !== undefined) {
         solutionExplorer.Start()
     }
+
+    // Construct the Tenant Explorer service now so it subscribes to the account's Changed signal and
+    // refreshes live, like the Solution Explorer. It has no Start(); resolving it is the start.
+    app.Services.get(TenantExplorerService.Key)
 
     // Right panel dock: restore stored conversations into the Conversations panel,
     // then open one starter conversation as the initial Chat tab. Constructing the

@@ -14,6 +14,7 @@ import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-a
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { EnvironmentPublishChannel, type IEnvironmentPublishBridge } from '../shared/environment-publish-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
+import { EnvironmentsChannel, type IEnvironmentsBridge } from '../shared/environment-contents-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
 import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge, type RelayReply, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { BundleAppRequest, BundleAppResult } from '@pragmatic-tech-ai/todl/build-system-core'
@@ -166,6 +167,9 @@ const graphContribute: IGraphContributeBridge = {
     RelayBridge.Call(GraphContributeChannel.Contribute, target, graphName, solutionId, packages),
   ListGraphs: (target: TargetRef) => RelayBridge.Call(GraphContributeChannel.ListGraphs, target),
 }
+const environments: IEnvironmentsBridge = {
+  Contents: (target: TargetRef) => RelayBridge.Call(EnvironmentsChannel.Contents, target),
+}
 
 // Account bridge: sign in by email through the system browser. Every call resolves to the main
 // handler's AccountReply envelope, never a rejection: the context bridge would strip a thrown
@@ -208,7 +212,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, account, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, environments, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { AccountError, AccountErrorKind, TargetKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { ConnectionLostError, ErrorCodes, InMemoryMessageSocket, PragmaticClient, ResponseError, UpgradeRefusedError, type IMessageSocket } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { GraphErrorCode, RelayAnswer, RelayConnector, RelayDrop, RelayRefusal, type IRelaySessionSource, type RelayCall, type RelayClient } from '../relay-connector.js'
+import { GraphErrorCode, RelayAction, RelayAnswer, RelayConnector, RelayDrop, RelayRefusal, type IRelaySessionSource, type RelayCall, type RelayClient } from '../relay-connector.js'
 import type { SessionAddress } from '../desktop-session-store.js'
 
 const Token = 'DESKTOP-SECRET-token-123'
@@ -160,7 +160,7 @@ describe('RelayConnector', () =>
         const dial = new FakeDial()
         const sessions = new FakeSessions(RelayFixture.Session())
         const relay = new RelayConnector(sessions, dial.Dial)
-        const client = await relay.Connect(RelayFixture.Console('dev 1'), TargetKind.Contribute)
+        const client = await relay.Connect(RelayFixture.Console('dev 1'), RelayAction.Contribute)
         expect(client).toBe(dial.Client)
         expect(dial.Calls).toEqual([{ url: 'ws://127.0.0.1:7002/desktop/relay?environment=dev%201&action=contribute', token: Token }])
         expect(sessions.Asked).toEqual([TargetSource.Console])
@@ -170,7 +170,7 @@ describe('RelayConnector', () =>
     {
         const dial = new FakeDial()
         const sessions = new FakeSessions(RelayFixture.Session(), RelayFixture.PlatformSession())
-        await new RelayConnector(sessions, dial.Dial).Connect(RelayFixture.Platform('dev'), TargetKind.Publish)
+        await new RelayConnector(sessions, dial.Dial).Connect(RelayFixture.Platform('dev'), RelayAction.Publish)
         expect(dial.Calls).toEqual([{ url: 'wss://tenant-plane.example.com/desktop/relay?environment=dev&action=publish', token: PlatformToken }])
         expect(sessions.Asked).toEqual([TargetSource.Platform])
     })
@@ -178,7 +178,7 @@ describe('RelayConnector', () =>
     it('is PlatformSignedOut for a platform target without a platform part, and never dials', async () =>
     {
         const dial = new FakeDial()
-        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session()), dial.Dial).Connect(RelayFixture.Platform('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session()), dial.Dial).Connect(RelayFixture.Platform('dev'), RelayAction.Contribute))
         expect(error).toBeInstanceOf(AccountError)
         expect((error as AccountError).Kind).toBe(AccountErrorKind.PlatformSignedOut)
         expect(dial.Calls).toHaveLength(0)
@@ -187,7 +187,7 @@ describe('RelayConnector', () =>
     it('a platform 401 clears the platform token only and answers PlatformSignedOut', async () =>
     {
         const sessions = new FakeSessions(RelayFixture.Session(), RelayFixture.PlatformSession())
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(new UpgradeRefusedError(401, '')).Dial).Connect(RelayFixture.Platform('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(new UpgradeRefusedError(401, '')).Dial).Connect(RelayFixture.Platform('dev'), RelayAction.Contribute))
         expect((error as AccountError).Kind).toBe(AccountErrorKind.PlatformSignedOut)
         expect(sessions.SignedOutTokens).toEqual([PlatformToken])
         expect(sessions.Current).toBeDefined()
@@ -198,7 +198,7 @@ describe('RelayConnector', () =>
     {
         const sessions = new FakeSessions(RelayFixture.Session())
         const refusal = new UpgradeRefusedError(503, '{"error":"console-not-registered"}')
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(refusal).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(refusal).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect(error).toBeInstanceOf(AccountError)
         expect((error as AccountError).Kind).toBe(AccountErrorKind.ConsoleRetired)
         expect(sessions.SignedOutCalls).toBe(0)
@@ -209,7 +209,7 @@ describe('RelayConnector', () =>
         const failures: unknown[] = [new UpgradeRefusedError(503, '{"error":"x"}'), new UpgradeRefusedError(503, 'not json'), RelayFixture.Refused(503)]
         for (const failure of failures)
         {
-            const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session()), new FakeDial(failure).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+            const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session()), new FakeDial(failure).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
             expect(error).not.toBeInstanceOf(AccountError)
             expect(error.message).toBe('The environment dev could not be reached.')
         }
@@ -218,20 +218,48 @@ describe('RelayConnector', () =>
     it('uses wss for an https tenant plane and the publish action', async () =>
     {
         const dial = new FakeDial()
-        await new RelayConnector(new FakeSessions(RelayFixture.Session('https://tenant.example.com')), dial.Dial).Connect(RelayFixture.Console('prod'), TargetKind.Publish)
+        await new RelayConnector(new FakeSessions(RelayFixture.Session('https://tenant.example.com')), dial.Dial).Connect(RelayFixture.Console('prod'), RelayAction.Publish)
         expect(dial.Calls[0]!.url).toBe('wss://tenant.example.com/desktop/relay?environment=prod&action=publish')
     })
 
     it('RelayUrl of a normalised https console', () =>
     {
-        expect(RelayConnector.RelayUrl('https://console-acme.localtest.me', 'dev env', TargetKind.Contribute))
+        expect(RelayConnector.RelayUrl('https://console-acme.localtest.me', 'dev env', RelayAction.Contribute))
             .toBe('wss://console-acme.localtest.me/desktop/relay?environment=dev%20env&action=contribute')
+    })
+
+    it('RelayUrl of an inspect relay encodes the environment and names the inspect action', () =>
+    {
+        expect(RelayConnector.RelayUrl('https://console.example', 'env one', RelayAction.Inspect))
+            .toBe('wss://console.example/desktop/relay?environment=env%20one&action=inspect')
+    })
+
+    it('an inspect connection yields a client whose read calls are callable', async () =>
+    {
+        const calls: string[] = []
+        const client = {
+            ListApplications: async () =>
+            {
+                calls.push('apps')
+                return []
+            },
+            GetLoadedGraph: async () =>
+            {
+                calls.push('graph')
+                return null
+            },
+        } as unknown as RelayClient
+        const dial = async (): Promise<RelayClient> => client
+        const opened = await new RelayConnector(new FakeSessions(RelayFixture.Session()), dial).Connect(RelayFixture.Console('dev'), RelayAction.Inspect)
+        expect(await opened.ListApplications()).toEqual([])
+        expect(await opened.GetLoadedGraph()).toBeNull()
+        expect(calls).toEqual(['apps', 'graph'])
     })
 
     it("relay dials the session's console address", async () =>
     {
         const dial = new FakeDial()
-        await new RelayConnector(new FakeSessions(RelayFixture.Session('https://console-acme.localtest.me')), dial.Dial).Connect(RelayFixture.Console('dev'), TargetKind.Publish)
+        await new RelayConnector(new FakeSessions(RelayFixture.Session('https://console-acme.localtest.me')), dial.Dial).Connect(RelayFixture.Console('dev'), RelayAction.Publish)
         expect(dial.Calls).toEqual([{ url: 'wss://console-acme.localtest.me/desktop/relay?environment=dev&action=publish', token: Token }])
     })
 
@@ -239,7 +267,7 @@ describe('RelayConnector', () =>
     {
         const sessions = new FakeSessions(RelayFixture.Session('https://console-acme.localtest.me'))
         const failure = Object.assign(new Error('x'), { code: 'SELF_SIGNED_CERT_IN_CHAIN' })
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(failure).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(failure).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect(error).toBeInstanceOf(AccountError)
         expect((error as AccountError).Kind).toBe(AccountErrorKind.CertificateUntrusted)
         expect(sessions.SignedOutCalls).toBe(0)
@@ -249,7 +277,7 @@ describe('RelayConnector', () =>
     it('is SignedOut without a session and never dials', async () =>
     {
         const dial = new FakeDial()
-        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(undefined), dial.Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(undefined), dial.Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect(error).toBeInstanceOf(AccountError)
         expect((error as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
         expect(error.message).toBe("You're signed out. Sign in and try again.")
@@ -259,7 +287,7 @@ describe('RelayConnector', () =>
     it('maps 401 to SignedOut and clears the account', async () =>
     {
         const sessions = new FakeSessions(RelayFixture.Session())
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(RelayFixture.Refused(401)).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(RelayFixture.Refused(401)).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect((error as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
         expect(error.message).toBe("You're signed out. Sign in and try again.")
         expect(sessions.SignedOutCalls).toBe(1)
@@ -272,7 +300,7 @@ describe('RelayConnector', () =>
         const sessions = new FakeSessions(RelayFixture.Session())
         sessions.LoadFailure = Object.assign(new Error("EACCES: permission denied, open 'C:\\Users\\ada\\AppData\\Plexus\\desktop-session.bin'"), { code: 'EACCES' })
         const dial = new FakeDial()
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, dial.Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, dial.Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect(error).toBeInstanceOf(AccountError)
         expect((error as AccountError).Kind).toBe(AccountErrorKind.Unavailable)
         expect(error.message).not.toContain('EACCES')
@@ -284,14 +312,14 @@ describe('RelayConnector', () =>
     {
         const sessions = new FakeSessions(RelayFixture.Session())
         sessions.LoadFailure = new AccountError(AccountErrorKind.SecureStorageUnavailable)
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial().Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial().Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect((error as AccountError).Kind).toBe(AccountErrorKind.SecureStorageUnavailable)
     })
 
     it('maps 403 to the not-allowed sentence', async () =>
     {
         const sessions = new FakeSessions(RelayFixture.Session())
-        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(RelayFixture.Refused(403)).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Publish))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(RelayFixture.Refused(403)).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Publish))
         expect(error.message).toBe("Your account can't use this environment.")
         expect(sessions.SignedOutCalls).toBe(0)
         RelayFixture.ExpectClean(error)
@@ -299,7 +327,7 @@ describe('RelayConnector', () =>
 
     it('maps 409 to the not-running sentence naming the environment', async () =>
     {
-        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session()), new FakeDial(RelayFixture.Refused(409)).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session()), new FakeDial(RelayFixture.Refused(409)).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect(error.message).toBe('The environment dev is not running. Start it from the tenant console.')
         RelayFixture.ExpectClean(error)
     })
@@ -316,7 +344,7 @@ describe('RelayConnector', () =>
         for (const failure of failures)
         {
             const sessions = new FakeSessions(RelayFixture.Session())
-            const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(failure).Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+            const error = await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(failure).Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
             expect(error.message).toBe('The environment dev could not be reached.')
             expect(sessions.SignedOutCalls).toBe(0)
             RelayFixture.ExpectClean(error)
@@ -326,7 +354,7 @@ describe('RelayConnector', () =>
     it('reports an unusable tenant plane address as unreachable without dialing', async () =>
     {
         const dial = new FakeDial()
-        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session('ftp://x')), dial.Dial).Connect(RelayFixture.Console('dev'), TargetKind.Contribute))
+        const error = await RelayFixture.Failure(new RelayConnector(new FakeSessions(RelayFixture.Session('ftp://x')), dial.Dial).Connect(RelayFixture.Console('dev'), RelayAction.Contribute))
         expect(error.message).toBe('The environment dev could not be reached.')
         expect(dial.Calls).toHaveLength(0)
     })

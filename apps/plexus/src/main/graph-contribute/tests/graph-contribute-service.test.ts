@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { ConnectionLostError, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { ContributedPackageDto, GraphContributeParamsDto, GraphDetailDto, GraphSummaryDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { TargetKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { GraphContributeService } from '../graph-contribute-service.js'
-import type { IRelayConnector, RelayClient } from '../../account/relay-connector.js'
+import { RelayAction, type IRelayConnector, type RelayClient } from '../../account/relay-connector.js'
 
 class FakeClient
 {
@@ -40,15 +40,15 @@ class FakeClient
 
 class FakeRelay implements IRelayConnector
 {
-    public Connects: Array<{ target: TargetRef; kind: TargetKind }> = []
+    public Connects: Array<{ target: TargetRef; action: RelayAction }> = []
 
     constructor(private readonly client: FakeClient | Error)
     {
     }
 
-    public async Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>
+    public async Connect(target: TargetRef, action: RelayAction): Promise<RelayClient>
     {
-        this.Connects.push({ target, kind })
+        this.Connects.push({ target, action })
         if (this.client instanceof Error) throw this.client
         return this.client as unknown as RelayClient
     }
@@ -88,7 +88,7 @@ describe('GraphContributeService', () =>
         const relay = new FakeRelay(client)
         const result = await new GraphContributeService(relay).Contribute(Fixture.Dev,'g1', 's1', Fixture.Packages)
         expect(result).toEqual({ GraphName: 'g1', PackageCount: 2 })
-        expect(relay.Connects).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, kind: TargetKind.Contribute }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, action: RelayAction.Contribute }])
         expect(client.Calls).toEqual([{ graphName: 'g1', solutionId: 's1', packages: Fixture.Packages }])
         expect(client.Closed).toBe(1)
     })
@@ -100,8 +100,8 @@ describe('GraphContributeService', () =>
         await service.Contribute(Fixture.PlatformDev, 'g1', 's1', Fixture.Packages)
         await service.ListGraphs(Fixture.PlatformDev)
         expect(relay.Connects).toEqual([
-            { target: { Name: 'dev', Source: TargetSource.Platform }, kind: TargetKind.Contribute },
-            { target: { Name: 'dev', Source: TargetSource.Platform }, kind: TargetKind.Contribute },
+            { target: { Name: 'dev', Source: TargetSource.Platform }, action: RelayAction.Contribute },
+            { target: { Name: 'dev', Source: TargetSource.Platform }, action: RelayAction.Contribute },
         ])
     })
 
@@ -151,7 +151,7 @@ describe('GraphContributeService', () =>
         const relay = new FakeRelay(client)
         const names = await new GraphContributeService(relay).ListGraphs(Fixture.Dev)
         expect(names).toEqual(['alpha', 'main', 'zeta'])
-        expect(relay.Connects).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, kind: TargetKind.Contribute }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'dev', Source: TargetSource.Console }, action: RelayAction.Contribute }])
         expect(client.Closed).toBe(1)
     })
 

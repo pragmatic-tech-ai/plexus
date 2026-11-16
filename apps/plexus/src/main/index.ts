@@ -28,6 +28,8 @@ import { EnvironmentDeployService } from './environment-publish/environment-depl
 import { EnvironmentPublishIpc } from './environment-publish/environment-publish-ipc.js'
 import { GraphContributeService } from './graph-contribute/graph-contribute-service.js'
 import { GraphContributeIpc } from './graph-contribute/graph-contribute-ipc.js'
+import { EnvironmentContentsService } from './environments/environment-contents-service.js'
+import { EnvironmentContentsIpc } from './environments/environment-contents-ipc.js'
 import { TypeCheckIpc } from './build/type-check-ipc.js'
 import { AccountService } from './account/account-service.js'
 import { AccountIpc } from './account/account-ipc.js'
@@ -206,6 +208,7 @@ app.whenReady().then(async () => {
   const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
   EnvironmentPublishIpc.Register(ipcMain, new EnvironmentDeployService(relay))
   GraphContributeIpc.Register(ipcMain, new GraphContributeService(relay))
+  EnvironmentContentsIpc.Register(ipcMain, new EnvironmentContentsService(relay))
 
   // Bundler capability: the renderer's IpcBundler invokes bundle:app; esbuild runs here.
   BundleIpc.Register(ipcMain, new EsbuildBundler())

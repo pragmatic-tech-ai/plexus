@@ -4,10 +4,10 @@ import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ConnectionLostError, ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { AppDeployResultDto, CypherAppDeployParamsDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { TargetKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { EnvironmentDeployService } from '../environment-deploy-service.js'
 import { EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
-import type { IRelayConnector, RelayClient } from '../../account/relay-connector.js'
+import { RelayAction, type IRelayConnector, type RelayClient } from '../../account/relay-connector.js'
 
 class FakeClient
 {
@@ -39,15 +39,15 @@ class FakeClient
 
 class FakeRelay implements IRelayConnector
 {
-    public Connects: Array<{ target: TargetRef; kind: TargetKind }> = []
+    public Connects: Array<{ target: TargetRef; action: RelayAction }> = []
 
     constructor(public readonly Client: FakeClient, private readonly failWith?: Error)
     {
     }
 
-    public Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>
+    public Connect(target: TargetRef, action: RelayAction): Promise<RelayClient>
     {
-        this.Connects.push({ target, kind })
+        this.Connects.push({ target, action })
         if (this.failWith !== undefined) return Promise.reject(this.failWith)
         return Promise.resolve(this.Client as unknown as RelayClient)
     }
@@ -88,7 +88,7 @@ describe('EnvironmentDeployService', () =>
     {
         const relay = new FakeRelay(new FakeClient())
         await new EnvironmentDeployService(relay).Deploy({ Name: 'prod', Source: TargetSource.Platform }, dir)
-        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Platform }, kind: TargetKind.Publish }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Platform }, action: RelayAction.Publish }])
     })
 
     it('assembles the deploy payload and deploys once through a publish relay to the environment', async () =>
@@ -96,7 +96,7 @@ describe('EnvironmentDeployService', () =>
         const client = new FakeClient()
         const relay = new FakeRelay(client)
         const result = await new EnvironmentDeployService(relay).Deploy(Fixture.Prod,dir)
-        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Console }, kind: TargetKind.Publish }])
+        expect(relay.Connects).toEqual([{ target: { Name: 'prod', Source: TargetSource.Console }, action: RelayAction.Publish }])
         expect(client.Deployed).toHaveLength(1)
         const sent = client.Deployed[0]
         expect(sent.appName).toBe('orders')
