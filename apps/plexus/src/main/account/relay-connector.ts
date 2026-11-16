@@ -1,13 +1,21 @@
 import { ConnectionLostError, ErrorCodes, ResponseError, UpgradeRefusedError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { AccountError, AccountErrorKind, TargetSource, UrlBase, type TargetKind, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetSource, UrlBase, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import { ConsoleRetirement } from './console-retirement.js'
 import type { SessionAddress } from './desktop-session-store.js'
 
-// The methods the contribute and publish flows call on a relay connection (PragmaticClient has them).
-export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'>
+// The methods the contribute, publish and inspect flows call on a relay connection (PragmaticClient has them).
+export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'>
 
 // Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).
+// The wire `action` the relay end parses (the server's DesktopAction).
+export enum RelayAction
+{
+    Contribute = 'contribute',
+    Publish = 'publish',
+    Inspect = 'inspect',
+}
+
 export type RelayDial = (url: string, token: string) => Promise<RelayClient>
 
 // The slice of AccountService the connector needs (AccountService satisfies it).
@@ -21,7 +29,7 @@ export interface IRelaySessionSource
 
 export interface IRelayConnector
 {
-    Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>;
+    Connect(target: TargetRef, action: RelayAction): Promise<RelayClient>;
 }
 
 // A call on an open relay: the environment (and graph) it is about, for the sentences, and the client
@@ -147,14 +155,14 @@ export class RelayConnector implements IRelayConnector
     {
     }
 
-    public async Connect(target: TargetRef, kind: TargetKind): Promise<RelayClient>
+    public async Connect(target: TargetRef, action: RelayAction): Promise<RelayClient>
     {
         const session = await this.LoadSession(target.Source)
         if (session === undefined) throw new AccountError(RelayConnector.SignedOutKinds[target.Source])
         let url: string
         try
         {
-            url = RelayConnector.RelayUrl(session.ConsoleUrl, target.Name, kind)
+            url = RelayConnector.RelayUrl(session.ConsoleUrl, target.Name, action)
         }
         catch
         {
@@ -187,16 +195,16 @@ export class RelayConnector implements IRelayConnector
         }
     }
 
-    // ws(s)://<console>/desktop/relay?environment=<name>&action=<kind>. Encoded by hand so a space is
+    // ws(s)://<console>/desktop/relay?environment=<name>&action=<action>. Encoded by hand so a space is
     // %20 (URLSearchParams would write +). A base path is kept for sessions saved with a tenant plane
     // address that had one.
-    public static RelayUrl(consoleUrl: string, environment: string, kind: TargetKind): string
+    public static RelayUrl(consoleUrl: string, environment: string, action: RelayAction): string
     {
         const address = new URL(consoleUrl)
         const scheme = RelayConnector.SocketSchemes[address.protocol]
         if (scheme === undefined) throw new Error(RelayConnector.BadConsole)
         const base = UrlBase.Of(address.pathname)
-        const query = `${RelayConnector.EnvironmentParam}=${encodeURIComponent(environment)}&${RelayConnector.ActionParam}=${encodeURIComponent(kind)}`
+        const query = `${RelayConnector.EnvironmentParam}=${encodeURIComponent(environment)}&${RelayConnector.ActionParam}=${encodeURIComponent(action)}`
         return `${scheme}//${address.host}${base}${RelayConnector.RelayPath}?${query}`
     }
 

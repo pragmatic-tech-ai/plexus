@@ -1,10 +1,10 @@
 import { promises as fs } from 'node:fs'
 import { join, resolve, sep } from 'node:path'
 import { RemoteBuildDirName, EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
-import { TargetKind, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { CypherAppDeployParamsDto, ServableAppManifestDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { IEnvironmentPublishApi, EnvironmentPublishResult } from '../../shared/environment-publish-api.js'
-import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
+import { RelayAction, RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
 // A failure reading the build output that this service wrote the sentence for (no manifest, a
 // missing file, an unsafe path, a bad manifest): shown to the maker as is.
@@ -52,7 +52,7 @@ export class EnvironmentDeployService implements IEnvironmentPublishApi
     {
         EnvironmentDeployService.RequireBuildDir(outputDir)
         const params = await EnvironmentDeployService.AssembleOrSentence(outputDir)
-        const client = await this.relay.Connect(target, TargetKind.Publish)
+        const client = await this.relay.Connect(target, RelayAction.Publish)
         try
         {
             const result = await RelayConnector.Call({ Environment: target.Name, Client: client }, () => client.DeployApplication(params))

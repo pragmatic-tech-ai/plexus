@@ -1,7 +1,7 @@
 import type { ContributedPackageDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { TargetKind, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import type { GraphContributeResult, IGraphContributeApi } from '../../shared/graph-contribute-api.js'
-import { RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
+import { RelayAction, RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
 // Main-process contribute: opens a contribute relay to a Development environment through the session
 // of the target's source (RelayConnector holds the sessions; the environment credential never
@@ -32,7 +32,7 @@ export class GraphContributeService implements IGraphContributeApi
     // `graph` names the graph the call is about, so a not-found or conflict answer reads as its sentence.
     private async With<T>(target: TargetRef, graph: string | undefined, work: (client: RelayClient) => Promise<T>): Promise<T>
     {
-        const client = await this.relay.Connect(target, TargetKind.Contribute)
+        const client = await this.relay.Connect(target, RelayAction.Contribute)
         try
         {
             return await RelayConnector.Call({ Environment: target.Name, Graph: graph, Client: client }, () => work(client))
