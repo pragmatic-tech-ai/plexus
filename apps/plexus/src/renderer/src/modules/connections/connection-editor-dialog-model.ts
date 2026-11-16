@@ -1,5 +1,6 @@
 import { MetaData, MuralBase, RelayCommand, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
-import { TokenSource, type ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import { TokenSource, type ConnectionProvider, type ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import { ConnectionProviderMap } from './connection-provider-map.js'
 
 // What the connection editor emits on Confirm: the non-secret spec fields the connection
 // authority needs, plus (Stored mode only) the write-only secret. `id` is present when editing
@@ -27,8 +28,9 @@ export class ConnectionEditorDialogModel extends MuralBase
     private static readonly NpmRegistryType = 'npm'
     private static readonly RegistryKey = 'registry'
     private static readonly ScopeKey = 'scope'
-    private static readonly NewHeader = 'New Connection'
-    private static readonly EditHeader = 'Edit Connection'
+    private static readonly NewHeader = 'New Package Store Connection'
+    private static readonly EditHeader = 'Edit Package Store Connection'
+    private static readonly DefaultProviderLabel = 'GitHub Packages'
 
     static readonly HeaderLabelKey = MuralBase.RegisterProperty<string>(
         ConnectionEditorDialogModel, 'HeaderLabel', '', MetaData.None)
@@ -38,6 +40,10 @@ export class ConnectionEditorDialogModel extends MuralBase
         ConnectionEditorDialogModel, 'Registry', '', MetaData.None)
     static readonly ScopeKeyProp = MuralBase.RegisterProperty<string>(
         ConnectionEditorDialogModel, 'Scope', '', MetaData.None)
+    static readonly ProviderLabelsKey = MuralBase.RegisterProperty<readonly string[]>(
+        ConnectionEditorDialogModel, 'ProviderLabels', [], MetaData.None)
+    static readonly SelectedProviderKey = MuralBase.RegisterProperty<string>(
+        ConnectionEditorDialogModel, 'SelectedProvider', '', MetaData.None)
     static readonly UseEnvTokenKey = MuralBase.RegisterProperty<boolean>(
         ConnectionEditorDialogModel, 'UseEnvToken', false, MetaData.None)
     // The inverse of UseEnvToken, mirrored as a DP so the stored-token row can bind its
@@ -56,13 +62,19 @@ export class ConnectionEditorDialogModel extends MuralBase
         ConnectionEditorDialogModel, 'CancelCommand', undefined as unknown as ICommand, MetaData.None)
 
     private readonly id: string | undefined
+    private readonly providerMap: ConnectionProviderMap
+    // Provider-preset settings other than the displayed registry/scope (githubApi, org, directory),
+    // merged into Result.settings. Cleared when Custom is picked.
+    private stash: Record<string, string> = {}
 
     // `existing` seeds Edit; undefined is New. `close` resolves the host dialog (a result on
     // Confirm, undefined on Cancel).
-    constructor(existing: ConnectionView | undefined, private readonly close: (result: ConnectionEditorResult | undefined) => void)
+    constructor(existing: ConnectionView | undefined, providers: readonly ConnectionProvider[], private readonly close: (result: ConnectionEditorResult | undefined) => void)
     {
         super()
         this.id = existing?.Id
+        this.providerMap = new ConnectionProviderMap(providers)
+        this.set_property_value(ConnectionEditorDialogModel.ProviderLabelsKey, this.providerMap.Labels())
         this.set_property_value(ConnectionEditorDialogModel.HeaderLabelKey,
             existing === undefined ? ConnectionEditorDialogModel.NewHeader : ConnectionEditorDialogModel.EditHeader)
         if (existing !== undefined)
@@ -72,7 +84,21 @@ export class ConnectionEditorDialogModel extends MuralBase
             this.set_property_value(ConnectionEditorDialogModel.ScopeKeyProp, existing.Settings[ConnectionEditorDialogModel.ScopeKey] ?? '')
             this.set_property_value(ConnectionEditorDialogModel.UseEnvTokenKey, existing.TokenSource === TokenSource.Env)
             this.set_property_value(ConnectionEditorDialogModel.EnvVarKey, existing.TokenEnvVar ?? '')
+            // Seed the provider from the stored settings WITHOUT re-applying its preset (the
+            // subscription below is not live yet), and keep the non-displayed keys so an update
+            // does not drop them.
+            this.stash = this.NonDisplayed(existing.Settings)
+            this.set_property_value(ConnectionEditorDialogModel.SelectedProviderKey, this.providerMap.LabelForSettings(existing.Settings))
         }
+        else
+        {
+            const labels = this.providerMap.Labels()
+            const initial = labels.includes(ConnectionEditorDialogModel.DefaultProviderLabel)
+                ? ConnectionEditorDialogModel.DefaultProviderLabel : ConnectionProviderMap.CustomLabel
+            this.set_property_value(ConnectionEditorDialogModel.SelectedProviderKey, initial)
+            this.ApplyProvider(initial)
+        }
+        this.PropertyChanged(ConnectionEditorDialogModel.SelectedProviderKey).subscribe(({ newValue }) => this.ApplyProvider(newValue as string))
         this.set_property_value(ConnectionEditorDialogModel.ConfirmCommandKey,
             new RelayCommand(() => { if (this.CanConfirm) this.close(this.Result) }, () => this.CanConfirm))
         this.set_property_value(ConnectionEditorDialogModel.CancelCommandKey,
@@ -101,6 +127,11 @@ export class ConnectionEditorDialogModel extends MuralBase
     public get Scope(): string { return this.get_property_value(ConnectionEditorDialogModel.ScopeKeyProp) }
     public set Scope(v: string) { this.set_property_value(ConnectionEditorDialogModel.ScopeKeyProp, v) }
 
+    public get ProviderLabels(): readonly string[] { return this.get_property_value(ConnectionEditorDialogModel.ProviderLabelsKey) }
+
+    public get SelectedProvider(): string { return this.get_property_value(ConnectionEditorDialogModel.SelectedProviderKey) }
+    public set SelectedProvider(v: string) { this.set_property_value(ConnectionEditorDialogModel.SelectedProviderKey, v) }
+
     public get UseEnvToken(): boolean { return this.get_property_value(ConnectionEditorDialogModel.UseEnvTokenKey) }
     public set UseEnvToken(v: boolean) { this.set_property_value(ConnectionEditorDialogModel.UseEnvTokenKey, v) }
 
@@ -123,6 +154,7 @@ export class ConnectionEditorDialogModel extends MuralBase
         const settings: Record<string, string> = { [ConnectionEditorDialogModel.RegistryKey]: this.Registry.trim() }
         const scope = this.Scope.trim()
         if (scope.length > 0) settings[ConnectionEditorDialogModel.ScopeKey] = scope
+        for (const [key, value] of Object.entries(this.stash)) settings[key] = value
         const result: ConnectionEditorResult = {
             displayName: this.DisplayName.trim(),
             registryType: ConnectionEditorDialogModel.NpmRegistryType,
@@ -140,6 +172,31 @@ export class ConnectionEditorDialogModel extends MuralBase
             result.secret = this.Secret
         }
         return result
+    }
+
+    // Applies a provider preset: fills Registry/Scope and stashes the other keys. Custom clears the
+    // stash and leaves the fields as the user has them.
+    private ApplyProvider(label: string): void
+    {
+        const preset = this.providerMap.SettingsFor(label)
+        if (preset === undefined)
+        {
+            this.stash = {}
+            return
+        }
+        this.Registry = preset[ConnectionEditorDialogModel.RegistryKey] ?? ''
+        this.Scope = preset[ConnectionEditorDialogModel.ScopeKey] ?? ''
+        this.stash = this.NonDisplayed(preset)
+    }
+
+    private NonDisplayed(settings: Record<string, string>): Record<string, string>
+    {
+        const rest: Record<string, string> = {}
+        for (const [key, value] of Object.entries(settings))
+        {
+            if (key !== ConnectionEditorDialogModel.RegistryKey && key !== ConnectionEditorDialogModel.ScopeKey) rest[key] = value
+        }
+        return rest
     }
 
     private recompute(): void

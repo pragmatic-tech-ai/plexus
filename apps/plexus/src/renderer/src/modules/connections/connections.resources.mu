@@ -12,6 +12,9 @@ resources ConnectionsResources {
             TextBlock [ Style = @BodySm, Text = "Display name", Foreground = @Fg2, Margin = (0,0,0,2) ]
             TextBox [ Text = $DisplayName, Margin = (0,0,0,10) ]
 
+            TextBlock [ Style = @BodySm, Text = "Provider", Foreground = @Fg2, Margin = (0,0,0,2) ]
+            ComboBox [ ItemsSource = $ProviderLabels, SelectedItem = $SelectedProvider, Margin = (0,0,0,10) ]
+
             TextBlock [ Style = @BodySm, Text = "Registry URL", Foreground = @Fg2, Margin = (0,0,0,2) ]
             TextBox [ Text = $Registry, Margin = (0,0,0,10) ]
 

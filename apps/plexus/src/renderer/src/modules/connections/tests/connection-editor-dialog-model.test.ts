@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { TokenSource, type ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import type { ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import { ConnectionEditorDialogModel, type ConnectionEditorResult } from '../connection-editor-dialog-model.js'
 
 // Captures the close(result) call so a test can assert what Confirm/Cancel emitted.
@@ -13,7 +14,7 @@ describe('ConnectionEditorDialogModel', () =>
 {
     it('is not confirmable until a name and registry are entered', () =>
     {
-        const vm = new ConnectionEditorDialogModel(undefined, () => {})
+        const vm = new ConnectionEditorDialogModel(undefined, [], () => {})
         expect(vm.CanConfirm).toBe(false)
         vm.DisplayName = 'GitHub'
         expect(vm.CanConfirm).toBe(false)
@@ -24,7 +25,7 @@ describe('ConnectionEditorDialogModel', () =>
     it('confirm produces a stored-token npm spec with the secret and scope', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, [], cap.close)
         vm.DisplayName = 'GitHub'
         vm.Registry = 'https://npm.pkg.github.com'
         vm.Scope = '@acme'
@@ -44,7 +45,7 @@ describe('ConnectionEditorDialogModel', () =>
     it('env-token mode requires an env var and omits the secret', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, [], cap.close)
         vm.DisplayName = 'GH'
         vm.Registry = 'https://r'
         vm.UseEnvToken = true
@@ -71,7 +72,7 @@ describe('ConnectionEditorDialogModel', () =>
             Settings: { registry: 'https://r', scope: '@acme' },
             TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: true, IsDefault: false,
         }
-        const vm = new ConnectionEditorDialogModel(view, cap.close)
+        const vm = new ConnectionEditorDialogModel(view, [], cap.close)
         expect(vm.DisplayName).toBe('GitHub')
         expect(vm.Registry).toBe('https://r')
         expect(vm.Scope).toBe('@acme')
@@ -85,7 +86,7 @@ describe('ConnectionEditorDialogModel', () =>
     it('cancel closes with undefined', () =>
     {
         const cap = capture()
-        const vm = new ConnectionEditorDialogModel(undefined, cap.close)
+        const vm = new ConnectionEditorDialogModel(undefined, [], cap.close)
         vm.CancelCommand.Execute(undefined)
         expect(cap.result).toBeUndefined()
     })
@@ -97,7 +98,7 @@ describe('ConnectionEditorDialogModel ConfirmCommand', () =>
 {
     it('CanExecute follows CanConfirm and raises CanExecuteChanged on each flip', () =>
     {
-        const vm = new ConnectionEditorDialogModel(undefined, () => {})
+        const vm = new ConnectionEditorDialogModel(undefined, [], () => {})
         let raised = 0
         vm.ConfirmCommand.AddCanExecuteChangedListener(() => { raised++ })
         expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
@@ -108,5 +109,61 @@ describe('ConnectionEditorDialogModel ConfirmCommand', () =>
         vm.Registry = ''
         expect(vm.ConfirmCommand.CanExecute(undefined)).toBe(false)
         expect(raised).toBe(2)
+    })
+})
+
+class ProviderFixtures
+{
+    public static readonly GithubUrl = 'https://npm.pkg.github.com'
+    public static readonly GithubApi = 'https://api.github.com'
+
+    public static Providers(): ConnectionProvider[]
+    {
+        return [
+            { RegistryType: 'npm', PresetId: 'github', DisplayName: 'GitHub Packages', Settings: { registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi } },
+        ]
+    }
+}
+
+describe('ConnectionEditorDialogModel provider presets', () =>
+{
+    it('new defaults to GitHub Packages, prefills the registry and carries githubApi into the result', () =>
+    {
+        const cap = capture()
+        const vm = new ConnectionEditorDialogModel(undefined, ProviderFixtures.Providers(), cap.close)
+        expect(vm.ProviderLabels).toEqual(['GitHub Packages', 'Custom'])
+        expect(vm.SelectedProvider).toBe('GitHub Packages')
+        expect(vm.Registry).toBe(ProviderFixtures.GithubUrl)
+        vm.DisplayName = 'GH'
+        vm.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi })
+    })
+
+    it('switching to Custom clears the stash and keeps the fields', () =>
+    {
+        const cap = capture()
+        const vm = new ConnectionEditorDialogModel(undefined, ProviderFixtures.Providers(), cap.close)
+        vm.DisplayName = 'GH'
+        vm.SelectedProvider = 'Custom'
+        vm.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: ProviderFixtures.GithubUrl })
+    })
+
+    it('edit keeps the existing registry URL and non-displayed keys (no preset clobber)', () =>
+    {
+        const cap = capture()
+        const view: ConnectionView = {
+            Id: 'x', DisplayName: 'Mine', RegistryType: 'npm',
+            Settings: { registry: 'https://custom.example', scope: '@a' },
+            TokenSource: TokenSource.Stored, TokenEnvVar: '', HasToken: false, IsDefault: false,
+        }
+        const vm = new ConnectionEditorDialogModel(view, ProviderFixtures.Providers(), cap.close)
+        expect(vm.SelectedProvider).toBe('Custom')
+        expect(vm.Registry).toBe('https://custom.example')
+        const gh: ConnectionView = { ...view, Settings: { registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' } }
+        const vm2 = new ConnectionEditorDialogModel(gh, ProviderFixtures.Providers(), cap.close)
+        expect(vm2.SelectedProvider).toBe('GitHub Packages')
+        vm2.ConfirmCommand.Execute(undefined)
+        expect((cap.result as ConnectionEditorResult).settings).toEqual({ registry: ProviderFixtures.GithubUrl, githubApi: ProviderFixtures.GithubApi, org: 'o' })
     })
 })

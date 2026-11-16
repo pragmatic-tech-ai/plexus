@@ -180,4 +180,53 @@ test.describe.serial('Solution Explorer — Connections branch (P5b)', () =>
         const added = appErrors(l.errors).slice(before)
         expect(added.length, added.join('\n')).toBe(0)
     })
+
+    // The New dialog is retitled "New Package Store Connection" and offers a Provider ComboBox fed
+    // by the live connections:providers relay (window.api is a frozen contextBridge object, so the
+    // real engine providers are used rather than a fake). Opened through the launcher service; the
+    // ComboBox's ItemsSource is read via the visual backref (its dropdown rows do not realize under
+    // the harness). The dialog is dismissed with Escape, so nothing is created.
+    test('New dialog is titled Package Store Connection and offers the GitHub Packages provider', async () =>
+    {
+        const state = await l.win.evaluate(async () =>
+        {
+            const S = Symbol.for('mural:visual-backref')
+            const els = Array.from(document.querySelectorAll('*'))
+            let launcher: any
+            for (const el of els)
+            {
+                const services = (el as any)[S]?.Services
+                if (!services || typeof services.get !== 'function') continue
+                for (let p = services; p && !launcher; p = p._parent)
+                {
+                    p._registrations?.forEach((_v: unknown, token: any) =>
+                    {
+                        if (!launcher && token?.description === 'ConnectionEditorLauncher') launcher = services.get(token)
+                    })
+                }
+                if (launcher) break
+            }
+            if (!launcher) return { found: false, title: '', items: [] as string[] }
+            launcher.OpenNew()
+            for (let i = 0; i < 40; i++)
+            {
+                await new Promise((r) => setTimeout(r, 250))
+                for (const el of document.querySelectorAll('*'))
+                {
+                    const v = (el as any)[S]
+                    if (v?.constructor?.name !== 'ComboBox' || v.DataContext?.constructor?.name !== 'ConnectionEditorDialogModel') continue
+                    const dialog = Array.from(document.querySelectorAll('*')).map((e) => (e as any)[S]).find((x) => x?.constructor?.name === 'Dialog')
+                    const src = v.ItemsSource
+                    const items: string[] = Array.isArray(src) ? src.map(String) : (src?.ToArray ? src.ToArray().map(String) : [])
+                    return { found: true, title: String(dialog?.Title ?? ''), items }
+                }
+            }
+            return { found: true, title: '', items: [] as string[] }
+        })
+        await shot(l, 'sec-04-package-store-dialog')
+        expect(state.found, 'ConnectionEditorLauncher resolved').toBe(true)
+        expect(state.title).toBe('New Package Store Connection')
+        expect(state.items).toContain('GitHub Packages')
+        await l.win.keyboard.press('Escape').catch(() => {})
+    })
 })

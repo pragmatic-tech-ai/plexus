@@ -16,8 +16,8 @@ import { ConnectionEditorDialogModel, type ConnectionEditorResult } from './conn
 export class ConnectionEditorLauncher extends ServiceBase implements IConnectionEditorLauncher
 {
     public static readonly Key = ConnectionEditorLauncherKey
-    private static readonly NewTitle = 'New Connection'
-    private static readonly EditTitle = 'Edit Connection'
+    private static readonly NewTitle = 'New Package Store Connection'
+    private static readonly EditTitle = 'Edit Package Store Connection'
     private static readonly DialogWidth = 460
     private static readonly InspectTitle = 'Connection'
     private static readonly InspectWidth = 460
@@ -38,7 +38,8 @@ export class ConnectionEditorLauncher extends ServiceBase implements IConnection
     {
         const existing = id === undefined ? undefined : (await this.Provider.getRequired(ConnectionsClientKey).List()).find((c) => c.Id === id)
         if (id !== undefined && existing === undefined) return   // removed between menu-open and click
-        const vm = new ConnectionEditorDialogModel(existing, (r) => this.dialogs.Close(r))
+        const providers = await this.Provider.getRequired(ConnectionsClientKey).Providers()
+        const vm = new ConnectionEditorDialogModel(existing, providers, (r) => this.dialogs.Close(r))
         const title = existing === undefined ? ConnectionEditorLauncher.NewTitle : ConnectionEditorLauncher.EditTitle
         const result = await this.dialogs.Show<ConnectionEditorResult>({ Title: title, Content: vm, Width: ConnectionEditorLauncher.DialogWidth })
         if (result === undefined) return
