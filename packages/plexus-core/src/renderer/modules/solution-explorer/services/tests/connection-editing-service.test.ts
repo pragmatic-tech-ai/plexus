@@ -13,7 +13,7 @@ import {
     type BagVantage,
     type IBagPersister,
 } from '@pragmatic-tech-ai/todl'
-import type { ConnectionView } from '@pragmatic-tech-ai/todl/package-manager/connections'
+import type { ConnectionView, ConnectionProvider } from '@pragmatic-tech-ai/todl/package-manager/connections'
 import type { IConnectionsClient, ConnectionInspection, ConnectionTestResult } from '../connections-client.js'
 import { ConnectionHealth, ConnectionScope } from '../connection-view.js'
 import { ConnectionEditingService, type IConnectionHost } from '../connection-editing-service.js'
@@ -55,7 +55,7 @@ class FakeClient implements IConnectionsClient
     Test(): Promise<ConnectionTestResult> { return Promise.resolve({ ok: true }) }
     Inspect(): Promise<ConnectionInspection> { return Promise.resolve(this.InspectResult) }
     EnvVars(): Promise<readonly string[]> { return Promise.resolve([]) }
-    Providers(): Promise<readonly never[]> { return Promise.resolve([]) }
+    Providers(): Promise<readonly ConnectionProvider[]> { return Promise.resolve([]) }
 }
 
 const MEMBER = { Ref: { path: 'projA' }, Storage: {} } as unknown as SolutionMember
