@@ -128,6 +128,9 @@ import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contribut
 // Account — the concrete IAccountService (plexus-core capability) over the window.api.account
 // preload bridge. Registered under AccountServiceKey.
 import IpcAccountService from "./services/account/ipc-account-service.js"
+// Environments contents — the renderer seam the Tenant Explorer reads an environment's apps and
+// graphs through, over the preload bridge. Registered under EnvironmentsApiKey.
+import EnvironmentsContentsSource from "./services/environments/environments-contents-source.js"
 
 // Recent-projects MRU — persists opened/created projects to a JSON file under
 // userData (via FileSystemService), surfaced by the Open Project dialog.
@@ -342,6 +345,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Account over the preload bridge (AccountServiceKey): signed-in state, email sign-in and
         // the environments the account may contribute or publish to.
         IpcAccountService
+        // Environments contents over the preload bridge (EnvironmentsApiKey): the Tenant Explorer
+        // reads an environment's apps and graphs through it.
+        EnvironmentsContentsSource
         // TitleService is registered by the PragmaticWindowChrome module (below);
         // Plexus supplies its title source here (bound to the shared TitleSourceKey)
         // so it is registered during app compose — before the header ControlTemplate
