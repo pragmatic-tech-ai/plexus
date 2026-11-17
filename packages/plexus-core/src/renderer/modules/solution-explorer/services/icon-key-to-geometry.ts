@@ -20,6 +20,9 @@ export class IconKeyGlyphs
     private static readonly FolderGlyph = 'Folder'
     // The build-output folder's glyph (a root folder named "build").
     private static readonly BuildGlyph = 'Build'
+    // The Solution-root and References branch nodes' own glyphs (not folders).
+    private static readonly SolutionGlyph = 'SolutionNode'
+    private static readonly ReferencesGlyph = 'References'
     // The expanded-state glyph for any node drawn as a folder — the row template swaps
     // to this when the row is expanded (see ForExpanded).
     private static readonly FolderOpenGlyph = 'FolderOpen'
@@ -44,9 +47,9 @@ export class IconKeyGlyphs
         switch (iconKey)
         {
             case BuildFolderIconKey:     return IconKeyGlyphs.BuildGlyph
-            case NodeKey.Solution:       return IconKeyGlyphs.FolderGlyph
+            case NodeKey.Solution:       return IconKeyGlyphs.SolutionGlyph
             case NodeKey.Project:        return IconKeyGlyphs.FolderGlyph
-            case NodeKey.References:      return IconKeyGlyphs.FolderGlyph
+            case NodeKey.References:      return IconKeyGlyphs.ReferencesGlyph
             case ReferenceNodeKey.Group:  return IconKeyGlyphs.FolderGlyph
             case NodeKey.Connections:     return IconKeyGlyphs.ConnectionsGlyph
             case ConnectionNodeKey.Active: return IconKeyGlyphs.FolderGlyph

@@ -25,10 +25,15 @@ describe('IconKeyGlyphs.For', () =>
         expect(IconKeyGlyphs.For(ContentNodeKey.Todl)).not.toEqual(IconKeyGlyphs.For(ContentNodeKey.File))
     })
 
-    it('the References branch keys map to the folder glyph', () =>
+    it('the References branch node gets its own glyph; the per-kind group stays a folder', () =>
     {
-        expect(IconKeyGlyphs.For(NodeKey.References)).toBe('Folder')
+        expect(IconKeyGlyphs.For(NodeKey.References)).toBe('References')
         expect(IconKeyGlyphs.For(ReferenceNodeKey.Group)).toBe('Folder')
+    })
+
+    it('the Solution root gets its own glyph', () =>
+    {
+        expect(IconKeyGlyphs.For(NodeKey.Solution)).toBe('SolutionNode')
     })
 
     it('every reference leaf resolution variant maps to a non-empty glyph', () =>
@@ -74,7 +79,7 @@ describe('IconKeyGlyphs.ForExpanded', () =>
 {
     it('swaps every folder-glyph node to the open-folder glyph', () =>
     {
-        for (const key of [ContentNodeKey.Folder, NodeKey.Solution, NodeKey.Project, NodeKey.References, ReferenceNodeKey.Group, ConnectionNodeKey.Active])
+        for (const key of [ContentNodeKey.Folder, NodeKey.Project, ReferenceNodeKey.Group, ConnectionNodeKey.Active])
         {
             expect(IconKeyGlyphs.For(key)).toBe('Folder')
             expect(IconKeyGlyphs.ForExpanded(key)).toBe('FolderOpen')
@@ -83,6 +88,8 @@ describe('IconKeyGlyphs.ForExpanded', () =>
 
     it('leaves a non-folder node glyph unchanged when expanded', () =>
     {
+        expect(IconKeyGlyphs.ForExpanded(NodeKey.Solution)).toBe('SolutionNode')
+        expect(IconKeyGlyphs.ForExpanded(NodeKey.References)).toBe('References')
         expect(IconKeyGlyphs.ForExpanded(NodeKey.Connections)).toBe('ConnectionsFolder')
         expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.Diagram)).toBe(IconKeyGlyphs.For(ContentNodeKey.Diagram))
         expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.File)).toBe(IconKeyGlyphs.For(ContentNodeKey.File))

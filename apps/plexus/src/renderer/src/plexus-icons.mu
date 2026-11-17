@@ -45,6 +45,9 @@ resources PlexusIcons {
     include "icons/folder-connection.svg"        as ConnectionsFolder
     // Build-output folder glyph (a root folder named "build").
     include "icons/build-image.svg"              as Build
+    // Solution-root node + References branch node glyphs (Solution Explorer).
+    include "icons/solution-node.svg"            as SolutionNode
+    include "icons/references.svg"               as References
     include "icons/new-folder.svg"               as NewFolder
     include "icons/note-add.svg"                 as NoteAdd
     include "icons/upload-file.svg"              as UploadFile
