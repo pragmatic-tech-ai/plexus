@@ -62,6 +62,7 @@ import HierarchyItem from "@pragmatic-tech-ai/mural/framework/hierarchy/hierarch
 import EditableTextBlock from "@pragmatic-tech-ai/mural/basic/editable-text-block.js"
 import IconKeyToGeometry from "./services/icon-key-to-geometry.js"
 import IconKeyToExpandedGeometry from "./services/icon-key-to-geometry.js"
+import DotNameToOpacity from "./services/dot-name-opacity.js"
 
 resources SolutionExplorerResources {
 
@@ -89,7 +90,7 @@ resources SolutionExplorerResources {
     // — same shape, Plexus's own icon resolution. See the file header comment above.
     HierarchicalDataTemplate x:key="SolutionExplorerItemTemplate"
         [ DataType = HierarchyItem, itemsselector = Children ] {
-        StackPanel [ Orientation = Horizontal ] {
+        StackPanel [ Orientation = Horizontal, Opacity = $Caption << DotNameToOpacity ] {
             // Two icon slots, exactly one visible: the collapsed glyph by default, the
             // expanded (open-folder) glyph when the row is expanded — toggled by the
             // IsExpanded trigger below. The hidden slot is Collapsed (zero width), so only
