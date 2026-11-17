@@ -6,6 +6,7 @@ import {
 } from '@pragmatic-tech-ai/todl'
 import { LiveValidationKey, type ILiveValidation } from '../../../../projects/capabilities/live-validation.js'
 import { TypeScriptWorkspaceSinkKey, TypeScriptDiagnosticsSinkKey } from '../../../../typescript/typescript-seams.js'
+import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
 import { LiveValidationSync } from '../live-validation-sync.js'
 
 class FakeManager extends Observable
@@ -73,6 +74,7 @@ class Harness
     {
         const provider = new ServiceProvider()
         provider.registerInstance(SolutionManagerService.Key, this.manager as unknown as SolutionManagerService)
+        provider.registerInstance(SolutionServices.Key, { Manager: this.manager } as unknown as ISolutionServices)
         provider.registerInstance(LiveValidationKey, this.validation)
         provider.registerInstance(ProjectEventsKey, this.events)
         provider.registerInstance(TypeScriptWorkspaceSinkKey, this.tsSink as never)

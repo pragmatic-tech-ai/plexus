@@ -192,7 +192,8 @@ export class FakeServiceHarness
 }
 
 // Registers the ISolutionServices facade over the fakes a test already registers, so
-// consumers resolving through the facade see the SAME instances.
+// consumers resolving through the facade see the SAME instances. The cast permits a partial
+// facade: a test must register the members its consumer actually uses.
 export class FakeFacade
 {
   public static Register(provider: ServiceProvider, parts: { Language?: SolutionLanguageService; Manager?: SolutionManagerService }): void

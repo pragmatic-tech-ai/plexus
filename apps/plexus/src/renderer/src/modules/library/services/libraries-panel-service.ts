@@ -214,6 +214,7 @@ export class LibrariesPanelService extends ServiceBase implements IActivatable
         // Refresh the shared visual aggregate so the panel's preview (and any open
         // canvas) reflects installs/uninstalls even when the toolbox/canvas hasn't
         // been the trigger — through the one shared Refresh() API.
+        // Intentional direct StorageService.Key: infrastructure storage-registry guard, not origin-dependent solution source.
         if (services.get(StorageService.Key) !== undefined)
         {
             await presentation.Refresh()

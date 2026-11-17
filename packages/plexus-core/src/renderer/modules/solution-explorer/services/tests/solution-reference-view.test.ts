@@ -6,6 +6,7 @@ import {
 } from '@pragmatic-tech-ai/todl'
 import { PublishedBasesKey, LiveValidationKey } from '../../../../projects/index.js'
 import { ProjectFactoryRegistryKey } from '../../../../projects/project-factory.js'
+import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
 import { SolutionReferenceView } from '../solution-reference-view.js'
 import { ReferenceResolution } from '../reference-view.js'
 
@@ -45,6 +46,7 @@ async function harnessWith(opts: HarnessOpts)
         ListLibraries: async () => opts.published?.libraries ?? [],
     } as never)
     provider.registerInstance(SolutionLanguageService.Key, resolver as unknown as SolutionLanguageService)
+    provider.registerInstance(SolutionServices.Key, { Language: resolver } as unknown as ISolutionServices)
     provider.registerInstance(LiveValidationKey, { RefreshBases: async (s: unknown) => { refreshedBases.push(s) } } as never)
     provider.registerInstance(ProjectEventsKey, { Raise: async (e: unknown) => { raised.push(e) } } as never)
     provider.registerInstance(ProjectFactoryRegistryKey, {

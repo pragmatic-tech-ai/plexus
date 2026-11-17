@@ -182,6 +182,7 @@ export class ToolboxService extends PanelService implements IActivatable
         // interleave their reconciles on the shared repo.Pages. Refresh() is the one
         // shared bake API (same path the diagram canvas uses); it self-bootstraps the
         // registry's sources + graph bridge on first call.
+        // Intentional direct StorageService.Key: infrastructure storage-registry guard, not origin-dependent solution source.
         if (services.get(StorageService.Key) !== undefined)
         {
             await services.get(TodlPresentationRegistry.Key)?.Refresh()
@@ -368,6 +369,7 @@ export class ToolboxService extends PanelService implements IActivatable
     // Meta-model vs library is discriminated per package (see collectTaxonomies).
     private packagesBackend(): IStorage | undefined
     {
+        // Intentional direct StorageService.Key: infrastructure storage-registry guard, not origin-dependent solution source.
         if (this.Provider.get(StorageService.Key) === undefined) return undefined
         try { return ensurePackagesBackend(this.Provider) }
         catch { return undefined }
