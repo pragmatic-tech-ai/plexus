@@ -11,7 +11,7 @@ import {
 } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { RendererPackageSource } from '../services/projects/renderer-package-source.js'
 
-// Mirrors solution-manager-wiring's composition, then registers the facade the way
+// Mirrors solution-manager-wiring's composition plus the LSP engine (so SolutionLanguageService resolves through the facade), then registers the facade the way
 // app.mu's `.services:` does (a class filed under its static Key).
 class FacadeWiringFixture
 {
