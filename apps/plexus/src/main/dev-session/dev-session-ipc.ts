@@ -21,8 +21,8 @@ export class DevSessionIpc
 
     public static Register(ipc: IpcMain, host: DevSessionHost, renderers: () => readonly IDevSessionChangeSink[]): IDisposable
     {
-        ipc.handle(DevSessionChannel.Open, (_e, target: unknown) => RelayWire.Capture(() => host.Open(DevSessionIpc.Target(target))))
-        ipc.handle(DevSessionChannel.Close, () => RelayWire.Capture(() => host.Close()))
+        ipc.handle(DevSessionChannel.Open, async (_e, target: unknown) => RelayWire.Capture(async () => host.Open(DevSessionIpc.Target(target))))
+        ipc.handle(DevSessionChannel.Close, async () => RelayWire.Capture(async () => host.Close()))
         ipc.handle(DevSessionChannel.ReadText, (_e, path: unknown) => RelayWire.Capture(async () => host.Session.ReadText(DevSessionIpc.Text(path))))
         ipc.handle(DevSessionChannel.ReadBytes, (_e, path: unknown) => RelayWire.Capture(async () => host.Session.ReadBytes(DevSessionIpc.Text(path))))
         ipc.handle(DevSessionChannel.WriteText, (_e, path: unknown, content: unknown) => RelayWire.Capture(async () =>

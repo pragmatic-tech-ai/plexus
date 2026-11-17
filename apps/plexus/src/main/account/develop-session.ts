@@ -36,7 +36,9 @@ export class RequestSerializer
 // storage. Every request goes through a serializer that stays below the relay pipe's pending cap.
 export class DevelopSession implements IDevStorageSession
 {
-    // The relay pipe refuses beyond MaxPending = 32 in flight; stay one under.
+    // COUPLED to the server: 31 = RelayPipe.MaxPending (32) - 1, from the pragmatic-server control-plane
+    // relay pipe, which refuses beyond MaxPending in flight. No shared constant is exported yet, so this
+    // number must be kept in step with that cap by hand.
     public static readonly MaxInFlight = 31
 
     private readonly serializer = new RequestSerializer(DevelopSession.MaxInFlight)
