@@ -13,6 +13,7 @@ import {
 import type { ProjectFileFormat } from '../../../projects/project-factory.js'
 import type { IContentMutations } from './content-mutations.js'
 import { ProjectHierarchyProvider } from './project-hierarchy-provider.js'
+import { ServiceItemsVisibility } from './service-items-visibility.js'
 import type { IProjectContentSource } from './projects-provider.js'
 import type { IReferenceView } from './reference-view.js'
 import type { IConnectionView } from './connection-view.js'
@@ -75,7 +76,7 @@ export class FileTreeContributor implements IHierarchyContributor, IProjectConte
     // rebuild() — the runtime-set mutations façade keeps this off the module DSL path.
     public readonly Actions: readonly CommandDefinition[]
 
-    constructor()
+    constructor(private readonly serviceItems: ServiceItemsVisibility = ServiceItemsVisibility.ShowAll())
     {
         const actions: CommandDefinition[] = []
         for (const key of FileTreeContributor.ActionKeys)
@@ -272,7 +273,7 @@ export class FileTreeContributor implements IHierarchyContributor, IProjectConte
         {
             const store = new ProjectContentStore(member.Storage)
             this.stores.set(member, store)
-            provider = new ProjectHierarchyProvider(store)
+            provider = new ProjectHierarchyProvider(store, this.serviceItems)
             this.providers.set(member, provider)
         }
         return provider
@@ -287,12 +288,14 @@ export class FileTreeContributor implements IHierarchyContributor, IProjectConte
             store.dispose()
             this.stores.delete(member)
         }
+        this.providers.get(member)?.dispose()
         this.providers.delete(member)
     }
 
     public dispose(): void
     {
         for (const store of this.stores.values()) store.dispose()
+        for (const provider of this.providers.values()) provider.dispose()
         this.stores.clear()
         this.providers.clear()
     }

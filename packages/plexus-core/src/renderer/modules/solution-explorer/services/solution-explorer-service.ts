@@ -1,7 +1,8 @@
 import {
-    Observable, ServiceProvider, ServiceKey,
+    Observable, ServiceProvider, ServiceKey, ObservableCollection, RelayCommand,
     type ICommand, type IDisposable,
 } from '@pragmatic-tech-ai/mural/runtime'
+import { CommandDefinition, CommandViewModel, CommandToggleViewModel } from '@pragmatic-tech-ai/mural/framework'
 import {
     Hierarchy, HierarchyContributorRegistry, NodeKey, NodeSeverity,
     type HierarchyItem, type HierarchyHost,
@@ -42,6 +43,7 @@ import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { SolutionTreeStateService } from './solution-tree-state-service.js'
 import { SolutionOrigins } from './solution-origin.js'
+import { ServiceItemsVisibility } from './service-items-visibility.js'
 
 // The Solution Explorer capability: owns ONE stable Hierarchy for the service's whole life
 // (so the template's HierarchyTreeBehavior / HierarchyContextMenuBehavior / Drop / Drag bundle
@@ -60,6 +62,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private static readonly RootCaptionFallback = 'Solution'
     private static readonly NoOriginLabel = ''
     private static readonly NoFileTreeError = 'SolutionExplorerService: no active file-tree contributor'
+    // The panel-header "Show service items" toggle (reveals dot-prefixed nodes). No icon —
+    // it renders as a checkable row in the header "…" overflow menu, where the tick is the
+    // affordance (an icon would take the tick's slot).
+    private static readonly ShowServiceItemsId = 'solution-explorer.show-service-items'
+    private static readonly ShowServiceItemsTitle = 'Show service items'
 
     private hierarchy: Hierarchy | undefined
     private rootItem: HierarchyItem | undefined
@@ -74,6 +81,10 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private selectionOff: (() => void) | undefined
     private _hasNoSolution = true
     private disposed = false
+    // Owned once, survives rebuilds: the dot-node visibility toggle shared with the file tree.
+    private readonly serviceItems = new ServiceItemsVisibility()
+    private _headerCommands: ObservableCollection<CommandViewModel> | undefined
+    private serviceItemsToggle: CommandToggleViewModel | undefined
 
     constructor(private readonly provider: ServiceProvider)
     {
@@ -128,6 +139,39 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // Open/New-project commands (ProjectCommandsService owns them).
     public get OpenProjectCommand(): ICommand { return this.commands.OpenProjectCommand }
     public get NewProjectCommand(): ICommand { return this.commands.NewProjectCommand }
+
+    // The panel-header command list the shell's side-pane renders
+    // (ShellSideContentPane.Commands ← NavigationService.ActiveService.HeaderCommands). Built
+    // lazily on first read — by then the pane is active and the icon resource is mounted — and
+    // stable thereafter. Holds the single "Show service items" toggle.
+    public get HeaderCommands(): ObservableCollection<CommandViewModel>
+    {
+        if (this._headerCommands === undefined) this._headerCommands = this.buildHeaderCommands()
+        return this._headerCommands
+    }
+
+    private buildHeaderCommands(): ObservableCollection<CommandViewModel>
+    {
+        const definition = new CommandDefinition()
+        definition.Id = SolutionExplorerService.ShowServiceItemsId
+        definition.Title = SolutionExplorerService.ShowServiceItemsTitle
+        const command = new RelayCommand(() => this.toggleServiceItems())
+        const toggle = new CommandToggleViewModel(definition, command, true)
+        toggle.IsChecked = this.serviceItems.Show
+        this.serviceItemsToggle = toggle
+        const commands = new ObservableCollection<CommandViewModel>()
+        commands.Add(toggle)
+        return commands
+    }
+
+    // Flip dot-node visibility and reflect it on the toggle. The flip notifies each live
+    // ProjectHierarchyProvider, which adds/removes only its dot nodes in place — no rebuild, so
+    // the expansion and selection of every other node are preserved.
+    private toggleServiceItems(): void
+    {
+        this.serviceItems.Toggle()
+        if (this.serviceItemsToggle !== undefined) this.serviceItemsToggle.IsChecked = this.serviceItems.Show
+    }
 
     private get workspace(): SolutionWorkspaceService { return this.provider.getRequired(SolutionWorkspaceService.Key) }
     private get commands(): ProjectCommandsService { return this.provider.getRequired(ProjectCommandsService.Key) }
@@ -192,7 +236,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.rootItem.Caption = solution.Name || SolutionExplorerService.RootCaptionFallback
             this.rootItem.ExtObject = solution
         }
-        this.files = new FileTreeContributor()
+        this.files = new FileTreeContributor(this.serviceItems)
         this.files.SetMutations(this.workspace)
         this.files.SetReferenceView(this.workspace.References)
         this.files.SetConnectionView(this.workspace.Connections)
@@ -381,6 +425,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.activeOff?.dispose()
         this.activeOff = undefined
         this.teardownCurrent()
+        this.serviceItemsToggle?.dispose()
+        this.serviceItemsToggle = undefined
+        this._headerCommands = undefined
         this.hierarchy?.dispose()
         this.hierarchy = undefined
         this.rootItem = undefined

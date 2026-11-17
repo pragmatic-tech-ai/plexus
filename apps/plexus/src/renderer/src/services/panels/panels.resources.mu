@@ -46,9 +46,15 @@ resources PanelsResources {
                               Orientation       = Horizontal,
                               VerticalAlignment = Center,
                               Margin            = (8,0,0,0) ] {
+                            // The "…" overflow menu surfaces the active panel service's
+                            // commands (pane.Commands ← ActiveService.HeaderCommands) as a
+                            // popup of menu rows; a checkable command (e.g. "Show service
+                            // items") renders with its tick via @CommandMenuItemTemplate.
                             MenuButton x:name="PART_Overflow"
                                 [ TriggerTemplate = @CompactHeaderMenuButton,
-                                  Icon            = Shape [ Geometry = @MoreHoriz, Fill = @Fg2, Width = 12, Height = 12 ] ]
+                                  Icon            = Shape [ Geometry = @MoreHoriz, Fill = @Fg2, Width = 12, Height = 12 ],
+                                  ItemsSource     = $$Commands,
+                                  ItemTemplate    = @PanelHeaderCommandTemplate ]
                             IconButton x:name="PART_Close"
                                 [ Template          = @CompactHeaderIconButton,
                                   Command           = $$CloseCommand,
@@ -57,8 +63,6 @@ resources PanelsResources {
                                 Shape [ Geometry = @IconClose, Fill = @Fg2, Width = 12, Height = 12 ]
                             }
                         }
-                        ContentPresenter x:name="PART_Commands"
-                            [ DockPanel.Dock = Right, Content = $$Commands, VerticalAlignment = Center ]
                         TextBlock x:name="PART_Title"
                             [ Style             = @UiLabel,
                               Text              = $$Header,
@@ -83,5 +87,18 @@ resources PanelsResources {
     // One section row inside a panel.
     DataTemplate [ DataType = PanelSection ] {
         TextBlock [ Style = @Body, Text = $Label, Foreground = @Fg2, Margin = (0,3,0,3) ]
+    }
+
+    // The "…" overflow menu's command row. Mirrors mural's @CommandMenuItemTemplate but
+    // omits the Icon: a checkable row (IsToggle) shows its checkmark in the icon slot, and
+    // the slot would otherwise be taken by the command's icon and hide the tick.
+    HierarchicalDataTemplate x:key="PanelHeaderCommandTemplate" [ DataType = CommandViewModel, itemsselector = Children ] {
+        MenuItem
+            [ Header          = $Title,
+              Command         = $Command,
+              IsCheckable     = $IsToggle,
+              IsChecked       = $IsChecked,
+              IsEnabled       = $IsEnabled,
+              SeparatorBefore = $SeparatorBefore ]
     }
 }

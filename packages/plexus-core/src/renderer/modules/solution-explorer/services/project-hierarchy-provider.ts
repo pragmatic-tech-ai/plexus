@@ -9,6 +9,19 @@ import {
     type ProjectContentStore, type ProjectContentNode, type ContentChange, type ContentNodeId,
 } from '@pragmatic-tech-ai/todl'
 import { BuildFolderIconKey } from './icon-key-to-geometry.js'
+import { DimmedNames } from './dot-name-opacity.js'
+import { ServiceItemsVisibility } from './service-items-visibility.js'
+
+// One live realization of a folder's children: the realize context to push deltas through,
+// plus the dot-node ("service item") items under it and which of them are currently inserted.
+// On a visibility flip the provider walks these to add/remove ONLY the dot nodes, leaving every
+// other row (its expansion, its selection) untouched.
+interface FolderRealization
+{
+    readonly context: IRealizeContext
+    readonly dotItems: HierarchyItem[]
+    readonly dotShown: Set<HierarchyItem>
+}
 
 // The content subtree of one project member, over the TODL-native ProjectContentStore.
 // Rebuilt from todl's removed ProjectContentProvider against mural's B+C1 provider
@@ -37,9 +50,29 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
     // The project mount row (the provider's realize entry) — only this UNBOUND item binds to
     // the store root; any other unbound row routed here realizes no children.
     private mountItem: HierarchyItem | undefined
+    // Every live folder realization, so a visibility flip can push add/remove deltas into each.
+    private readonly realizations = new Set<FolderRealization>()
+    private readonly visibilitySub: IDisposable
 
-    constructor(private readonly store: ProjectContentStore)
+    constructor(
+        private readonly store: ProjectContentStore,
+        private readonly serviceItems: ServiceItemsVisibility = ServiceItemsVisibility.ShowAll())
     {
+        this.visibilitySub = this.serviceItems.OnChanged(() => this.applyVisibility())
+    }
+
+    public dispose(): void
+    {
+        this.visibilitySub.dispose()
+        this.realizations.clear()
+    }
+
+    // A "service item" (a dot-prefixed node) is hidden unless the toggle is on. A hidden node is
+    // tracked but not inserted; flipping the toggle adds/removes exactly these nodes in place
+    // (see applyVisibility), never rebuilding the tree. Pure — unit-tested without a store.
+    public static IsHiddenServiceItem(name: string, serviceItems: ServiceItemsVisibility): boolean
+    {
+        return !serviceItems.Show && DimmedNames.IsDotName(name)
     }
 
     public Realize(item: HierarchyItem, context: IRealizeContext): IDisposable
@@ -64,19 +97,47 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
             else if (item !== this.mountItem) return Disposable.None
         }
         const folderId = this.folderIdOf(item)
+        const realization: FolderRealization = { context, dotItems: [], dotShown: new Set() }
+        this.realizations.add(realization)
         const watch = { disposed: false }
         const off = this.store.ObserveChildren(folderId, (change: ContentChange) =>
         {
             if (watch.disposed) return
-            if (change instanceof ContentAdded)        this.onAdded(change.Node, context)
+            if (change instanceof ContentAdded)        this.onAdded(change.Node, realization)
             else if (change instanceof ContentUpdated) this.onUpdated(change.Node)
-            else if (change instanceof ContentRemoved) this.onRemoved(change.Id, context)
+            else if (change instanceof ContentRemoved) this.onRemoved(change.Id, realization)
         })
         return new Disposable(() =>
         {
             watch.disposed = true
             off()
+            this.realizations.delete(realization)
         })
+    }
+
+    // Add or remove only the dot ("service item") nodes of every live folder, in place, when the
+    // visibility toggle flips. Non-dot rows are never touched, so their expansion and selection
+    // survive. (Showing appends a dot node after its siblings; collapsing and re-expanding the
+    // folder re-realizes it back into its sorted position.)
+    private applyVisibility(): void
+    {
+        for (const realization of this.realizations)
+        {
+            if (this.serviceItems.Show)
+            {
+                for (const child of realization.dotItems)
+                {
+                    if (realization.dotShown.has(child)) continue
+                    realization.context.InsertChild(child)
+                    realization.dotShown.add(child)
+                }
+            }
+            else
+            {
+                for (const child of realization.dotShown) realization.context.RemoveChild(child)
+                realization.dotShown.clear()
+            }
+        }
     }
 
     // The content provider mints every child from its store; it accepts no
@@ -125,15 +186,20 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
         return this.store.Root.Id
     }
 
-    private onAdded(node: ProjectContentNode, context: IRealizeContext): void
+    private onAdded(node: ProjectContentNode, realization: FolderRealization): void
     {
         let child = this.itemByContentId.get(node.Id)
         if (child === undefined)
         {
-            child = context.NewItem(ContentNodeKey.For(node.Kind), ProjectHierarchyProvider.initFor(node))
+            child = realization.context.NewItem(ContentNodeKey.For(node.Kind), ProjectHierarchyProvider.initFor(node))
             this.bind(child, node)
         }
-        context.InsertChild(child)
+        // A dot node is tracked so the visibility toggle can add/remove it later; while hidden it
+        // is minted but not inserted into the tree.
+        if (DimmedNames.IsDotName(node.Name) && !realization.dotItems.includes(child)) realization.dotItems.push(child)
+        if (ProjectHierarchyProvider.IsHiddenServiceItem(node.Name, this.serviceItems)) return
+        realization.context.InsertChild(child)
+        if (DimmedNames.IsDotName(node.Name)) realization.dotShown.add(child)
     }
 
     private onUpdated(node: ProjectContentNode): void
@@ -149,11 +215,14 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
         child.IconKey = ProjectHierarchyProvider.IconKeyFor(node.Kind, node.Name, node.Path)
     }
 
-    private onRemoved(id: ContentNodeId, context: IRealizeContext): void
+    private onRemoved(id: ContentNodeId, realization: FolderRealization): void
     {
         const child = this.itemByContentId.get(id)
         if (child === undefined) return
-        context.RemoveChild(child)
+        realization.context.RemoveChild(child)
+        const at = realization.dotItems.indexOf(child)
+        if (at >= 0) realization.dotItems.splice(at, 1)
+        realization.dotShown.delete(child)
         this.forget(id, child)
     }
 
