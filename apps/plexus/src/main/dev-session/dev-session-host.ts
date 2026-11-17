@@ -9,6 +9,7 @@ export class DevSessionHost
 {
     private static readonly NotOpen = 'No development environment is open.'
 
+    private chain: Promise<void> = Promise.resolve()
     private current: DevelopSession | undefined
     private unsubscribe: (() => void) | undefined
     private readonly handlers = new Set<(change: StorageChangedPayload) => void>()
@@ -17,9 +18,28 @@ export class DevSessionHost
     {
     }
 
-    public async Open(target: TargetRef): Promise<void>
+    // Open and Close run one at a time, in call order, so overlapping calls can never orphan a
+    // connection or its subscription (a Close during an Open waits for it, then closes it).
+    public Open(target: TargetRef): Promise<void>
     {
-        await this.Close()
+        return this.Serialize(() => this.OpenNow(target))
+    }
+
+    public Close(): Promise<void>
+    {
+        return this.Serialize(() => this.CloseNow())
+    }
+
+    private Serialize(work: () => Promise<void>): Promise<void>
+    {
+        const run = this.chain.then(work)
+        this.chain = run.catch(() => undefined)
+        return run
+    }
+
+    private async OpenNow(target: TargetRef): Promise<void>
+    {
+        await this.CloseNow()
         const session = await DevelopSession.Connect(this.connector, target)
         this.current = session
         this.unsubscribe = session.OnStorageChanged(change =>
@@ -28,7 +48,7 @@ export class DevSessionHost
         })
     }
 
-    public async Close(): Promise<void>
+    private async CloseNow(): Promise<void>
     {
         const session = this.current
         this.current = undefined

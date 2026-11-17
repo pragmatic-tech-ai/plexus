@@ -19,12 +19,15 @@ class FakeClient
         return this.waiting.length
     }
 
+    public RejectPaths = new Set<string>()
+
     public async StorageReadText(path: string): Promise<string>
     {
         this.InFlight++
         this.MaxSeen = Math.max(this.MaxSeen, this.InFlight)
         await new Promise<void>(resolve => this.waiting.push(resolve))
         this.InFlight--
+        if (this.RejectPaths.has(path)) throw new Error(`boom:${path}`)
         return `text:${path}`
     }
 
@@ -60,7 +63,13 @@ class FakeClient
     }
 }
 
-const Settle = (): Promise<void> => new Promise(resolve => setTimeout(resolve, 0))
+class Ticks
+{
+    public static Settle(): Promise<void>
+    {
+        return new Promise(resolve => setTimeout(resolve, 0))
+    }
+}
 
 describe('DevelopSession', () =>
 {
@@ -69,13 +78,13 @@ describe('DevelopSession', () =>
         const fake = new FakeClient()
         const session = new DevelopSession(fake.AsClient())
         const results = Array.from({ length: 50 }, (_, i) => session.ReadText(`p${i}`))
-        await Settle()
+        await Ticks.Settle()
         expect(fake.InFlight).toBe(DevelopSession.MaxInFlight)
         expect(fake.Waiting).toBe(DevelopSession.MaxInFlight)
         while (fake.Waiting > 0)
         {
             fake.ReleaseAll()
-            await Settle()
+            await Ticks.Settle()
         }
         const all = await Promise.all(results)
         expect(all).toHaveLength(50)
@@ -84,7 +93,42 @@ describe('DevelopSession', () =>
         expect(DevelopSession.MaxInFlight).toBeLessThan(32)
     })
 
-    it('maps List entries and delegates through the serializer', async () =>
+    it('a rejecting request releases its slot and the queue keeps draining', async () =>
+    {
+        const fake = new FakeClient()
+        for (let i = 0; i < 40; i += 3) fake.RejectPaths.add(`p${i}`)
+        const session = new DevelopSession(fake.AsClient())
+        const results = Array.from({ length: 70 }, (_, i) => session.ReadText(`p${i}`).then(() => 'ok', () => 'err'))
+        await Ticks.Settle()
+        while (fake.Waiting > 0)
+        {
+            fake.ReleaseAll()
+            await Ticks.Settle()
+        }
+        const all = await Promise.all(results)
+        expect(all).toHaveLength(70)
+        expect(all.filter(r => r === 'err')).toHaveLength(fake.RejectPaths.size)
+        expect(fake.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
+    })
+
+    it('Dispose with requests queued closes once and does not drop them silently', async () =>
+    {
+        const fake = new FakeClient()
+        const session = new DevelopSession(fake.AsClient())
+        const results = Array.from({ length: 40 }, (_, i) => session.ReadText(`p${i}`))
+        await Ticks.Settle()
+        await session.Dispose()
+        expect(fake.Disposed).toBe(1)
+        while (fake.Waiting > 0)
+        {
+            fake.ReleaseAll()
+            await Ticks.Settle()
+        }
+        expect(await Promise.all(results)).toHaveLength(40)
+        expect(fake.Disposed).toBe(1)
+    })
+
+    it('delegates List through the serializer', async () =>
     {
         const session = new DevelopSession(new FakeClient().AsClient())
         expect(await session.List('.')).toEqual([{ Name: 'a', IsDirectory: false }])

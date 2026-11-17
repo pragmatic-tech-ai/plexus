@@ -103,7 +103,8 @@ export class DevelopSession implements IDevStorageSession
         return () => subscription.dispose()
     }
 
-    // Closes the connection once; later calls return the same close.
+    // Closes the connection once; later calls return the same close. Requests still queued are not
+    // drained or rejected here: they dispatch to the closed client when their turn comes and reject there.
     public Dispose(): Promise<void>
     {
         this.disposed ??= this.client.DisposeAsync()
