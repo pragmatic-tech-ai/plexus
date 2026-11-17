@@ -24,4 +24,12 @@ describe('IncomingChangeGuard', () =>
         guard.NoteSaved('a.todl')
         expect(guard.IsChangedOnServer('a.todl')).toBe(false)
     })
+
+    it('clears a stale flag when a later incoming change meets a clean buffer', () =>
+    {
+        const guard = new IncomingChangeGuard()
+        guard.Decide('a.todl', true)
+        expect(guard.Decide('a.todl', false)).toBe(IncomingChangeOutcome.Apply)
+        expect(guard.IsChangedOnServer('a.todl')).toBe(false)
+    })
 })

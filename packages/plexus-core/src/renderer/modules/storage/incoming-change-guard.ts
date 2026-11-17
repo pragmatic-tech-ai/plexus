@@ -1,7 +1,7 @@
 // Collaboration is save-level last-writer-wins: an incoming content change must
 // never clobber a buffer with unsaved local edits. The file is flagged "changed on
-// server" instead, and the local save overwrites. An incoming change that yields
-// content identical to the buffer (a self-originated echo) is a no-op.
+// server" instead, and the local save overwrites. Skipping an echo that yields
+// identical content is the caller's check, not this class's.
 export enum IncomingChangeOutcome
 {
     Apply = 'apply',
@@ -14,7 +14,11 @@ export class IncomingChangeGuard
 
     public Decide(path: string, hasDirtyBuffer: boolean): IncomingChangeOutcome
     {
-        if (!hasDirtyBuffer) return IncomingChangeOutcome.Apply
+        if (!hasDirtyBuffer)
+        {
+            this.changedOnServer.delete(path)
+            return IncomingChangeOutcome.Apply
+        }
         this.changedOnServer.add(path)
         return IncomingChangeOutcome.SkipAndMarkChangedOnServer
     }

@@ -4,6 +4,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StorageService } from '../storage-service.js'
 import { FileSystemService } from '../file-system-service.js'
 import { LocalFileStorage } from '../local-file-storage.js'
+import { DevEnvironmentLocation } from '../dev-environment-location.js'
 import { RemoteFileStorage } from '../remote-file-storage.js'
 import { DevStorageSessionKeys } from '../dev-storage-session-key.js'
 
@@ -62,4 +63,17 @@ test('CreateStorage routes absolute and relative paths to local', () => {
     const service = serviceWithFakeFs()
     expect(service.CreateStorage('C:/local/path')).toBeInstanceOf(LocalFileStorage)
     expect(service.CreateStorage('rel/path')).toBeInstanceOf(LocalFileStorage)
+})
+
+test('a Windows backslash path routes to local', () => {
+    expect(serviceWithFakeFs().CreateStorage('C:\\x')).toBeInstanceOf(LocalFileStorage)
+})
+
+test('a local path merely containing dev-environment routes to local', () => {
+    expect(serviceWithFakeFs().CreateStorage('C:/foo/dev-environment/bar')).toBeInstanceOf(LocalFileStorage)
+})
+
+test('dev-environment location round-trips special characters through Build and RootOf', () => {
+    const location = DevEnvironmentLocation.Build('my env', 'my sol')
+    expect(DevEnvironmentLocation.RootOf(location + '/f.todl')).toBe('my sol/f.todl')
 })

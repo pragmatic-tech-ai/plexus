@@ -3,7 +3,8 @@
 // and parsing it, so StorageService can route by scheme without a new parameter.
 export class DevEnvironmentLocation
 {
-    public static readonly Scheme = 'dev-environment://'
+    public static readonly BackendId = 'dev-environment'
+    public static readonly Scheme = `${DevEnvironmentLocation.BackendId}://`
 
     private static readonly Separator = '/'
 
@@ -15,7 +16,7 @@ export class DevEnvironmentLocation
     public static Build(environmentName: string, solutionName: string): string
     {
         return DevEnvironmentLocation.Scheme + encodeURIComponent(environmentName)
-            + DevEnvironmentLocation.Separator + solutionName
+            + DevEnvironmentLocation.Separator + encodeURIComponent(solutionName)
     }
 
     // The path inside the environment's source: everything after the environment segment.
@@ -23,6 +24,6 @@ export class DevEnvironmentLocation
     {
         const rest = location.slice(DevEnvironmentLocation.Scheme.length)
         const cut = rest.indexOf(DevEnvironmentLocation.Separator)
-        return cut < 0 ? '' : rest.slice(cut + 1)
+        return cut < 0 ? '' : rest.slice(cut + 1).split(DevEnvironmentLocation.Separator).map(decodeURIComponent).join(DevEnvironmentLocation.Separator)
     }
 }

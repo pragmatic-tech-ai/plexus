@@ -37,7 +37,7 @@ export class StorageService extends ServiceBase implements IStorageProvider
     public static readonly DefaultBackendId = 'local';
 
     // The remote provider: a solution opened from a dev environment.
-    public static readonly DevEnvironmentBackendId = 'dev-environment';
+    public static readonly DevEnvironmentBackendId = DevEnvironmentLocation.BackendId;
 
     private readonly factories = new Map<string, StorageProviderFactory>();
 
