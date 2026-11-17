@@ -7,7 +7,7 @@ import {
 
 import { FileChangeKind, type FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 import { FileWatchService } from '../../../../services/file-watch/file-watch-service.js'
-import { FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
+import { FakeFacade, FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
 import { SolutionGraphPresentationSource } from '../solution-graph-presentation-source.js'
 import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { setIconResourceResolver } from '../icon-key-converter.js'
@@ -256,12 +256,10 @@ class Harness
         this.provider = new ServiceProvider()
         ProjectSystemComposer.Compose(this.provider)
         this.language = new FakeLanguageService()
-        this.provider.registerInstance(SolutionLanguageService.Key, this.language as unknown as SolutionLanguageService)
         this.storage = new LocalFakeStorage()
-        this.provider.registerInstance(
-            SolutionManagerService.Key,
-            { ActiveSolution: { Members: [{ Storage: this.storage }] } } as unknown as SolutionManagerService,
-        )
+        const manager = { ActiveSolution: { Members: [{ Storage: this.storage }] } } as unknown as SolutionManagerService
+        this.provider.registerInstance(SolutionManagerService.Key, manager)
+        FakeFacade.Register(this.provider, { Language: this.language as unknown as SolutionLanguageService, Manager: manager })
         this.language.ConsumerIds.set(this.storage, GraphFixture.MemberId)
     }
 

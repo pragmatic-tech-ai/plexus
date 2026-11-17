@@ -1,6 +1,7 @@
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { Observable, Signal, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { SolutionLanguageService, SolutionManagerService, type RenameError, type Repository, type TodlDocument, type WikiOrigin } from '@pragmatic-tech-ai/todl'
+import { SolutionServices, type ISolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { DiagnosticsService } from '@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js'
 import type {
   CodeAction, CompletionItem, Diagnostic, DocumentSymbol, FoldingRange, Hover,
@@ -181,10 +182,21 @@ export class FakeServiceHarness
   {
     const fake = service ?? new FakeLanguageService()
     const provider = new ServiceProvider()
-    provider.registerInstance(SolutionLanguageService.Key, fake as unknown as SolutionLanguageService)
     const diagnostics = new DiagnosticsService(provider)
     provider.registerInstance(DiagnosticsService.Key, diagnostics)
-    provider.registerInstance(SolutionManagerService.Key, { ActiveSolution: { Members: [] } } as unknown as SolutionManagerService)
+    const manager = { ActiveSolution: { Members: [] } } as unknown as SolutionManagerService
+    provider.registerInstance(SolutionManagerService.Key, manager)
+    FakeFacade.Register(provider, { Language: fake as unknown as SolutionLanguageService, Manager: manager })
     return { provider, service: fake, diagnostics }
+  }
+}
+
+// Registers the ISolutionServices facade over the fakes a test already registers, so
+// consumers resolving through the facade see the SAME instances.
+export class FakeFacade
+{
+  public static Register(provider: ServiceProvider, parts: { Language?: SolutionLanguageService; Manager?: SolutionManagerService }): void
+  {
+    provider.registerInstance(SolutionServices.Key, parts as unknown as ISolutionServices)
   }
 }

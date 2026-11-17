@@ -1,6 +1,7 @@
 import { test, expect } from 'vitest'
+import { FakeFacade } from '../../../../services/todl/tests/fake-language-service.js'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { load, toJSON, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
+import { load, toJSON, SolutionLanguageService, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
@@ -24,10 +25,11 @@ test('removing an open project drops its cached model', async () => {
     const baseDoc = toJSON(load([{ uri: 'archmm.todl', text: MM }]).model)
 
     const provider = new ServiceProvider()
-    provider.registerInstance(SolutionLanguageService.Key, {
+    const language = {
         ResolveBasesFor: async () => ({ bases: [baseDoc], problems: [] }),
-    } as unknown as SolutionLanguageService)
+    } as unknown as SolutionLanguageService
     manager.RegisterOn(provider)
+    FakeFacade.Register(provider, { Language: language, Manager: manager as unknown as SolutionManagerService })
 
     const storage = new FakeStorage('fake://Acme')
     await storage.WriteText('m.todl', `namespace archmm {\n  model Arch : archmm conforms ComponentView { Component web {} }\n}`)

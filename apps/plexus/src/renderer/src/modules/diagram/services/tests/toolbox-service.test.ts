@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ToolboxRepository, ToolboxVisualDescriptor } from '@pragmatic-tech-ai/mural/framework'
 import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
-import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { SolutionLanguageService, SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { FakeFacade, FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
 import { ToolboxService } from '../diagram-panel-services.js'
 import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { ArchToolboxVisualKey } from '../arch-toolbox-item.js'
@@ -80,7 +81,9 @@ function librarySeeder(backend: FakeStorage): KindSeeder
 function provider(seed: (mm: KindSeeder, lib: KindSeeder) => void): ServiceProvider
 {
   const p = new ServiceProvider()
-  new FakeSolutionManager().RegisterOn(p)
+  const manager = new FakeSolutionManager()
+  manager.RegisterOn(p)
+  FakeFacade.Register(p, { Language: new FakeLanguageService() as unknown as SolutionLanguageService, Manager: manager as unknown as SolutionManagerService })
   const reg = new StorageService(p)
   const packages = new FakeStorage('fake://packages')
   reg.Register(PACKAGES_BACKEND_ID, () => packages)
