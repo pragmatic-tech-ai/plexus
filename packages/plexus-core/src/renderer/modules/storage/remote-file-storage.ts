@@ -94,13 +94,15 @@ export class RemoteFileStorage implements IStorage, IWatchableStorage
         {
             const changed = RemoteFileStorage.Normalize(payload.Path)
             if (RemoteFileStorage.ParentOf(changed) !== dir) return
-            sink({ Kind: RemoteFileStorage.KindMap[payload.Kind], Path: changed, IsDirectory: payload.IsDirectory })
+            const kind = RemoteFileStorage.KindMap[payload.Kind]
+            if (kind === undefined) return
+            sink({ Kind: kind, Path: payload.Path, IsDirectory: payload.IsDirectory })
         })
     }
 
     private static Normalize(path: string): string
     {
-        return path.split(/[\/]/).filter(s => s.length > 0).join('/')
+        return path.split(/[\\/]/).filter(s => s.length > 0).join('/')
     }
 
     private static ParentOf(normalized: string): string
