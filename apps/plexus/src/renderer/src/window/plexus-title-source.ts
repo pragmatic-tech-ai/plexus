@@ -1,6 +1,8 @@
 import { type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { type ITitleSource } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
+import { SolutionOrigins } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { ActiveSolutionMembers } from '../services/solution/active-solution-members.js'
 
 // Plexus's window-title feed for the shared PragmaticWindowChrome TitleService:
@@ -29,6 +31,13 @@ export class PlexusTitleSource implements ITitleSource
     public firstProjectName(): string | undefined
     {
         return ActiveSolutionMembers.From(this.provider).Resolved()[0]?.Name || undefined
+    }
+
+    // The open solution's origin ('File system' today), appended to the title; absent
+    // when no solution is open.
+    public contextSuffix(): string | undefined
+    {
+        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionManagerService.Key))
     }
 
     public subscribe(onChange: () => void): () => void

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { NodeKey } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { ContentNodeKey } from '@pragmatic-tech-ai/todl'
-import { IconKeyGlyphs } from '../icon-key-to-geometry.js'
+import { IconKeyGlyphs, BuildFolderIconKey } from '../icon-key-to-geometry.js'
 import { ReferenceNodeKey } from '../reference-node-key.js'
 import { ConnectionNodeKey } from '../connection-node-key.js'
 
@@ -39,9 +39,9 @@ describe('IconKeyGlyphs.For', () =>
         }
     })
 
-    it('the Connections branch + active-connection keys map to the folder glyph', () =>
+    it('the Connections branch node gets its own glyph; the active-connection group stays a folder', () =>
     {
-        expect(IconKeyGlyphs.For(NodeKey.Connections)).toBe('Folder')
+        expect(IconKeyGlyphs.For(NodeKey.Connections)).toBe('ConnectionsFolder')
         expect(IconKeyGlyphs.For(ConnectionNodeKey.Active)).toBe('Folder')
     })
 
@@ -67,5 +67,30 @@ describe('IconKeyGlyphs.For', () =>
         // The row template converts HierarchyItemVM.IconKey, which is undefined for some
         // rows; For must not throw (a throw crashes every row's render → the tree never builds).
         expect(() => IconKeyGlyphs.For(undefined as unknown as string)).not.toThrow()
+    })
+})
+
+describe('IconKeyGlyphs.ForExpanded', () =>
+{
+    it('swaps every folder-glyph node to the open-folder glyph', () =>
+    {
+        for (const key of [ContentNodeKey.Folder, NodeKey.Solution, NodeKey.Project, NodeKey.References, ReferenceNodeKey.Group, ConnectionNodeKey.Active])
+        {
+            expect(IconKeyGlyphs.For(key)).toBe('Folder')
+            expect(IconKeyGlyphs.ForExpanded(key)).toBe('FolderOpen')
+        }
+    })
+
+    it('leaves a non-folder node glyph unchanged when expanded', () =>
+    {
+        expect(IconKeyGlyphs.ForExpanded(NodeKey.Connections)).toBe('ConnectionsFolder')
+        expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.Diagram)).toBe(IconKeyGlyphs.For(ContentNodeKey.Diagram))
+        expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.File)).toBe(IconKeyGlyphs.For(ContentNodeKey.File))
+    })
+
+    it('keeps the build-folder glyph on expand (it is not a plain folder)', () =>
+    {
+        expect(IconKeyGlyphs.For(BuildFolderIconKey)).toBe('Build')
+        expect(IconKeyGlyphs.ForExpanded(BuildFolderIconKey)).toBe('Build')
     })
 })

@@ -61,6 +61,7 @@ import HierarchyDragBehavior from "@pragmatic-tech-ai/mural/framework/hierarchy"
 import HierarchyItem from "@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-item.js"
 import EditableTextBlock from "@pragmatic-tech-ai/mural/basic/editable-text-block.js"
 import IconKeyToGeometry from "./services/icon-key-to-geometry.js"
+import IconKeyToExpandedGeometry from "./services/icon-key-to-geometry.js"
 
 resources SolutionExplorerResources {
 
@@ -89,10 +90,20 @@ resources SolutionExplorerResources {
     HierarchicalDataTemplate x:key="SolutionExplorerItemTemplate"
         [ DataType = HierarchyItem, itemsselector = Children ] {
         StackPanel [ Orientation = Horizontal ] {
-            Shape x:name="PART_Icon" [ Geometry = $IconKey << IconKeyToGeometry, Width = 16, Height = 16 ]
+            // Two icon slots, exactly one visible: the collapsed glyph by default, the
+            // expanded (open-folder) glyph when the row is expanded — toggled by the
+            // IsExpanded trigger below. The hidden slot is Collapsed (zero width), so only
+            // the shown glyph occupies layout — a folder opens/closes with no per-row Grid,
+            // and a non-folder row's icon is unchanged (ForExpanded returns the same glyph).
+            Shape x:name="PART_Icon"     [ Geometry = $IconKey << IconKeyToGeometry,         Width = 16, Height = 16 ]
+            Shape x:name="PART_IconOpen" [ Geometry = $IconKey << IconKeyToExpandedGeometry, Width = 16, Height = 16, Visibility = Collapsed ]
             // Gap between the icon and the caption so glyph and label don't touch.
             EditableTextBlock x:name="PART_Caption"
                 [ Text = $Caption, IsEditing = $IsEditing, EditingText = $EditingName, Margin = (6,0,0,0) ]
+        }
+        when ( $IsExpanded = true ) {
+            PART_Icon.Visibility = Collapsed;
+            PART_IconOpen.Visibility = Visible;
         }
     }
 
@@ -115,6 +126,14 @@ resources SolutionExplorerResources {
 
             // Hairline separating the command bar from the tree.
             Border [ DockPanel.Dock = Top, Height = 1, Fill = @Border, Margin = (0,0,0,4) ]
+
+            // Where the open solution came from (file system vs. a dev environment).
+            // Hidden (ToVisibility: '' → Collapsed) when no solution is open.
+            StackPanel [ DockPanel.Dock = Top, Orientation = Horizontal, Margin = (0,0,0,4),
+                         Visibility = $OriginLabel << ToVisibility ] {
+                TextBlock [ Style = @BodySm, Foreground = @Fg2, Text = "Opened from: " ]
+                TextBlock [ Style = @BodySm, Foreground = @Fg2, Text = $OriginLabel ]
+            }
 
             // Empty state — shown (ToVisibility: true → Visible) when no solution is open.
             TextBlock [ DockPanel.Dock = Bottom, Style = @BodySm, Foreground = @Fg2,

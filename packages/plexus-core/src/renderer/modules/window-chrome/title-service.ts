@@ -15,7 +15,10 @@ export interface ITitleSource
     activeDocumentTitle(): string | undefined
     // First open project's name, else undefined.
     firstProjectName(): string | undefined
-    // Fires whenever either source might have changed; returns an unsubscribe thunk.
+    // A short context suffix appended to the title (e.g. the open solution's origin),
+    // else undefined. Optional: apps that have no such context omit it.
+    contextSuffix?(): string | undefined
+    // Fires whenever any source might have changed; returns an unsubscribe thunk.
     subscribe(onChange: () => void): () => void
 }
 
@@ -40,7 +43,9 @@ export class TitleService extends ServiceBase
         const source = provider.getRequired(TitleSourceKey)
         this._title = source.appName
         const recompute = (): void => {
-            const name = source.activeDocumentTitle() ?? source.firstProjectName() ?? source.appName
+            const base = source.activeDocumentTitle() ?? source.firstProjectName() ?? source.appName
+            const suffix = source.contextSuffix?.()
+            const name = suffix ? `${base} · ${suffix}` : base
             const old = this._title
             this._title = name
             this.RaisePropertyChanged('Title', old, name)

@@ -41,6 +41,7 @@ import { FileSystemService } from '../../storage/file-system-service.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { SolutionTreeStateService } from './solution-tree-state-service.js'
+import { SolutionOrigins } from './solution-origin.js'
 
 // The Solution Explorer capability: owns ONE stable Hierarchy for the service's whole life
 // (so the template's HierarchyTreeBehavior / HierarchyContextMenuBehavior / Drop / Drag bundle
@@ -55,7 +56,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     public static readonly Key = new ServiceKey<SolutionExplorerService>('SolutionExplorerService')
     private static readonly HierarchyProp = 'Hierarchy'
     private static readonly HasNoSolutionProp = 'HasNoSolution'
+    private static readonly OriginLabelProp = 'OriginLabel'
     private static readonly RootCaptionFallback = 'Solution'
+    private static readonly NoOriginLabel = ''
     private static readonly NoFileTreeError = 'SolutionExplorerService: no active file-tree contributor'
 
     private hierarchy: Hierarchy | undefined
@@ -112,6 +115,14 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // Drives the panel's empty-state text via the ToVisibility converter (true -> Visible).
     // True when no solution is open.
     public get HasNoSolution(): boolean { return this._hasNoSolution }
+
+    // Where the open solution came from, as a short label ('File system' today), or
+    // '' when no solution is open (so the header line's $OriginLabel << ToVisibility
+    // hides it). Resolved live from the active solution; rebuild() raises its change.
+    public get OriginLabel(): string
+    {
+        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionManagerService.Key)) ?? SolutionExplorerService.NoOriginLabel
+    }
 
     // Command pass-throughs so the panel's DataContext (this service) still exposes the
     // Open/New-project commands (ProjectCommandsService owns them).
@@ -173,6 +184,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         {
             if (this.rootItem !== undefined) this.rootItem.ExtObject = undefined
             this.setHasNoSolution(true)
+            this.RaisePropertyChanged(SolutionExplorerService.OriginLabelProp, undefined, undefined)
             return
         }
         if (this.rootItem !== undefined)
@@ -246,6 +258,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             }
         }
         this.setHasNoSolution(false)
+        this.RaisePropertyChanged(SolutionExplorerService.OriginLabelProp, undefined, undefined)
         // The global bag persister is registered by the app (P6a DurableStoreRegistration). It
         // is absent in headless/unit contexts, so resolve it optionally — tree-state is a
         // nice-to-have layered on top, never a hard dependency of the tree itself.

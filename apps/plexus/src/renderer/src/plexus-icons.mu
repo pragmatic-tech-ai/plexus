@@ -39,6 +39,12 @@ resources PlexusIcons {
 
     // Project Explorer command-bar glyphs (Open / New / New File / Save / Publish).
     include "icons/folder.svg"                   as Folder
+    // Expanded-folder glyph — the hierarchy swaps to this on a folder row's expand.
+    include "icons/folder-open.svg"              as FolderOpen
+    // Connections branch node glyph (the Solution Explorer's "Connections" row).
+    include "icons/folder-connection.svg"        as ConnectionsFolder
+    // Build-output folder glyph (a root folder named "build").
+    include "icons/build-image.svg"              as Build
     include "icons/new-folder.svg"               as NewFolder
     include "icons/note-add.svg"                 as NoteAdd
     include "icons/upload-file.svg"              as UploadFile

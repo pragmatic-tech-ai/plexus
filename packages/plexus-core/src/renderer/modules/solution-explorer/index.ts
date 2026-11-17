@@ -1,4 +1,5 @@
 export { SolutionExplorerService } from './services/solution-explorer-service.js'
+export { SolutionOrigins, SolutionOriginKind, type SolutionOrigin, type FileSystemOrigin, type DevEnvironmentOrigin } from './services/solution-origin.js'
 export { ProjectsProvider, ProjectsRootContributor } from './services/projects-provider.js'
 export { FileTreeContributor } from './services/file-tree-contributor.js'
 export { IconKeyToGeometry, IconKeyGlyphs } from './services/icon-key-to-geometry.js'

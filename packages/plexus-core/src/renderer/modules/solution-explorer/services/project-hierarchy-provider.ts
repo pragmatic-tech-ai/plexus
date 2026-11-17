@@ -8,6 +8,7 @@ import {
     ContentAdded, ContentUpdated, ContentRemoved, ContentNodeKey, ProjectNodeKind,
     type ProjectContentStore, type ProjectContentNode, type ContentChange, type ContentNodeId,
 } from '@pragmatic-tech-ai/todl'
+import { BuildFolderIconKey } from './icon-key-to-geometry.js'
 
 // The content subtree of one project member, over the TODL-native ProjectContentStore.
 // Rebuilt from todl's removed ProjectContentProvider against mural's B+C1 provider
@@ -21,6 +22,9 @@ import {
 export class ProjectHierarchyProvider implements IHierarchyProvider
 {
     private static readonly Id = 'plexus.project-content'
+    // The build-output folder convention: a root-level folder named "build" (the directory
+    // the build process writes its artifacts to) gets the build glyph instead of a folder.
+    private static readonly BuildFolderName = 'build'
     public readonly ProviderId = ProjectHierarchyProvider.Id
 
     // One HierarchyItem per store node, keyed both ways plus by live path (for
@@ -142,7 +146,7 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
         this.pathByItem.set(child, node.Path)
         this.contentByItem.set(child, node)
         child.Caption = node.Name
-        child.IconKey = ContentNodeKey.For(node.Kind)
+        child.IconKey = ProjectHierarchyProvider.IconKeyFor(node.Kind, node.Name, node.Path)
     }
 
     private onRemoved(id: ContentNodeId, context: IRealizeContext): void
@@ -182,10 +186,23 @@ export class ProjectHierarchyProvider implements IHierarchyProvider
     {
         return {
             Caption: node.Name,
-            IconKey: ContentNodeKey.For(node.Kind),
+            IconKey: ProjectHierarchyProvider.IconKeyFor(node.Kind, node.Name, node.Path),
             IsExpandable: node.Kind === ProjectNodeKind.Folder,
             ExtObject: node,
             CanonicalSegment: node.Name,
         }
+    }
+
+    // The leading-glyph IconKey for a content node: the build-output folder (a root-level
+    // folder named "build") gets the build key; every other node gets its kind key. Path
+    // with no separator means a direct child of the project root, so a nested "build" folder
+    // is unaffected. Pure (no store) so it is unit-tested directly.
+    public static IconKeyFor(kind: ProjectNodeKind, name: string, path: string): string
+    {
+        if (kind === ProjectNodeKind.Folder && name.toLowerCase() === ProjectHierarchyProvider.BuildFolderName && !path.includes('/'))
+        {
+            return BuildFolderIconKey
+        }
+        return ContentNodeKey.For(kind)
     }
 }
