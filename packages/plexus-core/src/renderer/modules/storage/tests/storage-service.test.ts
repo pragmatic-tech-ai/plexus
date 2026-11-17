@@ -4,6 +4,8 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { StorageService } from '../storage-service.js'
 import { FileSystemService } from '../file-system-service.js'
 import { LocalFileStorage } from '../local-file-storage.js'
+import { RemoteFileStorage } from '../remote-file-storage.js'
+import { DevStorageSessionKeys } from '../dev-storage-session-key.js'
 
 // A StorageService with a fake FileSystemService registered, so the built-in
 // 'local' provider (LocalFileStorage over the native seam) resolves in a headless
@@ -46,4 +48,18 @@ test('the service constructs without FileSystemService (host-agnostic until loca
     const service = new StorageService(new ServiceProvider())
     expect(service.Has(StorageService.DefaultBackendId)).toBe(true)
     expect(() => service.Create(StorageService.DefaultBackendId, '/root/p')).toThrow()
+})
+
+test('CreateStorage routes a dev-environment:// location to the remote backend', () => {
+    const provider = new ServiceProvider()
+    provider.registerInstance(DevStorageSessionKeys.Session, {} as never)
+    const storage = new StorageService(provider).CreateStorage('dev-environment://e/s/x')
+    expect(storage).toBeInstanceOf(RemoteFileStorage)
+    expect((storage as RemoteFileStorage).Root).toBe('s/x')
+})
+
+test('CreateStorage routes absolute and relative paths to local', () => {
+    const service = serviceWithFakeFs()
+    expect(service.CreateStorage('C:/local/path')).toBeInstanceOf(LocalFileStorage)
+    expect(service.CreateStorage('rel/path')).toBeInstanceOf(LocalFileStorage)
 })

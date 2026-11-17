@@ -3,6 +3,9 @@ import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime';
 import type { IStorage, IStorageProvider } from '@pragmatic-tech-ai/todl-runtime';
 import { FileSystemService } from './file-system-service.js';
 import { LocalFileStorage } from './local-file-storage.js';
+import { RemoteFileStorage } from './remote-file-storage.js';
+import { DevStorageSessionKeys } from './dev-storage-session-key.js';
+import { DevEnvironmentLocation } from './dev-environment-location.js';
 
 // Builds a rooted IStorage for a location (an absolute folder locally, a
 // container id/URL remotely). Registered under a backend id — a storage provider.
@@ -33,6 +36,9 @@ export class StorageService extends ServiceBase implements IStorageProvider
     // The conventional built-in provider every app ships (the local filesystem).
     public static readonly DefaultBackendId = 'local';
 
+    // The remote provider: a solution opened from a dev environment.
+    public static readonly DevEnvironmentBackendId = 'dev-environment';
+
     private readonly factories = new Map<string, StorageProviderFactory>();
 
     constructor(provider: IServiceProvider)
@@ -45,6 +51,15 @@ export class StorageService extends ServiceBase implements IStorageProvider
             StorageService.DefaultBackendId,
             (location) =>
                 new LocalFileStorage(location, this.Provider.getRequired(FileSystemService.Key)),
+        );
+        // The dev session is resolved lazily, per Create() call, like FileSystemService above.
+        this.Register(
+            StorageService.DevEnvironmentBackendId,
+            (location) =>
+                new RemoteFileStorage(
+                    this.Provider.getRequired(DevStorageSessionKeys.Session),
+                    DevEnvironmentLocation.RootOf(location),
+                ),
         );
     }
 
@@ -67,11 +82,15 @@ export class StorageService extends ServiceBase implements IStorageProvider
         return factory(location);
     }
 
-    // Rooted IStorage for a folder using the default provider. Satisfies the
+    // Rooted IStorage for a location: a dev-environment:// location routes to the
+    // remote backend, anything else to the default provider. Satisfies the
     // solution package's IStorageProviderRegistry so a SolutionManagerService can
     // root the solution + its members without knowing the backend id.
     public CreateStorage(location: string): IStorage
     {
-        return this.Create(StorageService.DefaultBackendId, location);
+        const id = DevEnvironmentLocation.Is(location)
+            ? StorageService.DevEnvironmentBackendId
+            : StorageService.DefaultBackendId;
+        return this.Create(id, location);
     }
 }
