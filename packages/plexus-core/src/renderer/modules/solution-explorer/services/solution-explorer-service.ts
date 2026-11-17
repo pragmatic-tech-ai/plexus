@@ -258,7 +258,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // The Build/Publish contributor needs runtime collaborators (the BuildService + the
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
         // path like the other action contributors.
-        const buildService = this.provider.getRequired(SolutionServices.Key).Build
+        const buildService = this.provider.get(SolutionServices.Key)?.Build
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         // The Solution root node (single visible top-level row) is registered first so it exists

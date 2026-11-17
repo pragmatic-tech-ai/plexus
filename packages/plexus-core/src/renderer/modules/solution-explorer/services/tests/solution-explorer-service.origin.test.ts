@@ -36,6 +36,11 @@ describe('SolutionExplorerService.OriginLabel', () =>
         expect(serviceWith(new FakeManager()).OriginLabel).toBe('')
     })
 
+    it('is empty and does not throw when the solution-services facade is not registered', () =>
+    {
+        expect(new SolutionExplorerService(new ServiceProvider()).OriginLabel).toBe('')
+    })
+
     it('reports the file-system origin when a solution is open', () =>
     {
         const manager = new FakeManager()

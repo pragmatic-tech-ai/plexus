@@ -452,7 +452,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         const storage = member.Storage
         if (storage === undefined) return
         await this.Provider.get(LiveValidationKey)?.RefreshBases(storage)
-        const build = this.Provider.getRequired(SolutionServices.Key).Build ?? new BuildService(this.Provider)
+        const build = this.Provider.get(SolutionServices.Key)?.Build ?? new BuildService(this.Provider)
         try
         {
             this.ApplyPublishOutcome(member, await this.PublishThroughWork(member, build))

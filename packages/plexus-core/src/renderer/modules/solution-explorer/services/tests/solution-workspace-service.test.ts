@@ -4,7 +4,7 @@ import { ContentHostService, DialogService, DocumentTypeRegistry, SaveOnCloseGua
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { Solution, ProjectFactoryRegistryKey, ProjectNodeKind, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
-import { LiveValidationKey } from '../../../../projects/index.js'
+import { LiveValidationKey, ProblemsDockKey } from '../../../../projects/index.js'
 import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
 import { SolutionWorkspaceService, MemberNewFileParticipantKey, type IMemberNewFileParticipant } from '../solution-workspace-service.js'
 
@@ -74,6 +74,7 @@ interface HarnessOpts
     participant?: IMemberNewFileParticipant
     closeProject?: (m: SolutionMember) => void
     calls?: string[]
+    versioned?: boolean
 }
 
 async function harness(opts: HarnessOpts = {})
@@ -111,12 +112,12 @@ async function harness(opts: HarnessOpts = {})
         Close: () => {},
     } as never)
     host.guard = new SaveOnCloseGuard(provider, async () => opts.promptResult ?? SavePromptResult.DontSave)
-    const services = {
+    const services: { -readonly [K in keyof ISolutionServices]?: unknown } = {
         Manager: {
             ActiveSolution: sol,
             CloseProject: async (m: SolutionMember) => { opts.closeProject?.(m) },
         },
-    } as Record<string, unknown>
+    }
     provider.registerInstance(SolutionServices.Key, services as unknown as ISolutionServices)
     const removedFromSession: string[] = []
     provider.registerInstance(OpenProjectsStore.Key, {
@@ -127,7 +128,7 @@ async function harness(opts: HarnessOpts = {})
     if (opts.calls !== undefined)
     {
         const calls = opts.calls
-        provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => undefined } as never)
+        provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => (opts.versioned === true ? { getVersion: () => '1.0.0', setVersion: () => {} } : undefined) } as never)
         services.Language = {
             ConsumerIdOf: async () => 'consumer-id',
             Invalidate: (id: string) => { calls.push(`invalidate:${id}`) },
@@ -139,11 +140,20 @@ async function harness(opts: HarnessOpts = {})
     }
 
     const service = new SolutionWorkspaceService(provider)
-    return { service, member, storage, host, factory, log, sol, shown, removedFromSession }
+    return { service, member, storage, host, factory, log, sol, shown, removedFromSession, provider }
 }
 
 describe('SolutionWorkspaceService', () =>
 {
+    it('PublishMember falls back to a new BuildService when the facade resolves but Build is undefined', async () =>
+    {
+        const { service, member, provider } = await harness({ calls: [], versioned: true })
+        let expanded = 0
+        provider.registerInstance(ProblemsDockKey, { Expand: () => { expanded++ } } as never)
+        await expect(service.PublishMember(member)).resolves.toBeUndefined()
+        expect(expanded).toBe(1)   // the fallback BuildService ran (fake project fails to publish) and reported
+    })
+
     it('OpenMemberFile(preview) routes through the host preview slot; permanent routes through Open', async () =>
     {
         const { service, member, host } = await harness()
