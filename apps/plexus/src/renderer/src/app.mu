@@ -75,6 +75,9 @@ import BuildHostModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/bui
 // and the Solution Explorer's Build/Publish contributor resolve the one instance via
 // BuildService.Key instead of each constructing its own.
 import BuildService from "@pragmatic-tech-ai/todl"
+// Facade over the solution-scoped services (Manager/Language/Build/Storage); lazy, so it
+// resolves the engines registered by the modules below. Registered under SolutionServices.Key.
+import IntegratedSolutionServices from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import TenantExplorerModule from "./modules/tenant-explorer/tenant-explorer.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
@@ -363,6 +366,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // workspace publish path and the Solution Explorer Build/Publish
         // contributor both resolve this single instance.
         BuildService
+        // ISolutionServices facade (Phase 1: delegates to the engine singletons the modules
+        // below register; resolved lazily, so order vs. the engines is irrelevant).
+        IntegratedSolutionServices
         // Unified skill catalog across project/global/packaged scopes. Root-
         // registered so the Solution workspace resolves it to build the
         // Run Agent/Skill submenu; lazily discovers per project on demand.

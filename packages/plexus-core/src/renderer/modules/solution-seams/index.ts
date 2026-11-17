@@ -5,3 +5,5 @@
 // lives here — the shell owns its own Solution Explorer.
 export { SolutionSeams } from './solution-seams.js';
 export { DialogPromptService } from './dialog-prompt-service.js';
+export { SolutionServices, type ISolutionServices } from './solution-services.js';
+export { IntegratedSolutionServices } from './integrated-solution-services.js';
