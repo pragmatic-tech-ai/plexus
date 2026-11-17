@@ -1,5 +1,5 @@
 import { Application, ResourceDictionary, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { setIconResourceResolver } from './icon-key-converter.js'
 import { LibraryPresentationSource } from '../../library/services/library-presentation-source.js'
 import { LibraryRegistry } from '../../library/services/library-registry.js'
@@ -105,7 +105,7 @@ export class TodlPresentationRegistry extends ServiceBase
         this.registerSource(new MetaModelPresentationSource(this.Provider))
         this.RegisterSolutionGraphSource(new SolutionGraphPresentationSource(this.Provider))
         // Fire-and-forget, app-lifetime: this registry is an app-scoped singleton.
-        this.Provider.get(SolutionLanguageService.Key)?.GraphChanged.subscribe(() => { void this.discover() })
+        this.Provider.get(SolutionServices.Key)?.Language.GraphChanged.subscribe(() => { void this.discover() })
     }
 
     // The ONE "(re)bake all sources and publish the merged icons" entry point every

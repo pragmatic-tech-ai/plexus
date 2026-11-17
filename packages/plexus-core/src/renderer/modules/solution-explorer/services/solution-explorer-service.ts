@@ -8,7 +8,7 @@ import {
     type HierarchyItem, type HierarchyHost,
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import {
-    SolutionManagerService, ProjectType, BuildService, BuildSystemRegistryKey,
+    ProjectType, BuildSystemRegistryKey,
     BuildStorageProviderKey, PackageStoreKey,
     type Solution, type SolutionMember, type ProjectContentNode,
     type ProjectNodeKind,
@@ -33,6 +33,7 @@ import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
 import { ContributeTargetDialog } from './contribute-target-dialog.js'
 import { AccountServiceKey } from '../../account/account-service.js'
+import { SolutionServices } from '../../solution-seams/index.js'
 import { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import { GraphContributorKey } from '../../graph-contribute/graph-contributor.js'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
@@ -132,7 +133,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // hides it). Resolved live from the active solution; rebuild() raises its change.
     public get OriginLabel(): string
     {
-        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionManagerService.Key)) ?? SolutionExplorerService.NoOriginLabel
+        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionServices.Key)?.Manager) ?? SolutionExplorerService.NoOriginLabel
     }
 
     // Command pass-throughs so the panel's DataContext (this service) still exposes the
@@ -188,7 +189,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // folder / synthetic row resolves to no content path and no-ops), and OpenMemberFile
         // re-activates an already-open tab, so the double-click path stays harmless.
         this.selectionOff = hierarchy.Selection.Subscribe(() => this.onSelectionChanged())
-        const manager = this.provider.getRequired(SolutionManagerService.Key)
+        const manager = this.provider.getRequired(SolutionServices.Key).Manager
         this.activeOff = manager.PropertyChanged('ActiveSolution').subscribe(() => this.rebuild(manager.ActiveSolution))
         this.rebuild(manager.ActiveSolution)
     }
@@ -257,7 +258,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         // The Build/Publish contributor needs runtime collaborators (the BuildService + the
         // optional background-work host + the mutation façade), so it rides the RegisterInstance
         // path like the other action contributors.
-        const buildService = this.provider.get(BuildService.Key)
+        const buildService = this.provider.get(SolutionServices.Key)?.Build
         // RegisterInstance(contributor, actions?) returns an IDisposable that unregisters the
         // contributor; the action contributors pass their CommandDefinitions as the second arg.
         // The Solution root node (single visible top-level row) is registered first so it exists
@@ -294,7 +295,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const graphPackages = this.provider.get(PackageStoreKey)
             if (graphRegistry !== undefined && graphStorage !== undefined && graphPackages !== undefined)
             {
-                const graphBuilder = new SolutionPackageBuilder(graphRegistry, graphStorage, graphPackages, this.provider.getRequired(SolutionManagerService.Key))
+                const graphBuilder = new SolutionPackageBuilder(graphRegistry, graphStorage, graphPackages, this.provider.getRequired(SolutionServices.Key))
                 const graphs = this.provider.get(GraphContributorKey)
                 const contributePicker = dialogs === undefined || account === undefined || graphs === undefined ? undefined : new ContributeTargetDialog(account, graphs, dialogs)
                 const contributeGraph = new ContributeToGraphContributor(solution, graphBuilder, this.provider.get(BackgroundWorkService.Key), graphs, dialogs, contributePicker)

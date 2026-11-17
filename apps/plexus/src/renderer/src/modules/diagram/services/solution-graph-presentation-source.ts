@@ -1,10 +1,11 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { FakeStorage, Signal, isLocalFileAccess, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService, SolutionManagerService,
+    MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService,
     WikiOriginKind, toJSONOwn,
     type BakeOptions, type JsonNode, type Repository, type TodlDocument,
 } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 
 import type { FileChangeEvent } from '@pragmatic-tech-ai/plexus-core/shared/file-watch-api.js'
 
@@ -137,8 +138,9 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
         const assets = new ResourceDictionary()
         const iconKeys = new Map<string, string>()
 
-        const language = this.provider.get(SolutionLanguageService.Key)
-        const solution = this.provider.get(SolutionManagerService.Key)?.ActiveSolution
+        const services = this.provider.get(SolutionServices.Key)
+        const language = services?.Language
+        const solution = services?.Manager.ActiveSolution
         if (language === undefined || solution === undefined)
         {
             return { assets, iconKeys }

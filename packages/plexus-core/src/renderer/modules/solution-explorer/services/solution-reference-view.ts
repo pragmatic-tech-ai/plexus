@@ -8,8 +8,9 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { Disposable, type IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    ProjectEventsKey, ProjectType, SolutionLanguageService, type SolutionMember,
+    ProjectEventsKey, ProjectType, type SolutionMember,
 } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '../../solution-seams/index.js'
 import { ProjectFactoryRegistryKey, type IProjectFactory } from '../../../projects/project-factory.js'
 import { PublishedBasesKey, LiveValidationKey } from '../../../projects/index.js'
 import type { BaseRef } from '../../../projects/base-binding.js'
@@ -151,7 +152,7 @@ export class SolutionReferenceView implements IReferenceView
     private editorFor(member: SolutionMember): ReferenceEditor | undefined
     {
         const storage = member.Storage
-        const resolver = this.provider.get(SolutionLanguageService.Key)
+        const resolver = this.provider.get(SolutionServices.Key)?.Language
         if (storage === undefined || resolver === undefined) return undefined
         return new ReferenceEditor(
             resolver, storage, this.provider.get(PublishedBasesKey) as IPublishedBaseCatalog | undefined, this.provider.get(ProjectEventsKey))
@@ -161,7 +162,7 @@ export class SolutionReferenceView implements IReferenceView
     {
         if (this.staleSubscribed) return
         this.staleSubscribed = true
-        const resolver = this.provider.get(SolutionLanguageService.Key)
+        const resolver = this.provider.get(SolutionServices.Key)?.Language
         if (resolver === undefined) return
         this.staleOff = resolver.PropertyChanged(SolutionReferenceView.StaleMembersProperty).subscribe(() => this.NotifyChanged(undefined))
     }

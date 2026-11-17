@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { ServiceProvider, Observable } from '@pragmatic-tech-ai/mural/runtime'
-import { SolutionManagerService, type Solution } from '@pragmatic-tech-ai/todl'
+import type { SolutionManagerService, Solution } from '@pragmatic-tech-ai/todl'
+import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
 import { SolutionExplorerService } from '../solution-explorer-service.js'
 
 // The origin getter reads only the manager's ActiveSolution, so a bare object
@@ -24,7 +25,7 @@ class FakeManager extends Observable
 function serviceWith(manager: FakeManager): SolutionExplorerService
 {
     const provider = new ServiceProvider()
-    provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
+    provider.registerInstance(SolutionServices.Key, { Manager: manager as unknown as SolutionManagerService } as unknown as ISolutionServices)
     return new SolutionExplorerService(provider)
 }
 
@@ -33,6 +34,11 @@ describe('SolutionExplorerService.OriginLabel', () =>
     it('is empty when no solution is open', () =>
     {
         expect(serviceWith(new FakeManager()).OriginLabel).toBe('')
+    })
+
+    it('is empty and does not throw when the solution-services facade is not registered', () =>
+    {
+        expect(new SolutionExplorerService(new ServiceProvider()).OriginLabel).toBe('')
     })
 
     it('reports the file-system origin when a solution is open', () =>

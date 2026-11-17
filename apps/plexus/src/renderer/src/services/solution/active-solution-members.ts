@@ -1,5 +1,5 @@
 // The app-side read/subscribe view over the engine's active solution members
-// (SolutionManagerService.ActiveSolution.Members). It replaces the retired
+// (ISolutionServices.Manager.ActiveSolution.Members, resolved via the facade). It replaces the retired
 // OpenProjects collection of the retired ProjectExplorerService for consumers that only need
 // to enumerate resolved projects and react when that set changes.
 //
@@ -8,7 +8,8 @@
 // type, load failure) are skipped on read; their later resolution re-notifies.
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { SolutionManagerService, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import type { SolutionManagerService, SolutionMember } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 
 // A resolved member flattened to the pieces consumers use.
@@ -42,7 +43,7 @@ export class ActiveSolutionMembers
     // Fail-fast: every host that runs these consumers registers the manager.
     public static From(provider: IServiceProvider): ActiveSolutionMembers
     {
-        return new ActiveSolutionMembers(provider.getRequired(SolutionManagerService.Key))
+        return new ActiveSolutionMembers(provider.getRequired(SolutionServices.Key).Manager)
     }
 
     // Every resolved member of the active solution, in Members order.

@@ -9,7 +9,7 @@ class Fixture
     {
         const manager = new FakeSolutionManager()
         const provider = new ServiceProvider()
-        manager.RegisterOn(provider)
+        manager.RegisterFacadeOn(provider)
         return { manager, source: new PlexusTitleSource(provider) }
     }
 }
@@ -34,5 +34,11 @@ describe('PlexusTitleSource', () => {
         n = 0
         manager.AddResolved({ RootPath: '/b', Name: 'Beta' })
         expect(n).toBe(0)
+    })
+
+    test('contextSuffix is undefined, without throwing, when the facade is not registered', () =>
+    {
+        const source = new PlexusTitleSource(new ServiceProvider())
+        expect(source.contextSuffix()).toBeUndefined()
     })
 })

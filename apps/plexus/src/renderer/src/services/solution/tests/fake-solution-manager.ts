@@ -3,6 +3,7 @@
 import type { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { Solution, SolutionManagerService, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import { Observable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { SolutionServices, type ISolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 
 export interface IFakeProject
 {
@@ -52,5 +53,14 @@ export class FakeSolutionManager extends Observable
     public RegisterOn(provider: ServiceProvider): void
     {
         provider.registerInstance(SolutionManagerService.Key, this as unknown as SolutionManagerService)
+        this.RegisterFacadeOn(provider)
+    }
+
+    // Registers ONLY the ISolutionServices facade (Manager = this fake), so a consumer
+    // that resolves through the facade is proven not to need the bare manager key.
+    public RegisterFacadeOn(provider: ServiceProvider): void
+    {
+        const facade = { Manager: this as unknown as SolutionManagerService } as ISolutionServices
+        provider.registerInstance(SolutionServices.Key, facade)
     }
 }

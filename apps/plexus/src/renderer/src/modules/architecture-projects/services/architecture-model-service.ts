@@ -1,5 +1,6 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { ModelDraft, SolutionLanguageService, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
+import { ModelDraft, checkAgainst, parse, type SourceFile } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 
 import { collectTodlSources } from '../../../services/todl/todl-sources.js'
 import { ActiveSolutionMembers, type IMembersSubscription, type IProjectHandle } from '../../../services/solution/active-solution-members.js'
@@ -90,7 +91,7 @@ export class ArchitectureModelService extends ServiceBase
         const cached = this.models.get(key)
         if (cached !== undefined) return cached
 
-        const resolver = this.Provider.getRequired(SolutionLanguageService.Key)
+        const resolver = this.Provider.getRequired(SolutionServices.Key).Language
         const { bases, originOf } = await resolver.ResolveBasesFor(op.Storage)
         const sources = await collectTodlSources(op.Storage)
         const namespace = deriveNamespace(sources, op.Project.Name)

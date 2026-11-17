@@ -8,6 +8,7 @@ import { ProjectCommandsService } from '@pragmatic-tech-ai/plexus-core/renderer/
 import { SolutionExplorerService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-explorer-service.js'
 import { ConnectionEditorLauncherKey, type IConnectionEditorLauncher } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-actions-contributor.js'
 import { type IConnectionView } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/connection-view.js'
+import { SolutionServices, IntegratedSolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { SkillRunSubmenuContributor } from '../../skills/services/skill-run-submenu-contributor.js'
 
 // A minimal SolutionManagerService stand-in: an observable ActiveSolution the capability
@@ -94,6 +95,7 @@ function make(): { svc: SolutionExplorerService; manager: FakeManager; explorer:
     const explorer = new FakeWorkspace()
     const commands = new FakeCommands()
     provider.registerInstance(SolutionManagerService.Key, manager as unknown as SolutionManagerService)
+    provider.registerInstance(SolutionServices.Key, new IntegratedSolutionServices(provider))
     provider.registerInstance(HierarchyContributorRegistry.Key, registry)
     provider.registerInstance(SolutionWorkspaceService.Key, explorer as unknown as SolutionWorkspaceService)
     provider.registerInstance(ProjectCommandsService.Key, commands as unknown as ProjectCommandsService)

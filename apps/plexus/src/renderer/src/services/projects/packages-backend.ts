@@ -20,6 +20,7 @@ export const PACKAGES_BACKEND_ID = 'packages'
 // pays for it until a publish (or a base resolution) actually happens.
 export function ensurePackagesBackend(provider: IServiceProvider): IStorage
 {
+    // Intentional direct StorageService.Key: package-storage registry (infrastructure), not solution source.
     const registry = provider.getRequired(StorageService.Key)
     if (!registry.Has(PACKAGES_BACKEND_ID))
     {

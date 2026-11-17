@@ -5,6 +5,7 @@ import type { IBuildStorageProvider, OpenedOutput, BuildOptions } from '@pragmat
 import type { SolutionBuildRequest, SolutionBuildResult, IPackageSource } from '@pragmatic-tech-ai/todl/todl-build-system'
 import type { SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
+import type { ISolutionServices } from '../../solution-seams/index.js'
 import { SolutionPackageBuilder, type SolutionBuildManagerFactory } from '../solution-package-builder.js'
 
 // --- Fakes -----------------------------------------------------------------------------------
@@ -142,8 +143,8 @@ class Fixture
     public static Builder(solution: FakeSolution | undefined, delegate: IBuildStorageProvider, factory: SolutionBuildManagerFactory): SolutionPackageBuilder
     {
         const registry = {} as unknown as ConstructorParameters<typeof SolutionPackageBuilder>[0]
-        const solutions = new FakeSolutions(solution) as unknown as SolutionManagerService
-        return new SolutionPackageBuilder(registry, delegate, new FakeExternalSource(), solutions, factory)
+        const services = { Manager: new FakeSolutions(solution) as unknown as SolutionManagerService } as unknown as ISolutionServices
+        return new SolutionPackageBuilder(registry, delegate, new FakeExternalSource(), services, factory)
     }
 }
 

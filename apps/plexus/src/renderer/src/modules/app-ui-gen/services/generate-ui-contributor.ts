@@ -11,6 +11,7 @@ import {
     parseManifest, type IPackageSource, type IProjectModelProvider, type ProjectManifest,
 } from '@pragmatic-tech-ai/todl'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { PromptConceptSelection } from './concept-selection.js'
 import { DialogGenerationReporter } from './generate-ui-report.js'
 import { GenerateUiCommand, type IManifestReader, type IProjectModelProviderFactory } from './generate-ui-command.js'
@@ -34,7 +35,7 @@ class ProjectModelProviderFactory implements IProjectModelProviderFactory
     {
         const p = this.provider
         const source: IPackageSource =
-            p.get(SolutionManagerService.Key) !== undefined ? p.getRequired(SolutionBaseResolver.Key)
+            p.get(SolutionServices.Key) !== undefined ? p.getRequired(SolutionBaseResolver.Key)
             : p.get(PackageStoreKey) ?? new EmptyPackageSource()
         return new ProjectModelProvider(project, manifest, source)
     }

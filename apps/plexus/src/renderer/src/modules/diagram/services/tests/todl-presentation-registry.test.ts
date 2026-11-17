@@ -5,7 +5,7 @@ import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import type { PresentationContribution, PresentationSource } from '../todl-presentation-registry.js'
 import { TodlPresentationRegistry } from '../todl-presentation-registry.js'
 import { setIconResourceResolver } from '../icon-key-converter.js'
-import { FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
+import { FakeFacade, FakeLanguageService } from '../../../../services/todl/tests/fake-language-service.js'
 
 // Counts discover() calls without loading the real default sources EnsureStarted
 // registers (their load() reads storage); lets us assert the lifecycle wiring alone.
@@ -185,7 +185,7 @@ test('Refresh discovers every call (so each caller gets a fresh bake)', async ()
 test('Refresh wires the GraphChanged bridge exactly once, so a graph rebuild re-bakes', async () => {
     const provider = new ServiceProvider()
     const language = new FakeLanguageService()
-    provider.registerInstance(SolutionLanguageService.Key, language as unknown as SolutionLanguageService)
+    FakeFacade.Register(provider, { Language: language as unknown as SolutionLanguageService })
     const registry = new CountingRegistry(provider)
 
     await registry.Refresh()                 // EnsureStarted subscribes to GraphChanged

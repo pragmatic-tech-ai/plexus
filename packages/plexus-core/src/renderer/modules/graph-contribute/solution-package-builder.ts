@@ -3,7 +3,7 @@ import { SolutionBuildManager } from '@pragmatic-tech-ai/todl/todl-build-system'
 import type { SolutionProject, SolutionBuildRequest, TodlBuildContext, IPackageSource } from '@pragmatic-tech-ai/todl/todl-build-system'
 import { parseManifest, toPackageJson, type ProjectManifest, type PackageJson } from '@pragmatic-tech-ai/todl/package-manager'
 import { BuildService } from '@pragmatic-tech-ai/todl'
-import type { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import type { ISolutionServices } from '../solution-seams/index.js'
 import { PROJECT_MANIFEST_FILENAME } from '../../projects/project-factory.js'
 import type { ContributedPackage } from '../../../shared/graph-contribute-api.js'
 import { CapturingBuildStorageProvider } from './capturing-build-storage-provider.js'
@@ -33,14 +33,14 @@ export class SolutionPackageBuilder
         private readonly registry: BuildSystemRegistry<TodlBuildContext, ProjectManifest>,
         private readonly delegateStorageProvider: IBuildStorageProvider,
         private readonly externalSource: IPackageSource,
-        private readonly solutions: SolutionManagerService,
+        private readonly services: ISolutionServices,
         private readonly makeManager: SolutionBuildManagerFactory = (registry, storage) => new SolutionBuildManager(registry, storage))
     {
     }
 
     public async Build(progress?: IBuildProgress): Promise<readonly ContributedPackage[]>
     {
-        const solution = this.solutions.ActiveSolution
+        const solution = this.services.Manager.ActiveSolution
         if (solution === undefined)
         {
             throw new Error(SolutionPackageBuilder.NoActiveSolution)

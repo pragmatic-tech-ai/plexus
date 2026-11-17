@@ -5,6 +5,7 @@ import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
 import { RecentProjectsService } from '../../../../projects/recent-projects-service.js'
 import { StorageService } from '../../../storage/index.js'
+import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
 import { ProjectCommandsService } from '../project-commands-service.js'
 import { NewProjectDialogModel, ProjectTypeChoice } from '../../../../projects/new-project-dialog-model.js'
 
@@ -20,7 +21,7 @@ describe('ProjectCommandsService', () =>
     it('CreateProject refuses a folder that already holds a project (no engine call)', async () =>
     {
         const provider = new ServiceProvider()
-        provider.registerInstance(StorageService.Key, { Create: () => ({ Exists: async () => true }) } as never)
+        provider.registerInstance(SolutionServices.Key, { Storage: { Create: () => ({ Exists: async () => true }) } } as unknown as ISolutionServices)
         provider.registerInstance(PublishedBasesKey, { ListMetaModels: async () => [], ListLibraries: async () => [] } as never)
         const svc = new ProjectCommandsService(provider)
         const outcome = await svc.CreateProject({ type: 'architecture', name: 'p', location: '/work' })
@@ -39,9 +40,9 @@ describe('ProjectCommandsService', () =>
         provider.registerInstance(SolutionManagerService.StorageRegistryKey, {
             CreateStorage: () => ({ Exists: async () => true }),
         } as never)
-        provider.registerInstance(SolutionManagerService.Key, {
-            OpenProject: async (folder: string) => { opened.push(folder); return {} },
-        } as never)
+        provider.registerInstance(SolutionServices.Key, {
+            Manager: { OpenProject: async (folder: string) => { opened.push(folder); return {} } },
+        } as unknown as ISolutionServices)
         await new ProjectCommandsService(provider).RestoreSession()
         expect(opened).toEqual(['/work/a', '/work/b'])
     })

@@ -22,6 +22,7 @@ export class SolutionSeams
     );
     services.register(
       SolutionManagerService.StorageRegistryKey,
+      // Must resolve StorageService.Key directly: routing via the facade would be a composition cycle (facade depends on this manager).
       (p: IServiceProvider): IStorageProviderRegistry => p.getRequired(StorageService.Key),
     );
   }

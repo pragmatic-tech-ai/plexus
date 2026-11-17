@@ -2,6 +2,7 @@ import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { AgentSkillKind } from '../../../../../../shared/agent-api.js'
 
+import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
 import { SkillCatalog } from '../skill-catalog.js'
 import { SkillRunner } from '../skill-runner.js'
 import { SkillProjectMenuSource } from '../project-menu-source.js'
@@ -25,4 +26,17 @@ test('MenuFor returns empty when no catalog or runner is registered', async () =
     const provider = new ServiceProvider()
     const choices = await new SkillProjectMenuSource(provider).MenuFor(OP)
     expect(choices).toEqual([])
+})
+
+test('MenuFor discovers across the active solution members resolved through the facade', async () => {
+    const provider = new ServiceProvider()
+    const manager = new FakeSolutionManager()
+    manager.AddResolved({ RootPath: 'C:/other', Name: 'O' }, { Root: 'C:/other' })
+    manager.RegisterFacadeOn(provider)
+    let dirs: string[] = []
+    provider.registerInstance(SkillCatalog.Key, { discoverAll: async (d: string[]) => { dirs = d }, forProject: () => [] } as never)
+    provider.registerInstance(SkillRunner.Key, { run: () => {} } as never)
+
+    await new SkillProjectMenuSource(provider).MenuFor(OP)
+    expect(dirs).toEqual(['C:/other', 'C:/p'])
 })

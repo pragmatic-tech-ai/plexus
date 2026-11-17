@@ -1,4 +1,5 @@
 import { test, expect } from 'vitest'
+import { FakeFacade } from '../../../../services/todl/tests/fake-language-service.js'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { load, toJSON, compilePackage, SolutionLanguageService, type TodlDocument } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
@@ -34,9 +35,10 @@ function providerWithBases(bases: TodlDocument[]): ServiceProvider
 {
     const provider = new ServiceProvider()
     new FakeSolutionManager().RegisterOn(provider)
-    provider.registerInstance(SolutionLanguageService.Key, {
+    const language = {
         ResolveBasesFor: async () => ({ bases, problems: [] }),
-    } as unknown as SolutionLanguageService)
+    } as unknown as SolutionLanguageService
+    FakeFacade.Register(provider, { Language: language })
     return provider
 }
 
