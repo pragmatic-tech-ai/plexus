@@ -5,7 +5,9 @@ import { ConsoleRetirement } from './console-retirement.js'
 import type { SessionAddress } from './desktop-session-store.js'
 
 // The methods the contribute, publish and inspect flows call on a relay connection (PragmaticClient has them).
-export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'>
+export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'
+    | 'StorageReadText' | 'StorageReadBytes' | 'StorageWriteText' | 'StorageWriteBytes' | 'StorageExists' | 'StorageDelete' | 'StorageCreateDirectory' | 'StorageRename' | 'StorageList'
+    | 'ListSolutions' | 'SelectAuthoring' | 'ActiveSolution' | 'OnGraphChanged' | 'OnBuildStateChanged' | 'OnStorageChanged'>
 
 // The wire `action` the relay end parses (the server's DesktopAction).
 export enum RelayAction
@@ -13,6 +15,7 @@ export enum RelayAction
     Contribute = 'contribute',
     Publish = 'publish',
     Inspect = 'inspect',
+    Develop = 'develop',
 }
 
 // Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).

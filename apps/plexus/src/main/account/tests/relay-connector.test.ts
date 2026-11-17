@@ -535,3 +535,31 @@ describe('RelayAnswer', () =>
         expect(RelayAnswer.IsServerAnswer(new Error('x'))).toBe(false)
     })
 })
+
+class DevelopSurface
+{
+    // Compile-level check: only typechecks while RelayClient carries the develop-session members.
+    public static async Touch(client: RelayClient): Promise<number>
+    {
+        const entries = await client.StorageList('.')
+        const bytes = await client.StorageReadBytes('a')
+        const listed = await client.ListSolutions()
+        const subscriptions = [client.OnStorageChanged(() => {}), client.OnGraphChanged(() => {}), client.OnBuildStateChanged(() => {})]
+        const members = [client.StorageReadText, client.StorageWriteText, client.StorageWriteBytes, client.StorageExists, client.StorageDelete,
+            client.StorageCreateDirectory, client.StorageRename, client.SelectAuthoring, client.ActiveSolution]
+        return entries.length + bytes.length + listed.length + subscriptions.length + members.length
+    }
+}
+
+describe('RelayAction.Develop', () =>
+{
+    it('has the wire value the server parses', () =>
+    {
+        expect(RelayAction.Develop).toBe('develop')
+    })
+
+    it('RelayClient exposes the develop-session surface', () =>
+    {
+        expect(typeof DevelopSurface.Touch).toBe('function')
+    })
+})
