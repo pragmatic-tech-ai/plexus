@@ -13,6 +13,7 @@ import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServ
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { EnvironmentPublishChannel, type IEnvironmentPublishBridge } from '../shared/environment-publish-api.js'
+import { DevSessionChannel, type IDevSessionBridge } from '../shared/dev-session-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { EnvironmentsChannel, type IEnvironmentsBridge } from '../shared/environment-contents-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
@@ -167,6 +168,24 @@ const graphContribute: IGraphContributeBridge = {
     RelayBridge.Call(GraphContributeChannel.Contribute, target, graphName, solutionId, packages),
   ListGraphs: (target: TargetRef) => RelayBridge.Call(GraphContributeChannel.ListGraphs, target),
 }
+const devSession: IDevSessionBridge = {
+  Open: (target: TargetRef) => RelayBridge.Call(DevSessionChannel.Open, target),
+  Close: () => RelayBridge.Call(DevSessionChannel.Close),
+  ReadText: (path: string) => RelayBridge.Call(DevSessionChannel.ReadText, path),
+  ReadBytes: (path: string) => RelayBridge.Call(DevSessionChannel.ReadBytes, path),
+  WriteText: (path: string, content: string) => RelayBridge.Call(DevSessionChannel.WriteText, path, content),
+  WriteBytes: (path: string, bytes: Uint8Array) => RelayBridge.Call(DevSessionChannel.WriteBytes, path, bytes),
+  Exists: (path: string) => RelayBridge.Call(DevSessionChannel.Exists, path),
+  Delete: (path: string) => RelayBridge.Call(DevSessionChannel.Delete, path),
+  CreateDirectory: (path: string) => RelayBridge.Call(DevSessionChannel.CreateDirectory, path),
+  Rename: (from: string, to: string) => RelayBridge.Call(DevSessionChannel.Rename, from, to),
+  List: (path: string) => RelayBridge.Call(DevSessionChannel.List, path),
+  OnChanged: (cb): (() => void) => {
+    const listener = (_e: unknown, change: Parameters<typeof cb>[0]): void => cb(change)
+    ipcRenderer.on(DevSessionChannel.Changed, listener)
+    return () => { ipcRenderer.removeListener(DevSessionChannel.Changed, listener) }
+  },
+}
 const environments: IEnvironmentsBridge = {
   Contents: (target: TargetRef) => RelayBridge.Call(EnvironmentsChannel.Contents, target),
 }
@@ -212,7 +231,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, environments, account, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, devSession, environments, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {
