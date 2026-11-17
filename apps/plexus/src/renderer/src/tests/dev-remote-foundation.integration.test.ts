@@ -10,12 +10,15 @@ import { DevEnvironmentLocation } from '@pragmatic-tech-ai/plexus-core/renderer/
 import { DevelopSession } from '../../../main/account/develop-session.js'
 import type { RelayClient } from '../../../main/account/relay-connector.js'
 
+type DevelopSurface = Pick<RelayClient, 'StorageReadText' | 'StorageReadBytes' | 'StorageWriteText' | 'StorageWriteBytes' | 'StorageExists'
+    | 'StorageDelete' | 'StorageCreateDirectory' | 'StorageRename' | 'StorageList' | 'OnStorageChanged' | 'DisposeAsync' | 'CloseCode'>
+
 // Only the transport is faked: an in-memory source behind the develop surface of a relay client.
 // Everything above it (DevelopSession, RemoteFileStorage, StorageService) is the real code.
-class FakeRelayClient
+class FakeRelayClient implements DevelopSurface
 {
     private static readonly Missing = 'missing: '
-    private static readonly Slash = '/'
+    private static readonly Root = ''
 
     private readonly files = new Map<string, Uint8Array>()
     private readonly directories = new Set<string>()
@@ -69,20 +72,20 @@ class FakeRelayClient
 
     public async StorageList(path: string): Promise<StorageEntry[]>
     {
-        const prefix = path === '' ? '' : path + FakeRelayClient.Slash
+        const prefix = path === FakeRelayClient.Root ? FakeRelayClient.Root : path + Fixture.Slash
         const entries = new Map<string, boolean>()
         for (const file of this.files.keys())
         {
             if (!file.startsWith(prefix)) continue
             const rest = file.slice(prefix.length)
-            const cut = rest.indexOf(FakeRelayClient.Slash)
+            const cut = rest.indexOf(Fixture.Slash)
             if (cut < 0) entries.set(rest, false)
             else entries.set(rest.slice(0, cut), true)
         }
         for (const dir of this.directories)
         {
             const rest = dir.slice(prefix.length)
-            if (dir.startsWith(prefix) && rest.length > 0 && !rest.includes(FakeRelayClient.Slash)) entries.set(rest, true)
+            if (dir.startsWith(prefix) && rest.length > 0 && !rest.includes(Fixture.Slash)) entries.set(rest, true)
         }
         return [...entries].map(([Name, IsDirectory]) => ({ Name, IsDirectory }))
     }
@@ -136,6 +139,9 @@ class Fixture
     public static readonly Added = 'src/proj/new.txt'
     public static readonly Outside = 'src/other/new.txt'
     public static readonly Slash = '/'
+    public static readonly KindAdded: StorageChangedPayload['Kind'] = 'added'
+    public static readonly KindRemoved: StorageChangedPayload['Kind'] = 'removed'
+    public static readonly KindChanged: StorageChangedPayload['Kind'] = 'changed'
 
     public static readonly Bytes = new Uint8Array([0, 1, 127, 128, 200, 254, 255, 0, 42])
 }
@@ -172,17 +178,17 @@ describe('dev-environment remote foundation: client seam', () =>
         const storage = new RemoteFileStorage(new DevelopSession(client.AsRelayClient()), Fixture.SourceDir)
         const seen: FileChange[] = []
         const stop = storage.Watch(Fixture.SourceDir, change => seen.push(change))
-        client.Push({ Kind: 'added', Path: Fixture.Added, IsDirectory: false })
-        client.Push({ Kind: 'removed', Path: Fixture.SubDir, IsDirectory: true })
-        client.Push({ Kind: 'changed', Path: Fixture.Outside, IsDirectory: false })
-        client.Push({ Kind: 'changed', Path: Fixture.Nested, IsDirectory: false })
+        client.Push({ Kind: Fixture.KindAdded, Path: Fixture.Added, IsDirectory: false })
+        client.Push({ Kind: Fixture.KindRemoved, Path: Fixture.SubDir, IsDirectory: true })
+        client.Push({ Kind: Fixture.KindChanged, Path: Fixture.Outside, IsDirectory: false })
+        client.Push({ Kind: Fixture.KindChanged, Path: Fixture.Nested, IsDirectory: false })
         expect(seen).toEqual([
             { Kind: FileChangeKind.Added, Path: Fixture.Added, IsDirectory: false },
             { Kind: FileChangeKind.Removed, Path: Fixture.SubDir, IsDirectory: true },
         ])
         stop()
         expect(client.HandlerCount()).toBe(0)
-        client.Push({ Kind: 'added', Path: Fixture.Added, IsDirectory: false })
+        client.Push({ Kind: Fixture.KindAdded, Path: Fixture.Added, IsDirectory: false })
         expect(seen).toHaveLength(2)
     })
 
@@ -200,6 +206,7 @@ describe('dev-environment remote foundation: client seam', () =>
         await storage.WriteBytes(Fixture.File, Fixture.Bytes)
         // The write reached the fake store through the real session, not a local copy.
         expect(Array.from(await client.StorageReadBytes(Fixture.File))).toEqual(Array.from(Fixture.Bytes))
+        // RemoteFileStorage passes paths through without enforcing Root, so a path outside Root still reaches the store (expected for this seam test).
         await client.StorageWriteText(Fixture.OtherFile, Fixture.Text)
         expect(await storage.ReadText(Fixture.OtherFile)).toBe(Fixture.Text)
     })
