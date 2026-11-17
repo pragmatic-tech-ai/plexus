@@ -6,7 +6,7 @@
 import { ServiceBase, ServiceKey, RelayCommand, type ICommand, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import {
-    SolutionManagerService, PROJECT_MANIFEST_FILENAME,
+    PROJECT_MANIFEST_FILENAME,
 } from '@pragmatic-tech-ai/todl'
 import { ProjectFactoryRegistryKey } from '../../../projects/project-factory.js'
 import { PublishedBasesKey } from '../../../projects/index.js'
@@ -19,6 +19,7 @@ import {
 } from '../../../projects/new-project-dialog-model.js'
 import { OpenProjectDialogModel, type OpenProjectResult } from '../../../projects/open-project-dialog-model.js'
 import { FileSystemService, StorageService } from '../../storage/index.js'
+import { SolutionServices } from '../../solution-seams/index.js'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 import { InfoDialog } from './info-dialog.js'
 import { ProjectLifecycle, CreateError, OpenError } from './todl-engine-ops.js'
@@ -60,7 +61,7 @@ export class ProjectCommandsService extends ServiceBase
 
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
-    private get storageRegistry(): StorageService { return this.Provider.getRequired(StorageService.Key) }
+    private get storageRegistry(): StorageService { return this.Provider.getRequired(SolutionServices.Key).Storage }
     private get recents(): RecentProjectsService { return this.Provider.getRequired(RecentProjectsService.Key) }
 
     // Created lazily: the solution engine seams ProjectLifecycle needs are registered after
@@ -69,7 +70,7 @@ export class ProjectCommandsService extends ServiceBase
     private get projects(): ProjectLifecycle
     {
         return (this.lifecycle ??= new ProjectLifecycle(
-            this.Provider, this.Provider.getRequired(SolutionManagerService.Key),
+            this.Provider, this.Provider.getRequired(SolutionServices.Key).Manager,
             this.Provider.getRequired(OpenProjectsStore.Key), this.recents))
     }
 

@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DialogService, DocumentTypeRegistry, SaveOnCloseGuard, SavePromptResult, type IDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { Solution, ProjectFactoryRegistryKey, ProjectNodeKind, SolutionLanguageService, SolutionManagerService, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { Solution, ProjectFactoryRegistryKey, ProjectNodeKind, SolutionMemberStatus, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
 import { LiveValidationKey } from '../../../../projects/index.js'
 import { OpenProjectsStore } from '../../../../projects/open-projects-store.js'
 import { SolutionWorkspaceService, MemberNewFileParticipantKey, type IMemberNewFileParticipant } from '../solution-workspace-service.js'
@@ -110,10 +111,13 @@ async function harness(opts: HarnessOpts = {})
         Close: () => {},
     } as never)
     host.guard = new SaveOnCloseGuard(provider, async () => opts.promptResult ?? SavePromptResult.DontSave)
-    provider.registerInstance(SolutionManagerService.Key, {
-        ActiveSolution: sol,
-        CloseProject: async (m: SolutionMember) => { opts.closeProject?.(m) },
-    } as never)
+    const services = {
+        Manager: {
+            ActiveSolution: sol,
+            CloseProject: async (m: SolutionMember) => { opts.closeProject?.(m) },
+        },
+    } as Record<string, unknown>
+    provider.registerInstance(SolutionServices.Key, services as unknown as ISolutionServices)
     const removedFromSession: string[] = []
     provider.registerInstance(OpenProjectsStore.Key, {
         List: async () => [], Add: async () => {},
@@ -124,10 +128,10 @@ async function harness(opts: HarnessOpts = {})
     {
         const calls = opts.calls
         provider.registerInstance(ProjectFactoryRegistryKey, { factoryFor: () => undefined } as never)
-        provider.registerInstance(SolutionLanguageService.Key, {
+        services.Language = {
             ConsumerIdOf: async () => 'consumer-id',
             Invalidate: (id: string) => { calls.push(`invalidate:${id}`) },
-        } as never)
+        }
         provider.registerInstance(LiveValidationKey, {
             ResyncProject: async (id: string) => { calls.push(`resync:${id}`) },
             RefreshBases: async () => { calls.push('validation-refresh') },

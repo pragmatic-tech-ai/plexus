@@ -35,7 +35,6 @@ import {
     parseManifest,
     ProjectType,
     ProjectNodeKind,
-    SolutionLanguageService,
     type IBaseResolver,
     SolutionManagerService,
     UniqueName,
@@ -63,6 +62,7 @@ import { ManageReferencesDialogModel } from '../../../projects/manage-references
 import type { BaseBindings } from '../../../projects/base-binding.js'
 import type { IDocumentFactory } from '../../../documents/document-factory.js'
 import { FileSystemService } from '../../storage/index.js'
+import { SolutionServices } from '../../solution-seams/index.js'
 import type { FileFilter } from '../../../../shared/file-system-api.js'
 import { DiagnosticsService } from '../../../diagnostics/diagnostics-service.js'
 import { DiagnosticSeverity } from '../../../diagnostics/diagnostic.js'
@@ -172,10 +172,10 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     }
 
     // ── collaborators (lazy) ────────────────────────────────────────────────
-    private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionManagerService.Key) }
+    private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionServices.Key).Manager }
     private get resolver(): IBaseResolver
     {
-        return this.Provider.getRequired(SolutionLanguageService.Key)
+        return this.Provider.getRequired(SolutionServices.Key).Language
     }
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
@@ -452,7 +452,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         const storage = member.Storage
         if (storage === undefined) return
         await this.Provider.get(LiveValidationKey)?.RefreshBases(storage)
-        const build = this.Provider.get(BuildService.Key) ?? new BuildService(this.Provider)
+        const build = this.Provider.getRequired(SolutionServices.Key).Build ?? new BuildService(this.Provider)
         try
         {
             this.ApplyPublishOutcome(member, await this.PublishThroughWork(member, build))
