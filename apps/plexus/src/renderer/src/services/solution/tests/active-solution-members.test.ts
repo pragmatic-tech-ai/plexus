@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ActiveSolutionMembers } from '../active-solution-members.js'
 import { FakeSolutionManager } from './fake-solution-manager.js'
 
@@ -12,6 +13,14 @@ class Fixture
 }
 
 describe('ActiveSolutionMembers', () => {
+    test('From resolves the manager through the ISolutionServices facade', () => {
+        const m = new FakeSolutionManager()
+        m.AddResolved({ RootPath: '/a', Name: 'A' })
+        const provider = new ServiceProvider()
+        m.RegisterFacadeOn(provider)
+        expect(ActiveSolutionMembers.From(provider).Resolved().map((r) => r.Name)).toEqual(['A'])
+    })
+
     test('Resolved lists only resolved members, with folder and name from the project', () => {
         const m = new FakeSolutionManager()
         m.AddResolved({ RootPath: '/a', Name: 'A' })

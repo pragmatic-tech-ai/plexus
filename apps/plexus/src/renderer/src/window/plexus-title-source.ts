@@ -1,6 +1,6 @@
 import { type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { ContentHostService, DocumentsContentHostService, type IDocument } from '@pragmatic-tech-ai/mural/framework'
-import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { type ITitleSource } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
 import { SolutionOrigins } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer'
 import { ActiveSolutionMembers } from '../services/solution/active-solution-members.js'
@@ -37,7 +37,7 @@ export class PlexusTitleSource implements ITitleSource
     // when no solution is open.
     public contextSuffix(): string | undefined
     {
-        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionManagerService.Key))
+        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionServices.Key)?.Manager)
     }
 
     public subscribe(onChange: () => void): () => void

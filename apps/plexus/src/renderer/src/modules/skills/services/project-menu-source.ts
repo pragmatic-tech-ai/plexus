@@ -1,5 +1,5 @@
 import { ServiceBase, ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
-import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import { ProjectMenuChoice, type IProjectMenuSource } from '@pragmatic-tech-ai/plexus-core/renderer/projects'
 import type { OpenProject } from '@pragmatic-tech-ai/plexus-core/renderer/projects/open-project.js'
 import { SkillCatalog } from './skill-catalog.js'
@@ -22,7 +22,7 @@ export class SkillProjectMenuSource extends ServiceBase implements IProjectMenuS
         // Discover across every open project (plus op, in case it isn't a solution
         // member yet), then narrow to op's own skills so the union catalog
         // doesn't leak other projects' project-scoped skills into this menu.
-        const members = this.Provider.get(SolutionManagerService.Key)?.ActiveSolution?.Members.ToArray() ?? []
+        const members = this.Provider.get(SolutionServices.Key)?.Manager.ActiveSolution?.Members.ToArray() ?? []
         const openFolders = members.map((m) => m.Storage?.Root).filter((r): r is string => r !== undefined)
         const dirs = [...new Set([...openFolders, op.Folder])]
         await catalog.discoverAll(dirs)

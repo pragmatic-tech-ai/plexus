@@ -9,7 +9,7 @@ class Fixture
     {
         const manager = new FakeSolutionManager()
         const provider = new ServiceProvider()
-        manager.RegisterOn(provider)
+        manager.RegisterFacadeOn(provider)
         return { manager, source: new PlexusTitleSource(provider) }
     }
 }
