@@ -2,10 +2,13 @@ import { describe, it, expect } from 'vitest'
 import { Observable } from '@pragmatic-tech-ai/todl-runtime'
 import { Solution } from '@pragmatic-tech-ai/todl'
 import { TargetSource, type TargetChoice, type TargetRef } from '../../../../../shared/account-api.js'
+import { DevEnvironmentLocation } from '../../../storage/dev-environment-location.js'
+import { RemoteFileStorage, type IDevStorageSession } from '../../../storage/remote-file-storage.js'
 import { OpenFromEnvironmentFlow, type IOpenFromEnvManager, type IOpenFromEnvSession } from '../open-from-environment-flow.js'
 import { SolutionOriginRegistry } from '../solution-origin-registry.js'
-import { SolutionOriginKind } from '../solution-origin.js'
-import { ScriptedPicker } from './fake-target-sources.js'
+import { SolutionOriginKind, SolutionOrigins } from '../solution-origin.js'
+import type { ITargetPicker, TargetPick } from '../target-dialog.js'
+import { Gate, ScriptedPicker } from './fake-target-sources.js'
 
 class FakeSession implements IOpenFromEnvSession
 {
@@ -30,8 +33,14 @@ class FakeManager extends Observable implements IOpenFromEnvManager
 {
     public Opened: Solution | undefined = undefined
     public OpenError: Error | undefined = undefined
+    // When set, OpenSolution throws only AFTER the new solution became active.
+    public ThrowAfterActivation = false
     // True when the engine declines to replace the current solution (a discard prompt answered No).
     public Decline = false
+    // Gates / refuses CloseSolution, standing for the dirty-discard prompt.
+    public CloseGate: Gate<void> | undefined = undefined
+    public RefuseClose = false
+    public Closes = 0
     private active: Solution | undefined
 
     public constructor(private readonly log: string[])
@@ -48,13 +57,24 @@ class FakeManager extends Observable implements IOpenFromEnvManager
         this.RaisePropertyChanged('ActiveSolution', old, next)
     }
 
+    public async CloseSolution(): Promise<void>
+    {
+        this.Closes++
+        this.log.push('closesolution')
+        if (this.CloseGate !== undefined) await this.CloseGate.Promise
+        if (this.RefuseClose) return
+        this.Swap(undefined)
+    }
+
     public async OpenSolution(location: string): Promise<void>
     {
         this.log.push(`opensolution:${location}`)
         if (this.OpenError !== undefined) throw this.OpenError
         if (this.Decline) return
-        this.Opened = new Solution('S')
+        const root = DevEnvironmentLocation.RootOf(location)
+        this.Opened = new Solution(root, new RemoteFileStorage({} as IDevStorageSession, root))
         this.Swap(this.Opened)
+        if (this.ThrowAfterActivation) throw new Error('after boom')
     }
 }
 
@@ -73,6 +93,14 @@ class FakeDialogs
     }
 }
 
+class GatedPicker implements ITargetPicker
+{
+    public readonly Gate = new Gate<TargetPick>()
+
+    public Show(): Promise<TargetPick> { return this.Gate.Promise }
+    public RequestSignIn(): Promise<boolean> { return Promise.resolve(false) }
+}
+
 class Rig
 {
     public readonly Log: string[] = []
@@ -80,16 +108,29 @@ class Rig
     public readonly Session = new FakeSession(this.Log)
     public readonly Manager = new FakeManager(this.Log)
     public readonly Dialogs = new FakeDialogs()
+    public readonly Created: ITargetPicker[] = []
 
-    public Flow(input: TargetChoice | undefined | Error): OpenFromEnvironmentFlow
+    // One flow per rig; each Run gets the next answer (the last one repeats).
+    public Flow(...inputs: Array<TargetChoice | undefined | Error>): OpenFromEnvironmentFlow
     {
-        return new OpenFromEnvironmentFlow(new ScriptedPicker([ScriptedPicker.PickOf(input)]), this.Session, this.Manager, this.Registry, this.Dialogs as any)
+        return new OpenFromEnvironmentFlow(
+            () =>
+            {
+                const picker = new ScriptedPicker([ScriptedPicker.PickOf(inputs[Math.min(this.Created.length, inputs.length - 1)])])
+                this.Created.push(picker)
+                return picker
+            },
+            this.Session, this.Manager, this.Registry, this.Dialogs as any)
     }
 }
 
 describe('OpenFromEnvironmentFlow', () =>
 {
     const Choice: TargetChoice = { Environment: 'dev', Source: TargetSource.Platform, SolutionName: 'orders' }
+    const Other: TargetChoice = { Environment: 'prod', Source: TargetSource.Console, SolutionName: 'billing' }
+
+    // A tick for the fire-and-forget session close the watcher starts.
+    const Settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0))
 
     it('binds the session, selects authoring, then opens the dev-environment location, in that order', async () =>
     {
@@ -101,41 +142,102 @@ describe('OpenFromEnvironmentFlow', () =>
     it('registers a DevEnvironment origin on the opened solution', async () =>
     {
         const rig = new Rig()
-        let signalled = 0
-        rig.Registry.Changed.subscribe(() => { signalled++ })
         await rig.Flow(Choice).Run()
         const origin = rig.Registry.Get(rig.Manager.Opened!)
         expect(origin?.Kind).toBe(SolutionOriginKind.DevEnvironment)
         expect(origin?.EnvironmentRef).toEqual({ Name: 'dev', Source: TargetSource.Platform })
         expect(origin?.SolutionName).toBe('orders')
-        expect(signalled).toBe(1)
     })
 
-    it('signals the registry change after the solution is active, so earlier activation listeners can refresh', async () =>
+    it('resolves the dev origin on the FIRST activation, before any later listener or the final registration', async () =>
     {
         const rig = new Rig()
-        const seen: boolean[] = []
-        rig.Registry.Changed.subscribe(() => { seen.push(rig.Manager.ActiveSolution !== undefined && rig.Registry.Get(rig.Manager.ActiveSolution) !== undefined) })
+        const seen: SolutionOriginKind[] = []
+        rig.Manager.PropertyChanged('ActiveSolution').subscribe(() =>
+        {
+            if (rig.Manager.ActiveSolution !== undefined) seen.push(SolutionOrigins.Of(rig.Manager.ActiveSolution, rig.Registry).Kind)
+        })
         await rig.Flow(Choice).Run()
-        expect(seen).toEqual([true])
+        expect(seen).toEqual([SolutionOriginKind.DevEnvironment])
     })
 
-    it('unregisters the origin when another solution replaces it', async () =>
+    it('does not mislabel a local solution that activates while nothing is expected', () =>
     {
         const rig = new Rig()
-        await rig.Flow(Choice).Run()
-        const opened = rig.Manager.Opened!
-        rig.Manager.Swap(new Solution('Other'))
-        expect(rig.Registry.Get(opened)).toBeUndefined()
+        expect(rig.Registry.Get(new Solution('Local'))).toBeUndefined()
     })
 
-    it('unregisters the origin when the solution is closed', async () =>
+    it('closes the held session and drops the origin when the dev solution is closed', async () =>
     {
         const rig = new Rig()
         await rig.Flow(Choice).Run()
         const opened = rig.Manager.Opened!
         rig.Manager.Swap(undefined)
+        await Settle()
         expect(rig.Registry.Get(opened)).toBeUndefined()
+        expect(rig.Log.at(-1)).toBe('close')
+    })
+
+    it('closes the held session when a local solution replaces the dev solution', async () =>
+    {
+        const rig = new Rig()
+        await rig.Flow(Choice).Run()
+        const opened = rig.Manager.Opened!
+        rig.Manager.Swap(new Solution('Local'))
+        await Settle()
+        expect(rig.Registry.Get(opened)).toBeUndefined()
+        expect(rig.Log.at(-1)).toBe('close')
+    })
+
+    it('does not close the session the next environment owns when one dev solution replaces another', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice, Other)
+        await flow.Run()
+        const first = rig.Manager.Opened!
+        await flow.Run()
+        await Settle()
+        expect(rig.Log.filter((e) => e === 'close')).toEqual([])
+        expect(rig.Log.slice(-3)).toEqual(['open:prod', 'select:billing', 'opensolution:dev-environment://prod/billing'])
+        expect(rig.Registry.Get(first)).toBeUndefined()
+        expect(rig.Registry.Get(rig.Manager.Opened!)?.EnvironmentName).toBe('prod')
+        // And closing that one then releases the session.
+        rig.Manager.Swap(undefined)
+        await Settle()
+        expect(rig.Log.at(-1)).toBe('close')
+    })
+
+    it('keeps the previous dev solution on its own environment while the replace prompt is open', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice, Other)
+        await flow.Run()
+        const first = rig.Manager.Opened!
+        rig.Log.length = 0
+        rig.Manager.CloseGate = new Gate<void>()
+        const second = flow.Run()
+        await Settle()
+        // The prompt is pending: the previous solution is still active and the session was not re-bound.
+        expect(rig.Manager.ActiveSolution).toBe(first)
+        expect(rig.Log).toEqual(['closesolution'])
+        rig.Manager.CloseGate.Resolve()
+        await second
+        expect(rig.Log).toEqual(['closesolution', 'open:prod', 'select:billing', 'opensolution:dev-environment://prod/billing'])
+    })
+
+    it('leaves everything untouched when the replace prompt is declined', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice, Other)
+        await flow.Run()
+        const first = rig.Manager.Opened!
+        rig.Log.length = 0
+        rig.Manager.RefuseClose = true
+        await flow.Run()
+        expect(rig.Log).toEqual(['closesolution'])
+        expect(rig.Manager.ActiveSolution).toBe(first)
+        expect(rig.Registry.Get(first)).toBeDefined()
+        expect(rig.Dialogs.Shown).toEqual([])
     })
 
     it('does nothing when the picker is cancelled', async () =>
@@ -179,44 +281,49 @@ describe('OpenFromEnvironmentFlow', () =>
         expect(rig.Dialogs.Shown[0]!.Content.Message).toBe('select boom')
     })
 
-    it('rolls back when the engine open fails: session closed, no origin, error shown', async () =>
+    it('rolls back when the engine open fails: session closed, error shown, nothing expected any more', async () =>
     {
         const rig = new Rig()
         rig.Manager.OpenError = new Error('read boom')
         await rig.Flow(Choice).Run()
         expect(rig.Log).toEqual(['open:dev', 'select:orders', 'opensolution:dev-environment://dev/orders', 'close'])
         expect(rig.Dialogs.Shown[0]!.Content.Message).toBe('read boom')
+        const stray = new Solution('orders', new RemoteFileStorage({} as IDevStorageSession, 'orders'))
+        expect(rig.Registry.Get(stray)).toBeUndefined()
     })
 
-    it('closes the session quietly when the engine declines to replace the current solution', async () =>
+    it('closes the solution again when the engine open throws AFTER it became active', async () =>
     {
         const rig = new Rig()
+        rig.Manager.ThrowAfterActivation = true
+        await rig.Flow(Choice).Run()
+        expect(rig.Manager.ActiveSolution).toBeUndefined()
+        expect(rig.Registry.Get(rig.Manager.Opened!)).toBeUndefined()
+        expect(rig.Log).toEqual(['open:dev', 'select:orders', 'opensolution:dev-environment://dev/orders', 'closesolution', 'close'])
+        expect(rig.Dialogs.Shown[0]!.Content.Message).toBe('after boom')
+    })
+
+    it('closes the session quietly when the engine declines to replace a local solution', async () =>
+    {
+        const rig = new Rig()
+        rig.Manager.Swap(new Solution('Local'))
         rig.Manager.Decline = true
         await rig.Flow(Choice).Run()
         expect(rig.Log.at(-1)).toBe('close')
         expect(rig.Dialogs.Shown).toEqual([])
     })
 
-    it('restores the session to a still-open dev solution when the replace is declined', async () =>
+    it('ignores a second invocation while one is in flight', async () =>
     {
         const rig = new Rig()
-        const current = new Solution('Current')
-        rig.Manager.Swap(current)
-        rig.Registry.Register(current, { Name: 'prod', Source: TargetSource.Console }, 'billing')
-        rig.Manager.Decline = true
-        await rig.Flow(Choice).Run()
-        expect(rig.Log.slice(-2)).toEqual(['open:prod', 'select:billing'])
-        expect(rig.Registry.Get(current)).toBeDefined()
-    })
-
-    it('keeps a previously open dev solution registered when a new open fails', async () =>
-    {
-        const rig = new Rig()
-        const current = new Solution('Current')
-        rig.Manager.Swap(current)
-        rig.Registry.Register(current, { Name: 'prod', Source: TargetSource.Console }, 'billing')
-        rig.Manager.OpenError = new Error('boom')
-        await rig.Flow(Choice).Run()
-        expect(rig.Registry.Get(current)).toBeDefined()
+        const picker = new GatedPicker()
+        const flow = new OpenFromEnvironmentFlow(() => { rig.Created.push(picker); return picker }, rig.Session, rig.Manager, rig.Registry, rig.Dialogs as any)
+        const first = flow.Run()
+        await flow.Run()
+        expect(rig.Created).toHaveLength(1)
+        expect(flow.IsRunning).toBe(true)
+        picker.Gate.Resolve(ScriptedPicker.PickOf(undefined) as TargetPick)
+        await first
+        expect(flow.IsRunning).toBe(false)
     })
 })

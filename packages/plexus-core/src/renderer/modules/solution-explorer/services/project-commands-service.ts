@@ -56,6 +56,7 @@ export class ProjectCommandsService extends ServiceBase
     private readonly _newProjectCommand: ICommand
     private readonly _openFromEnvironmentCommand: ICommand
     private lifecycle: ProjectLifecycle | undefined
+    private openFromEnvironment: OpenFromEnvironmentFlow | undefined
 
     constructor(provider: IServiceProvider)
     {
@@ -104,15 +105,14 @@ export class ProjectCommandsService extends ServiceBase
     public async OpenFromEnvironment(): Promise<void>
     {
         if (!this.CanOpenFromEnvironment()) return
-        const picker = new OpenFromEnvDialog(
-            this.Provider.getRequired(AccountServiceKey), this.Provider.getRequired(EnvSolutionListerKey), this.dialogs)
-        const flow = new OpenFromEnvironmentFlow(
-            picker,
+        // One flow for the service life: it guards re-entry and watches the active solution to release the session.
+        this.openFromEnvironment ??= new OpenFromEnvironmentFlow(
+            () => new OpenFromEnvDialog(this.Provider.getRequired(AccountServiceKey), this.Provider.getRequired(EnvSolutionListerKey), this.dialogs),
             this.Provider.getRequired(DevStorageSessionKeys.Session),
             this.Provider.getRequired(SolutionManagerService.Key),
             this.Provider.getRequired(SolutionOriginRegistry.Key),
             this.dialogs)
-        await flow.Run()
+        await this.openFromEnvironment.Run()
     }
 
     // Open Project: present the recents-or-Browse dialog; open whatever folder it resolves to.

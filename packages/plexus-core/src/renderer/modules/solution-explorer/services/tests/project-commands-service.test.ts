@@ -7,6 +7,10 @@ import { RecentProjectsService } from '../../../../projects/recent-projects-serv
 import { StorageService } from '../../../storage/index.js'
 import { SolutionServices, type ISolutionServices } from '../../../solution-seams/index.js'
 import { ProjectCommandsService } from '../project-commands-service.js'
+import { AccountServiceKey } from '../../../account/account-service.js'
+import { EnvSolutionListerKey } from '../../../env-solutions/index.js'
+import { DevStorageSessionKeys } from '../../../storage/dev-storage-session-key.js'
+import { SolutionOriginRegistry } from '../solution-origin-registry.js'
 import { NewProjectDialogModel, ProjectTypeChoice } from '../../../../projects/new-project-dialog-model.js'
 
 describe('ProjectCommandsService', () =>
@@ -16,6 +20,20 @@ describe('ProjectCommandsService', () =>
         const svc = new ProjectCommandsService(new ServiceProvider())
         expect(svc.OpenProjectCommand).toBeDefined()
         expect(svc.NewProjectCommand).toBeDefined()
+    })
+
+    it('enables Open from dev environment only when the account, lister, held session and origin registry are all registered', () =>
+    {
+        const empty = new ProjectCommandsService(new ServiceProvider())
+        expect(empty.OpenFromEnvironmentCommand.CanExecute()).toBe(false)
+        const provider = new ServiceProvider()
+        provider.registerInstance(AccountServiceKey, {} as never)
+        provider.registerInstance(EnvSolutionListerKey, {} as never)
+        provider.registerInstance(DevStorageSessionKeys.Session, {} as never)
+        const partial = new ProjectCommandsService(provider)
+        expect(partial.OpenFromEnvironmentCommand.CanExecute()).toBe(false)
+        provider.registerInstance(SolutionOriginRegistry.Key, new SolutionOriginRegistry())
+        expect(partial.OpenFromEnvironmentCommand.CanExecute()).toBe(true)
     })
 
     it('CreateProject refuses a folder that already holds a project (no engine call)', async () =>
