@@ -1,6 +1,6 @@
 import { RelayCommand } from "@pragmatic-tech-ai/mural/runtime";
 import { DialogService, DialogAction, ButtonVariant } from "@pragmatic-tech-ai/mural/framework";
-import { TextBlock, TextWrapping } from "@pragmatic-tech-ai/mural/basic";
+import { TextBlock, TextBox, TextWrapping } from "@pragmatic-tech-ai/mural/basic";
 import {
   Ask,
   ConfirmAsk,
@@ -23,6 +23,10 @@ import {
 // silently returning a wrong default.
 export class DialogPromptService implements IPromptService
 {
+  private static readonly CancelLabel = "Cancel";
+  private static readonly OkLabel = "OK";
+  private static readonly PromptWidth = 380;
+
   constructor(private readonly dialogs: DialogService) {}
 
   async Ask<R>(request: Ask<R>): Promise<R>
@@ -46,9 +50,24 @@ export class DialogPromptService implements IPromptService
   {
     return Promise.resolve(undefined);
   }
-  PromptText(): Promise<string | undefined>
+  // A single-field text prompt built directly on DialogService (a TextBox body
+  // + Cancel/OK actions), so it renders without any host-wired DataTemplate —
+  // the text counterpart of confirm(). Resolves the field's text on OK;
+  // cancel / scrim / Escape → undefined.
+  async PromptText(label: string, initial?: string): Promise<string | undefined>
   {
-    return Promise.resolve(undefined);
+    const input = new TextBox();
+    input.Text = initial ?? "";
+    const result = await this.dialogs.Show<string>({
+      Title: label,
+      Content: input,
+      Width: DialogPromptService.PromptWidth,
+      Actions: [
+        new DialogAction(DialogPromptService.CancelLabel, new RelayCommand(() => this.dialogs.Close(undefined))),
+        new DialogAction(DialogPromptService.OkLabel, new RelayCommand(() => this.dialogs.Close(input.Text)), ButtonVariant.Filled),
+      ],
+    });
+    return typeof result === "string" ? result : undefined;
   }
   Choose<T>(_title: string, _options: readonly Choice<T>[]): Promise<T | undefined>
   {

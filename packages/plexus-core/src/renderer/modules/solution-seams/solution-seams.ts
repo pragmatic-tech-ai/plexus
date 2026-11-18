@@ -14,12 +14,15 @@ import { DialogPromptService } from "./dialog-prompt-service.js";
 // with the app.
 export class SolutionSeams
 {
-  public static Register(services: IServiceContainer): void
+  // promptFactory lets a host supply a fuller IPromptService (e.g. the desktop
+  // DesktopPromptService, which adds native folder/file pickers over its bridge);
+  // the default is the generic DialogPromptService a non-desktop Mural shell uses.
+  public static Register(
+    services: IServiceContainer,
+    promptFactory: (p: IServiceProvider) => IPromptService = (p: IServiceProvider): IPromptService => new DialogPromptService(p.getRequired(DialogService.Key)),
+  ): void
   {
-    services.register(
-      SolutionManagerService.PromptServiceKey,
-      (p: IServiceProvider): IPromptService => new DialogPromptService(p.getRequired(DialogService.Key)),
-    );
+    services.register(SolutionManagerService.PromptServiceKey, promptFactory);
     services.register(
       SolutionManagerService.StorageRegistryKey,
       // Must resolve StorageService.Key directly: routing via the facade would be a composition cycle (facade depends on this manager).

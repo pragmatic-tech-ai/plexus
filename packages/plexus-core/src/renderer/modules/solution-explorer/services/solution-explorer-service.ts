@@ -34,11 +34,14 @@ import { RunTestTargetDialog } from './run-test-target-dialog.js'
 import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
 import { UploadToEnvironmentContributor } from './upload-to-environment-contributor.js'
+import { SolutionCommandsService } from './solution-commands-service.js'
+import { SolutionCommandsContributor } from './solution-commands-contributor.js'
 import { SolutionTreeEnumerator } from '../../upload/solution-tree-enumerator.js'
 import { UploadContributorKey } from '../../upload/upload-contributor.js'
 import { ContributeTargetDialog } from './contribute-target-dialog.js'
 import { AccountServiceKey } from '../../account/account-service.js'
 import { SolutionServices } from '../../solution-seams/index.js'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { SolutionPackageBuilder } from '../../graph-contribute/solution-package-builder.js'
 import { GraphContributorKey } from '../../graph-contribute/graph-contributor.js'
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
@@ -299,6 +302,14 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const runTestPicker = dialogs === undefined || account === undefined ? undefined : new RunTestTargetDialog(account, dialogs)
             const runTest = new RunTestContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentRunTesterKey), runTestPicker)
             this.handles.push(registry.RegisterInstance(runTest, runTest.Actions))
+            // Save / Save As / Rename for the active solution (shared with the window menu and
+            // keyboard shortcuts). Resolve optionally — a headless/unit host may not register it.
+            const solutionCommands = this.provider.get(SolutionCommandsService.Key)
+            if (solutionCommands !== undefined)
+            {
+                const commandsContributor = new SolutionCommandsContributor(solutionCommands)
+                this.handles.push(registry.RegisterInstance(commandsContributor, commandsContributor.Actions))
+            }
             // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
             // registry + storage provider + package store (absent in headless/unit contexts): only
             // wire the graph contributor when all three resolve, mirroring the undefined-safe spirit.
@@ -312,7 +323,9 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
                 const contributePicker = dialogs === undefined || account === undefined || graphs === undefined ? undefined : new ContributeTargetDialog(account, graphs, dialogs)
                 const contributeGraph = new ContributeToGraphContributor(solution, graphBuilder, this.provider.get(BackgroundWorkService.Key), graphs, dialogs, contributePicker)
                 this.handles.push(registry.RegisterInstance(contributeGraph, contributeGraph.Actions))
-                const uploadToEnvironment = new UploadToEnvironmentContributor(solution, new SolutionTreeEnumerator(), graphBuilder, this.provider.get(BackgroundWorkService.Key), this.provider.get(UploadContributorKey), dialogs, contributePicker)
+                const uploadManager = this.provider.getRequired(SolutionManagerService.Key)
+                const uploadPrompts = this.provider.get(SolutionManagerService.PromptServiceKey)
+                const uploadToEnvironment = new UploadToEnvironmentContributor(solution, new SolutionTreeEnumerator(), graphBuilder, this.provider.get(BackgroundWorkService.Key), this.provider.get(UploadContributorKey), dialogs, contributePicker, uploadManager, uploadPrompts)
                 this.handles.push(registry.RegisterInstance(uploadToEnvironment, uploadToEnvironment.Actions))
             }
         }

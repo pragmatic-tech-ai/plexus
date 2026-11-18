@@ -18,9 +18,11 @@
 // comes from TodlProjectSystemModule; SolutionManagerService.Key from
 // SolutionServicesEngine — both already in .modules:.
 import { ShellModule } from "@pragmatic-tech-ai/mural/framework/shell/module.js";
-import { type IServiceContainer } from "@pragmatic-tech-ai/mural/runtime";
+import { type IServiceContainer, type IServiceProvider } from "@pragmatic-tech-ai/mural/runtime";
+import { DialogService } from "@pragmatic-tech-ai/mural/framework";
 import { SolutionManagerService } from "@pragmatic-tech-ai/todl";
-import { SolutionSeams } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams";
+import { SolutionSeams, DialogPromptService, DesktopPromptService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams";
+import { FileSystemService } from "@pragmatic-tech-ai/plexus-core/renderer/modules/storage";
 import { DurableStoreRegistration } from "@pragmatic-tech-ai/plexus-core/renderer/modules/bags";
 import { RendererPackageSource } from "../projects/renderer-package-source.js";
 
@@ -45,9 +47,15 @@ class SolutionSeamsHost extends ShellModule
 
     public override RegisterServices(container: IServiceContainer): void
     {
-        // Generic engine host seams (PromptServiceKey over DialogService,
-        // StorageRegistryKey over StorageService) — alias already-composed singletons.
-        SolutionSeams.Register(container);
+        // Engine host seams (PromptServiceKey, StorageRegistryKey over StorageService) —
+        // alias already-composed singletons. The desktop host supplies DesktopPromptService
+        // (native folder/file pickers over FileSystemService) as the prompt, so the engine's
+        // Save-untitled / Save-As folder pick reaches a real OS dialog.
+        SolutionSeams.Register(
+            container,
+            (p: IServiceProvider) => new DesktopPromptService(
+                new DialogPromptService(p.getRequired(DialogService.Key)),
+                p.getRequired(FileSystemService.Key)));
         // Durable application store + global bag persister (the manager ctor registers
         // its recent/last-solution session bag with DurableApplicationStoreKey).
         DurableStoreRegistration.Register(container);
