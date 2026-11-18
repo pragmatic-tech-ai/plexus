@@ -26,6 +26,7 @@ export interface UploadContribution
 export class UploadService
 {
     private static readonly BytesEncoding = 'base64'
+    private static readonly BothContent = 'Upload entry has both text and bytes: '
     private static readonly NoContent = 'Upload entry has neither text nor bytes: '
 
     public constructor(private readonly relay: IRelayConnector)
@@ -34,6 +35,7 @@ export class UploadService
 
     public async Upload(target: TargetRef, solutionName: string, tree: readonly UploadEntry[], contribution?: UploadContribution): Promise<void>
     {
+        for (const entry of tree) UploadService.Validate(entry)
         const client = await this.relay.Connect(target, RelayAction.Develop)
         try
         {
@@ -56,11 +58,17 @@ export class UploadService
         }
     }
 
+    // Exactly one of Text / BytesBase64 must be set; checked before any connection or write.
+    private static Validate(entry: UploadEntry): void
+    {
+        if (entry.Text !== undefined && entry.BytesBase64 !== undefined) throw new Error(UploadService.BothContent + entry.Path)
+        if (entry.Text === undefined && entry.BytesBase64 === undefined) throw new Error(UploadService.NoContent + entry.Path)
+    }
+
     private static async Write(session: DevelopSession, entry: UploadEntry): Promise<void>
     {
         if (entry.Text !== undefined) await session.WriteText(entry.Path, entry.Text)
-        else if (entry.BytesBase64 !== undefined) await session.WriteBytes(entry.Path, new Uint8Array(Buffer.from(entry.BytesBase64, UploadService.BytesEncoding)))
-        else throw new Error(UploadService.NoContent + entry.Path)
+        else await session.WriteBytes(entry.Path, new Uint8Array(Buffer.from(entry.BytesBase64 as string, UploadService.BytesEncoding)))
     }
 
     // A failing close must not hide the upload's own outcome.

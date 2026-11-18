@@ -40,9 +40,12 @@ class FakeClient
         return { name: params.graphName, packages: [] }
     }
 
+    public FailClose = false
+
     public async DisposeAsync(): Promise<void>
     {
         this.Closed++
+        if (this.FailClose) throw new Error('close failed')
     }
 
     public CloseCode(): number | undefined
@@ -99,6 +102,42 @@ describe('UploadService', () =>
         await expect(new UploadService(new FakeRelay(client)).Upload(Target, 'Sol', Tree, Contribution)).rejects.toThrow()
         expect(client.Log).toEqual(['create:Sol', 'text:a.pksln:m', 'bytes:p/x.bin:1,2,3'])
         expect(client.Closed).toBe(1)
+    })
+
+    it('rejects when ContributeGraph fails after the writes, and still closes', async () =>
+    {
+        const client = new FakeClient('contribute:g')
+        await expect(new UploadService(new FakeRelay(client)).Upload(Target, 'Sol', Tree, Contribution)).rejects.toThrow()
+        expect(client.Log).toHaveLength(5)
+        expect(client.Closed).toBe(1)
+    })
+
+    it('rejects an entry with neither text nor bytes', async () =>
+    {
+        const client = new FakeClient()
+        await expect(new UploadService(new FakeRelay(client)).Upload(Target, 'Sol', [{ Path: 'e' }])).rejects.toThrow('neither')
+        expect(client.Log).toEqual([])
+        expect(client.Closed).toBe(0)
+    })
+
+    it('rejects an entry with both text and bytes without writing it', async () =>
+    {
+        const client = new FakeClient()
+        await expect(new UploadService(new FakeRelay(client)).Upload(Target, 'Sol', [{ Path: 'e', Text: 't', BytesBase64: 'AQID' }])).rejects.toThrow('both')
+        expect(client.Log).toEqual([])
+        expect(client.Closed).toBe(0)
+    })
+
+    it('closes once, and a throwing close does not change the outcome', async () =>
+    {
+        const ok = new FakeClient()
+        ok.FailClose = true
+        await expect(new UploadService(new FakeRelay(ok)).Upload(Target, 'Sol', Tree)).resolves.toBeUndefined()
+        expect(ok.Closed).toBe(1)
+        const failing = new FakeClient('text:a.pksln:m')
+        failing.FailClose = true
+        await expect(new UploadService(new FakeRelay(failing)).Upload(Target, 'Sol', Tree)).rejects.toThrow()
+        expect(failing.Closed).toBe(1)
     })
 
     it('does not write when CreateSolution fails', async () =>
