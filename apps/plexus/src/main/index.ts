@@ -56,6 +56,14 @@ import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-
 // renderer's theme hook re-tints on the first paint and every scheme swap.
 const INITIAL_OVERLAY = { color: '#1c1b1f', symbolColor: '#cac4d0' }
 
+// Renderer probe scripts the window 'close' handler runs via executeJavaScript: each
+// calls a global the renderer installs (confirm unsaved docs; flush chats; flush the
+// durable store) when present, else resolves a safe default. Hoisted here so the one
+// home for each probe string can't drift from the global name it checks.
+const CONFIRM_CLOSE_DOCS_PROBE = 'window.__confirmCloseDocs ? window.__confirmCloseDocs() : true'
+const FLUSH_CHATS_PROBE = 'window.__flushChats ? window.__flushChats() : null'
+const FLUSH_DURABLE_PROBE = 'window.__flushDurable ? window.__flushDurable() : null'
+
 // Dev only: disable the renderer's HTTP cache. mural is served LIVE by Vite as
 // a pre-bundle-excluded dep (see electron.vite.config.ts), but Chromium caches
 // those dep modules by their immutable `?v=<hash>` URL — and that hash is tied
@@ -119,7 +127,7 @@ function createWindow(): void
     // thrown/rejected confirm biases to NOT closing (safer than losing work).
     const proceed = (): void => { flushed = true; if (!mainWindow.isDestroyed()) mainWindow.close() }
     const confirm = mainWindow.webContents
-      .executeJavaScript('window.__confirmCloseDocs ? window.__confirmCloseDocs() : true')
+      .executeJavaScript(CONFIRM_CLOSE_DOCS_PROBE)
       .catch(() => false)
     void confirm.then((ok) => {
       if (ok === false) return
@@ -127,10 +135,10 @@ function createWindow(): void
       // recents) to disk, bounded so a hung/absent renderer never blocks quit, and close
       // for real.
       const flushChats = mainWindow.webContents
-        .executeJavaScript('window.__flushChats ? window.__flushChats() : null')
+        .executeJavaScript(FLUSH_CHATS_PROBE)
         .catch(() => undefined)
       const flushDurable = mainWindow.webContents
-        .executeJavaScript('window.__flushDurable ? window.__flushDurable() : null')
+        .executeJavaScript(FLUSH_DURABLE_PROBE)
         .catch(() => undefined)
       const flush = Promise.all([flushChats, flushDurable])
       const timeout = new Promise((resolve) => setTimeout(resolve, 2000))
