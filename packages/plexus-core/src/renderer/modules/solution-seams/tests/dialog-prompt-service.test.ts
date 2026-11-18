@@ -8,11 +8,11 @@ import { DialogPromptService } from "../dialog-prompt-service.js";
 // closes (confirm / cancel / scrim dismiss).
 class ScriptedDialogs
 {
-  public shown: { Title?: string; Actions?: { Label?: string }[] } | undefined;
-  constructor(private readonly resolved: boolean | undefined) {}
+  public shown: { Title?: string; Content?: unknown; Actions?: { Label?: string }[] } | undefined;
+  constructor(private readonly resolved: unknown) {}
   Show<T>(options: unknown): Promise<T | undefined>
   {
-    this.shown = options as { Title?: string; Actions?: { Label?: string }[] };
+    this.shown = options as { Title?: string; Content?: unknown; Actions?: { Label?: string }[] };
     return Promise.resolve(this.resolved as T);
   }
   Close(): void {}
@@ -50,5 +50,26 @@ describe("DialogPromptService", () => {
   it("throws for an ask it has no handler for (e.g. a folder pick)", async () => {
     const { svc } = service(true);
     await expect(svc.Ask(new PickFolderAsk("Pick a folder"))).rejects.toThrow(/no handler/);
+  });
+
+  it("resolves PromptText to the typed text the dialog confirms", async () => {
+    const dialogs = new ScriptedDialogs("My Solution");
+    const svc = new DialogPromptService(dialogs as unknown as DialogService);
+    expect(await svc.PromptText("Solution name", "Default Solution")).toBe("My Solution");
+  });
+
+  it("resolves PromptText to undefined when the dialog is cancelled", async () => {
+    const dialogs = new ScriptedDialogs(undefined);
+    const svc = new DialogPromptService(dialogs as unknown as DialogService);
+    expect(await svc.PromptText("Solution name", "Default Solution")).toBeUndefined();
+  });
+
+  it("seeds the PromptText dialog with the label as title and the initial text", async () => {
+    const dialogs = new ScriptedDialogs("x");
+    const svc = new DialogPromptService(dialogs as unknown as DialogService);
+    await svc.PromptText("Solution name", "Default Solution");
+    expect(dialogs.shown?.Title).toBe("Solution name");
+    expect((dialogs.shown?.Content as { Text?: string })?.Text).toBe("Default Solution");
+    expect(dialogs.shown?.Actions?.map((a) => a.Label)).toEqual(["Cancel", "OK"]);
   });
 });
