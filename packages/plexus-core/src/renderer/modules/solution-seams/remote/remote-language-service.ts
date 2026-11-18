@@ -29,19 +29,46 @@ export interface IRemoteMemberIds
     MemberIdOf(storage: IStorage): string | undefined
 }
 
+// The trace seam for conditions the service must not swallow silently (a dropped edge, a failed
+// sync). Optional: absent, nothing is logged (failures still surface via the signals).
+export interface IRemoteLanguageLog
+{
+    Debug(message: string): void
+    Warn(message: string): void
+}
+
+// A DidChange send the session rejected: the edit did not reach the environment.
+export interface DidChangeFailure
+{
+    readonly Uri: string
+    readonly Error: unknown
+}
+
 // A renderer-side ILanguageService driving a dev environment's shared language service over the held
 // develop session. LSP features, DidChange, ModelView and Resources go over the wire; the pushes
 // re-surface as engine signals; the IBaseResolver face and StaleMembers are local.
 export class RemoteLanguageService implements ILanguageService, IDisposable
 {
     private static readonly UnknownTier = 'unknown model tier: '
+    private static readonly DroppedEdgeKind = 'model view: dropped edge with unknown kind '
+    private static readonly DroppedEdgeTarget = 'model view: dropped edge to absent target '
+    private static readonly EdgeFrom = ' from '
+    private static readonly BuildSyncFailed = 'build-state sync failed: '
+    private static readonly DidChangeFailedMessage = 'didChange not delivered for '
+    private static readonly ErrorSeparator = ': '
 
     public readonly GraphChanged: Signal<GraphChange> = new Signal<GraphChange>()
     public readonly BuildStateChanged = new Signal<GraphBuildState>()
     // Raised for every diagnostics push, after the per-uri cache is updated.
     public readonly DiagnosticsPublished = new Signal<PublishDiagnosticsParams>()
+    // Raised when a DidChange send is rejected, so the editor can observe that an edit was lost.
+    public readonly DidChangeFailed: Signal<DidChangeFailure> = new Signal<DidChangeFailure>()
 
+    // Seeded by SyncBuildState (the session's ActiveSolution summary) right after subscribing, because a
+    // push that predates the subscription is never replayed; Building until that answers. A push that
+    // arrives first wins (pushSeen), so a slower sync never overwrites a newer state.
     private buildState = GraphBuildState.Building
+    private pushSeen = false
     private graphRevision = 0
     private readonly diagnostics = new Map<string, Diagnostic[]>()
     private readonly pending = new Set<Promise<void>>()
@@ -51,6 +78,7 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
         private readonly session: IRemoteLanguageSession,
         private readonly local: ILocalBaseResolution,
         private readonly members: IRemoteMemberIds,
+        private readonly log?: IRemoteLanguageLog,
     )
     {
         this.subscriptions.push(
@@ -61,17 +89,40 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
             }),
             session.OnBuildStateChanged(payload =>
             {
-                const next = RemoteLanguageService.BuildStateOf(payload.buildState)
-                if (next === undefined || next === this.buildState) return
-                this.buildState = next
-                this.BuildStateChanged.emit(next)
+                this.pushSeen = true
+                this.Apply(RemoteLanguageService.BuildStateOf(payload.buildState))
             }),
             session.OnDiagnostics(params =>
             {
+                // Ordering note: a pull (DiagnosticsFor) landing after a newer push overwrites the cache; benign,
+                // the pull is authoritative.
                 this.diagnostics.set(params.uri, params.diagnostics as unknown as Diagnostic[])
                 this.DiagnosticsPublished.emit(params)
             }),
         )
+        void this.SyncBuildState()
+    }
+
+    // Reads the session's current build state (ActiveSolution) and adopts it unless a push already
+    // did. Called once at construction; callable again to resync after a reconnect.
+    public async SyncBuildState(): Promise<void>
+    {
+        try
+        {
+            const active = await this.session.ActiveSolution()
+            if (active !== null && !this.pushSeen) this.Apply(RemoteLanguageService.BuildStateOf(active.buildState))
+        }
+        catch (error)
+        {
+            this.log?.Warn(RemoteLanguageService.BuildSyncFailed + String(error))
+        }
+    }
+
+    private Apply(next: GraphBuildState | undefined): void
+    {
+        if (next === undefined || next === this.buildState) return
+        this.buildState = next
+        this.BuildStateChanged.emit(next)
     }
 
     // The wire build-state string is the engine enum's value; anything else is ignored. Resolved
@@ -180,6 +231,7 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
     public async DiagnosticsFor(uri: string): Promise<Diagnostic[]>
     {
         const result = await this.Lsp.DiagnosticsFor(uri)
+        // Ordering: this pull may overwrite a newer push that landed meanwhile; benign, the pull is authoritative.
         this.diagnostics.set(uri, result)
         return result
     }
@@ -188,7 +240,11 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
     // WhenIdle can settle it.
     public DidChange(uri: string, text: string): void
     {
-        const send: Promise<void> = this.session.DidChange(uri, text).then(() => undefined, () => undefined)
+        const send: Promise<void> = this.session.DidChange(uri, text).then(() => undefined, (error: unknown) =>
+        {
+            this.log?.Warn(RemoteLanguageService.DidChangeFailedMessage + uri + RemoteLanguageService.ErrorSeparator + String(error))
+            this.DidChangeFailed.emit({ Uri: uri, Error: error })
+        })
         this.pending.add(send)
         void send.then(() => this.pending.delete(send))
     }
@@ -217,7 +273,7 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
             cursor = page.nextCursor
         }
         while (cursor !== undefined)
-        return { model: RemoteLanguageService.Materialize(items), originOf: new Map(), provenanceOf }
+        return { model: this.Materialize(items), originOf: new Map(), provenanceOf }
     }
 
     public async Resources(nodeId: string): ReturnType<ILanguageService['Resources']>
@@ -229,7 +285,7 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
     // DTO -> engine. The wire member is a projection (kind folds metaKind/type; fields, class and
     // canonicalId are not carried), so: an Instance-tier kind is the node's type, any other tier's
     // kind is its metaKind. Edges to nodes absent from the view are dropped.
-    private static Materialize(items: readonly ModelMemberDto[]): Repository
+    private Materialize(items: readonly ModelMemberDto[]): Repository
     {
         const graph = new Graph()
         for (const dto of items) graph.addNode(RemoteLanguageService.NodeOf(dto))
@@ -238,7 +294,16 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
             for (const edge of dto.edges)
             {
                 const kind = EdgeKind[edge.kind as keyof typeof EdgeKind]
-                if (kind === undefined || !graph.hasNode(edge.to)) continue
+                if (kind === undefined)
+                {
+                    this.log?.Debug(RemoteLanguageService.DroppedEdgeKind + edge.kind + RemoteLanguageService.EdgeFrom + dto.id)
+                    continue
+                }
+                if (!graph.hasNode(edge.to))
+                {
+                    this.log?.Debug(RemoteLanguageService.DroppedEdgeTarget + edge.to + RemoteLanguageService.EdgeFrom + dto.id)
+                    continue
+                }
                 const materialized: Edge = { kind, via: edge.via, from: dto.id, to: edge.to }
                 graph.addEdge(materialized)
             }
@@ -304,6 +369,8 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
         this.local.Invalidate(memberId)
     }
 
+    // Local resolver channels only (StaleMembers). BuildState and GraphRevision are announced through
+    // BuildStateChanged / GraphChanged, not here; no consumer observes them via PropertyChanged.
     public PropertyChanged(name: string): Signal<PropertyChangedEventArgs>
     {
         return this.local.PropertyChanged(name)

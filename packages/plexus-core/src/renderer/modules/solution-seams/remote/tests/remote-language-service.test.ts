@@ -28,7 +28,7 @@ class Harness
             DocumentSymbols: echo('DocumentSymbols'), FoldingRanges: echo('FoldingRanges'), WorkspaceSymbols: echo('WorkspaceSymbols'),
             SemanticTokens: echo('SemanticTokens'), SignatureHelpAt: echo('SignatureHelpAt'), CodeActions: echo('CodeActions'),
             FormatDocument: echo('FormatDocument'), DiagnosticsFor: vi.fn(async () => [{ message: 'pulled' }]),
-            DidChange: vi.fn(async () => undefined), ModelView: vi.fn(), Resources: vi.fn(),
+            DidChange: vi.fn(async () => undefined), ActiveSolution: vi.fn(async () => null), ModelView: vi.fn(), Resources: vi.fn(),
             OnGraphChanged: vi.fn((h) => { this.graphHandler = h; return () => undefined }),
             OnBuildStateChanged: vi.fn((h) => { this.buildHandler = h; return () => undefined }),
             OnDiagnostics: vi.fn((h) => { this.diagHandler = h; return () => undefined }),
@@ -96,6 +96,38 @@ describe('RemoteLanguageService', () =>
         h.Service.DidChange(Harness.Uri, 'text')
         expect(h.Session.DidChange).toHaveBeenCalledWith(Harness.Uri, 'text')
         await h.Service.WhenIdle()
+    })
+
+    it('a rejected DidChange raises DidChangeFailed instead of vanishing', async () =>
+    {
+        const h = new Harness()
+        h.Session.DidChange.mockRejectedValueOnce(new Error('dead'))
+        const failures: string[] = []
+        h.Service.DidChangeFailed.subscribe(f => failures.push(f.Uri))
+        h.Service.DidChange(Harness.Uri, 'x')
+        await h.Service.WhenIdle()
+        expect(failures).toEqual([Harness.Uri])
+    })
+
+    it('seeds BuildState from the session ActiveSolution, unless a push already arrived', async () =>
+    {
+        const h = new Harness()
+        h.Session.ActiveSolution.mockResolvedValue({ name: 'n', members: [], buildState: 'ready' })
+        await h.Service.SyncBuildState()
+        expect(h.Service.BuildState).toBe(GraphBuildState.Ready)
+        h.buildHandler!({ buildState: 'failed' })
+        await h.Service.SyncBuildState()
+        expect(h.Service.BuildState).toBe(GraphBuildState.Failed)
+    })
+
+    it('traces dropped edges through the log', async () =>
+    {
+        const h = new Harness()
+        const debug = vi.fn()
+        const service = new RemoteLanguageService(h.Session as unknown as IRemoteLanguageSession, h.Local as unknown as ILocalBaseResolution, { MemberIdOf: () => 'm' }, { Debug: debug, Warn: vi.fn() })
+        h.Session.ModelView.mockResolvedValue({ items: [{ id: 'a', kind: 'k', localId: 'a', namespace: '', tier: 'Instance', isClass: false, attrs: {}, edges: [{ kind: 'Nope', via: null, to: 'a' }, { kind: 'Relationship', via: null, to: 'gone' }] }], provenanceOf: {} })
+        await service.ModelView(h.Storage)
+        expect(debug).toHaveBeenCalledTimes(2)
     })
 
     it('an OnGraphChanged push fires GraphChanged and bumps GraphRevision', () =>
