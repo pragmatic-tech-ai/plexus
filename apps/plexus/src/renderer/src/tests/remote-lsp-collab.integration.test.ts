@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import type { Position } from 'vscode-languageserver-types'
 import type { PublishDiagnosticsParams, StorageChangedPayload } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { RemoteLanguageService, type IRemoteLanguageSession, type ILocalBaseResolution, type IRemoteMemberIds } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams/remote/remote-language-service.js'
 import { RemoteFileStorage } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage/remote-file-storage.js'
@@ -22,7 +23,7 @@ class Fixture
     public static readonly ServerText = 'entity A; entity B;'
     public static readonly LocalText = 'entity A;'
     public static readonly DirtyText = 'entity A; local edit'
-    public static readonly Position = { line: 3, character: 7 }
+    public static readonly Position: Position = { line: 3, character: 7 }
     public static readonly CompletionsMethod = 'CompletionsAt'
     public static readonly DiagnosticsMethod = 'DiagnosticsFor'
     public static readonly ChangedKind = 'changed'
@@ -83,9 +84,17 @@ class FakeDoc implements ITrackedDocument
     public Reloads = 0
     public Marker = false
     public ServerText = Fixture.ServerText
+    // The in-flight ApplyIncoming, so tests await it deterministically instead of a timer.
+    public LastApply: Promise<IncomingApplyResult> | undefined
     private saved = Fixture.LocalText
 
-    public async ApplyIncoming(): Promise<IncomingApplyResult>
+    public ApplyIncoming(): Promise<IncomingApplyResult>
+    {
+        this.LastApply = this.Apply()
+        return this.LastApply
+    }
+
+    private async Apply(): Promise<IncomingApplyResult>
     {
         await Promise.resolve()
         if (this.ServerText === this.saved) return IncomingApplyResult.Unchanged
@@ -123,7 +132,13 @@ class Rig
         this.Coordinator.Track(this.Storage, Fixture.Path, this.Doc)
     }
 
-    public static Settle(): Promise<void> { return new Promise(resolve => setTimeout(resolve, 0)) }
+    // Awaits the doc's in-flight ApplyIncoming, then one microtask so the coordinator's continuation
+    // (registered before ours) has run. No timers.
+    public async Settle(): Promise<void>
+    {
+        await this.Doc.LastApply
+        await Promise.resolve()
+    }
 }
 
 describe('remote LSP over the dev session', () =>
@@ -131,7 +146,7 @@ describe('remote LSP over the dev session', () =>
     it('forwards CompletionsAt params to the session and returns its result', async () =>
     {
         const rig = new Rig()
-        const result = await rig.Language.CompletionsAt(Fixture.Uri, Fixture.Position as never)
+        const result = await rig.Language.CompletionsAt(Fixture.Uri, Fixture.Position)
         expect(rig.Session.Calls).toEqual([{ Method: Fixture.CompletionsMethod, Args: [Fixture.Uri, Fixture.Position] }])
         expect(result).toEqual([{ label: Fixture.CompletionLabel }])
     })
@@ -160,11 +175,14 @@ describe('remote LSP over the dev session', () =>
 
 describe('live collaboration: incoming storage/changed through the coordinator and guard', () =>
 {
-    it('a clean buffer reloads the server content and is not flagged', async () =>
+    // Scope: this proves the coordinator's flag / marker / event / LWW path. The buffer-write prevention
+    // itself (ApplyIncoming never overwriting a dirty buffer) is pinned by Task 10's CodeDocument test;
+    // FakeDoc only reports the decision.
+    it('a clean buffer (Applied) reloads the server content and the flag stays clear', async () =>
     {
         const rig = new Rig()
         rig.Session.PushStorageChanged(Fixture.Path)
-        await Rig.Settle()
+        await rig.Settle()
         expect(rig.Doc.Reloads).toBe(1)
         expect(rig.Doc.Content).toBe(Fixture.ServerText)
         expect(rig.Coordinator.IsChangedOnServer(Fixture.Path)).toBe(false)
@@ -177,7 +195,7 @@ describe('live collaboration: incoming storage/changed through the coordinator a
         rig.Doc.IsDirty = true
         rig.Doc.Content = Fixture.DirtyText
         rig.Session.PushStorageChanged(Fixture.Path)
-        await Rig.Settle()
+        await rig.Settle()
         expect(rig.Doc.Reloads).toBe(0)
         expect(rig.Doc.Content).toBe(Fixture.DirtyText)
         expect(rig.Coordinator.IsChangedOnServer(Fixture.Path)).toBe(true)
@@ -195,7 +213,7 @@ describe('live collaboration: incoming storage/changed through the coordinator a
     {
         const rig = new Rig()
         rig.Session.PushStorageChanged(Fixture.OtherPath)
-        await Rig.Settle()
+        await rig.Settle()
         expect(rig.Doc.Reloads).toBe(0)
     })
 })
