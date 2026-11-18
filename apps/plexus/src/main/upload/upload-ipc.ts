@@ -47,8 +47,7 @@ export class UploadIpc
         if (typeof raw.Path !== 'string' || raw.Path === '') throw new TypeError(UploadIpc.BadArguments)
         if (raw.Text !== undefined && typeof raw.Text !== 'string') throw new TypeError(UploadIpc.BadArguments)
         if (raw.BytesBase64 !== undefined && typeof raw.BytesBase64 !== 'string') throw new TypeError(UploadIpc.BadArguments)
-        UploadPathGuard.Clean(raw.Path)
-        const entry: UploadEntry = { Path: raw.Path }
+        const entry: UploadEntry = { Path: UploadPathGuard.Clean(raw.Path) }
         if (raw.Text !== undefined) entry.Text = raw.Text as string
         if (raw.BytesBase64 !== undefined) entry.BytesBase64 = raw.BytesBase64 as string
         return entry

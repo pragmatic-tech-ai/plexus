@@ -11,6 +11,7 @@ export class UploadPathGuard
     private static readonly Backslash = '\\'
     private static readonly ParentSegment = '..'
     private static readonly DriveMarker = ':'
+    private static readonly TrailingDotsSpaces = /[. ]+$/
     private static readonly UnsafePath = 'Refusing to upload an unsafe path: '
 
     // '' for the solution root itself, else 'member/path/'. Backslashes are treated as separators.
@@ -32,7 +33,14 @@ export class UploadPathGuard
     {
         if (UploadPathGuard.LeadingSeparator.test(path) || UploadPathGuard.ControlChars.test(path)) throw new Error(UploadPathGuard.UnsafePath + path)
         const parts = path.split(UploadPathGuard.SeparatorPattern).filter((s) => s !== '' && s !== UploadPathGuard.CurrentDir)
-        if (parts.some((s) => s === UploadPathGuard.ParentSegment || s.includes(UploadPathGuard.DriveMarker))) throw new Error(UploadPathGuard.UnsafePath + path)
+        if (parts.some((s) => UploadPathGuard.IsDotSegment(s) || s.includes(UploadPathGuard.DriveMarker))) throw new Error(UploadPathGuard.UnsafePath + path)
         return parts
+    }
+
+    // Win32 drops trailing dots and spaces, so '.. ', '...' and '. ' all resolve to a dot segment.
+    private static IsDotSegment(segment: string): boolean
+    {
+        const stripped = segment.replace(UploadPathGuard.TrailingDotsSpaces, '')
+        return stripped === '' || stripped === UploadPathGuard.CurrentDir || stripped === UploadPathGuard.ParentSegment
     }
 }

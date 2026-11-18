@@ -92,11 +92,18 @@ describe('UploadIpc', () =>
     it('refuses unsafe entry paths at the trust boundary before the service', async () =>
     {
         const h = new Harness()
-        for (const path of ['../x', 'a\\b', '/abs', 'C:/x', 'a\u0000b', 'a/../../x'])
+        for (const path of ['../x', 'a\\b', '/abs', 'C:/x', 'a\u0000b', 'a/../../x', '.. ', '...', 'a/.. /x'])
         {
             expect(await h.Invoke(Dev, 'S', [{ Path: path, Text: 't' }])).toEqual({ Ok: false, Error: { Message: expect.stringContaining('unsafe path') } })
         }
         expect(h.Service.Calls).toEqual([])
+    })
+
+    it('forwards the cleaned entry path', async () =>
+    {
+        const h = new Harness()
+        await h.Invoke(Dev, 'S', [{ Path: './a//b', Text: 't' }])
+        expect(h.Service.Calls).toEqual([[Dev, 'S', [{ Path: 'a/b', Text: 't' }], undefined]])
     })
 
     it('refuses malformed arguments before the service', async () =>

@@ -113,6 +113,16 @@ describe('SolutionTreeEnumerator', () =>
         }
     })
 
+    it('refuses dot segments hidden by trailing dots or spaces', async () =>
+    {
+        for (const uri of ['.. ', '...', 'a/.. /x'])
+        {
+            vi.spyOn(TodlProjectSourceFiles, 'Collect').mockResolvedValue([{ uri, text: 't' }] as any)
+            const solution = new FakeSolution('S', new FakeStorage(), [{ Ref: { path: 'a' }, Storage: new FakeStorage() }])
+            await expect(new SolutionTreeEnumerator().Enumerate(solution as any)).rejects.toThrow(/unsafe path/)
+        }
+    })
+
     it('refuses an empty solution rather than uploading nothing', async () =>
     {
         await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), []) as any)).rejects.toThrow(/no files to upload/)
