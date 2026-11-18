@@ -95,6 +95,13 @@ export class SolutionCommandsService extends ServiceBase
                 return
             }
             await this.manager.Rename(name)
+            if (solution.HasLocation)
+            {
+                // Persist the renamed manifest body now (the engine renamed the file; this rewrites
+                // its internal name immediately rather than waiting for the next auto-persist). An
+                // untitled solution is skipped so a rename never triggers the Save folder prompt.
+                await this.manager.Save()
+            }
         }
         catch (e)
         {

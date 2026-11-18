@@ -106,6 +106,21 @@ describe("SolutionCommandsService", () =>
     expect(manager.renamed).toBe("My Solution");
   });
 
+  it("Rename of an untitled solution does not persist (no save prompt)", async () =>
+  {
+    const { svc, manager } = build({ active, rename: "My Solution" });
+    await svc.Rename();
+    expect(manager.saved).toBe(0);
+  });
+
+  it("Rename of a rooted solution persists the new name to disk", async () =>
+  {
+    const { svc, manager } = build({ active: { Name: "Old", HasLocation: true }, rename: "New" });
+    await svc.Rename();
+    expect(manager.renamed).toBe("New");
+    expect(manager.saved).toBe(1);
+  });
+
   it("Rename does nothing when the prompt is cancelled", async () =>
   {
     const { svc, manager } = build({ active, rename: undefined });

@@ -11,10 +11,12 @@ class StubSolution
 class StubManager
 {
   public saved = 0;
+  public throwOnSave = false;
   public ActiveSolution: StubSolution | undefined;
   constructor(private readonly rooted?: StubSolution) {}
   Save(): Promise<void>
   {
+    if (this.throwOnSave) { return Promise.reject(new Error("disk full")); }
     this.saved++;
     if (this.rooted !== undefined) { this.ActiveSolution = this.rooted; }
     return Promise.resolve();
@@ -28,11 +30,20 @@ class StubPrompts
   Confirm(): Promise<boolean> { this.confirms++; return Promise.resolve(this.answer); }
 }
 
-function make(solution: StubSolution, manager?: StubManager, prompts?: StubPrompts): UploadToEnvironmentContributor
+class StubDialogs
+{
+  public shownTitle: string | undefined;
+  Show<T>(options: { Title?: string }): Promise<T | undefined> { this.shownTitle = options.Title; return Promise.resolve(undefined as T); }
+  Close(): void {}
+}
+
+function make(solution: StubSolution, manager?: StubManager, prompts?: StubPrompts, dialogs?: StubDialogs): UploadToEnvironmentContributor
 {
   return new UploadToEnvironmentContributor(
     solution as unknown as Solution,
-    undefined, undefined, undefined, undefined, undefined, undefined,
+    undefined, undefined, undefined, undefined,
+    dialogs as unknown as never,
+    undefined,
     manager as unknown as SolutionManagerService,
     prompts as unknown as IPromptService,
   );
@@ -83,5 +94,16 @@ describe("UploadToEnvironmentContributor.EnsureSaved", () =>
   {
     const unsaved = new StubSolution(false);
     expect(await make(unsaved).EnsureSaved()).toBe(unsaved);
+  });
+
+  it("surfaces a save failure in a dialog and aborts (does not throw)", async () =>
+  {
+    const unsaved = new StubSolution(false);
+    const manager = new StubManager();
+    manager.throwOnSave = true;
+    const dialogs = new StubDialogs();
+    const result = await make(unsaved, manager, new StubPrompts(true), dialogs).EnsureSaved();
+    expect(result).toBeUndefined();
+    expect(dialogs.shownTitle).toBeDefined();
   });
 });

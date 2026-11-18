@@ -120,7 +120,17 @@ export class UploadToEnvironmentContributor implements IHierarchyContributor
         if (this.manager === undefined || this.prompts === undefined) return this.solution
         const confirmed = await this.prompts.Confirm(UploadToEnvironmentContributor.SaveFirstMessage, UploadToEnvironmentContributor.SaveFirstLabel)
         if (!confirmed) return undefined
-        await this.manager.Save()
+        try
+        {
+            await this.manager.Save()
+        }
+        catch (e)
+        {
+            // A write failure (not a cancelled pick) surfaces like the upload's own failures,
+            // instead of escaping void upload() as an unhandled rejection.
+            this.surface(UploadToEnvironmentContributor.UploadFailedTitle, e)
+            return undefined
+        }
         const active = this.manager.ActiveSolution
         return active !== undefined && active.HasLocation ? active : undefined
     }
