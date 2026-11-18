@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { EdgeKind, GraphBuildState, Tier } from '@pragmatic-tech-ai/todl'
+import { Cardinality, EdgeKind, GraphBuildState, Tier, WikiOriginKind } from '@pragmatic-tech-ai/todl'
 import { RemoteLanguageService } from '../remote-language-service.js'
 import type { ILocalBaseResolution, IRemoteLanguageSession, IRemoteMemberIds } from '../remote-language-service.js'
 
@@ -9,6 +9,7 @@ class Harness
 {
     public static readonly Uri = 'file:///a.todl'
     public static readonly MemberId = 'member-a'
+    public static readonly OtherMemberId = 'member-b'
     public static readonly Pos = { line: 1, character: 2 }
 
     public graphHandler: ((c: { memberIds: string[]; fileIds: string[] }) => void) | undefined
@@ -17,6 +18,7 @@ class Harness
     public readonly Session: Record<string, ReturnType<typeof vi.fn>>
     public readonly Local: Record<string, ReturnType<typeof vi.fn>> & { StaleMembers: Set<string> }
     public readonly Storage = {} as IStorage
+    public readonly OtherStorage = {} as IStorage
     public readonly Service: RemoteLanguageService
 
     public constructor()
@@ -43,7 +45,7 @@ class Harness
             PropertyChanged: vi.fn(() => new Signal()),
             StaleMembers: new Set<string>(['m1']),
         } as never
-        const members: IRemoteMemberIds = { MemberIdOf: (s) => (s === this.Storage ? Harness.MemberId : undefined) }
+        const members: IRemoteMemberIds = { MemberIdOf: (s) => (s === this.Storage ? Harness.MemberId : undefined), StorageOfMember: (id) => (id === Harness.OtherMemberId ? this.OtherStorage : undefined) }
         this.Service = new RemoteLanguageService(this.Session as unknown as IRemoteLanguageSession, this.Local as unknown as ILocalBaseResolution, members)
     }
 }
@@ -133,7 +135,7 @@ describe('RemoteLanguageService', () =>
     {
         const h = new Harness()
         const debug = vi.fn()
-        const service = new RemoteLanguageService(h.Session as unknown as IRemoteLanguageSession, h.Local as unknown as ILocalBaseResolution, { MemberIdOf: () => 'm' }, { Debug: debug, Warn: vi.fn() })
+        const service = new RemoteLanguageService(h.Session as unknown as IRemoteLanguageSession, h.Local as unknown as ILocalBaseResolution, { MemberIdOf: () => 'm', StorageOfMember: () => undefined }, { Debug: debug, Warn: vi.fn() })
         h.Session.ModelView.mockResolvedValue({ items: [{ id: 'a', kind: 'k', localId: 'a', namespace: '', tier: 'Instance', isClass: false, attrs: {}, edges: [{ kind: 'Nope', via: null, to: 'a' }, { kind: 'Relationship', via: null, to: 'gone' }] }], provenanceOf: {} })
         await service.ModelView(h.Storage)
         expect(debug).toHaveBeenCalledTimes(2)
@@ -190,6 +192,37 @@ describe('RemoteLanguageService', () =>
         expect(bar.localId).toBeNull()
         expect(view!.model.outEdges('a.Foo')).toEqual([{ kind: EdgeKind.Relationship, via: 'owner', from: 'a.Foo', to: 'a.Bar' }])
         expect(view!.provenanceOf.get('a.Foo')).toBe('src')
+    })
+
+    it('ModelView materializes class/canonicalId/storageId/fields and rebuilds originOf so per-member slicing works', async () =>
+    {
+        const h = new Harness()
+        h.Session.ModelView.mockResolvedValueOnce({
+            items: [
+                { id: 'a.Foo', kind: 'a.Thing', localId: 'Foo', namespace: 'a', tier: 'Instance', isClass: false, attrs: {}, edges: [], class: 'a.Gold', canonicalId: 'a.Canon', storageId: 'sid' },
+                { id: 'a.Thing', kind: 'concept', localId: 'Thing', namespace: 'a', tier: 'Ontology', isClass: false, attrs: {}, edges: [], fields: [{ name: 'region', type: 'a.string', cardinality: 'Optional', secured: true }, { name: 'n', type: 'a.int', cardinality: 'Many' }] },
+            ],
+            provenanceOf: {},
+            originOf: {
+                'a.Foo': { kind: 'openProject', memberId: Harness.MemberId },
+                'a.Thing': { kind: 'openProject', memberId: Harness.OtherMemberId },
+                'a.Pkg': { kind: 'package', id: 'acme.pkg', version: '1.2.3' },
+                'a.Lost': { kind: 'openProject', memberId: 'unknown' },
+            },
+        })
+        const view = await h.Service.ModelView(h.Storage)
+        const foo = view!.model.resolve('a.Foo')!
+        expect(foo.class).toBe('a.Gold')
+        expect(foo.canonicalId).toBe('a.Canon')
+        expect(foo.storageId).toBe('sid')
+        expect(view!.model.resolve('a.Thing')!.fields).toEqual([
+            { name: 'region', type: 'a.string', cardinality: Cardinality.Optional, secured: true },
+            { name: 'n', type: 'a.int', cardinality: Cardinality.Many },
+        ])
+        expect(view!.originOf.get('a.Foo')).toEqual({ kind: WikiOriginKind.OpenProject, storage: h.Storage })
+        expect(view!.originOf.get('a.Thing')).toEqual({ kind: WikiOriginKind.OpenProject, storage: h.OtherStorage })
+        expect(view!.originOf.get('a.Pkg')).toEqual({ kind: WikiOriginKind.Package, id: 'acme.pkg', version: '1.2.3' })
+        expect(view!.originOf.has('a.Lost')).toBe(false)
     })
 
     it('ModelView is undefined for a storage that is not a known member, without hitting the wire', async () =>

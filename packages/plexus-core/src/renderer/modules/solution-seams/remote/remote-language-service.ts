@@ -1,8 +1,9 @@
 import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import type { IDisposable, IStorage, PropertyChangedEventArgs } from '@pragmatic-tech-ai/todl-runtime'
-import { EdgeKind, Graph, GraphBuildState, Repository, Tier } from '@pragmatic-tech-ai/todl'
+import { Cardinality, EdgeKind, Graph, GraphBuildState, Repository, Tier, WikiLocator } from '@pragmatic-tech-ai/todl'
 import type { Edge, IBaseResolver, ILanguageService, MetaKind, Node, WikiOrigin } from '@pragmatic-tech-ai/todl'
-import type { ModelMemberDto, PublishDiagnosticsParams } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { WikiOriginWire } from '@pragmatic-tech-ai/pragmatic-protocol'
+import type { FieldDeclDto, ModelMemberDto, PublishDiagnosticsParams, WikiOriginDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { Diagnostic } from 'vscode-languageserver-types'
 import type { DevSessionRequests, IDevSessionPushes } from '../../dev-session/dev-session-surface.js'
 import type { IDevStorageSession } from '../../storage/remote-file-storage.js'
@@ -27,6 +28,8 @@ export interface ILocalBaseResolution extends IBaseResolver
 export interface IRemoteMemberIds
 {
     MemberIdOf(storage: IStorage): string | undefined
+    // The reverse: the member's storage (an open-project origin on the wire names its member, the engine's names its storage).
+    StorageOfMember(memberId: string): IStorage | undefined
 }
 
 // The trace seam for conditions the service must not swallow silently (a dropped edge, a failed
@@ -50,6 +53,9 @@ export interface DidChangeFailure
 export class RemoteLanguageService implements ILanguageService, IDisposable
 {
     private static readonly UnknownTier = 'unknown model tier: '
+    private static readonly UnknownCardinality = 'unknown field cardinality: '
+    private static readonly DroppedOrigin = 'model view: dropped origin of '
+    private static readonly OriginReason = ' (no storage for its member, or unknown kind)'
     private static readonly DroppedEdgeKind = 'model view: dropped edge with unknown kind '
     private static readonly DroppedEdgeTarget = 'model view: dropped edge to absent target '
     private static readonly EdgeFrom = ' from '
@@ -260,23 +266,38 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
     // ---- remote: model view + resources ---------------------------------------------------------
 
     // Pages the member's model view off the wire and materializes it into an engine Repository.
-    // originOf is empty: the wire carries provenance (provenanceOf) but no storage-backed origins.
+    // originOf is rebuilt from the wire origins: an open-project origin resolves its member to a storage.
     public async ModelView(consumerStorage: IStorage): Promise<{ model: Repository; originOf: ReadonlyMap<string, WikiOrigin>; provenanceOf: ReadonlyMap<string, string> } | undefined>
     {
         const memberId = this.members.MemberIdOf(consumerStorage)
         if (memberId === undefined) return undefined
         const items: ModelMemberDto[] = []
         const provenanceOf = new Map<string, string>()
+        const originOf = new Map<string, WikiOrigin>()
         let cursor: string | undefined
         do
         {
             const page = await this.session.ModelView(memberId, cursor === undefined ? undefined : { cursor })
             items.push(...page.items)
             for (const [id, source] of Object.entries(page.provenanceOf)) provenanceOf.set(id, source)
+            for (const [id, dto] of Object.entries(page.originOf ?? {}))
+            {
+                const origin = this.OriginOf(dto, memberId, consumerStorage)
+                if (origin === undefined) this.log?.Debug(RemoteLanguageService.DroppedOrigin + id + RemoteLanguageService.OriginReason)
+                else originOf.set(id, origin)
+            }
             cursor = page.nextCursor
         }
         while (cursor !== undefined)
-        return { model: this.Materialize(items), originOf: new Map(), provenanceOf }
+        return { model: this.Materialize(items), originOf, provenanceOf }
+    }
+
+    private OriginOf(dto: WikiOriginDto, memberId: string, consumerStorage: IStorage): WikiOrigin | undefined
+    {
+        if (dto.kind === WikiOriginWire.Package && dto.id !== undefined && dto.version !== undefined) return WikiLocator.PackageOrigin(dto.id, dto.version)
+        if (dto.kind !== WikiOriginWire.OpenProject || dto.memberId === undefined) return undefined
+        const storage = dto.memberId === memberId ? consumerStorage : this.members.StorageOfMember(dto.memberId)
+        return storage === undefined ? undefined : WikiLocator.OpenProjectOrigin(storage)
     }
 
     public async Resources(nodeId: string): ReturnType<ILanguageService['Resources']>
@@ -285,9 +306,9 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
         return dtos.map(dto => ({ annotation: dto.annotation, path: dto.path, storage: new RemoteFileStorage(this.session, dto.storageRoot) }))
     }
 
-    // DTO -> engine. The wire member is a projection (kind folds metaKind/type; fields, class and
-    // canonicalId are not carried), so: an Instance-tier kind is the node's type, any other tier's
-    // kind is its metaKind. Edges to nodes absent from the view are dropped.
+    // DTO -> engine. The wire member folds metaKind/type into kind, so: an Instance-tier kind is the
+    // node's type, any other tier's kind is its metaKind. class, canonicalId, storageId and the field
+    // declarations ride the wire as is (absent = none). Edges to nodes absent from the view are dropped.
     private Materialize(items: readonly ModelMemberDto[]): Repository
     {
         const graph = new Graph()
@@ -332,12 +353,21 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
             namespace: dto.namespace === '' ? null : dto.namespace,
             localId: dto.localId === '' ? null : dto.localId,
             isClass: dto.isClass,
-            class: null,
-            storageId: null,
-            canonicalId: null,
-            fields: [],
+            class: dto.class ?? null,
+            storageId: dto.storageId ?? null,
+            canonicalId: dto.canonicalId ?? null,
+            fields: (dto.fields ?? []).map(field => RemoteLanguageService.FieldOf(field)),
             attrs,
         }
+    }
+
+    private static FieldOf(dto: FieldDeclDto): Node['fields'][number]
+    {
+        const cardinality = Cardinality[dto.cardinality as keyof typeof Cardinality]
+        if (cardinality === undefined) throw new Error(RemoteLanguageService.UnknownCardinality + dto.cardinality)
+        return dto.secured === true
+            ? { name: dto.name, type: dto.type, cardinality, secured: true }
+            : { name: dto.name, type: dto.type, cardinality }
     }
 
     // ---- local: base resolution (Ruling R-BASE) --------------------------------------------------

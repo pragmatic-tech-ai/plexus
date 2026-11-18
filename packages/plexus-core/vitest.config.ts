@@ -171,6 +171,8 @@ const todlShimPlugin: Plugin = {
             // Phase 4 RemoteLanguageService: materializes the wire model DTO into an engine Repository (graph.js,
             // model.js and kinds.js are pure model code) and maps the wire build state onto the engine enum.
             `export { Graph, Tier, EdgeKind } from ${p('compiler-services/model/graph.js')}`,
+            `export { Cardinality } from ${p('manifest/enums.js')}`,
+            `export { WikiLocator, WikiOriginKind } from ${p('solution-services/project-services/core/wiki-origin.js')}`,
             `export { Repository } from ${p('compiler-services/model/model.js')}`,
             `export { GraphBuildState } from ${p('solution-services/lsp/host/graph-build-state.js')}`,
         ].join('\n')
