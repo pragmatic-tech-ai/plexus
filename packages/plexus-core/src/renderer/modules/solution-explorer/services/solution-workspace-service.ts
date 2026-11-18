@@ -29,6 +29,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework'
 import {
     BuildService,
+    type IBuildService,
     MemberProjectOps,
     ProjectEventsKey,
     ProjectEventKind,
@@ -36,7 +37,7 @@ import {
     ProjectType,
     ProjectNodeKind,
     type IBaseResolver,
-    SolutionManagerService,
+    type IManager,
     UniqueName,
     VersionPart as EngineVersionPart,
     type BagVantage,
@@ -172,7 +173,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     }
 
     // ── collaborators (lazy) ────────────────────────────────────────────────
-    private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionServices.Key).Manager }
+    private get manager(): IManager { return this.Provider.getRequired(SolutionServices.Key).Manager }
     private get resolver(): IBaseResolver
     {
         return this.Provider.getRequired(SolutionServices.Key).Language
@@ -612,7 +613,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     }
 
     // ── publish helpers (ported from the retired ProjectExplorerService, member-keyed) ────
-    private PublishThroughWork(member: SolutionMember, build: BuildService): Promise<BuildPublishOutcome>
+    private PublishThroughWork(member: SolutionMember, build: IBuildService): Promise<BuildPublishOutcome>
     {
         const storage = member.Storage as IStorage
         const work = this.Provider.get(BackgroundWorkService.Key)

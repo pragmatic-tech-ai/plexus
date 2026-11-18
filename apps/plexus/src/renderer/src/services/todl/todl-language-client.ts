@@ -1,6 +1,6 @@
 import { ServiceBase, ServiceKey, type IDisposable, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { editorSemanticLegend } from './semantic-scopes.js'
-import { SolutionLanguageService, SemanticTokensProvider } from '@pragmatic-tech-ai/todl'
+import { SemanticTokensProvider, type ILanguageService, type IBaseResolver } from '@pragmatic-tech-ai/todl'
 import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { CodeDocument } from '../../modules/code-editor/code-document.js'
@@ -126,7 +126,7 @@ export class TodlLanguageClient extends ServiceBase
 
   // The in-process language service this adapter drives. Typed as the concrete
   // service so WhenIdle / PropertyChanged (beyond ILanguageService) are reachable.
-  private get service(): SolutionLanguageService
+  private get service(): ILanguageService & IBaseResolver
   {
     return this.Provider.getRequired(SolutionServices.Key).Language
   }

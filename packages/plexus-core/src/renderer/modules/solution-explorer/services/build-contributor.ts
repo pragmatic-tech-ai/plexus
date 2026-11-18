@@ -5,7 +5,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition, type CommandContext, type ICommandContributor } from '@pragmatic-tech-ai/mural/framework'
-import { BuildService, parseManifest, type BuildSystemRegistryKey, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { BuildService, type IBuildService, parseManifest, type BuildSystemRegistryKey, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
@@ -60,7 +60,7 @@ export class BuildContributor implements IHierarchyContributor
     public readonly Actions: readonly CommandDefinition[]
 
     constructor(
-        private readonly buildService: BuildService,
+        private readonly buildService: IBuildService,
         private readonly work: BackgroundWorkService | undefined,
         private readonly mutations: IContentMutations,
         // The flavor submenu contributor, warmed at context-menu open so the Build ▸ children are

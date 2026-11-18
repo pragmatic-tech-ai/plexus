@@ -1,5 +1,5 @@
 import type { TargetRef } from '../../../../shared/account-api.js'
-import { type Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { type Solution, type IManager } from '@pragmatic-tech-ai/todl'
 
 // Where an opened solution came from. Today every solution is opened from the
 // local file system (the only open path); when an open-from-dev-environment path
@@ -66,7 +66,7 @@ export class SolutionOrigins
     }
 
     // The origin label for whatever solution is active, or undefined when none is open.
-    public static ActiveLabel(manager: SolutionManagerService | undefined): string | undefined
+    public static ActiveLabel(manager: IManager | undefined): string | undefined
     {
         const solution = manager?.ActiveSolution
         return solution === undefined ? undefined : SolutionOrigins.Label(SolutionOrigins.Of(solution))

@@ -5,7 +5,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework/hierarchy'
 import { HierarchyContext } from '@pragmatic-tech-ai/mural/framework/hierarchy/hierarchy-context.js'
 import { CommandDefinition, type CommandContext } from '@pragmatic-tech-ai/mural/framework'
-import { BuildService, parseManifest, type SolutionMember } from '@pragmatic-tech-ai/todl'
+import { BuildService, type IBuildService, parseManifest, type SolutionMember } from '@pragmatic-tech-ai/todl'
 import type { IStorage, ILocalFileAccess } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { FileTreeContributor } from './file-tree-contributor.js'
@@ -52,7 +52,7 @@ export class PublishToEnvironmentContributor implements IHierarchyContributor
     public readonly Actions: readonly CommandDefinition[]
 
     constructor(
-        private readonly buildService: BuildService,
+        private readonly buildService: IBuildService,
         private readonly work: BackgroundWorkService | undefined,
         private readonly mutations: IContentMutations,
         private readonly publisher: IEnvironmentPublisher | undefined,
