@@ -15,5 +15,5 @@ export interface UploadContribution
 {
     GraphName: string;
     SolutionId: string;
-    Packages: ContributedPackage[];
+    Packages: readonly ContributedPackage[];
 }

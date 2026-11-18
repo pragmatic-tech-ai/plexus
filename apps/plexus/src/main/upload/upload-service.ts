@@ -1,23 +1,9 @@
-import type { ContributedPackageDto } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { UploadContribution, UploadEntry } from '@pragmatic-tech-ai/plexus-core/shared/upload-api.js'
 import { DevelopSession } from '../account/develop-session.js'
 import { RelayAction, RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
-// One enumerated file of the local solution: text, or bytes carried as base64 (exactly one is set).
-export interface UploadEntry
-{
-    Path: string
-    Text?: string
-    BytesBase64?: string
-}
-
-// The graph recompose that follows the writes; the renderer builds the packages.
-export interface UploadContribution
-{
-    GraphName: string
-    SolutionId: string
-    Packages: readonly ContributedPackageDto[]
-}
+export type { UploadContribution, UploadEntry }
 
 // Main-process upload: drives a develop session to a dev environment. Order is fixed: create the named
 // solution, write every enumerated entry through the session's serialized storage methods, then
