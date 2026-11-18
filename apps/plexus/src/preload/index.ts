@@ -190,6 +190,41 @@ const devSession: IDevSessionBridge = {
     ipcRenderer.on(DevSessionChannel.Changed, listener)
     return () => { ipcRenderer.removeListener(DevSessionChannel.Changed, listener) }
   },
+  OnGraphChanged: (cb): (() => void) => {
+    const listener = (_e: unknown, payload: Parameters<typeof cb>[0]): void => cb(payload)
+    ipcRenderer.on(DevSessionChannel.GraphChanged, listener)
+    return () => { ipcRenderer.removeListener(DevSessionChannel.GraphChanged, listener) }
+  },
+  OnBuildStateChanged: (cb): (() => void) => {
+    const listener = (_e: unknown, payload: Parameters<typeof cb>[0]): void => cb(payload)
+    ipcRenderer.on(DevSessionChannel.BuildStateChanged, listener)
+    return () => { ipcRenderer.removeListener(DevSessionChannel.BuildStateChanged, listener) }
+  },
+  OnDiagnostics: (cb): (() => void) => {
+    const listener = (_e: unknown, payload: Parameters<typeof cb>[0]): void => cb(payload)
+    ipcRenderer.on(DevSessionChannel.Diagnostics, listener)
+    return () => { ipcRenderer.removeListener(DevSessionChannel.Diagnostics, listener) }
+  },
+  SelectAuthoring: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.SelectAuthoring, ...args),
+  ListSolutions: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.ListSolutions, ...args),
+  ActiveSolution: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.ActiveSolution, ...args),
+  CompletionsAt: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.CompletionsAt, ...args),
+  HoverAt: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.HoverAt, ...args),
+  DefinitionAt: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.DefinitionAt, ...args),
+  ReferencesAt: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.ReferencesAt, ...args),
+  PrepareRename: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.PrepareRename, ...args),
+  RenameEdits: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.RenameEdits, ...args),
+  DocumentSymbols: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.DocumentSymbols, ...args),
+  FoldingRanges: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.FoldingRanges, ...args),
+  WorkspaceSymbols: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.WorkspaceSymbols, ...args),
+  SemanticTokens: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.SemanticTokens, ...args),
+  SignatureHelpAt: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.SignatureHelpAt, ...args),
+  CodeActions: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.CodeActions, ...args),
+  FormatDocument: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.FormatDocument, ...args),
+  DiagnosticsFor: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.DiagnosticsFor, ...args),
+  ModelView: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.ModelView, ...args),
+  Resources: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.Resources, ...args),
+  DidChange: (...args: unknown[]) => RelayBridge.Call(DevSessionChannel.DidChange, ...args),
 }
 const environments: IEnvironmentsBridge = {
   Contents: (target: TargetRef) => RelayBridge.Call(EnvironmentsChannel.Contents, target),

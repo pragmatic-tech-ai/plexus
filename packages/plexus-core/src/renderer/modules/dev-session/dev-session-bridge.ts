@@ -1,11 +1,13 @@
 import type { StorageEntry } from '@pragmatic-tech-ai/todl-runtime'
 import type { StorageChangedPayload } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { RelayReply, TargetRef } from '../../../shared/account-api.js'
+import type { DevSessionReplies, IDevSessionPushes } from './dev-session-surface.js'
 
 // What the preload exposes on window.api.devSession: each call resolves to its RelayReply envelope
 // (unwrap with RelayWire.Unwrap). Open binds the held develop session to a target; the storage verbs
-// then act on it. OnChanged subscribes to pushed storage changes and returns its disposer.
-export interface IDevSessionBridge
+// then act on it, as do the language / model / solution requests. OnChanged and the OnGraphChanged /
+// OnBuildStateChanged / OnDiagnostics pushes subscribe and return their disposer.
+export interface IDevSessionBridge extends DevSessionReplies, IDevSessionPushes
 {
     Open(target: TargetRef): Promise<RelayReply<void>>;
     Close(): Promise<RelayReply<void>>;

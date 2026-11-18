@@ -169,3 +169,118 @@ describe('DevelopSession', () =>
         expect(fake.Disposed).toBe(1)
     })
 })
+
+// Records every request and push the session forwards to the relay client.
+class RecordingClient
+{
+    public Calls: Array<[string, unknown[]]> = []
+    public Handlers = new Map<string, (p: unknown) => void>()
+    public Disposed: string[] = []
+
+    public constructor()
+    {
+        for (const [name] of RequestSamples.Requests) (this as any)[name] = (...args: unknown[]) => this.Record(name, args)
+        ;(this as any).SelectAuthoring = (...args: unknown[]) => this.Record('SelectAuthoring', args)
+        for (const name of ['OnGraphChanged', 'OnBuildStateChanged', 'OnDiagnostics'])
+        {
+            ;(this as any)[name] = (handler: (p: unknown) => void) =>
+            {
+                this.Handlers.set(name, handler)
+                return { dispose: () => { this.Disposed.push(name) } }
+            }
+        }
+    }
+
+    private Record(name: string, args: unknown[]): unknown
+    {
+        this.Calls.push([name, args])
+        return name === 'DidChange' ? undefined : Promise.resolve(`ret:${name}`)
+    }
+
+    public AsClient(): RelayClient
+    {
+        return this as unknown as RelayClient
+    }
+}
+
+class RequestSamples
+{
+    public static readonly Requests: ReadonlyArray<readonly [string, unknown[]]> = [
+        ['ListSolutions', []],
+        ['ActiveSolution', []],
+        ['CompletionsAt', ['u', { line: 1, character: 2 }]],
+        ['HoverAt', ['u', { line: 1, character: 2 }]],
+        ['DefinitionAt', ['u', { line: 1, character: 2 }]],
+        ['ReferencesAt', ['u', { line: 1, character: 2 }, true]],
+        ['PrepareRename', ['u', { line: 1, character: 2 }]],
+        ['RenameEdits', ['u', { line: 1, character: 2 }, 'n']],
+        ['DocumentSymbols', ['u']],
+        ['FoldingRanges', ['u']],
+        ['WorkspaceSymbols', ['q']],
+        ['SemanticTokens', ['u']],
+        ['SignatureHelpAt', ['u', { line: 1, character: 2 }]],
+        ['CodeActions', ['u', { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, [{ message: 'm' }]]],
+        ['FormatDocument', ['u']],
+        ['DiagnosticsFor', ['u']],
+        ['ModelView', ['member', { Limit: 5 }]],
+        ['Resources', ['node']],
+        ['DidChange', ['u', 'text']],
+    ]
+}
+
+describe('DevelopSession language / model / solution surface', () =>
+{
+    it.each(RequestSamples.Requests)('%s forwards its arguments to the relay client', async (name, args) =>
+    {
+        const client = new RecordingClient()
+        const session = new DevelopSession(client.AsClient())
+        const result = await (session as any)[name](...args)
+        expect(client.Calls).toEqual([[name, args]])
+        expect(result).toBe(name === 'DidChange' ? undefined : `ret:${name}`)
+    })
+
+    it('SelectAuthoring wraps the solution id as wire params', async () =>
+    {
+        const client = new RecordingClient()
+        await new DevelopSession(client.AsClient()).SelectAuthoring('s1')
+        expect(client.Calls).toEqual([['SelectAuthoring', [{ SolutionId: 's1' }]]])
+    })
+
+    it('language reads are not held behind a full storage queue', async () =>
+    {
+        const storage = new FakeClient() as any
+        const client = new RecordingClient() as any
+        client.StorageReadText = storage.StorageReadText.bind(storage)
+        const session = new DevelopSession(client as RelayClient)
+        const pending = Array.from({ length: 40 }, (_, i) => session.ReadText(`p${i}`))
+        await Ticks.Settle()
+        expect(storage.InFlight).toBe(DevelopSession.MaxInFlight)
+        expect(await session.HoverAt('u', { line: 0, character: 0 })).toBe('ret:HoverAt')
+        while (storage.Waiting > 0)
+        {
+            storage.ReleaseAll()
+            await Ticks.Settle()
+        }
+        await Promise.all(pending)
+        expect(storage.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
+    })
+
+    it('DidChange reaches the client in call order without waiting', async () =>
+    {
+        const client = new RecordingClient()
+        const session = new DevelopSession(client.AsClient())
+        await Promise.all([session.DidChange('u', 'a'), session.DidChange('u', 'b')])
+        expect(client.Calls.map(c => c[1][1])).toEqual(['a', 'b'])
+    })
+
+    it.each(['OnGraphChanged', 'OnBuildStateChanged', 'OnDiagnostics'])('%s delivers a server push and its disposer unsubscribes', (name) =>
+    {
+        const client = new RecordingClient()
+        const seen: unknown[] = []
+        const off = (new DevelopSession(client.AsClient()) as any)[name]((p: unknown) => seen.push(p))
+        client.Handlers.get(name)!({ x: 1 })
+        expect(seen).toEqual([{ x: 1 }])
+        off()
+        expect(client.Disposed).toEqual([name])
+    })
+})
