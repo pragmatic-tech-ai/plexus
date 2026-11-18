@@ -33,9 +33,9 @@ export class EnvironmentRunTestApi implements IRunTestApi
 
     public async Run(target: TargetRef, outputDir: string): Promise<RunTestResult>
     {
-        const result = await this.service.Run(target, outputDir)
         const session = await this.sessions.SessionFor(target.Source)
         if (session === undefined) throw new AccountError(target.Source === TargetSource.Platform ? AccountErrorKind.PlatformSignedOut : AccountErrorKind.SignedOut)
+        const result = await this.service.Run(target, outputDir)
         const address = new URL(session.ConsoleUrl)
         const path = RunTestUrl.PathOf(target.Name, result.appName)
         return {

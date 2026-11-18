@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import type { IpcMain } from 'electron'
 import type { AppDeployResultDto } from '@pragmatic-tech-ai/pragmatic-protocol'
-import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { AccountError, AccountErrorKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
 import { EnvironmentRunTestApi } from '../environment-run-test-api.js'
 import { RunTestIpc } from '../run-test-ipc.js'
@@ -46,6 +46,14 @@ describe('EnvironmentRunTestApi', () =>
         expect(run.Calls).toEqual([[Dev, '/p/build-remote']])
         expect(sessions.Asked).toEqual([TargetSource.Console])
         expect(result).toEqual({ Status: EnvironmentPublishStatus.Applied, Reason: undefined, AppName: 'orders', AppVersion: '1', AppUrl: 'https://console.acme.test/app/dev/orders/' })
+    })
+
+    it('fails signed-out before loading anything', async () =>
+    {
+        const run = new FakeRunTest()
+        const api = new EnvironmentRunTestApi(run as unknown as RunTestService, new FakeSessions(undefined) as any)
+        await expect(api.Run(Dev, '/p/build-remote')).rejects.toEqual(new AccountError(AccountErrorKind.SignedOut))
+        expect(run.Calls).toEqual([])
     })
 
     it('encodes the environment and app names in the URL path', async () =>

@@ -38,12 +38,22 @@ describe('RunTestTargetDialog', () =>
         expect(h.Dialog.Environments.map((e) => e.Name)).toEqual(['dev'])
     })
 
-    it('says when there are no development environments and remembers a Develop choice', async () =>
+    it('says when there are no development environments and remembers nothing', async () =>
     {
         const h = new Harness()
         h.Account.TargetList = { Contribute: [], Publish: [Harness.Env('runtime')] }
         await h.Open()
         expect(h.Dialog.Message).toBe('Your account has no development environments to run and test in.')
         expect(h.Account.Last[TargetKind.Develop]).toBeUndefined()
+    })
+
+    it('remembers the chosen Develop environment on confirm', async () =>
+    {
+        const h = new Harness()
+        h.Account.TargetList = { Contribute: [], Publish: [], Develop: [Harness.Env('dev')] }
+        await h.Open()
+        expect(h.Dialog.SelectedEnvironment?.Name).toBe('dev')
+        h.Dialog.ConfirmCommand.Execute()
+        expect(h.Account.Remembered).toEqual([[TargetKind.Develop, { Environment: 'dev', Source: TargetSource.Console }]])
     })
 })
