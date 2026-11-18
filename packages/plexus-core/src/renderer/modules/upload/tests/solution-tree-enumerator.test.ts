@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { TodlProjectSourceFiles } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { PROJECT_MANIFEST_FILENAME } from '../../../projects/project-factory.js'
 import { SolutionTreeEnumerator } from '../solution-tree-enumerator.js'
@@ -35,6 +36,11 @@ class Fixture
 
 describe('SolutionTreeEnumerator', () =>
 {
+    afterEach(() =>
+    {
+        vi.restoreAllMocks()
+    })
+
     it('walks the solution manifest, each member project.plexus and its .todl sources', async () =>
     {
         const tree = await new SolutionTreeEnumerator().Enumerate(await Fixture.Solution() as any)
@@ -72,6 +78,30 @@ describe('SolutionTreeEnumerator', () =>
         {
             await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), [{ Ref: { path }, Storage: a }]) as any)).rejects.toThrow(/unsafe path/)
         }
+    })
+
+    it('refuses unsafe file paths returned by the source collection', async () =>
+    {
+        const unsafe = ['sub/../../x.todl', 'sub\\x.todl', 'C:/x.todl', '/abs/x.todl']
+        for (const uri of unsafe)
+        {
+            vi.spyOn(TodlProjectSourceFiles, 'Collect').mockResolvedValue([{ uri, text: 't' }] as any)
+            const solution = new FakeSolution('S', new FakeStorage(), [{ Ref: { path: 'a' }, Storage: new FakeStorage() }])
+            await expect(new SolutionTreeEnumerator().Enumerate(solution as any)).rejects.toThrow(/unsafe path/)
+        }
+    })
+
+    it('refuses absolute and drive-letter member paths and drops dot segments from file paths', async () =>
+    {
+        const a = new FakeStorage()
+        await a.WriteText('main.todl', 'm')
+        for (const path of ['/abs/a', 'C:/a', 'libs/D:/a'])
+        {
+            await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), [{ Ref: { path }, Storage: a }]) as any)).rejects.toThrow(/unsafe path/)
+        }
+        vi.spyOn(TodlProjectSourceFiles, 'Collect').mockResolvedValue([{ uri: 'sub/./x.todl', text: 't' }] as any)
+        const tree = await new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), [{ Ref: { path: 'a' }, Storage: a }]) as any)
+        expect(tree.map((e) => e.Path)).toEqual(['a/sub/x.todl'])
     })
 
     it('refuses an empty solution rather than uploading nothing', async () =>

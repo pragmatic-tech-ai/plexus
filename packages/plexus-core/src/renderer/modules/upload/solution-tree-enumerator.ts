@@ -16,6 +16,7 @@ export class SolutionTreeEnumerator
     private static readonly BackslashSegments = /[\\/]+/
     private static readonly Backslash = '\\'
     private static readonly ParentSegment = '..'
+    private static readonly DriveMarker = ':'
     private static readonly UnsafePath = 'Refusing to upload an unsafe path: '
     private static readonly EmptyTree = 'The solution has no files to upload.'
     private static readonly NoStorage = 'The solution has not been saved to a folder, so there is nothing to upload.'
@@ -45,25 +46,28 @@ export class SolutionTreeEnumerator
         return tree
     }
 
-    // '' for the solution root itself, else 'member/path/'. A member path escaping the solution
-    // ('..') is refused; backslashes are treated as separators.
+    // '' for the solution root itself, else 'member/path/'. A member path that escapes the solution
+    // ('..'), is absolute or names a drive is refused; backslashes are treated as separators.
     private static Prefix(memberPath: string): string
     {
-        const parts = SolutionTreeEnumerator.Segments(memberPath, memberPath).filter((s) => s !== SolutionTreeEnumerator.CurrentDir)
+        const parts = SolutionTreeEnumerator.Segments(memberPath)
         return parts.length === 0 ? '' : parts.join(SolutionTreeEnumerator.Separator) + SolutionTreeEnumerator.Separator
     }
 
-    // A file path inside a member: POSIX segments, no '..', no backslash.
+    // A file path inside a member: POSIX segments only; same rules as Prefix, and no backslash at all.
     private static Clean(path: string): string
     {
         if (path.includes(SolutionTreeEnumerator.Backslash)) throw new Error(SolutionTreeEnumerator.UnsafePath + path)
-        return SolutionTreeEnumerator.Segments(path, path).join(SolutionTreeEnumerator.Separator)
+        return SolutionTreeEnumerator.Segments(path).join(SolutionTreeEnumerator.Separator)
     }
 
-    private static Segments(path: string, shown: string): string[]
+    // Splits on either separator, drops empty and '.' segments, and refuses a leading separator
+    // (absolute path), a '..' segment and any segment containing ':' (drive letter).
+    private static Segments(path: string): string[]
     {
-        const parts = path.split(SolutionTreeEnumerator.BackslashSegments).filter((s) => s !== '')
-        if (parts.includes(SolutionTreeEnumerator.ParentSegment)) throw new Error(SolutionTreeEnumerator.UnsafePath + shown)
+        if (/^[\/]/.test(path)) throw new Error(SolutionTreeEnumerator.UnsafePath + path)
+        const parts = path.split(SolutionTreeEnumerator.BackslashSegments).filter((s) => s !== '' && s !== SolutionTreeEnumerator.CurrentDir)
+        if (parts.some((s) => s === SolutionTreeEnumerator.ParentSegment || s.includes(SolutionTreeEnumerator.DriveMarker))) throw new Error(SolutionTreeEnumerator.UnsafePath + path)
         return parts
     }
 }
