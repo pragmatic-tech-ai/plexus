@@ -9,3 +9,4 @@ export { SolutionServices, type ISolutionServices } from './solution-services.js
 export { IntegratedSolutionServices } from './integrated-solution-services.js';
 export { RemoteSolutionServices } from './remote/remote-solution-services.js';
 export { SolutionMemberIds } from './remote/solution-member-ids.js';
+export { OriginSelectedSolutionServices } from './origin-selected-solution-services.js';
