@@ -26,6 +26,9 @@ import { registerPreviewServerIpc } from './preview-server/register-preview-serv
 import { BundleIpc } from './build/bundle-ipc.js'
 import { EnvironmentDeployService } from './environment-publish/environment-deploy-service.js'
 import { EnvironmentPublishIpc } from './environment-publish/environment-publish-ipc.js'
+import { RunTestService } from './environment-run-test/run-test-service.js'
+import { EnvironmentRunTestApi } from './environment-run-test/environment-run-test-api.js'
+import { RunTestIpc } from './environment-run-test/run-test-ipc.js'
 import { GraphContributeService } from './graph-contribute/graph-contribute-service.js'
 import { DevSessionHost } from './dev-session/dev-session-host.js'
 import { DevSessionIpc } from './dev-session/dev-session-ipc.js'
@@ -213,6 +216,7 @@ app.whenReady().then(async () => {
   // Nothing secret crosses to the renderer; the handlers answer sentences in a RelayReply envelope.
   const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
   EnvironmentPublishIpc.Register(ipcMain, new EnvironmentDeployService(relay))
+  RunTestIpc.Register(ipcMain, new EnvironmentRunTestApi(new RunTestService(relay), account))
   GraphContributeIpc.Register(ipcMain, new GraphContributeService(relay))
   EnvSolutionsIpc.Register(ipcMain, new EnvSolutionsService(relay))
   UploadIpc.Register(ipcMain, new UploadService(relay))

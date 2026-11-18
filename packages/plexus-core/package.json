@@ -49,6 +49,8 @@
     "./renderer/modules/account/*": "./dist/renderer/modules/account/*",
     "./renderer/modules/environment-publish": "./dist/renderer/modules/environment-publish/index.js",
     "./renderer/modules/environment-publish/*": "./dist/renderer/modules/environment-publish/*",
+    "./renderer/modules/environment-run-test": "./dist/renderer/modules/environment-run-test/index.js",
+    "./renderer/modules/environment-run-test/*": "./dist/renderer/modules/environment-run-test/*",
     "./renderer/modules/build/*": "./dist/renderer/modules/build/*",
     "./shared/*.js": "./dist/shared/*.js"
   },

@@ -13,6 +13,7 @@ import { McpClientChannel, type IMcpClientApi, type McpProbeResult, type McpServ
 import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-api.js'
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { EnvironmentPublishChannel, type IEnvironmentPublishBridge } from '../shared/environment-publish-api.js'
+import { RunTestChannel, type IRunTestBridge } from '../shared/run-test-api.js'
 import { DevSessionChannel, type IDevSessionBridge } from '../shared/dev-session-api.js'
 import { EnvSolutionsChannel, type IEnvSolutionsBridge } from '../shared/env-solutions-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
@@ -165,6 +166,9 @@ class RelayBridge
 const environmentPublish: IEnvironmentPublishBridge = {
   Deploy: (target: TargetRef, outputDir: string) => RelayBridge.Call(EnvironmentPublishChannel.Deploy, target, outputDir),
 }
+const runTest: IRunTestBridge = {
+  Run: (target: TargetRef, outputDir: string) => RelayBridge.Call(RunTestChannel.Run, target, outputDir),
+}
 const graphContribute: IGraphContributeBridge = {
   Contribute: (target: TargetRef, graphName: string, solutionId: string, packages: ContributedPackage[]) =>
     RelayBridge.Call(GraphContributeChannel.Contribute, target, graphName, solutionId, packages),
@@ -275,7 +279,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, envSolutions, upload, devSession, environments, account, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, runTest, graphContribute, envSolutions, upload, devSession, environments, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {

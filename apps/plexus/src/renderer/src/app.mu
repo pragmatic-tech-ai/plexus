@@ -126,6 +126,9 @@ import IpcPreviewServer from "./services/preview-server/ipc-preview-server.js"
 // Environment publish — the concrete IEnvironmentPublisher (plexus-core capability) over the
 // window.api.environmentPublish preload bridge. Registered under EnvironmentPublisherKey.
 import IpcEnvironmentPublisher from "./services/environment-publish/ipc-environment-publisher.js"
+// Environment run/test — the concrete IEnvironmentRunTester over the window.api.runTest preload bridge.
+// Registered under EnvironmentRunTesterKey.
+import IpcEnvironmentRunTester from "./services/environment-run-test/ipc-environment-run-tester.js"
 // Graph contribute — the concrete IGraphContributor (plexus-core capability) over the
 // window.api.graphContribute preload bridge. Registered under GraphContributorKey.
 import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contributor.js"
@@ -350,6 +353,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Environment publish over the preload bridge (EnvironmentPublisherKey): PublishToEnvironmentContributor's
         // Publish to environment command resolves it to upload the remote build via the main process.
         IpcEnvironmentPublisher
+        // Environment run/test over the preload bridge (EnvironmentRunTesterKey): RunTestContributor's
+        // Run/Test in environment command resolves it to load the remote build into the dev runtime.
+        IpcEnvironmentRunTester
         // Graph contribute over the preload bridge (GraphContributorKey): ContributeToGraphContributor
         // resolves it to contribute a built solution to a dev graph via the main process.
         IpcGraphContributor
