@@ -30,6 +30,7 @@ import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contrib
 import { HtmlAppContributor } from './html-app-contributor.js'
 import { PublishToEnvironmentContributor } from './publish-to-environment-contributor.js'
 import { RunTestContributor } from './run-test-contributor.js'
+import { RunTestTargetDialog } from './run-test-target-dialog.js'
 import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
 import { UploadToEnvironmentContributor } from './upload-to-environment-contributor.js'
@@ -295,7 +296,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const publishToEnvironment = new PublishToEnvironmentContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentPublisherKey), publishPicker)
             this.handles.push(registry.RegisterInstance(publishToEnvironment, publishToEnvironment.Actions))
             // Run/Test loads the same remote build into a dev environment's own runtime and opens the served app.
-            const runTest = new RunTestContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentRunTesterKey), publishPicker)
+            const runTestPicker = dialogs === undefined || account === undefined ? undefined : new RunTestTargetDialog(account, dialogs)
+            const runTest = new RunTestContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentRunTesterKey), runTestPicker)
             this.handles.push(registry.RegisterInstance(runTest, runTest.Actions))
             // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
             // registry + storage provider + package store (absent in headless/unit contexts): only

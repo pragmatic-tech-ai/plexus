@@ -1,6 +1,6 @@
 import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { AccountError, AccountErrorKind, TargetSource, UrlBase } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
+import { EnvironmentPublishStatus } from '@pragmatic-tech-ai/plexus-core/shared/environment-publish-api.js'
 import { RunTestUrl } from '@pragmatic-tech-ai/plexus-core/shared/run-test-api.js'
 import type { IRunTestApi, RunTestResult } from '../../shared/run-test-api.js'
 import type { IRelaySessionSource } from '../account/relay-connector.js'
@@ -16,6 +16,21 @@ export class EnvironmentRunTestApi implements IRunTestApi
     {
     }
 
+    // Each protocol AppWriteStatus wire value maps to its shared enum member by name; an unmapped value is a failure.
+    private static readonly Statuses: Readonly<Record<string, EnvironmentPublishStatus>> =
+    {
+        applied: EnvironmentPublishStatus.Applied,
+        conflict: EnvironmentPublishStatus.Conflict,
+        denied: EnvironmentPublishStatus.Denied,
+        invalid: EnvironmentPublishStatus.Invalid,
+        failed: EnvironmentPublishStatus.Failed,
+    }
+
+    private static StatusOf(status: string): EnvironmentPublishStatus
+    {
+        return EnvironmentRunTestApi.Statuses[status] ?? EnvironmentPublishStatus.Failed
+    }
+
     public async Run(target: TargetRef, outputDir: string): Promise<RunTestResult>
     {
         const result = await this.service.Run(target, outputDir)
@@ -24,7 +39,7 @@ export class EnvironmentRunTestApi implements IRunTestApi
         const address = new URL(session.ConsoleUrl)
         const path = RunTestUrl.PathOf(target.Name, result.appName)
         return {
-            Status: result.status as string as EnvironmentPublishStatus,
+            Status: EnvironmentRunTestApi.StatusOf(result.status),
             Reason: result.reason,
             AppName: result.appName,
             AppVersion: result.appVersion,
