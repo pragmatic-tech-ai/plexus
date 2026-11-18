@@ -123,11 +123,16 @@ function createWindow(): void
       .catch(() => false)
     void confirm.then((ok) => {
       if (ok === false) return
-      // Then flush open conversations to disk, bounded so a hung/absent renderer
-      // never blocks quit, and close for real.
-      const flush = mainWindow.webContents
+      // Then flush open conversations AND the durable application store (lastSolution +
+      // recents) to disk, bounded so a hung/absent renderer never blocks quit, and close
+      // for real.
+      const flushChats = mainWindow.webContents
         .executeJavaScript('window.__flushChats ? window.__flushChats() : null')
         .catch(() => undefined)
+      const flushDurable = mainWindow.webContents
+        .executeJavaScript('window.__flushDurable ? window.__flushDurable() : null')
+        .catch(() => undefined)
+      const flush = Promise.all([flushChats, flushDurable])
       const timeout = new Promise((resolve) => setTimeout(resolve, 2000))
       void Promise.race([flush, timeout]).then(proceed, proceed)
     })

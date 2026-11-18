@@ -48,7 +48,12 @@ import { MuralDiagnosticsWiring } from './modules/code-editor/mural-language.js'
 import { setCrossFileOpener } from './modules/code-editor/cross-file-open.js'
 import { SolutionManagerService, SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import { DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
+import { EnvironmentService } from '@pragmatic-tech-ai/plexus-core/renderer/environment/environment-service.js'
 import { BagMigrationRunner } from '@pragmatic-tech-ai/plexus-core/renderer/modules/bags'
+
+// The per-user default solution lives in its own folder under userData, so it is
+// rooted from first run and auto-persists (unsaved work survives a restart).
+const DEFAULT_SOLUTION_FOLDER = 'default-solution'
 
 // Register the 'todl' Monaco language once, before any editor mounts, so .todl
 // documents get syntax colouring. (Diagnostics/squiggles are independent of it.)
@@ -241,7 +246,7 @@ try {
     // ActiveSolution/Members chain is live from boot. SolutionLanguageService likewise —
     // its own ActiveSolution/Members subscription must be live before session
     // restore; BaseResolverKey resolves this SAME singleton.
-    app.Services.get(SolutionManagerService.Key)
+    const manager = app.Services.get(SolutionManagerService.Key)
     app.Services.get(SolutionLanguageService.Key)
     // The manager now exists and has registered its session bag with the durable store; Restore it
     // so any persisted slice is applied before the session-restoring code below reads it, and so the
@@ -262,11 +267,23 @@ try {
     // (Deliberately not in a ctor: the services mount during app.initialize, before the
     // engine seams are registered.)
     app.Services.get(LiveValidationSync.Key)?.Start()
+    // Reopen the last saved solution by name, or open/create the per-user default
+    // solution so unsaved work survives a restart. Runs AFTER the durable store is
+    // restored (so lastSolution is in the session bag) and AFTER LiveValidationSync
+    // starts (so its Members subscription catches the members this opens), and BEFORE
+    // the project restore below.
+    const env = app.Services.get(EnvironmentService.Key)
+    const defaultSolutionFolder = `${env.UserDataDirectory}${env.PathSeparator}${DEFAULT_SOLUTION_FOLDER}`
+    await manager?.RestoreSession(defaultSolutionFolder)
     // Restore the previous session's open projects (skips + prunes folders whose project
     // manifest is gone) via the engine ProjectLifecycle behind ProjectCommandsService, which
     // is wired to the OpenProjectsStore session. Fire-and-forget after mount.
+    // A reopened solution already opened its member projects from its manifest, so
+    // running the loose-project restore too would double-open them; only restore loose
+    // projects into an empty solution (first run / empty default).
     const commands = app.Services.get(ProjectCommandsService.Key)
-    if (commands !== undefined)
+    const reopenedWithMembers = (manager?.ActiveSolution?.Members.ToArray().length ?? 0) > 0
+    if (commands !== undefined && !reopenedWithMembers)
     {
         void commands.RestoreSession()
     }
@@ -308,6 +325,10 @@ try {
         // window 'close' handler (executeJavaScript) so nothing is lost on app quit.
         globalThis.__flushChats = () => chats.FlushAll()
     }
+    // Flush the durable application store (lastSolution + recent solutions) to disk.
+    // The main process awaits this from the window 'close' handler so a change made
+    // within the store's debounce window is not lost on quit.
+    globalThis.__flushDurable = () => app.Services.get(DurableApplicationStoreKey)?.Save()
     // Dev-only: a Card Gallery tab to preview the agent card templates without
     // driving the agent. Never seeded in packaged builds.
     // DISABLED — registration turned off by request; re-enable by uncommenting.
