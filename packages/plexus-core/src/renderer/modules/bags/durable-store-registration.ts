@@ -1,6 +1,7 @@
-import { DurableApplicationStore, DurableApplicationStoreKey } from '@pragmatic-tech-ai/todl-runtime'
+import { DurableApplicationStore, DurableApplicationStoreKey, StorageProviderKey } from '@pragmatic-tech-ai/todl-runtime'
 import type { IServiceContainer, IServiceProvider } from '@pragmatic-tech-ai/todl-runtime'
 import { GlobalBagPersister, GlobalBagPersisterKey } from './global-bag-persister.js'
+import { StorageService } from '../storage/index.js'
 
 // Startup wiring for the durable application store + the global bag persister over it.
 // SolutionManagerService's constructor optionally registers its session bag with whatever store
@@ -18,5 +19,10 @@ export class DurableStoreRegistration
     {
         container.register(DurableApplicationStoreKey, (provider: IServiceProvider) => new DurableApplicationStore(provider))
         container.register(GlobalBagPersisterKey, (provider: IServiceProvider) => new GlobalBagPersister(provider.getRequired(DurableApplicationStoreKey)))
+        // The durable store persists to StorageProviderKey.CreateStorage(UserDataDirectory). The
+        // renderer's IStorageProvider is StorageService (registered under its own Key by the Storage
+        // module), but nothing bound the todl-runtime StorageProviderKey to it — so Save() threw and
+        // application-bags.json (lastSolution + recents) never persisted. Alias the two here.
+        container.register(StorageProviderKey, (provider: IServiceProvider) => provider.getRequired(StorageService.Key))
     }
 }
