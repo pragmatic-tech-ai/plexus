@@ -34,6 +34,8 @@ import { RunTestTargetDialog } from './run-test-target-dialog.js'
 import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
 import { UploadToEnvironmentContributor } from './upload-to-environment-contributor.js'
+import { SolutionCommandsService } from './solution-commands-service.js'
+import { SolutionCommandsContributor } from './solution-commands-contributor.js'
 import { SolutionTreeEnumerator } from '../../upload/solution-tree-enumerator.js'
 import { UploadContributorKey } from '../../upload/upload-contributor.js'
 import { ContributeTargetDialog } from './contribute-target-dialog.js'
@@ -299,6 +301,14 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const runTestPicker = dialogs === undefined || account === undefined ? undefined : new RunTestTargetDialog(account, dialogs)
             const runTest = new RunTestContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentRunTesterKey), runTestPicker)
             this.handles.push(registry.RegisterInstance(runTest, runTest.Actions))
+            // Save / Save As / Rename for the active solution (shared with the window menu and
+            // keyboard shortcuts). Resolve optionally — a headless/unit host may not register it.
+            const solutionCommands = this.provider.get(SolutionCommandsService.Key)
+            if (solutionCommands !== undefined)
+            {
+                const commandsContributor = new SolutionCommandsContributor(solutionCommands)
+                this.handles.push(registry.RegisterInstance(commandsContributor, commandsContributor.Actions))
+            }
             // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
             // registry + storage provider + package store (absent in headless/unit contexts): only
             // wire the graph contributor when all three resolve, mirroring the undefined-safe spirit.
