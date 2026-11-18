@@ -1,7 +1,7 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { FakeStorage, Signal, isLocalFileAccess, type IDisposable, type IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, type ILanguageService, type IBaseResolver,
+    MetaKind, PresentationResourceEmitter, ProviderPresentationBaker, SolutionLanguageService,
     WikiOriginKind, toJSONOwn,
     type BakeOptions, type JsonNode, type Repository, type TodlDocument,
 } from '@pragmatic-tech-ai/todl'
@@ -261,13 +261,13 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // local-file-access storages can produce disk events, so others contribute no key) and,
     // per entity, a content hash of its icon bytes. A Resources() failure for one node skips
     // that node rather than sinking the load.
-    private async AssetIdentityOf(language: ILanguageService & IBaseResolver, ids: ReadonlySet<string>): Promise<AssetIdentity>
+    private async AssetIdentityOf(language: SolutionLanguageService, ids: ReadonlySet<string>): Promise<AssetIdentity>
     {
         const keys = new Set<string>()
         const hashes = new Map<string, string>()
         await Promise.all([...ids].map(async id =>
         {
-            let resources: Awaited<ReturnType<(ILanguageService & IBaseResolver)['Resources']>>
+            let resources: Awaited<ReturnType<SolutionLanguageService['Resources']>>
             try
             {
                 resources = await language.Resources(id)
@@ -356,7 +356,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // change names files, only entries covering one of those files go (a whole-member entry
     // also goes when its member is named); when it names no files, every entry of each named
     // member goes. The next load() re-bakes whatever was dropped.
-    private EnsureSubscription(language: ILanguageService & IBaseResolver): void
+    private EnsureSubscription(language: SolutionLanguageService): void
     {
         if (this.subscription !== undefined)
         {
@@ -394,7 +394,7 @@ export class SolutionGraphPresentationSource implements PresentationSource, IDis
     // contributions, or returns undefined when the member has no icon-bearing own nodes
     // (nothing to contribute).
     private async ContributionFor(
-        language: ILanguageService & IBaseResolver,
+        language: SolutionLanguageService,
         view: SolutionModelView,
         storage: IStorage,
     ): Promise<PresentationContribution | undefined>
