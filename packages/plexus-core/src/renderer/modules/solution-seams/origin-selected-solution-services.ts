@@ -6,7 +6,7 @@ import { DevStorageSessionKeys } from '../storage/dev-storage-session-key.js'
 import { IntegratedSolutionServices } from './integrated-solution-services.js'
 import { SolutionServices, type ISolutionServices } from './solution-services.js'
 import { RemoteSolutionServices } from './remote/remote-solution-services.js'
-import type { ILocalBaseResolution, IRemoteLanguageSession } from './remote/remote-language-service.js'
+import type { ILocalBaseResolution } from './remote/remote-language-service.js'
 
 // The ISolutionServices registered under SolutionServices.Key: each access picks the implementation
 // for the ACTIVE solution's origin. A solution registered as opened from a dev environment gets
@@ -57,7 +57,7 @@ export class OriginSelectedSolutionServices implements ISolutionServices
 
     private CreateRemote(): RemoteSolutionServices
     {
-        const session = this.provider.getRequired(DevStorageSessionKeys.Session) as unknown as IRemoteLanguageSession
+        const session = this.provider.getRequired(DevStorageSessionKeys.Session)
         // SolutionLanguageService is an IBaseResolver with StaleMembers + PropertyChanged(name): it IS the local half.
         const localBase: ILocalBaseResolution = this.provider.getRequired(SolutionLanguageService.Key)
         return new RemoteSolutionServices(this.provider, session, localBase)

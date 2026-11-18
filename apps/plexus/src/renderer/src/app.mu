@@ -129,6 +129,9 @@ import IpcEnvironmentPublisher from "./services/environment-publish/ipc-environm
 // Graph contribute — the concrete IGraphContributor (plexus-core capability) over the
 // window.api.graphContribute preload bridge. Registered under GraphContributorKey.
 import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contributor.js"
+// The held dev session over the preload bridge (DevStorageSessionKeys.Session): the dev-environment
+// storage backend and the Remote solution services resolve it.
+import PlexusDevSession from "./services/dev-session/plexus-dev-session.js"
 // Upload - the concrete IUploadContributor over the window.api.upload preload bridge.
 import IpcUploadContributor from "./services/upload/ipc-upload-contributor.js"
 // Account — the concrete IAccountService (plexus-core capability) over the window.api.account
@@ -348,6 +351,9 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Graph contribute over the preload bridge (GraphContributorKey): ContributeToGraphContributor
         // resolves it to contribute a built solution to a dev graph via the main process.
         IpcGraphContributor
+        // The held dev session over the preload bridge (DevStorageSessionKeys.Session): one session
+        // serves the dev-environment storage backend and the Remote solution services.
+        PlexusDevSession
         // Upload over the preload bridge (UploadContributorKey): UploadToEnvironmentContributor resolves it.
         IpcUploadContributor
         // Account over the preload bridge (AccountServiceKey): signed-in state, email sign-in and
