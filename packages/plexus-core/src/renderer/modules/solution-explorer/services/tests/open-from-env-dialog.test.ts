@@ -1,18 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { OpenFromEnvDialog } from '../open-from-env-dialog.js'
 import { TargetPickOutcome } from '../target-dialog.js'
-import { FakePickerDialogs, FakeTargetAccount } from './fake-target-sources.js'
+import { FakePickerDialogs, FakeTargetAccount, Gate } from './fake-target-sources.js'
 import type { IEnvSolutionLister } from '../../../env-solutions/env-solution-lister.js'
-import { TargetKind, TargetSource, TargetStatus, type AccountTargets, type TargetRef } from '../../../../../shared/account-api.js'
+import { RelayError, TargetKind, TargetSource, TargetStatus, type AccountTargets, type TargetRef } from '../../../../../shared/account-api.js'
 
 class FakeSolutionLister implements IEnvSolutionLister
 {
     public Solutions: Record<string, string[]> = {}
     public readonly Listed: TargetRef[] = []
+    public Failure: unknown = undefined
+    // Per-environment gates: a listed environment's answer waits until its gate is released.
+    public readonly Gates = new Map<string, Promise<void>>()
 
     public async ListSolutions(target: TargetRef): Promise<string[]>
     {
         this.Listed.push(target)
+        await this.Gates.get(target.Name)
+        if (this.Failure !== undefined) throw this.Failure
         return this.Solutions[target.Name] ?? []
     }
 }
@@ -88,6 +93,37 @@ describe('OpenFromEnvDialog', () =>
         h.Dialog.CancelCommand.Execute()
         await expect(h.Shown).resolves.toEqual({ Outcome: TargetPickOutcome.Cancelled })
         expect(h.Account.Remembered).toEqual([])
+    })
+
+    it('shows the failure and stays unconfirmable when listing rejects', async () =>
+    {
+        const h = new OpenDialogHarness()
+        h.Account.TargetList = { Contribute: [OpenDialogHarness.Env('dev')], Publish: [] }
+        h.Lister.Failure = new RelayError('The environment refused the connection.')
+        await h.Open()
+        expect(h.Dialog.Message).toBe('The environment refused the connection.')
+        expect(h.Dialog.HasSolutions).toBe(false)
+        expect(h.Dialog.SelectedSolution).toBeUndefined()
+        expect(h.Dialog.IsBusy).toBe(false)
+        expect(h.Dialog.ConfirmCommand.CanExecute(undefined)).toBe(false)
+    })
+
+    it('drops a slow listing of a superseded environment selection', async () =>
+    {
+        const h = new OpenDialogHarness()
+        h.Account.TargetList = { Contribute: [OpenDialogHarness.Env('alpha'), OpenDialogHarness.Env('beta')], Publish: [] }
+        h.Lister.Solutions = { alpha: ['stale'], beta: ['fresh'] }
+        const slow = new Gate<void>()
+        h.Lister.Gates.set('alpha', slow.Promise)
+        await h.Open()
+        expect(h.Dialog.SelectedEnvironment?.Name).toBe('alpha')
+        h.Dialog.SelectedEnvironment = h.Dialog.Environments[1]
+        await FakePickerDialogs.Flush()
+        expect(h.Dialog.Solutions).toEqual(['fresh'])
+        slow.Resolve()
+        await FakePickerDialogs.Flush()
+        expect(h.Dialog.Solutions).toEqual(['fresh'])
+        expect(h.Dialog.SelectedSolution).toBe('fresh')
     })
 
     it('does not list solutions of a stopped environment', async () =>

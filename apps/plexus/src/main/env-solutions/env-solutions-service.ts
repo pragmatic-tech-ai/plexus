@@ -13,6 +13,7 @@ export class EnvSolutionsService implements IEnvSolutionsApi
 
     public async ListSolutions(target: TargetRef): Promise<string[]>
     {
+        // Connect is outside the try on purpose: a failed connect yields no client to close.
         const client = await this.relay.Connect(target, RelayAction.Develop)
         try
         {
