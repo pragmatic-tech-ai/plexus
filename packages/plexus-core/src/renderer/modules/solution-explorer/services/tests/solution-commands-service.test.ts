@@ -13,7 +13,9 @@ class StubManager
   public saved = 0;
   public savedAs: string | undefined;
   public renamed: string | undefined;
+  public opened: string | undefined;
   public throwOnSave = false;
+  public throwOnOpen = false;
   public ActiveSolution: ActiveStub | undefined;
   constructor(active?: ActiveStub) { this.ActiveSolution = active; }
   Save(): Promise<void>
@@ -24,6 +26,12 @@ class StubManager
   }
   SaveAs(location: string): Promise<void> { this.savedAs = location; return Promise.resolve(); }
   Rename(name: string): Promise<void> { this.renamed = name; return Promise.resolve(); }
+  OpenSolution(location: string): Promise<void>
+  {
+    if (this.throwOnOpen) { return Promise.reject(new Error("no readable manifest")); }
+    this.opened = location;
+    return Promise.resolve();
+  }
 }
 
 class StubFs
@@ -133,6 +141,34 @@ describe("SolutionCommandsService", () =>
     const { svc, manager } = build({ active: { Name: "Same", HasLocation: true }, rename: "Same" });
     await svc.Rename();
     expect(manager.renamed).toBeUndefined();
+  });
+
+  it("Open picks a folder and calls OpenSolution with it", async () =>
+  {
+    const { svc, manager } = build({ active, folder: "C:/work/other" });
+    await svc.Open();
+    expect(manager.opened).toBe("C:/work/other");
+  });
+
+  it("Open does nothing when the folder pick is cancelled", async () =>
+  {
+    const { svc, manager } = build({ active, folder: null });
+    await svc.Open();
+    expect(manager.opened).toBeUndefined();
+  });
+
+  it("Open command can execute even with no active solution", () =>
+  {
+    const { svc } = build({});
+    expect(svc.OpenCommand.CanExecute()).toBe(true);
+  });
+
+  it("surfaces an open failure (e.g. a folder with no manifest) through an info dialog", async () =>
+  {
+    const { svc, manager, dialogs } = build({ active, folder: "C:/bad" });
+    manager.throwOnOpen = true;
+    await svc.Open();
+    expect(dialogs.shownTitle).toBeDefined();
   });
 
   it("commands cannot execute when there is no active solution", () =>

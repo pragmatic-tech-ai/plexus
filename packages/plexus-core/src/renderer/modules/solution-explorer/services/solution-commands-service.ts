@@ -17,12 +17,15 @@ export class SolutionCommandsService extends ServiceBase
 
     private static readonly SaveFailedTitle = 'Save solution'
     private static readonly RenameFailedTitle = 'Rename solution'
+    private static readonly OpenFailedTitle = 'Open solution'
     private static readonly SaveAsFolderTitle = 'Save solution to folder…'
+    private static readonly OpenFolderTitle = 'Open solution from folder…'
     private static readonly RenameLabel = 'Solution name'
 
     private readonly _saveCommand: ICommand
     private readonly _saveAsCommand: ICommand
     private readonly _renameCommand: ICommand
+    private readonly _openCommand: ICommand
 
     constructor(provider: IServiceProvider)
     {
@@ -30,11 +33,15 @@ export class SolutionCommandsService extends ServiceBase
         this._saveCommand = new RelayCommand(() => void this.Save(), () => this.HasActiveSolution())
         this._saveAsCommand = new RelayCommand(() => void this.SaveAs(), () => this.HasActiveSolution())
         this._renameCommand = new RelayCommand(() => void this.Rename(), () => this.HasActiveSolution())
+        // Open has no precondition — it opens a solution whether or not one is active (the
+        // engine prompts to discard a dirty current solution before replacing it).
+        this._openCommand = new RelayCommand(() => void this.Open())
     }
 
     public get SaveCommand(): ICommand { return this._saveCommand }
     public get SaveAsCommand(): ICommand { return this._saveAsCommand }
     public get RenameCommand(): ICommand { return this._renameCommand }
+    public get OpenCommand(): ICommand { return this._openCommand }
 
     private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionManagerService.Key) }
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
@@ -75,6 +82,27 @@ export class SolutionCommandsService extends ServiceBase
         catch (e)
         {
             await this.Inform(SolutionCommandsService.SaveFailedTitle, e)
+        }
+    }
+
+    // Open: pick a folder holding a solution and open it (the engine reads the folder's
+    // .pksln, opens its member projects, and prompts to discard a dirty current solution
+    // first). A cancelled pick is a no-op; a folder with no readable manifest surfaces the
+    // engine's error through an info dialog.
+    public async Open(): Promise<void>
+    {
+        try
+        {
+            const folder = await this.fs.OpenFolder({ Title: SolutionCommandsService.OpenFolderTitle })
+            if (folder === null)
+            {
+                return
+            }
+            await this.manager.OpenSolution(folder)
+        }
+        catch (e)
+        {
+            await this.Inform(SolutionCommandsService.OpenFailedTitle, e)
         }
     }
 
