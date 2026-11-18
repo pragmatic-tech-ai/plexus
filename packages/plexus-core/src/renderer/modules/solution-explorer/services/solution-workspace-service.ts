@@ -78,6 +78,7 @@ import { SolutionReferenceView } from './solution-reference-view.js'
 import { ConnectionEditingService, type IConnectionHost } from './connection-editing-service.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { InfoDialog } from './info-dialog.js'
+import type { RemoteChangeCoordinator } from '../../storage/remote-change-coordinator.js'
 import { DocOwnership, type ReloadableDocument } from './doc-ownership.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import {
@@ -561,6 +562,12 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     public DocumentFactoryFor(extension: string): IDocumentFactory | undefined
     {
         return this.docs.FactoryFor(extension)
+    }
+
+    // Observable "changed on server" flags for open dev-environment buffers (editor/tab binds).
+    public get RemoteChanges(): RemoteChangeCoordinator
+    {
+        return this.docs.RemoteChanges
     }
 
     // The open reloadable document whose resolved OS path matches `absPath` — the

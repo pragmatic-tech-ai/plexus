@@ -9,6 +9,8 @@ import { isLocalFileAccess, type IStorage } from '@pragmatic-tech-ai/todl-runtim
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { isRelocatable, type IDocumentFactory } from '../../../documents/document-factory.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
+import { RemoteFileStorage } from '../../storage/remote-file-storage.js'
+import { RemoteChangeCoordinator } from '../../storage/remote-change-coordinator.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 
 // A document that can reload itself from disk (the code buffer can). IDocument
@@ -36,9 +38,18 @@ export class DocOwnership
     // Each open document's project-relative path — so an in-place rename can
     // re-point the tab instead of leaving it stale.
     private readonly paths = new Map<IDocument, string>()
+    // Save-level LWW for dev-environment (remote) buffers only; local storage never engages it.
+    private readonly remoteChanges = new RemoteChangeCoordinator()
+    private readonly remoteTracking = new Map<IDocument, { dispose(): void }>()
 
     constructor(private readonly provider: IServiceProvider)
     {
+    }
+
+    // The observable "changed on server" source tabs/editors bind (IsChangedOnServer(path)).
+    public get RemoteChanges(): RemoteChangeCoordinator
+    {
+        return this.remoteChanges
     }
 
     private get host(): DocumentsContentHostService
@@ -59,8 +70,15 @@ export class DocOwnership
         const doc = await factory.openFile(storage, path)
         this.owners.set(doc, member)
         this.paths.set(doc, path)
+        this.TrackRemote(doc, storage, path)
         this.showInHost(doc, preview)
         return doc
+    }
+
+    private TrackRemote(doc: IDocument, storage: IStorage, path: string): void
+    {
+        if (!(storage instanceof RemoteFileStorage) || !DocOwnership.IsReloadable(doc)) return
+        this.remoteTracking.set(doc, this.remoteChanges.Track(storage, path, doc))
     }
 
     // Present a document through the host as either a reused ephemeral preview
@@ -118,6 +136,8 @@ export class DocOwnership
     {
         this.owners.delete(doc)
         this.paths.delete(doc)
+        this.remoteTracking.get(doc)?.dispose()
+        this.remoteTracking.delete(doc)
     }
 
     // Close every open tab of `member` whose file lived at `path` or under it (for
