@@ -15,12 +15,17 @@ export class PlexusDevSession extends IpcDevSession
 
     constructor()
     {
+        super(PlexusDevSession.Bridge())
+    }
+
+    private static Bridge(): IDevSessionBridge
+    {
         const api = (globalThis as unknown as { api?: { devSession?: IDevSessionBridge } }).api
         if (api?.devSession === undefined)
         {
             throw new Error(PlexusDevSession.BridgeUnavailable)
         }
-        super(api.devSession)
+        return api.devSession
     }
 }
 
