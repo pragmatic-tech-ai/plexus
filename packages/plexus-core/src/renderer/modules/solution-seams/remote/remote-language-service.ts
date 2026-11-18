@@ -89,8 +89,10 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
             }),
             session.OnBuildStateChanged(payload =>
             {
+                const pushed = RemoteLanguageService.BuildStateOf(payload.buildState)
+                if (pushed === undefined) return
                 this.pushSeen = true
-                this.Apply(RemoteLanguageService.BuildStateOf(payload.buildState))
+                this.Apply(pushed)
             }),
             session.OnDiagnostics(params =>
             {
@@ -104,7 +106,8 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
     }
 
     // Reads the session's current build state (ActiveSolution) and adopts it unless a push already
-    // did. Called once at construction; callable again to resync after a reconnect.
+    // did. Seeds the initial state at construction; once any recognized push has been observed it is a
+    // no-op (a push always wins).
     public async SyncBuildState(): Promise<void>
     {
         try

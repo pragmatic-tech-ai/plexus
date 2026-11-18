@@ -120,6 +120,15 @@ describe('RemoteLanguageService', () =>
         expect(h.Service.BuildState).toBe(GraphBuildState.Failed)
     })
 
+    it('an unrecognized build-state push does not block a later sync', async () =>
+    {
+        const h = new Harness()
+        h.buildHandler!({ buildState: 'garbage' })
+        h.Session.ActiveSolution.mockResolvedValue({ name: 'n', members: [], buildState: 'ready' })
+        await h.Service.SyncBuildState()
+        expect(h.Service.BuildState).toBe(GraphBuildState.Ready)
+    })
+
     it('traces dropped edges through the log', async () =>
     {
         const h = new Harness()
