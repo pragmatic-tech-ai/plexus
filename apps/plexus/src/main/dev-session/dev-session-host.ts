@@ -45,25 +45,35 @@ export class DevSessionHost
     {
         await this.CloseNow()
         const session = await DevelopSession.Connect(this.connector, target)
-        this.current = session
-        const offs = [
-            session.OnStorageChanged(change =>
+        // Subscribe before committing: a subscription that throws must not leave the ones already made
+        // live or the session half-wired, so they are disposed (and the connection closed) and it rethrows.
+        const offs: Array<() => void> = []
+        try
+        {
+            offs.push(session.OnStorageChanged(change =>
             {
                 for (const handler of this.handlers) handler(change)
-            }),
-            session.OnGraphChanged(change =>
+            }))
+            offs.push(session.OnGraphChanged(change =>
             {
                 for (const handler of this.graphHandlers) handler(change)
-            }),
-            session.OnBuildStateChanged(payload =>
+            }))
+            offs.push(session.OnBuildStateChanged(payload =>
             {
                 for (const handler of this.buildHandlers) handler(payload)
-            }),
-            session.OnDiagnostics(params =>
+            }))
+            offs.push(session.OnDiagnostics(params =>
             {
                 for (const handler of this.diagnosticHandlers) handler(params)
-            }),
-        ]
+            }))
+        }
+        catch (e)
+        {
+            for (const off of offs) off()
+            await session.Dispose()
+            throw e
+        }
+        this.current = session
         this.unsubscribe = () =>
         {
             for (const off of offs) off()

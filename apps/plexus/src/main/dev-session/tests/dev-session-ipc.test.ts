@@ -269,7 +269,7 @@ describe('DevSessionIpc language / model / solution channels', () =>
         ;(rig.Host as any).Fake = session
         const reply = await rig.Ipc.Invoke((DevSessionChannel as any)[name], ...args)
         expect(reply).toEqual({ Ok: true, Value: `ret:${name}` })
-        expect(session.Calls).toEqual([[name, name === 'ModelView' ? ['member', { Limit: 5 }] : args]])
+        expect(session.Calls).toEqual([[name, args]])
     })
 
     it('SelectAuthoring forwards the solution id', async () =>

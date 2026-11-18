@@ -26,8 +26,11 @@ class FakeConn
         return this.PushSubscription('OnBuildStateChanged', handler)
     }
 
+    public ThrowOnDiagnostics = false
+
     public OnDiagnostics(handler: (p: unknown) => void): { dispose(): void }
     {
+        if (this.ThrowOnDiagnostics) throw new Error('subscribe failed')
         return this.PushSubscription('OnDiagnostics', handler)
     }
 
@@ -48,13 +51,14 @@ class SlowConnector implements IRelayConnector
 {
     public readonly Made: FakeConn[] = []
 
-    public constructor(private readonly delays: number[])
+    public constructor(private readonly delays: number[], private readonly throwOnDiagnostics = false)
     {
     }
 
     public async Connect(_t: TargetRef, _a: RelayAction): Promise<RelayClient>
     {
         const conn = new FakeConn()
+        conn.ThrowOnDiagnostics = this.throwOnDiagnostics
         this.Made.push(conn)
         await new Promise(resolve => setTimeout(resolve, this.delays.shift() ?? 0))
         return conn as unknown as RelayClient
@@ -115,5 +119,19 @@ describe('DevSessionHost push fan-out', () =>
         expect(b).toHaveLength(2)
         await host.Close()
         expect(connector.Made[0].PushUnsubscribed).toBe(3)
+    })
+})
+
+describe('DevSessionHost throwing subscription', () =>
+{
+    it('disposes the subscriptions already made and leaves no half-open session', async () =>
+    {
+        const connector = new SlowConnector([0], true)
+        const host = new DevSessionHost(connector)
+        await expect(host.Open(Targets.Dev)).rejects.toThrow('subscribe failed')
+        expect(() => host.Session).toThrow()
+        expect(connector.Made[0].Unsubscribed).toBe(1)
+        expect(connector.Made[0].PushUnsubscribed).toBe(2)
+        expect(connector.Made[0].Disposed).toBe(1)
     })
 })
