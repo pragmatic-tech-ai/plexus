@@ -8,7 +8,7 @@
 // type, load failure) are skipped on read; their later resolution re-notifies.
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import type { SolutionManagerService, SolutionMember } from '@pragmatic-tech-ai/todl'
+import type { IManager, SolutionMember } from '@pragmatic-tech-ai/todl'
 import { SolutionServices } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams'
 import type { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
 
@@ -38,7 +38,7 @@ export class ActiveSolutionMembers
     private static readonly ProjectProperty = 'Project'
     private static readonly StatusProperty = 'Status'
 
-    constructor(private readonly manager: SolutionManagerService | undefined) {}
+    constructor(private readonly manager: IManager | undefined) {}
 
     // Fail-fast: every host that runs these consumers registers the manager.
     public static From(provider: IServiceProvider): ActiveSolutionMembers

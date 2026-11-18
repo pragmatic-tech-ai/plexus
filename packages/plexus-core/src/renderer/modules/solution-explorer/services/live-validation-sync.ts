@@ -7,7 +7,7 @@
 import { ServiceBase, ServiceKey, type IServiceProvider, type CollectionChange } from '@pragmatic-tech-ai/mural/runtime'
 import type { IDisposable, IStorage } from '@pragmatic-tech-ai/todl-runtime'
 import {
-    SolutionManagerService, ProjectEventsKey, type Solution, ProjectEvents, ProjectEventKind,
+    type IManager, ProjectEventsKey, type Solution, ProjectEvents, ProjectEventKind,
     type SolutionMember, type ProjectEvent,
 } from '@pragmatic-tech-ai/todl'
 import { SolutionServices } from '../../solution-seams/index.js'
@@ -59,7 +59,7 @@ export class LiveValidationSync extends ServiceBase
         super(provider)
     }
 
-    private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionServices.Key).Manager }
+    private get manager(): IManager { return this.Provider.getRequired(SolutionServices.Key).Manager }
     private get validation(): ILiveValidation | undefined { return this.Provider.get(LiveValidationKey) }
 
     // Begin syncing. Kept out of the constructor: the manager's collaborator seams resolve after

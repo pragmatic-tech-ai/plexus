@@ -29,6 +29,7 @@ import {
 } from '@pragmatic-tech-ai/mural/framework'
 import {
     BuildService,
+    type IBuildService,
     MemberProjectOps,
     ProjectEventsKey,
     ProjectEventKind,
@@ -36,7 +37,7 @@ import {
     ProjectType,
     ProjectNodeKind,
     type IBaseResolver,
-    SolutionManagerService,
+    type IManager,
     UniqueName,
     VersionPart as EngineVersionPart,
     type BagVantage,
@@ -77,6 +78,7 @@ import { SolutionReferenceView } from './solution-reference-view.js'
 import { ConnectionEditingService, type IConnectionHost } from './connection-editing-service.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { InfoDialog } from './info-dialog.js'
+import type { RemoteChangeCoordinator } from '../../storage/remote-change-coordinator.js'
 import { DocOwnership, type ReloadableDocument } from './doc-ownership.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import {
@@ -172,7 +174,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     }
 
     // ── collaborators (lazy) ────────────────────────────────────────────────
-    private get manager(): SolutionManagerService { return this.Provider.getRequired(SolutionServices.Key).Manager }
+    private get manager(): IManager { return this.Provider.getRequired(SolutionServices.Key).Manager }
     private get resolver(): IBaseResolver
     {
         return this.Provider.getRequired(SolutionServices.Key).Language
@@ -562,6 +564,12 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
         return this.docs.FactoryFor(extension)
     }
 
+    // Observable "changed on server" flags for open dev-environment buffers (editor/tab binds).
+    public get RemoteChanges(): RemoteChangeCoordinator
+    {
+        return this.docs.RemoteChanges
+    }
+
     // The open reloadable document whose resolved OS path matches `absPath` — the
     // file-watch editor-reload consumer.
     public FindOpenCodeDocByOsPath(absPath: string): ReloadableDocument | undefined
@@ -612,7 +620,7 @@ export class SolutionWorkspaceService extends ServiceBase implements IContentMut
     }
 
     // ── publish helpers (ported from the retired ProjectExplorerService, member-keyed) ────
-    private PublishThroughWork(member: SolutionMember, build: BuildService): Promise<BuildPublishOutcome>
+    private PublishThroughWork(member: SolutionMember, build: IBuildService): Promise<BuildPublishOutcome>
     {
         const storage = member.Storage as IStorage
         const work = this.Provider.get(BackgroundWorkService.Key)

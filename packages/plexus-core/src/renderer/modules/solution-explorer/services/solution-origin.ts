@@ -1,5 +1,6 @@
 import type { TargetRef } from '../../../../shared/account-api.js'
-import { type Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { type Solution, type IManager } from '@pragmatic-tech-ai/todl'
+import type { SolutionOriginRegistry } from './solution-origin-registry.js'
 
 // Where an opened solution came from. Today every solution is opened from the
 // local file system (the only open path); when an open-from-dev-environment path
@@ -35,13 +36,11 @@ export class SolutionOrigins
     private static readonly FileSystemLabel = 'File system'
     private static readonly DevEnvironmentLabelPrefix = 'Dev environment: '
 
-    // The origin of a solution. Every solution reachable today was opened from the
-    // local file system — the Solution carries no origin and the only open entry
-    // point (OpenProjectAt) takes a local folder. When an open-from-dev-environment
-    // path exists, it is the sole place that will produce a DevEnvironment origin.
-    public static Of(_solution: Solution): SolutionOrigin
+    // The origin of a solution: a DevEnvironment origin when the registry knows it as opened from a
+    // dev environment, else the local file system.
+    public static Of(solution: Solution, registry?: SolutionOriginRegistry): SolutionOrigin
     {
-        return SolutionOrigins.FileSystem
+        return registry?.Get(solution) ?? SolutionOrigins.FileSystem
     }
 
     public static DevEnvironment(ref: TargetRef, solutionName: string): DevEnvironmentOrigin
@@ -66,9 +65,9 @@ export class SolutionOrigins
     }
 
     // The origin label for whatever solution is active, or undefined when none is open.
-    public static ActiveLabel(manager: SolutionManagerService | undefined): string | undefined
+    public static ActiveLabel(manager: IManager | undefined, registry?: SolutionOriginRegistry): string | undefined
     {
         const solution = manager?.ActiveSolution
-        return solution === undefined ? undefined : SolutionOrigins.Label(SolutionOrigins.Of(solution))
+        return solution === undefined ? undefined : SolutionOrigins.Label(SolutionOrigins.Of(solution, registry))
     }
 }

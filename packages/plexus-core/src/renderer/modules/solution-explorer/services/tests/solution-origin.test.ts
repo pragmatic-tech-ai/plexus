@@ -3,6 +3,7 @@ import { Observable } from '@pragmatic-tech-ai/todl-runtime'
 import { type Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { TargetSource } from '../../../../../shared/account-api.js'
 import { SolutionOrigins, SolutionOriginKind } from '../solution-origin.js'
+import { SolutionOriginRegistry } from '../solution-origin-registry.js'
 
 // The origin helper ignores the Solution's internals (nothing on it records an
 // origin yet), so a bare object stands in for a Solution.
@@ -63,5 +64,26 @@ describe('SolutionOrigins', () =>
     it('labels the active solution when one is open', () =>
     {
         expect(SolutionOrigins.ActiveLabel(managerWith(AnySolution))).toBe('File system')
+    })
+})
+
+describe('SolutionOrigins with a registry', () =>
+{
+    const ref = { Source: TargetSource.Cloud, Name: 'dev1' } as unknown as Parameters<SolutionOriginRegistry['Register']>[1]
+
+    it('detects a registered solution as DevEnvironment and labels it', () =>
+    {
+        const registry = new SolutionOriginRegistry()
+        registry.Register(AnySolution, ref, 'sol')
+        const origin = SolutionOrigins.Of(AnySolution, registry)
+        expect(origin.Kind).toBe(SolutionOriginKind.DevEnvironment)
+        expect(SolutionOrigins.ActiveLabel(managerWith(AnySolution), registry)).toBe('Dev environment: dev1')
+    })
+
+    it('falls back to FileSystem for an unregistered solution', () =>
+    {
+        const registry = new SolutionOriginRegistry()
+        expect(SolutionOrigins.Of(AnySolution, registry).Kind).toBe(SolutionOriginKind.FileSystem)
+        expect(SolutionOrigins.ActiveLabel(managerWith(AnySolution), registry)).toBe('File system')
     })
 })

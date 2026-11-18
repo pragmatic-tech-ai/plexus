@@ -3,6 +3,8 @@ import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 import type { ICodeFile } from './code-file.js'
 import type { EditorDiagnostic } from './editor-diagnostic.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { IncomingApplyResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage/incoming-apply-result.js'
+import type { IRemoteLanguageLog } from '@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams/remote/remote-language-service.js'
 
 function fileName(path: string): string
 {
@@ -79,11 +81,15 @@ export class CodeDocument extends MuralBase implements IDocument
     public static readonly RevealRequestKey = MuralBase.RegisterProperty<{ line: number; column: number; seq: number } | undefined>(
         CodeDocument, 'RevealRequest', undefined, MetaData.None)
 
+    private static readonly IncomingReadFailed = 'incoming read failed for '
+    private static readonly ErrorSeparator = ': '
+
     private readonly file: ICodeFile
     // Last value written to / read from the file. IsDirty = Content !== this.
     private savedContent = ''
 
-    constructor(file: ICodeFile)
+    // `log` is the optional trace seam: absent, a swallowed transient read failure leaves no trace.
+    constructor(file: ICodeFile, private readonly log?: IRemoteLanguageLog)
     {
         super()
         this.file = file
@@ -144,8 +150,44 @@ export class CodeDocument extends MuralBase implements IDocument
     private refreshIdentity(newPath: string): void
     {
         this.set_property_value(CodeDocument.IdKey, newPath)
-        this.set_property_value(CodeDocument.TitleKey, fileName(newPath))
+        this.set_property_value(CodeDocument.TitleKey, this.titleFor(newPath))
         this.set_property_value(CodeDocument.LanguageKey, languageForPath(newPath))
+    }
+
+    private static readonly ChangedOnServerSuffix = ' (changed on server)'
+    private changedOnServer = false
+
+    private titleFor(path: string): string
+    {
+        return fileName(path) + (this.changedOnServer ? CodeDocument.ChangedOnServerSuffix : '')
+    }
+
+    // Non-destructive tab marker: the file changed on the server while this buffer has
+    // unsaved edits. Cleared by the local save (last writer wins).
+    public SetChangedOnServer(flag: boolean): void
+    {
+        this.changedOnServer = flag
+        this.set_property_value(CodeDocument.TitleKey, this.titleFor(this.Id))
+    }
+
+    // Apply an incoming remote change. Reads storage, then re-checks dirtiness right
+    // before applying (synchronously, after the await) so edits typed during the read
+    // are never overwritten. Content equal to the last-saved text is an own-write echo.
+    public async ApplyIncoming(): Promise<IncomingApplyResult>
+    {
+        // A failed read is treated as Unchanged (a transient remote error must not clobber the buffer), but
+        // traced so it is not invisible.
+        const text = await this.file.read().catch((error: unknown) =>
+        {
+            this.log?.Debug(CodeDocument.IncomingReadFailed + this.file.id + CodeDocument.ErrorSeparator + String(error))
+            return undefined
+        })
+        if (text === undefined || text === this.savedContent) return IncomingApplyResult.Unchanged
+        if (this.IsDirty) return IncomingApplyResult.DirtySkipped
+        this.savedContent = text
+        this.set_property_value(CodeDocument.ContentKey, text)
+        this.set_property_value(CodeDocument.IsDirtyKey, false)
+        return IncomingApplyResult.Applied
     }
 
     public async Save(): Promise<void>

@@ -80,13 +80,15 @@ export class AccountIpc
     private static Choice(value: unknown): TargetChoice
     {
         if (typeof value !== 'object' || value === null) throw new TypeError(AccountIpc.BadArguments)
-        const { Environment, Source, GraphName } = value as Record<string, unknown>
+        const { Environment, Source, GraphName, SolutionName } = value as Record<string, unknown>
         if (typeof Environment !== 'string' || Environment === '') throw new TypeError(AccountIpc.BadArguments)
         if (Source !== undefined && !TargetIdentity.IsSource(Source)) throw new TypeError(AccountIpc.BadArguments)
         if (GraphName !== undefined && typeof GraphName !== 'string') throw new TypeError(AccountIpc.BadArguments)
+        if (SolutionName !== undefined && typeof SolutionName !== 'string') throw new TypeError(AccountIpc.BadArguments)
         const choice: TargetChoice = { Environment }
         if (Source !== undefined) choice.Source = Source
         if (GraphName !== undefined) choice.GraphName = GraphName
+        if (SolutionName !== undefined) choice.SolutionName = SolutionName
         return choice
     }
 }

@@ -168,6 +168,13 @@ const todlShimPlugin: Plugin = {
             `export { BuildStorageProviderKey } from ${p('solution-services/todl-build-system/build-storage-provider-key.js')}`,
             `export { PackageStoreKey, StoragePackageStore } from ${p('solution-services/todl-build-system/package-store.js')}`,
             `export { ProjectSystemComposer } from ${p('solution-services/project-services/composition/project-system-composer.js')}`,
+            // Phase 4 RemoteLanguageService: materializes the wire model DTO into an engine Repository (graph.js,
+            // model.js and kinds.js are pure model code) and maps the wire build state onto the engine enum.
+            `export { Graph, Tier, EdgeKind } from ${p('compiler-services/model/graph.js')}`,
+            `export { Cardinality } from ${p('manifest/enums.js')}`,
+            `export { WikiLocator, WikiOriginKind } from ${p('solution-services/project-services/core/wiki-origin.js')}`,
+            `export { Repository } from ${p('compiler-services/model/model.js')}`,
+            `export { GraphBuildState } from ${p('solution-services/lsp/host/graph-build-state.js')}`,
         ].join('\n')
     },
 }

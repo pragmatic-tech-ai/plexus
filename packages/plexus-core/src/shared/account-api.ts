@@ -50,16 +50,19 @@ export type EnvironmentTarget = { Id: string; Name: string; Status: TargetStatus
 
 export type TargetRef = { Name: string; Source: TargetSource }
 
-export type AccountTargets = { Contribute: EnvironmentTarget[]; Publish: EnvironmentTarget[] }
+// Develop: the environments that can be opened for development. The console does not list it yet; absent, it is the
+// Contribute list (a Development environment is both: the server's DesktopTargets applies one rule to both actions).
+export type AccountTargets = { Contribute: EnvironmentTarget[]; Publish: EnvironmentTarget[]; Develop?: EnvironmentTarget[] }
 
 export enum TargetKind
 {
     Contribute = 'contribute',
     Publish = 'publish',
+    Develop = 'develop',
 }
 
 // An absent Source reads as Console: choices saved before targets carried a source.
-export type TargetChoice = { Environment: string; Source?: TargetSource; GraphName?: string }
+export type TargetChoice = { Environment: string; Source?: TargetSource; GraphName?: string; SolutionName?: string }
 
 export class TargetIdentity
 {

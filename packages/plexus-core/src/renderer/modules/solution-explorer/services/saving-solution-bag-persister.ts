@@ -1,5 +1,5 @@
 import type { IPropertyBag } from '@pragmatic-tech-ai/todl-runtime'
-import { BagScope, SolutionBagPersister, type IBagPersister, type Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { BagScope, SolutionBagPersister, type IBagPersister, type Solution, type IManager } from '@pragmatic-tech-ai/todl'
 
 // A solution-scope IBagPersister for the active solution whose Flush persists. SolutionBagPersister
 // itself only mutates the live Solution (its own Flush is a no-op — solution bags serialize through
@@ -12,7 +12,7 @@ export class SavingSolutionBagPersister implements IBagPersister
 
     private readonly inner: SolutionBagPersister
 
-    constructor(solution: Solution, private readonly manager: SolutionManagerService)
+    constructor(solution: Solution, private readonly manager: IManager)
     {
         this.inner = new SolutionBagPersister(solution)
     }

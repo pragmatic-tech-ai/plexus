@@ -47,6 +47,7 @@ import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
 import { SolutionTreeStateService } from './solution-tree-state-service.js'
 import { SolutionOrigins } from './solution-origin.js'
+import { SolutionOriginRegistry } from './solution-origin-registry.js'
 import { ServiceItemsVisibility } from './service-items-visibility.js'
 
 // The Solution Explorer capability: owns ONE stable Hierarchy for the service's whole life
@@ -136,13 +137,14 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // hides it). Resolved live from the active solution; rebuild() raises its change.
     public get OriginLabel(): string
     {
-        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionServices.Key)?.Manager) ?? SolutionExplorerService.NoOriginLabel
+        return SolutionOrigins.ActiveLabel(this.provider.get(SolutionServices.Key)?.Manager, this.provider.get(SolutionOriginRegistry.Key)) ?? SolutionExplorerService.NoOriginLabel
     }
 
     // Command pass-throughs so the panel's DataContext (this service) still exposes the
     // Open/New-project commands (ProjectCommandsService owns them).
     public get OpenProjectCommand(): ICommand { return this.commands.OpenProjectCommand }
     public get NewProjectCommand(): ICommand { return this.commands.NewProjectCommand }
+    public get OpenFromEnvironmentCommand(): ICommand { return this.commands.OpenFromEnvironmentCommand }
 
     // The panel-header command list the shell's side-pane renders
     // (ShellSideContentPane.Commands ← NavigationService.ActiveService.HeaderCommands). Built

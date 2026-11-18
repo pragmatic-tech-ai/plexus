@@ -613,10 +613,11 @@ export class AccountService
     private static ValidChoice(choice: unknown): choice is TargetChoice
     {
         if (typeof choice !== 'object' || choice === null) return false
-        const { Environment, Source, GraphName } = choice as Record<string, unknown>
+        const { Environment, Source, GraphName, SolutionName } = choice as Record<string, unknown>
         return typeof Environment === 'string' && Environment !== ''
             && (Source === undefined || TargetIdentity.IsSource(Source))
             && (GraphName === undefined || typeof GraphName === 'string')
+            && (SolutionName === undefined || typeof SolutionName === 'string')
     }
 
     private static CopyChoice(choice: TargetChoice): TargetChoice
@@ -624,6 +625,7 @@ export class AccountService
         const copy: TargetChoice = { Environment: choice.Environment }
         if (choice.Source !== undefined) copy.Source = choice.Source
         if (choice.GraphName !== undefined) copy.GraphName = choice.GraphName
+        if (choice.SolutionName !== undefined) copy.SolutionName = choice.SolutionName
         return copy
     }
 }

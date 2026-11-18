@@ -1,0 +1,159 @@
+{
+  "memberId": "models",
+  "page": {
+    "items": [
+      {
+        "id": "shop.Customer",
+        "kind": "concept",
+        "localId": "",
+        "namespace": "shop",
+        "tier": "Ontology",
+        "isClass": false,
+        "attrs": {},
+        "edges": [],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": [
+          {
+            "name": "region",
+            "type": "string",
+            "cardinality": "One"
+          },
+          {
+            "name": "secret",
+            "type": "string",
+            "cardinality": "One"
+          }
+        ]
+      },
+      {
+        "id": "shop.eu1",
+        "kind": "shop.Customer",
+        "localId": "eu1",
+        "namespace": "shop",
+        "tier": "Instance",
+        "isClass": false,
+        "attrs": {
+          "region": "eu",
+          "secret": "s3cr3t"
+        },
+        "edges": [
+          {
+            "kind": "Relationship",
+            "via": "peer",
+            "to": "shop.eu2"
+          },
+          {
+            "kind": "Relationship",
+            "via": "peer",
+            "to": "shop.us1"
+          },
+          {
+            "kind": "Relationship",
+            "via": "manager",
+            "to": "shop.eu2"
+          }
+        ],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": []
+      },
+      {
+        "id": "shop.eu2",
+        "kind": "shop.Customer",
+        "localId": "eu2",
+        "namespace": "shop",
+        "tier": "Instance",
+        "isClass": false,
+        "attrs": {
+          "region": "eu"
+        },
+        "edges": [],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": []
+      },
+      {
+        "id": "shop.us1",
+        "kind": "shop.Customer",
+        "localId": "us1",
+        "namespace": "shop",
+        "tier": "Instance",
+        "isClass": false,
+        "attrs": {
+          "region": "us"
+        },
+        "edges": [],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": []
+      },
+      {
+        "id": "shop.us2",
+        "kind": "shop.Customer",
+        "localId": "us2",
+        "namespace": "shop",
+        "tier": "Instance",
+        "isClass": false,
+        "attrs": {
+          "region": "us"
+        },
+        "edges": [],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": []
+      },
+      {
+        "id": "shop.us3",
+        "kind": "shop.Customer",
+        "localId": "us3",
+        "namespace": "shop",
+        "tier": "Instance",
+        "isClass": false,
+        "attrs": {
+          "region": "us"
+        },
+        "edges": [],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": []
+      },
+      {
+        "id": "string",
+        "kind": "primitive",
+        "localId": "",
+        "namespace": "shop",
+        "tier": "Ontology",
+        "isClass": false,
+        "attrs": {},
+        "edges": [],
+        "class": null,
+        "canonicalId": null,
+        "storageId": null,
+        "fields": []
+      }
+    ],
+    "provenanceOf": {},
+    "originOf": {
+      "shop.eu1": {
+        "kind": "openProject",
+        "memberId": "models"
+      },
+      "shop.eu2": {
+        "kind": "openProject",
+        "memberId": "models-b"
+      },
+      "shop.us2": {
+        "kind": "package",
+        "id": "acme.pkg",
+        "version": "1.2.3"
+      }
+    }
+  }
+}

@@ -1,15 +1,15 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime';
-import type { SolutionManagerService, SolutionLanguageService, BuildService } from '@pragmatic-tech-ai/todl';
+import type { IManager, ILanguageService, IBaseResolver, IBuildService } from '@pragmatic-tech-ai/todl';
 import type { StorageService } from '../storage/index.js';
 
 // The single facade over the solution-scoped services a consumer needs. Typed against
-// the concrete engine classes (Phase 1 is behavior-preserving; narrowing is Phase 2).
+// engine interfaces (not the concrete classes) so a remote implementation can stand in.
 export interface ISolutionServices
 {
-  readonly Manager: SolutionManagerService;
-  readonly Language: SolutionLanguageService;
+  readonly Manager: IManager;
+  readonly Language: ILanguageService & IBaseResolver;
   // Optional: absent when no build seams are registered (callers keep their own fallback).
-  readonly Build: BuildService | undefined;
+  readonly Build: IBuildService | undefined;
   readonly Storage: StorageService;
 }
 

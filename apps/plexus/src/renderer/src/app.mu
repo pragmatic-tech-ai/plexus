@@ -75,9 +75,10 @@ import BuildHostModule from "@pragmatic-tech-ai/plexus-core/renderer/modules/bui
 // and the Solution Explorer's Build/Publish contributor resolve the one instance via
 // BuildService.Key instead of each constructing its own.
 import BuildService from "@pragmatic-tech-ai/todl"
-// Facade over the solution-scoped services (Manager/Language/Build/Storage); lazy, so it
-// resolves the engines registered by the modules below. Registered under SolutionServices.Key.
-import IntegratedSolutionServices from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams"
+// Facade over the solution-scoped services (Manager/Language/Build/Storage), selecting Remote vs Integrated
+// by the active solution's origin. Registered under SolutionServices.Key.
+import OriginSelectedSolutionServices from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-seams"
+import SolutionOriginRegistry from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import TenantExplorerModule from "./modules/tenant-explorer/tenant-explorer.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
@@ -128,6 +129,11 @@ import IpcEnvironmentPublisher from "./services/environment-publish/ipc-environm
 // Graph contribute — the concrete IGraphContributor (plexus-core capability) over the
 // window.api.graphContribute preload bridge. Registered under GraphContributorKey.
 import IpcGraphContributor from "./services/graph-contribute/ipc-graph-contributor.js"
+// Env solutions - the concrete IEnvSolutionLister over the window.api.envSolutions preload bridge.
+import IpcEnvSolutionLister from "./services/env-solutions/ipc-env-solution-lister.js"
+// The held dev session over the preload bridge (DevStorageSessionKeys.Session): the dev-environment
+// storage backend and the Remote solution services resolve it.
+import PlexusDevSession from "./services/dev-session/plexus-dev-session.js"
 // Upload - the concrete IUploadContributor over the window.api.upload preload bridge.
 import IpcUploadContributor from "./services/upload/ipc-upload-contributor.js"
 // Account — the concrete IAccountService (plexus-core capability) over the window.api.account
@@ -347,6 +353,11 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Graph contribute over the preload bridge (GraphContributorKey): ContributeToGraphContributor
         // resolves it to contribute a built solution to a dev graph via the main process.
         IpcGraphContributor
+        // Env solutions over the preload bridge (EnvSolutionListerKey): the Open-from-environment picker lists an environment's solutions through it.
+        IpcEnvSolutionLister
+        // The held dev session over the preload bridge (DevStorageSessionKeys.Session): one session
+        // serves the dev-environment storage backend and the Remote solution services.
+        PlexusDevSession
         // Upload over the preload bridge (UploadContributorKey): UploadToEnvironmentContributor resolves it.
         IpcUploadContributor
         // Account over the preload bridge (AccountServiceKey): signed-in state, email sign-in and
@@ -372,7 +383,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         BuildService
         // ISolutionServices facade (Phase 1: delegates to the engine singletons the modules
         // below register; resolved lazily, so order vs. the engines is irrelevant).
-        IntegratedSolutionServices
+        SolutionOriginRegistry
+        OriginSelectedSolutionServices
         // Unified skill catalog across project/global/packaged scopes. Root-
         // registered so the Solution workspace resolves it to build the
         // Run Agent/Skill submenu; lazily discovers per project on demand.

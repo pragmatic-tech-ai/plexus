@@ -169,3 +169,201 @@ describe('DevelopSession', () =>
         expect(fake.Disposed).toBe(1)
     })
 })
+
+// Records every request and push the session forwards to the relay client.
+class RecordingClient
+{
+    public Calls: Array<[string, unknown[]]> = []
+    public Handlers = new Map<string, (p: unknown) => void>()
+    public Disposed: string[] = []
+
+    public constructor()
+    {
+        for (const [name] of RequestSamples.Requests) (this as any)[name] = (...args: unknown[]) => this.Record(name, args)
+        ;(this as any).SelectAuthoring = (...args: unknown[]) => this.Record('SelectAuthoring', args)
+        for (const name of ['OnGraphChanged', 'OnBuildStateChanged', 'OnDiagnostics'])
+        {
+            ;(this as any)[name] = (handler: (p: unknown) => void) =>
+            {
+                this.Handlers.set(name, handler)
+                return { dispose: () => { this.Disposed.push(name) } }
+            }
+        }
+    }
+
+    private Record(name: string, args: unknown[]): unknown
+    {
+        this.Calls.push([name, args])
+        return name === 'DidChange' ? undefined : Promise.resolve(`ret:${name}`)
+    }
+
+    public AsClient(): RelayClient
+    {
+        return this as unknown as RelayClient
+    }
+}
+
+class RequestSamples
+{
+    public static readonly Requests: ReadonlyArray<readonly [string, unknown[]]> = [
+        ['ListSolutions', []],
+        ['ActiveSolution', []],
+        ['CompletionsAt', ['u', { line: 1, character: 2 }]],
+        ['HoverAt', ['u', { line: 1, character: 2 }]],
+        ['DefinitionAt', ['u', { line: 1, character: 2 }]],
+        ['ReferencesAt', ['u', { line: 1, character: 2 }, true]],
+        ['PrepareRename', ['u', { line: 1, character: 2 }]],
+        ['RenameEdits', ['u', { line: 1, character: 2 }, 'n']],
+        ['DocumentSymbols', ['u']],
+        ['FoldingRanges', ['u']],
+        ['WorkspaceSymbols', ['q']],
+        ['SemanticTokens', ['u']],
+        ['SignatureHelpAt', ['u', { line: 1, character: 2 }]],
+        ['CodeActions', ['u', { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } }, [{ message: 'm' }]]],
+        ['FormatDocument', ['u']],
+        ['DiagnosticsFor', ['u']],
+        ['ModelView', ['member', { Limit: 5 }]],
+        ['Resources', ['node']],
+        ['DidChange', ['u', 'text']],
+    ]
+}
+
+// A relay client whose storage AND language / model / solution calls all block until released.
+class BlockingClient
+{
+    public InFlight = 0
+    public MaxSeen = 0
+    public Started = 0
+    public DidChanges = 0
+    private readonly waiting: Array<() => void> = []
+
+    public get Waiting(): number
+    {
+        return this.waiting.length
+    }
+
+    private async Block(): Promise<string>
+    {
+        this.Started++
+        this.InFlight++
+        this.MaxSeen = Math.max(this.MaxSeen, this.InFlight)
+        await new Promise<void>(resolve => this.waiting.push(resolve))
+        this.InFlight--
+        return 'ok'
+    }
+
+    public StorageReadText(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public HoverAt(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public ModelView(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public ListSolutions(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public DidChange(): void
+    {
+        this.DidChanges++
+    }
+
+    public ReleaseAll(): void
+    {
+        while (this.waiting.length > 0) this.waiting.shift()!()
+    }
+
+    public AsClient(): RelayClient
+    {
+        return this as unknown as RelayClient
+    }
+}
+
+describe('DevelopSession language / model / solution surface', () =>
+{
+    it.each(RequestSamples.Requests)('%s forwards its arguments to the relay client', async (name, args) =>
+    {
+        const client = new RecordingClient()
+        const session = new DevelopSession(client.AsClient())
+        const result = await (session as any)[name](...args)
+        expect(client.Calls).toEqual([[name, args]])
+        expect(result).toBe(name === 'DidChange' ? undefined : `ret:${name}`)
+    })
+
+    it('SelectAuthoring wraps the solution id as wire params', async () =>
+    {
+        const client = new RecordingClient()
+        await new DevelopSession(client.AsClient()).SelectAuthoring('s1')
+        expect(client.Calls).toEqual([['SelectAuthoring', [{ SolutionId: 's1' }]]])
+    })
+
+    it('storage and language / model / solution requests share ONE in-flight budget', async () =>
+    {
+        const client = new BlockingClient()
+        const session = new DevelopSession(client.AsClient())
+        const storage = Array.from({ length: DevelopSession.MaxInFlight }, (_, i) => session.ReadText(`p${i}`))
+        await Ticks.Settle()
+        expect(client.InFlight).toBe(DevelopSession.MaxInFlight)
+        // Budget saturated: a language request, a model request and a solution request must wait, not dispatch.
+        const extras = [session.HoverAt('u', { line: 0, character: 0 }), session.ModelView('m', { pageSize: 1 }), session.ListSolutions()]
+        await Ticks.Settle()
+        expect(client.InFlight).toBe(DevelopSession.MaxInFlight)
+        expect(client.Started).toBe(DevelopSession.MaxInFlight)
+        // DidChange is a notification: exempt from the budget even while it is saturated.
+        await session.DidChange('u', 'x')
+        expect(client.DidChanges).toBe(1)
+        while (client.Waiting > 0)
+        {
+            client.ReleaseAll()
+            await Ticks.Settle()
+        }
+        await Promise.all([...storage, ...extras])
+        expect(client.Started).toBe(DevelopSession.MaxInFlight + 3)
+        expect(client.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
+    })
+
+    it('a flood of mixed storage and language requests never exceeds the budget', async () =>
+    {
+        const client = new BlockingClient()
+        const session = new DevelopSession(client.AsClient())
+        const all: Array<Promise<unknown>> = []
+        for (let i = 0; i < 60; i++) all.push(i % 2 === 0 ? session.ReadText(`p${i}`) : session.HoverAt('u', { line: i, character: 0 }))
+        await Ticks.Settle()
+        while (client.Waiting > 0)
+        {
+            client.ReleaseAll()
+            await Ticks.Settle()
+        }
+        await Promise.all(all)
+        expect(client.Started).toBe(60)
+        expect(client.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
+    })
+
+    it('DidChange reaches the client in call order without waiting', async () =>
+    {
+        const client = new RecordingClient()
+        const session = new DevelopSession(client.AsClient())
+        await Promise.all([session.DidChange('u', 'a'), session.DidChange('u', 'b')])
+        expect(client.Calls.map(c => c[1][1])).toEqual(['a', 'b'])
+    })
+
+    it.each(['OnGraphChanged', 'OnBuildStateChanged', 'OnDiagnostics'])('%s delivers a server push and its disposer unsubscribes', (name) =>
+    {
+        const client = new RecordingClient()
+        const seen: unknown[] = []
+        const off = (new DevelopSession(client.AsClient()) as any)[name]((p: unknown) => seen.push(p))
+        client.Handlers.get(name)!({ x: 1 })
+        expect(seen).toEqual([{ x: 1 }])
+        off()
+        expect(client.Disposed).toEqual([name])
+    })
+})
