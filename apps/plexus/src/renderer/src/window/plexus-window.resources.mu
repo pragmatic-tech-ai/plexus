@@ -67,6 +67,7 @@ resources PlexusWindowChrome {
                   VerticalAlignment = Center ] {
                 MenuItem [ Header = "New Project",  RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).NewProjectCommand ]
                 MenuItem [ Header = "Open Project", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenProjectCommand ]
+                MenuItem [ Header = "Open from dev environment", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenFromEnvironmentCommand ]
                 MenuSeparator
                 MenuItem [ Header = "Save",     RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveActiveCommand ]
                 MenuItem [ Header = "Save All", RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveAllCommand ]

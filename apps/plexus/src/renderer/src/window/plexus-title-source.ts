@@ -44,6 +44,11 @@ export class PlexusTitleSource implements ITitleSource
     {
         this.host()?.PropertyChanged('ActiveDocument').subscribe(onChange)
         const sub = ActiveSolutionMembers.From(this.provider).Subscribe(onChange)
-        return () => sub.dispose()
+        const origin = this.provider.get(SolutionOriginRegistry.Key)?.Changed.subscribe(onChange)
+        return () =>
+        {
+            sub.dispose()
+            origin?.dispose()
+        }
     }
 }

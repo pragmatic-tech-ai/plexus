@@ -1,4 +1,5 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
+import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import type { Solution } from '@pragmatic-tech-ai/todl'
 import type { TargetRef } from '../../../../shared/account-api.js'
 import { SolutionOriginKind, type DevEnvironmentOrigin } from './solution-origin.js'
@@ -9,6 +10,10 @@ import { SolutionOriginKind, type DevEnvironmentOrigin } from './solution-origin
 export class SolutionOriginRegistry
 {
     public static readonly Key = new ServiceKey<SolutionOriginRegistry>('SolutionOriginRegistry')
+
+    // Raised after every Register / Unregister, so views derived from the origin (the services
+    // selection, the explorer header, the window title) can refresh.
+    public readonly Changed = new Signal<void>()
 
     private readonly origins = new WeakMap<Solution, DevEnvironmentOrigin>()
 
@@ -21,12 +26,13 @@ export class SolutionOriginRegistry
             SolutionName: solutionName,
         }
         this.origins.set(solution, origin)
+        this.Changed.emit()
         return origin
     }
 
     public Unregister(solution: Solution): void
     {
-        this.origins.delete(solution)
+        if (this.origins.delete(solution)) this.Changed.emit()
     }
 
     public Get(solution: Solution): DevEnvironmentOrigin | undefined

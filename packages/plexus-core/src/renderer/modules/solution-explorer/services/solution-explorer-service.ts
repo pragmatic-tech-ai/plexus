@@ -83,6 +83,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private references: ReferencesContributor | undefined
     private readonly handles: IDisposable[] = []
     private activeOff: IDisposable | undefined
+    private originOff: IDisposable | undefined
     private selectionOff: (() => void) | undefined
     private _hasNoSolution = true
     private disposed = false
@@ -144,6 +145,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // Open/New-project commands (ProjectCommandsService owns them).
     public get OpenProjectCommand(): ICommand { return this.commands.OpenProjectCommand }
     public get NewProjectCommand(): ICommand { return this.commands.NewProjectCommand }
+    public get OpenFromEnvironmentCommand(): ICommand { return this.commands.OpenFromEnvironmentCommand }
 
     // The panel-header command list the shell's side-pane renders
     // (ShellSideContentPane.Commands ← NavigationService.ActiveService.HeaderCommands). Built
@@ -195,6 +197,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.selectionOff = hierarchy.Selection.Subscribe(() => this.onSelectionChanged())
         const manager = this.provider.getRequired(SolutionServices.Key).Manager
         this.activeOff = manager.PropertyChanged('ActiveSolution').subscribe(() => this.rebuild(manager.ActiveSolution))
+        // An origin registered after the solution became active (open-from-environment) re-selects its services.
+        this.originOff = this.provider.get(SolutionOriginRegistry.Key)?.Changed.subscribe(() => this.rebuild(manager.ActiveSolution))
         this.rebuild(manager.ActiveSolution)
     }
 
@@ -431,6 +435,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         this.selectionOff = undefined
         this.activeOff?.dispose()
         this.activeOff = undefined
+        this.originOff?.dispose()
+        this.originOff = undefined
         this.teardownCurrent()
         this.serviceItemsToggle?.dispose()
         this.serviceItemsToggle = undefined

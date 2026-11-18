@@ -20,6 +20,13 @@ import {
 import { OpenProjectDialogModel, type OpenProjectResult } from '../../../projects/open-project-dialog-model.js'
 import { FileSystemService, StorageService } from '../../storage/index.js'
 import { SolutionServices } from '../../solution-seams/index.js'
+import { SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { AccountServiceKey } from '../../account/account-service.js'
+import { EnvSolutionListerKey } from '../../env-solutions/index.js'
+import { DevStorageSessionKeys } from '../../storage/dev-storage-session-key.js'
+import { OpenFromEnvDialog } from './open-from-env-dialog.js'
+import { OpenFromEnvironmentFlow } from './open-from-environment-flow.js'
+import { SolutionOriginRegistry } from './solution-origin-registry.js'
 import type { CreateProjectPrefill, CreateProjectResult } from './project-create-contract.js'
 import { InfoDialog } from './info-dialog.js'
 import { ProjectLifecycle, CreateError, OpenError } from './todl-engine-ops.js'
@@ -47,6 +54,7 @@ export class ProjectCommandsService extends ServiceBase
 
     private readonly _openProjectCommand: ICommand
     private readonly _newProjectCommand: ICommand
+    private readonly _openFromEnvironmentCommand: ICommand
     private lifecycle: ProjectLifecycle | undefined
 
     constructor(provider: IServiceProvider)
@@ -54,10 +62,12 @@ export class ProjectCommandsService extends ServiceBase
         super(provider)
         this._openProjectCommand = new RelayCommand(() => void this.OpenProject())
         this._newProjectCommand = new RelayCommand(() => void this.NewProject())
+        this._openFromEnvironmentCommand = new RelayCommand(() => void this.OpenFromEnvironment(), () => this.CanOpenFromEnvironment())
     }
 
     public get OpenProjectCommand(): ICommand { return this._openProjectCommand }
     public get NewProjectCommand(): ICommand { return this._newProjectCommand }
+    public get OpenFromEnvironmentCommand(): ICommand { return this._openFromEnvironmentCommand }
 
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
@@ -78,6 +88,31 @@ export class ProjectCommandsService extends ServiceBase
     public RestoreSession(): Promise<void>
     {
         return this.projects.RestoreSession()
+    }
+
+    // Open from dev environment needs the account, the environment's solution lister, the held dev session
+    // and the origin registry (the desktop host registers them; a headless context has none).
+    private CanOpenFromEnvironment(): boolean
+    {
+        return this.Provider.get(AccountServiceKey) !== undefined
+            && this.Provider.get(EnvSolutionListerKey) !== undefined
+            && this.Provider.get(DevStorageSessionKeys.Session) !== undefined
+            && this.Provider.get(SolutionOriginRegistry.Key) !== undefined
+    }
+
+    // Open from dev environment: pick an environment + solution, then open it over the held dev session.
+    public async OpenFromEnvironment(): Promise<void>
+    {
+        if (!this.CanOpenFromEnvironment()) return
+        const picker = new OpenFromEnvDialog(
+            this.Provider.getRequired(AccountServiceKey), this.Provider.getRequired(EnvSolutionListerKey), this.dialogs)
+        const flow = new OpenFromEnvironmentFlow(
+            picker,
+            this.Provider.getRequired(DevStorageSessionKeys.Session),
+            this.Provider.getRequired(SolutionManagerService.Key),
+            this.Provider.getRequired(SolutionOriginRegistry.Key),
+            this.dialogs)
+        await flow.Run()
     }
 
     // Open Project: present the recents-or-Browse dialog; open whatever folder it resolves to.
