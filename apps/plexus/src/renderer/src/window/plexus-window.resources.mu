@@ -69,7 +69,7 @@ resources PlexusWindowChrome {
                 MenuItem [ Header = "New Project",  RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).NewProjectCommand ]
                 MenuItem [ Header = "Open Project", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenProjectCommand ]
                 MenuItem [ Header = "Open from dev environment", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenFromEnvironmentCommand ]
-                MenuItem [ Header = "Open Solution…", RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).OpenCommand ]
+                MenuItem [ Header = "Open local solution", RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).OpenCommand ]
                 MenuSeparator
                 MenuItem [ Header = "Save Solution",     RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).SaveCommand ]
                 MenuItem [ Header = "Save Solution As…", RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).SaveAsCommand ]
