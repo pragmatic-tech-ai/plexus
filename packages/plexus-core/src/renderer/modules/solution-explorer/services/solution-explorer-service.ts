@@ -355,10 +355,17 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.treeState = new SolutionTreeStateService(this.hierarchy, solution, bags)
             this.treeState.Start()
         }
+        // The Solution root node is keyed (NodeKey.Solution): once realized, a rebuild from
+        // an ActiveSolution swap (Open / New / reopen) keeps the SAME node and skips re-running
+        // SolutionRootContributor.Contribute, so its caption would otherwise stay on the previous
+        // solution's name (e.g. "Default Solution" after opening another). Refresh it in place
+        // from the now-active solution — the same ApplySolutionCaption the rename path uses.
+        const roots = this.hierarchy?.Roots.ToArray() ?? []
+        SolutionExplorerService.ApplySolutionCaption(roots, solution.Name)
         // Expand the single Solution root by default so its project / Connections rows
         // show without a manual click (Visual Studio parity). The node is realized into
         // Roots synchronously by the SolutionRootContributor registration above.
-        const solutionNode = this.hierarchy?.Roots.ToArray().find((r) => r.Key === NodeKey.Solution)
+        const solutionNode = roots.find((r) => r.Key === NodeKey.Solution)
         solutionNode?.OnExpand()
     }
 
