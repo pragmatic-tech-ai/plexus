@@ -17,6 +17,14 @@ export interface ITrackedDocument
     SetChangedOnServer?(flag: boolean): void
 }
 
+// One doc's Save wrap: the true original, whether it was an own property, and how many Tracks share it.
+interface SaveWrap
+{
+    readonly Original: ITrackedDocument['Save']
+    readonly HadOwn: boolean
+    Refs: number
+}
+
 // Handles incoming remote (dev-environment) storage changes for OPEN buffers with
 // save-level last-writer-wins: a clean buffer reloads; a dirty buffer is never
 // clobbered, it is flagged "changed on server" (observable, non-destructive) and
@@ -29,13 +37,39 @@ export class RemoteChangeCoordinator extends Observable
 
     private readonly guard = new IncomingChangeGuard()
     private readonly docs = new Map<string, ITrackedDocument>()
+    private readonly wraps = new Map<ITrackedDocument, SaveWrap>()
 
     // Watch `path` (one directory level up) on `storage` and route changes to `doc`.
     // Wraps doc.Save so a local save calls NoteSaved. Dispose to stop and unwrap.
+    //
+    // PATH KEYING: `path` keys the guard, `docs` and MarkChangedOnServer verbatim (unnormalized). The caller
+    // (DocOwnership) feeds ONE canonical project-relative form; a future caller must not pass a variant
+    // (e.g. a "./"-prefixed one) or the same file would be tracked under two keys.
     public Track(storage: IWatchableStorage, path: string, doc: ITrackedDocument): IDisposable
     {
+        // SEAM: there is no "saved" signal on ITrackedDocument, so a local save is observed by wrapping
+        // doc.Save. A second Track of the same doc must not wrap the wrapper (that would lose the true
+        // original on unwrap): it reuses the first wrap's original and the first Track's unwrap owns it.
+        const existing = this.wraps.get(doc)
+        if (existing !== undefined)
+        {
+            existing.Refs++
+            this.docs.set(path, doc)
+            const stopAgain = storage.Watch(RemoteChangeCoordinator.DirectoryOf(path), change => void this.OnChange(path, doc, change))
+            return {
+                dispose: (): void =>
+                {
+                    stopAgain()
+                    this.ReleaseWrap(doc, existing)
+                    this.NoteSaved(path)
+                    this.docs.delete(path)
+                },
+            }
+        }
         const originalSave = doc.Save
         const hadOwnSave = Object.prototype.hasOwnProperty.call(doc, RemoteChangeCoordinator.SaveMember)
+        const wrap: SaveWrap = { Original: originalSave, HadOwn: hadOwnSave, Refs: 1 }
+        this.wraps.set(doc, wrap)
         doc.Save = async (): Promise<void> =>
         {
             await originalSave.call(doc)
@@ -47,12 +81,20 @@ export class RemoteChangeCoordinator extends Observable
             dispose: (): void =>
             {
                 stop()
-                if (hadOwnSave) doc.Save = originalSave
-                else delete (doc as Partial<ITrackedDocument>).Save
+                this.ReleaseWrap(doc, wrap)
                 this.NoteSaved(path)
                 this.docs.delete(path)
             },
         }
+    }
+
+    // Drops one reference to the doc's Save wrap; the last release restores the true original.
+    private ReleaseWrap(doc: ITrackedDocument, wrap: SaveWrap): void
+    {
+        if (--wrap.Refs > 0) return
+        this.wraps.delete(doc)
+        if (wrap.HadOwn) doc.Save = wrap.Original
+        else delete (doc as Partial<ITrackedDocument>).Save
     }
 
     public async OnChange(path: string, doc: ITrackedDocument, change: FileChange): Promise<void>

@@ -136,6 +136,22 @@ test('raises only when the flagged set actually changes', async () =>
     assert.equal(raised, 1)
 })
 
+test('a second Track of the same doc does not wrap the wrapper and unwrap restores the true original', async () =>
+{
+    const storage = new FakeStorage(), c = new RemoteChangeCoordinator()
+    const doc = new FakeDoc()
+    const trueOriginal = doc.Save
+    const first = c.Track(storage, 'src/a.todl', doc)
+    const wrapped = doc.Save
+    const second = c.Track(storage, 'src/a.todl', doc)
+    assert.equal(doc.Save, wrapped)
+    first.dispose()
+    assert.equal(doc.Save, wrapped)
+    second.dispose()
+    assert.equal(doc.Save, trueOriginal)
+    assert.equal(Object.prototype.hasOwnProperty.call(doc, 'Save'), false)
+})
+
 test('save awaits the real write before clearing the flag', async () =>
 {
     const storage = new FakeStorage(), c = new RemoteChangeCoordinator()

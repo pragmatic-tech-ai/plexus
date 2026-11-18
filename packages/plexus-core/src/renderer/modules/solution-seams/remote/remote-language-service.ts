@@ -67,7 +67,9 @@ export class RemoteLanguageService implements ILanguageService, IDisposable
     public readonly BuildStateChanged = new Signal<GraphBuildState>()
     // Raised for every diagnostics push, after the per-uri cache is updated.
     public readonly DiagnosticsPublished = new Signal<PublishDiagnosticsParams>()
-    // Raised when a DidChange send is rejected, so the editor can observe that an edit was lost.
+    // Raised when a DidChange send is rejected, so the editor can observe that an edit was lost. SCOPE: main's
+    // DevelopSession.DidChange is fire-and-forget, so the IPC reply resolves Ok whether or not the server
+    // accepted the edit; this fires only on a LOCAL IPC-handoff failure, NOT on a server-side rejection.
     public readonly DidChangeFailed: Signal<DidChangeFailure> = new Signal<DidChangeFailure>()
 
     // Seeded by SyncBuildState (the session's ActiveSolution summary) right after subscribing, because a

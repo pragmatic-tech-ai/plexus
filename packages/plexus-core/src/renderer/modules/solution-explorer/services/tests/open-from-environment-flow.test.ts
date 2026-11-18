@@ -189,6 +189,18 @@ describe('OpenFromEnvironmentFlow', () =>
         expect(rig.Log).toContain('close')
     })
 
+    it('raises Unregistered for the opened solution as the flow closes the session, without any later read', async () =>
+    {
+        const rig = new Rig()
+        await rig.Flow(Choice).Run()
+        const opened = rig.Manager.Opened!
+        const retired: unknown[] = []
+        rig.Registry.Unregistered.subscribe(s => retired.push(s))
+        rig.Manager.Swap(undefined)
+        await Settle()
+        expect(retired).toEqual([opened])
+    })
+
     it('closes the held session when a local solution replaces the dev solution', async () =>
     {
         const rig = new Rig()

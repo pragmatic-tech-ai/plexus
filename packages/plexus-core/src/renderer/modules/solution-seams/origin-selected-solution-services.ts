@@ -1,6 +1,7 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import { SolutionLanguageService } from '@pragmatic-tech-ai/todl'
 import type { Solution } from '@pragmatic-tech-ai/todl'
+import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import { SolutionOriginRegistry } from '../solution-explorer/services/solution-origin-registry.js'
 import { DevStorageSessionKeys } from '../storage/dev-storage-session-key.js'
 import { IntegratedSolutionServices } from './integrated-solution-services.js'
@@ -12,17 +13,30 @@ import type { ILocalBaseResolution } from './remote/remote-language-service.js'
 // for the ACTIVE solution's origin. A solution registered as opened from a dev environment gets
 // RemoteSolutionServices (built once per solution, over the held dev session and the in-proc
 // SolutionLanguageService as the local base resolver); anything else gets IntegratedSolutionServices.
-export class OriginSelectedSolutionServices implements ISolutionServices
+export class OriginSelectedSolutionServices implements ISolutionServices, IDisposable
 {
     // Registering this class in a .mu `.services:` block files it under the SolutionServices token.
     public static readonly Key = SolutionServices.Key
 
     private readonly integrated: IntegratedSolutionServices
     private remote: { readonly Solution: Solution, readonly Services: RemoteSolutionServices } | undefined
+    private readonly unregisteredSubscription: IDisposable | undefined
 
     public constructor(private readonly provider: IServiceProvider)
     {
         this.integrated = new IntegratedSolutionServices(provider)
+        // Deterministic teardown: the moment the open flow retires the solution's origin (close / replace /
+        // rollback) its Remote releases its session push listeners, without waiting for a later Current read.
+        this.unregisteredSubscription = provider.get(SolutionOriginRegistry.Key)?.Unregistered.subscribe(solution =>
+        {
+            if (this.remote?.Solution === solution) this.DisposeRemote()
+        })
+    }
+
+    public dispose(): void
+    {
+        this.unregisteredSubscription?.dispose()
+        this.DisposeRemote()
     }
 
     // The implementation serving the active solution right now.

@@ -83,6 +83,31 @@ describe('OriginSelectedSolutionServices', () =>
         expect(f.Unsub).toHaveBeenCalledTimes(6)
     })
 
+    test('Unregistering the origin releases the Remote push listeners immediately, with no further Current read', () =>
+    {
+        const f = new SelectionFixture()
+        const a = {} as unknown as Solution
+        f.Registry.Register(a, Ref, 'sol')
+        f.Active = a
+        expect(f.Services.Current).toBeInstanceOf(RemoteSolutionServices)
+        expect(f.Unsub).not.toHaveBeenCalled()
+        f.Registry.Unregister(a)
+        expect(f.Unsub).toHaveBeenCalledTimes(3)
+    })
+
+    test('dispose() releases the Remote and stops listening to the registry', () =>
+    {
+        const f = new SelectionFixture()
+        const a = {} as unknown as Solution
+        f.Registry.Register(a, Ref, 'sol')
+        f.Active = a
+        void f.Services.Current
+        f.Services.dispose()
+        expect(f.Unsub).toHaveBeenCalledTimes(3)
+        f.Registry.Unregister(a)
+        expect(f.Unsub).toHaveBeenCalledTimes(3)
+    })
+
     test('the in-proc SolutionLanguageService satisfies ILocalBaseResolution (compile-time)', () =>
     {
         const check = (l: SolutionLanguageService): ILocalBaseResolution => l

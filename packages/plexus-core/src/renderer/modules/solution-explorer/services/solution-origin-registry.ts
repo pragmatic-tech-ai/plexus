@@ -1,4 +1,5 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
+import { Signal } from '@pragmatic-tech-ai/todl-runtime'
 import { DevEnvironmentLocation } from '../../storage/dev-environment-location.js'
 import { RemoteFileStorage } from '../../storage/remote-file-storage.js'
 import type { Solution } from '@pragmatic-tech-ai/todl'
@@ -16,6 +17,9 @@ export class SolutionOriginRegistry
     // Solutions that lost their origin (closed / replaced / rolled back): a late Get on one of them can
     // never be mistaken for the open that is in flight, even when the new solution reuses its name.
     private readonly retired = new WeakSet<Solution>()
+    // Raised (synchronously, after the entry is gone) when a registered solution loses its origin, so
+    // anything built over that origin (the Remote services) can release deterministically.
+    public readonly Unregistered: Signal<Solution> = new Signal<Solution>()
     private expected: { readonly Root: string, readonly Ref: TargetRef, readonly SolutionName: string } | undefined
 
     public Register(solution: Solution, ref: TargetRef, solutionName: string): DevEnvironmentOrigin
@@ -32,8 +36,9 @@ export class SolutionOriginRegistry
 
     public Unregister(solution: Solution): void
     {
-        this.origins.delete(solution)
+        const had = this.origins.delete(solution)
         this.retired.add(solution)
+        if (had) this.Unregistered.emit(solution)
     }
 
     // Announces the dev-environment solution about to be opened, by its location, BEFORE the engine opens
