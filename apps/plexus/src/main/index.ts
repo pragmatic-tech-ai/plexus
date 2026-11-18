@@ -43,7 +43,7 @@ import { DesktopApiClient } from './account/desktop-api-client.js'
 import { DesktopSessionStore } from './account/desktop-session-store.js'
 import { LegacyProfileCleanup } from './account/legacy-profile-cleanup.js'
 import { LoopbackRedirectReceiver } from './account/loopback-redirect-receiver.js'
-import { RelayConnector, RunTestRelayClient } from './account/relay-connector.js'
+import { RelayConnector } from './account/relay-connector.js'
 import { SystemTrust } from './net/system-trust.js'
 import { PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { EsbuildBundler, TscTypeChecker } from '@pragmatic-tech-ai/todl/project-system'
@@ -211,7 +211,7 @@ app.whenReady().then(async () => {
   // console or the platform's tenant plane with that source's session token (RelayConnector), and
   // the relay end holds the environment credential.
   // Nothing secret crosses to the renderer; the handlers answer sentences in a RelayReply envelope.
-  const relay = new RelayConnector(account, async (url, token) => RunTestRelayClient.Wrap(await PragmaticClient.ConnectAsync(url, { bearerToken: token })))
+  const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
   EnvironmentPublishIpc.Register(ipcMain, new EnvironmentDeployService(relay))
   GraphContributeIpc.Register(ipcMain, new GraphContributeService(relay))
   EnvSolutionsIpc.Register(ipcMain, new EnvSolutionsService(relay))
