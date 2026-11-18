@@ -10,7 +10,7 @@ import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { isRelocatable, type IDocumentFactory } from '../../../documents/document-factory.js'
 import { EnvironmentService } from '../../../environment/environment-service.js'
 import { RemoteFileStorage } from '../../storage/remote-file-storage.js'
-import { RemoteChangeCoordinator } from '../../storage/remote-change-coordinator.js'
+import { RemoteChangeCoordinator, type ITrackedDocument } from '../../storage/remote-change-coordinator.js'
 import { samePath } from '../../../file-watch/path-utils.js'
 
 // A document that can reload itself from disk (the code buffer can). IDocument
@@ -77,8 +77,18 @@ export class DocOwnership
 
     private TrackRemote(doc: IDocument, storage: IStorage, path: string): void
     {
-        if (!(storage instanceof RemoteFileStorage) || !DocOwnership.IsReloadable(doc)) return
+        if (!(storage instanceof RemoteFileStorage) || !DocOwnership.IsTrackable(doc)) return
         this.remoteTracking.set(doc, this.remoteChanges.Track(storage, path, doc))
+    }
+
+    // A rename/move re-points the tab: stop watching the old path and watch the new one.
+    private RetrackRemote(doc: IDocument, member: SolutionMember, newPath: string): void
+    {
+        const old = this.remoteTracking.get(doc)
+        if (old === undefined) return
+        old.dispose()
+        this.remoteTracking.delete(doc)
+        this.TrackRemote(doc, DocOwnership.StorageOf(member), newPath)
     }
 
     // Present a document through the host as either a reused ephemeral preview
@@ -171,6 +181,7 @@ export class DocOwnership
             const factory = this.FactoryFor(DocOwnership.ExtName(moved))
             if (factory !== undefined && isRelocatable(factory)) factory.relocateOpenFile(doc, moved)
             this.paths.set(doc, moved)
+            this.RetrackRemote(doc, member, moved)
         }
     }
 
@@ -228,6 +239,11 @@ export class DocOwnership
     {
         const i = path.lastIndexOf('.')
         return i > 0 ? path.slice(i).toLowerCase() : ''
+    }
+
+    private static IsTrackable(doc: IDocument): doc is IDocument & ITrackedDocument
+    {
+        return typeof (doc as Partial<{ ApplyIncoming: unknown }>).ApplyIncoming === 'function'
     }
 
     private static IsReloadable(doc: IDocument): doc is ReloadableDocument
