@@ -45,6 +45,40 @@ describe('SolutionTreeEnumerator', () =>
         expect(tree.every((e) => e.BytesBase64 === undefined)).toBe(true)
     })
 
+    it('skips the top-level dist output folder, as the engine does', async () =>
+    {
+        const a = new FakeStorage()
+        await a.WriteText('main.todl', 'm')
+        await a.WriteText('dist/out.todl', 'built')
+        const root = new FakeStorage()
+        await root.WriteText('S.pksln', '{}')
+        const tree = await new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', root, [{ Ref: { path: 'a' }, Storage: a }]) as any)
+        expect(tree.map((e) => e.Path).sort()).toEqual(['S.pksln', 'a/main.todl'])
+    })
+
+    it('normalizes backslash member paths to POSIX', async () =>
+    {
+        const a = new FakeStorage()
+        await a.WriteText('main.todl', 'm')
+        const tree = await new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), [{ Ref: { path: 'libs\\a' }, Storage: a }]) as any)
+        expect(tree.map((e) => e.Path)).toEqual(['libs/a/main.todl'])
+    })
+
+    it('refuses a member path that escapes the solution', async () =>
+    {
+        const a = new FakeStorage()
+        await a.WriteText('main.todl', 'm')
+        for (const path of ['../x', 'libs\\..\\..\\x'])
+        {
+            await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), [{ Ref: { path }, Storage: a }]) as any)).rejects.toThrow(/unsafe path/)
+        }
+    })
+
+    it('refuses an empty solution rather than uploading nothing', async () =>
+    {
+        await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), []) as any)).rejects.toThrow(/no files to upload/)
+    })
+
     it('refuses an unsaved solution', async () =>
     {
         await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', undefined, []) as any)).rejects.toThrow(/not been saved/)

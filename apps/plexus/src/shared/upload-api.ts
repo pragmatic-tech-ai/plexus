@@ -2,10 +2,11 @@
 // the renderer-facing bridge shape (exposed on window.api.upload by the preload). The call goes
 // through the relay of the target's source with that source's session; no credential crosses this
 // bridge. The structural types are shared with plexus-core (renderer) and live there.
+import type { ContributedPackage } from '@pragmatic-tech-ai/plexus-core/shared/graph-contribute-api.js'
 import type { UploadContribution, UploadEntry } from '@pragmatic-tech-ai/plexus-core/shared/upload-api.js'
 import type { RelayReply, TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
-export type { UploadContribution, UploadEntry }
+export type { ContributedPackage, UploadContribution, UploadEntry }
 
 export enum UploadChannel
 {

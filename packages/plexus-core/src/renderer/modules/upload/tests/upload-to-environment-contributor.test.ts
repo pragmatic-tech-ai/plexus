@@ -33,11 +33,12 @@ class Fixture
         return new Promise((res) => setTimeout(res, 0))
     }
 
-    public static Make(uploader: IUploadContributor | undefined, choice: TargetChoice | undefined, work: any = Fixture.Work()): UploadToEnvironmentContributor
+    public static Builds = 0
+
+    public static Make(uploader: IUploadContributor | undefined, choice: TargetChoice | undefined, work: any = Fixture.Work(), enumerator: any = { Enumerate: () => Promise.resolve(Fixture.Tree) }, withBuilder = true): UploadToEnvironmentContributor
     {
-        const enumerator = { Enumerate: () => Promise.resolve(Fixture.Tree) }
-        const builder = { Build: () => Promise.resolve(Fixture.Packages) }
-        return new UploadToEnvironmentContributor(new Solution('S'), enumerator as any, builder as any, work, uploader, undefined, new ScriptedPicker([ScriptedPicker.PickOf(choice)]))
+        const builder = withBuilder ? { Build: () => { Fixture.Builds++; return Promise.resolve(Fixture.Packages) } } : undefined
+        return new UploadToEnvironmentContributor(new Solution('S'), enumerator, builder as any, work, uploader, undefined, new ScriptedPicker([ScriptedPicker.PickOf(choice)]))
     }
 }
 
@@ -63,6 +64,50 @@ describe('UploadToEnvironmentContributor', () =>
             contribution: { GraphName: 'main', SolutionId: 'S', Packages: Fixture.Packages },
         }])
         expect(work.Title).toBe('Uploading S to dev')
+    })
+
+    it('uploads files only, without building, when no graph is chosen', async () =>
+    {
+        const up = new FakeUploader()
+        const work = Fixture.Work()
+        Fixture.Builds = 0
+        Fixture.Make(up, { Environment: 'dev', Source: TargetSource.Console }, work).Resolve('environment.upload', {} as any)!.Execute()
+        await Fixture.Flush()
+        await expect(work.task).resolves.toBe(1)
+        expect(up.Calls).toHaveLength(1)
+        expect(up.Calls[0]!.contribution).toBeUndefined()
+        expect(Fixture.Builds).toBe(0)
+    })
+
+    it('rejects the task when the uploader fails', async () =>
+    {
+        const up = new FakeUploader()
+        up.Upload = () => Promise.reject(new Error('relay down'))
+        const work = Fixture.Work()
+        Fixture.Make(up, { Environment: 'dev', Source: TargetSource.Console, GraphName: 'main' }, work).Resolve('environment.upload', {} as any)!.Execute()
+        await Fixture.Flush()
+        await expect(work.task).rejects.toThrow('relay down')
+    })
+
+    it('rejects the task when the enumerator fails, uploading nothing', async () =>
+    {
+        const up = new FakeUploader()
+        const work = Fixture.Work()
+        const bad = { Enumerate: () => Promise.reject(new Error('unsafe path')) }
+        Fixture.Make(up, { Environment: 'dev', Source: TargetSource.Console }, work, bad).Resolve('environment.upload', {} as any)!.Execute()
+        await Fixture.Flush()
+        await expect(work.task).rejects.toThrow('unsafe path')
+        expect(up.Calls).toEqual([])
+    })
+
+    it('fails explicitly when a graph is chosen but no builder is available', async () =>
+    {
+        const up = new FakeUploader()
+        const work = Fixture.Work()
+        Fixture.Make(up, { Environment: 'dev', Source: TargetSource.Console, GraphName: 'main' }, work, undefined, false).Resolve('environment.upload', {} as any)!.Execute()
+        await Fixture.Flush()
+        await expect(work.task).rejects.toThrow(/cannot be built/)
+        expect(up.Calls).toEqual([])
     })
 
     it('does nothing when the picker is cancelled, and is disabled without a contributor', async () =>

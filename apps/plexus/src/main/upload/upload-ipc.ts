@@ -1,6 +1,6 @@
 import type { IpcMain } from 'electron'
 import { RelayWire, TargetIdentity, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import { UploadChannel, type UploadContribution, type UploadEntry } from '../../shared/upload-api.js'
+import { UploadChannel, type ContributedPackage, type UploadContribution, type UploadEntry } from '../../shared/upload-api.js'
 import type { UploadService } from './upload-service.js'
 
 // Binds the upload IPC channel. The handler answers a RelayReply envelope so the failure sentence
@@ -57,6 +57,14 @@ export class UploadIpc
         if (typeof value !== 'object') throw new TypeError(UploadIpc.BadArguments)
         const raw = value as Record<string, unknown>
         if (!Array.isArray(raw.Packages)) throw new TypeError(UploadIpc.BadArguments)
-        return { GraphName: UploadIpc.Name(raw.GraphName), SolutionId: UploadIpc.Name(raw.SolutionId), Packages: raw.Packages }
+        return { GraphName: UploadIpc.Name(raw.GraphName), SolutionId: UploadIpc.Name(raw.SolutionId), Packages: raw.Packages.map((p) => UploadIpc.Package(p)) }
+    }
+
+    private static Package(value: unknown): ContributedPackage
+    {
+        if (typeof value !== 'object' || value === null) throw new TypeError(UploadIpc.BadArguments)
+        const raw = value as Record<string, unknown>
+        if (typeof raw.id !== 'string' || typeof raw.version !== 'string' || typeof raw.modelJson !== 'string') throw new TypeError(UploadIpc.BadArguments)
+        return { id: raw.id, version: raw.version, modelJson: raw.modelJson }
     }
 }

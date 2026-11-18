@@ -32,9 +32,13 @@ export class UploadToEnvironmentContributor implements IHierarchyContributor
     private static readonly UploadFailedTitle = 'Upload to dev environment failed'
     private static readonly UploadedTitle = 'Uploaded to dev environment'
     private static readonly FilesSeparator = ' - files uploaded: '
+    private static readonly NoBuilder = 'A graph was chosen but the solution cannot be built here, so the graph cannot be recomposed.'
+    // Distinct from the neighbouring contributors (build 51, html 52-53, publish 54, contribute-to-graph 56 / row 23).
+    private static readonly RowOrder = 24
+    private static readonly CommandOrder = 57
 
     public readonly ParentKeys = [NodeKey.Solution]
-    public readonly Order = 24
+    public readonly Order = UploadToEnvironmentContributor.RowOrder
 
     public readonly Actions: readonly CommandDefinition[]
 
@@ -50,7 +54,7 @@ export class UploadToEnvironmentContributor implements IHierarchyContributor
         const def = new CommandDefinition()
         def.Id = UploadToEnvironmentContributor.UploadCommandId
         def.Title = UploadToEnvironmentContributor.UploadLabel
-        def.Order = 57
+        def.Order = UploadToEnvironmentContributor.CommandOrder
         def.Context = HierarchyContext.For(NodeKey.Solution)
         this.Actions = [def]
     }
@@ -93,8 +97,9 @@ export class UploadToEnvironmentContributor implements IHierarchyContributor
         {
             const tree = await enumerator.Enumerate(solution)
             let contribution: UploadContribution | undefined
-            if (graphName !== undefined && builder !== undefined)
+            if (graphName !== undefined)
             {
+                if (builder === undefined) throw new Error(UploadToEnvironmentContributor.NoBuilder)
                 contribution = { GraphName: graphName, SolutionId: solution.Name, Packages: [...await builder.Build()] }
             }
             await contributor.Upload(target, solution.Name, tree, contribution)

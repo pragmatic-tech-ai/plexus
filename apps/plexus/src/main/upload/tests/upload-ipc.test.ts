@@ -96,6 +96,9 @@ describe('UploadIpc', () =>
             await h.Invoke(Dev, 'S', Tree, 'nope'),
             await h.Invoke(Dev, 'S', Tree, { GraphName: 'g', SolutionId: 's', Packages: 'x' }),
             await h.Invoke(Dev, 'S', Tree, { GraphName: '', SolutionId: 's', Packages: [] }),
+            await h.Invoke(Dev, 'S', Tree, { GraphName: 'g', SolutionId: 's', Packages: [{ id: 'p', version: '1' }] }),
+            await h.Invoke(Dev, 'S', Tree, { GraphName: 'g', SolutionId: 's', Packages: [null] }),
+            await h.Invoke(Dev, 'S', Tree, { GraphName: 'g', SolutionId: 's', Packages: [{ id: 1, version: '1', modelJson: '{}' }] }),
         ]
         for (const reply of bad) expect(reply).toEqual(Malformed)
         expect(h.Service.Calls).toEqual([])
