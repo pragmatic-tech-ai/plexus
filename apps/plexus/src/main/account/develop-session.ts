@@ -34,13 +34,14 @@ export class RequestSerializer
 }
 
 // The held develop session: one relay connection kept open for a dev environment, driving its source
-// storage. Every storage request goes through a serializer that stays below the relay pipe's pending cap.
-// Language / model / solution requests bypass it and run concurrently; DidChange is handed to the relay
-// in call order without waiting on any answer.
+// storage. EVERY request/response call (storage, language, model, solution) shares ONE serializer, so the
+// total concurrent in-flight count on the single relay connection stays below the pipe's pending cap.
+// DidChange is a fire-and-forget notification (no pending entry on the pipe): it is exempt and is handed to
+// the relay in call order without waiting on any answer.
 export class DevelopSession implements IDevStorageSession, DevSessionRequests, IDevSessionPushes
 {
-    // COUPLED to the server: 31 = RelayPipe.MaxPending (32) - 1, from the pragmatic-server control-plane
-    // relay pipe, which refuses beyond MaxPending in flight. No shared constant is exported yet, so this
+    // COUPLED to the server: 31 = RelayPipe.MaxPending (32) - 1 margin, from the pragmatic-server control-plane
+    // relay pipe, which refuses beyond MaxPending in flight. This is the ONE shared budget for all requests. No shared constant is exported yet, so this
     // number must be kept in step with that cap by hand.
     public static readonly MaxInFlight = 31
 
@@ -101,7 +102,7 @@ export class DevelopSession implements IDevStorageSession, DevSessionRequests, I
         return this.serializer.Run(() => this.client.StorageList(path))
     }
 
-    // A subscription, not a request: it bypasses the serializer.
+    // A subscription, not a request: it takes no budget.
     public OnStorageChanged(handler: (change: StorageChangedPayload) => void): () => void
     {
         const subscription = this.client.OnStorageChanged(handler)
@@ -128,97 +129,97 @@ export class DevelopSession implements IDevStorageSession, DevSessionRequests, I
 
     public SelectAuthoring(solutionId: string): Promise<ActiveSolutionSummary>
     {
-        return this.client.SelectAuthoring({ SolutionId: solutionId })
+        return this.serializer.Run(() => this.client.SelectAuthoring({ SolutionId: solutionId }))
     }
 
     public ListSolutions(...args: Parameters<DevSessionRequests['ListSolutions']>): ReturnType<DevSessionRequests['ListSolutions']>
     {
-        return this.client.ListSolutions(...args)
+        return this.serializer.Run(() => this.client.ListSolutions(...args))
     }
 
     public ActiveSolution(...args: Parameters<DevSessionRequests['ActiveSolution']>): ReturnType<DevSessionRequests['ActiveSolution']>
     {
-        return this.client.ActiveSolution(...args)
+        return this.serializer.Run(() => this.client.ActiveSolution(...args))
     }
 
     public CompletionsAt(...args: Parameters<DevSessionRequests['CompletionsAt']>): ReturnType<DevSessionRequests['CompletionsAt']>
     {
-        return this.client.CompletionsAt(...args)
+        return this.serializer.Run(() => this.client.CompletionsAt(...args))
     }
 
     public HoverAt(...args: Parameters<DevSessionRequests['HoverAt']>): ReturnType<DevSessionRequests['HoverAt']>
     {
-        return this.client.HoverAt(...args)
+        return this.serializer.Run(() => this.client.HoverAt(...args))
     }
 
     public DefinitionAt(...args: Parameters<DevSessionRequests['DefinitionAt']>): ReturnType<DevSessionRequests['DefinitionAt']>
     {
-        return this.client.DefinitionAt(...args)
+        return this.serializer.Run(() => this.client.DefinitionAt(...args))
     }
 
     public ReferencesAt(...args: Parameters<DevSessionRequests['ReferencesAt']>): ReturnType<DevSessionRequests['ReferencesAt']>
     {
-        return this.client.ReferencesAt(...args)
+        return this.serializer.Run(() => this.client.ReferencesAt(...args))
     }
 
     public PrepareRename(...args: Parameters<DevSessionRequests['PrepareRename']>): ReturnType<DevSessionRequests['PrepareRename']>
     {
-        return this.client.PrepareRename(...args)
+        return this.serializer.Run(() => this.client.PrepareRename(...args))
     }
 
     public RenameEdits(...args: Parameters<DevSessionRequests['RenameEdits']>): ReturnType<DevSessionRequests['RenameEdits']>
     {
-        return this.client.RenameEdits(...args)
+        return this.serializer.Run(() => this.client.RenameEdits(...args))
     }
 
     public DocumentSymbols(...args: Parameters<DevSessionRequests['DocumentSymbols']>): ReturnType<DevSessionRequests['DocumentSymbols']>
     {
-        return this.client.DocumentSymbols(...args)
+        return this.serializer.Run(() => this.client.DocumentSymbols(...args))
     }
 
     public FoldingRanges(...args: Parameters<DevSessionRequests['FoldingRanges']>): ReturnType<DevSessionRequests['FoldingRanges']>
     {
-        return this.client.FoldingRanges(...args)
+        return this.serializer.Run(() => this.client.FoldingRanges(...args))
     }
 
     public WorkspaceSymbols(...args: Parameters<DevSessionRequests['WorkspaceSymbols']>): ReturnType<DevSessionRequests['WorkspaceSymbols']>
     {
-        return this.client.WorkspaceSymbols(...args)
+        return this.serializer.Run(() => this.client.WorkspaceSymbols(...args))
     }
 
     public SemanticTokens(...args: Parameters<DevSessionRequests['SemanticTokens']>): ReturnType<DevSessionRequests['SemanticTokens']>
     {
-        return this.client.SemanticTokens(...args)
+        return this.serializer.Run(() => this.client.SemanticTokens(...args))
     }
 
     public SignatureHelpAt(...args: Parameters<DevSessionRequests['SignatureHelpAt']>): ReturnType<DevSessionRequests['SignatureHelpAt']>
     {
-        return this.client.SignatureHelpAt(...args)
+        return this.serializer.Run(() => this.client.SignatureHelpAt(...args))
     }
 
     public CodeActions(...args: Parameters<DevSessionRequests['CodeActions']>): ReturnType<DevSessionRequests['CodeActions']>
     {
-        return this.client.CodeActions(...args)
+        return this.serializer.Run(() => this.client.CodeActions(...args))
     }
 
     public FormatDocument(...args: Parameters<DevSessionRequests['FormatDocument']>): ReturnType<DevSessionRequests['FormatDocument']>
     {
-        return this.client.FormatDocument(...args)
+        return this.serializer.Run(() => this.client.FormatDocument(...args))
     }
 
     public DiagnosticsFor(...args: Parameters<DevSessionRequests['DiagnosticsFor']>): ReturnType<DevSessionRequests['DiagnosticsFor']>
     {
-        return this.client.DiagnosticsFor(...args)
+        return this.serializer.Run(() => this.client.DiagnosticsFor(...args))
     }
 
     public ModelView(...args: Parameters<DevSessionRequests['ModelView']>): ReturnType<DevSessionRequests['ModelView']>
     {
-        return this.client.ModelView(...args)
+        return this.serializer.Run(() => this.client.ModelView(...args))
     }
 
     public Resources(...args: Parameters<DevSessionRequests['Resources']>): ReturnType<DevSessionRequests['Resources']>
     {
-        return this.client.Resources(...args)
+        return this.serializer.Run(() => this.client.Resources(...args))
     }
 
     public async DidChange(uri: string, text: string): Promise<void>

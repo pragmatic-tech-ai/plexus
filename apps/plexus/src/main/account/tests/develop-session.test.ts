@@ -228,6 +228,66 @@ class RequestSamples
     ]
 }
 
+// A relay client whose storage AND language / model / solution calls all block until released.
+class BlockingClient
+{
+    public InFlight = 0
+    public MaxSeen = 0
+    public Started = 0
+    public DidChanges = 0
+    private readonly waiting: Array<() => void> = []
+
+    public get Waiting(): number
+    {
+        return this.waiting.length
+    }
+
+    private async Block(): Promise<string>
+    {
+        this.Started++
+        this.InFlight++
+        this.MaxSeen = Math.max(this.MaxSeen, this.InFlight)
+        await new Promise<void>(resolve => this.waiting.push(resolve))
+        this.InFlight--
+        return 'ok'
+    }
+
+    public StorageReadText(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public HoverAt(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public ModelView(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public ListSolutions(): Promise<string>
+    {
+        return this.Block()
+    }
+
+    public DidChange(): void
+    {
+        this.DidChanges++
+    }
+
+    public ReleaseAll(): void
+    {
+        while (this.waiting.length > 0) this.waiting.shift()!()
+    }
+
+    public AsClient(): RelayClient
+    {
+        return this as unknown as RelayClient
+    }
+}
+
 describe('DevelopSession language / model / solution surface', () =>
 {
     it.each(RequestSamples.Requests)('%s forwards its arguments to the relay client', async (name, args) =>
@@ -246,23 +306,46 @@ describe('DevelopSession language / model / solution surface', () =>
         expect(client.Calls).toEqual([['SelectAuthoring', [{ SolutionId: 's1' }]]])
     })
 
-    it('language reads are not held behind a full storage queue', async () =>
+    it('storage and language / model / solution requests share ONE in-flight budget', async () =>
     {
-        const storage = new FakeClient() as any
-        const client = new RecordingClient() as any
-        client.StorageReadText = storage.StorageReadText.bind(storage)
-        const session = new DevelopSession(client as RelayClient)
-        const pending = Array.from({ length: 40 }, (_, i) => session.ReadText(`p${i}`))
+        const client = new BlockingClient()
+        const session = new DevelopSession(client.AsClient())
+        const storage = Array.from({ length: DevelopSession.MaxInFlight }, (_, i) => session.ReadText(`p${i}`))
         await Ticks.Settle()
-        expect(storage.InFlight).toBe(DevelopSession.MaxInFlight)
-        expect(await session.HoverAt('u', { line: 0, character: 0 })).toBe('ret:HoverAt')
-        while (storage.Waiting > 0)
+        expect(client.InFlight).toBe(DevelopSession.MaxInFlight)
+        // Budget saturated: a language request, a model request and a solution request must wait, not dispatch.
+        const extras = [session.HoverAt('u', { line: 0, character: 0 }), session.ModelView('m', { Limit: 1 }), session.ListSolutions()]
+        await Ticks.Settle()
+        expect(client.InFlight).toBe(DevelopSession.MaxInFlight)
+        expect(client.Started).toBe(DevelopSession.MaxInFlight)
+        // DidChange is a notification: exempt from the budget even while it is saturated.
+        await session.DidChange('u', 'x')
+        expect(client.DidChanges).toBe(1)
+        while (client.Waiting > 0)
         {
-            storage.ReleaseAll()
+            client.ReleaseAll()
             await Ticks.Settle()
         }
-        await Promise.all(pending)
-        expect(storage.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
+        await Promise.all([...storage, ...extras])
+        expect(client.Started).toBe(DevelopSession.MaxInFlight + 3)
+        expect(client.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
+    })
+
+    it('a flood of mixed storage and language requests never exceeds the budget', async () =>
+    {
+        const client = new BlockingClient()
+        const session = new DevelopSession(client.AsClient())
+        const all: Array<Promise<unknown>> = []
+        for (let i = 0; i < 60; i++) all.push(i % 2 === 0 ? session.ReadText(`p${i}`) : session.HoverAt('u', { line: i, character: 0 }))
+        await Ticks.Settle()
+        while (client.Waiting > 0)
+        {
+            client.ReleaseAll()
+            await Ticks.Settle()
+        }
+        await Promise.all(all)
+        expect(client.Started).toBe(60)
+        expect(client.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
     })
 
     it('DidChange reaches the client in call order without waiting', async () =>
