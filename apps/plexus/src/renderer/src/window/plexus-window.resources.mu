@@ -7,6 +7,7 @@
 // ContentControl[Template].
 import DiagramExportService from "../modules/diagram-export/services/diagram-export-service.js"
 import ProjectCommandsService from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js"
+import SolutionCommandsService from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-commands-service.js"
 import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
 import ViewCommandsService from "../services/menu/view-commands-service.js"
 import HelpCommandsService from "../services/menu/help-commands-service.js"
@@ -68,6 +69,10 @@ resources PlexusWindowChrome {
                 MenuItem [ Header = "New Project",  RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).NewProjectCommand ]
                 MenuItem [ Header = "Open Project", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenProjectCommand ]
                 MenuItem [ Header = "Open from dev environment", RowTemplate = @CompactMenuItemRow, Command = $service(ProjectCommandsService).OpenFromEnvironmentCommand ]
+                MenuSeparator
+                MenuItem [ Header = "Save Solution",     RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).SaveCommand ]
+                MenuItem [ Header = "Save Solution As…", RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).SaveAsCommand ]
+                MenuItem [ Header = "Rename Solution…",  RowTemplate = @CompactMenuItemRow, Command = $service(SolutionCommandsService).RenameCommand ]
                 MenuSeparator
                 MenuItem [ Header = "Save",     RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveActiveCommand ]
                 MenuItem [ Header = "Save All", RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveAllCommand ]
