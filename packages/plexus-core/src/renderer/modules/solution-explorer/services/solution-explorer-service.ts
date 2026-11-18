@@ -374,7 +374,19 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     // branch double-click toggles expansion in the TreeView instead) opens the
     // file as a PERMANENT tab, promoting it if it was the preview.
     public Activate(item: HierarchyItem): void { void this.onActivate(item, false) }
-    public CommitRename(item: HierarchyItem, newName: string): void { void this.files?.RenameNode(item, newName) }
+    // The Solution root is not a file member: its inline (F2) rename routes to the solution
+    // commands service (rename the manifest + persist + report failure), not
+    // FileTreeContributor.RenameNode, which keys off a member and silently no-ops for the
+    // Solution node — the reason an F2 rename of the solution row did nothing.
+    public CommitRename(item: HierarchyItem, newName: string): void
+    {
+        if (item.Key === NodeKey.Solution)
+        {
+            void this.provider.get(SolutionCommandsService.Key)?.RenameTo(newName)
+            return
+        }
+        void this.files?.RenameNode(item, newName)
+    }
     // Delete dispatches by node family: a reference leaf removes references, a connection leaf
     // removes connections (both selection-aware, reversible edits — no confirm); the synthetic
     // References / Connections / group rows are not deletable; every other row is a file delete.

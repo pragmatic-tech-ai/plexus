@@ -106,8 +106,9 @@ export class SolutionCommandsService extends ServiceBase
         }
     }
 
-    // Rename: prompt for a new name (seeded with the current one) and rename; a cancelled,
-    // blank, or unchanged name is a no-op.
+    // Rename: prompt for a new name (seeded with the current one) and apply it; a cancelled,
+    // blank, or unchanged name is a no-op. The post-name work lives in RenameTo so the inline
+    // (F2) tree rename — which already has the name — shares the same mutation + persist + error path.
     public async Rename(): Promise<void>
     {
         const solution = this.manager.ActiveSolution
@@ -115,19 +116,31 @@ export class SolutionCommandsService extends ServiceBase
         {
             return
         }
+        const name = await this.prompts.PromptText(SolutionCommandsService.RenameLabel, solution.Name)
+        if (name === undefined)
+        {
+            return
+        }
+        await this.RenameTo(name)
+    }
+
+    // Apply a new solution name directly (no prompt): the shared core of the dialog Rename and
+    // the inline tree (F2) rename. Renames the on-disk manifest via the engine and, when the
+    // solution is rooted, persists the renamed manifest body immediately rather than waiting for
+    // the next auto-persist (an untitled solution is skipped so a rename never triggers the Save
+    // folder prompt). A blank or unchanged name is a no-op; a failure surfaces via an info dialog.
+    public async RenameTo(name: string): Promise<void>
+    {
+        const solution = this.manager.ActiveSolution
+        if (solution === undefined || name.trim() === '' || name === solution.Name)
+        {
+            return
+        }
         try
         {
-            const name = await this.prompts.PromptText(SolutionCommandsService.RenameLabel, solution.Name)
-            if (name === undefined || name.trim() === '' || name === solution.Name)
-            {
-                return
-            }
             await this.manager.Rename(name)
             if (solution.HasLocation)
             {
-                // Persist the renamed manifest body now (the engine renamed the file; this rewrites
-                // its internal name immediately rather than waiting for the next auto-persist). An
-                // untitled solution is skipped so a rename never triggers the Save folder prompt.
                 await this.manager.Save()
             }
         }

@@ -143,6 +143,51 @@ describe("SolutionCommandsService", () =>
     expect(manager.renamed).toBeUndefined();
   });
 
+  it("RenameTo applies a given name directly (the inline/F2 tree rename path, no prompt)", async () =>
+  {
+    const { svc, manager, prompts } = build({ active });
+    await svc.RenameTo("Inline Name");
+    expect(manager.renamed).toBe("Inline Name");
+    expect(prompts.lastLabel).toBeUndefined(); // never prompted
+  });
+
+  it("RenameTo persists a rooted solution's new name to disk", async () =>
+  {
+    const { svc, manager } = build({ active: { Name: "Old", HasLocation: true } });
+    await svc.RenameTo("New");
+    expect(manager.renamed).toBe("New");
+    expect(manager.saved).toBe(1);
+  });
+
+  it("RenameTo of an untitled solution does not persist (no save prompt)", async () =>
+  {
+    const { svc, manager } = build({ active });
+    await svc.RenameTo("Inline Name");
+    expect(manager.saved).toBe(0);
+  });
+
+  it("RenameTo is a no-op for a blank name", async () =>
+  {
+    const { svc, manager } = build({ active });
+    await svc.RenameTo("   ");
+    expect(manager.renamed).toBeUndefined();
+  });
+
+  it("RenameTo is a no-op when the name is unchanged", async () =>
+  {
+    const { svc, manager } = build({ active: { Name: "Same", HasLocation: true } });
+    await svc.RenameTo("Same");
+    expect(manager.renamed).toBeUndefined();
+  });
+
+  it("RenameTo surfaces an engine rename failure through an info dialog", async () =>
+  {
+    const { svc, manager, dialogs } = build({ active: { Name: "Old", HasLocation: true } });
+    manager.throwOnSave = true; // Rename ok, the follow-up Save throws
+    await svc.RenameTo("New");
+    expect(dialogs.shownTitle).toBeDefined();
+  });
+
   it("Open picks a folder and calls OpenSolution with it", async () =>
   {
     const { svc, manager } = build({ active, folder: "C:/work/other" });
