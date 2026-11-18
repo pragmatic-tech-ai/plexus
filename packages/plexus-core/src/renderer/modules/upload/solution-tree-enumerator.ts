@@ -65,7 +65,7 @@ export class SolutionTreeEnumerator
     // (absolute path), a '..' segment and any segment containing ':' (drive letter).
     private static Segments(path: string): string[]
     {
-        if (/^[\/]/.test(path)) throw new Error(SolutionTreeEnumerator.UnsafePath + path)
+        if (/^[\\/]/.test(path)) throw new Error(SolutionTreeEnumerator.UnsafePath + path)
         const parts = path.split(SolutionTreeEnumerator.BackslashSegments).filter((s) => s !== '' && s !== SolutionTreeEnumerator.CurrentDir)
         if (parts.some((s) => s === SolutionTreeEnumerator.ParentSegment || s.includes(SolutionTreeEnumerator.DriveMarker))) throw new Error(SolutionTreeEnumerator.UnsafePath + path)
         return parts

@@ -95,7 +95,7 @@ describe('SolutionTreeEnumerator', () =>
     {
         const a = new FakeStorage()
         await a.WriteText('main.todl', 'm')
-        for (const path of ['/abs/a', 'C:/a', 'libs/D:/a'])
+        for (const path of ['/abs/a', '\\abs\\a', 'C:/a', 'libs/D:/a'])
         {
             await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), [{ Ref: { path }, Storage: a }]) as any)).rejects.toThrow(/unsafe path/)
         }
