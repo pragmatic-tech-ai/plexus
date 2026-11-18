@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { AccountError, AccountErrorKind, TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import { ConnectionLostError, ErrorCodes, InMemoryMessageSocket, PragmaticClient, ResponseError, UpgradeRefusedError, type IMessageSocket } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { BuildState, ConnectionLostError, ErrorCodes, InMemoryMessageSocket, PragmaticClient, ResponseError, UpgradeRefusedError, type IMessageSocket } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { GraphErrorCode, RelayAction, RelayAnswer, RelayConnector, RelayDrop, RelayRefusal, type IRelaySessionSource, type RelayCall, type RelayClient } from '../relay-connector.js'
 import type { SessionAddress } from '../desktop-session-store.js'
 
@@ -533,5 +533,48 @@ describe('RelayAnswer', () =>
         expect(RelayAnswer.IsServerAnswer(new ResponseError(-32004, 'conflict'))).toBe(true)
         expect(RelayAnswer.IsServerAnswer(new ResponseError(ErrorCodes.MethodNotFound, 'Method not found'))).toBe(false)
         expect(RelayAnswer.IsServerAnswer(new Error('x'))).toBe(false)
+    })
+})
+
+// Compile-time surface guard: tsc (node config includes src/main tests) fails if RelayClient loses a develop-session member.
+class DevelopSurface
+{
+    public static Fake(): RelayClient
+    {
+        const entries = [{ Name: 'a.todl', IsDirectory: false }]
+        return {
+            StorageList: async () => entries,
+            OnStorageChanged: () => ({ dispose: () => {} }),
+            SelectAuthoring: async () => ({ name: 'S', members: [], buildState: BuildState.Ready }),
+        } as unknown as RelayClient
+    }
+
+    public static async Touch(client: RelayClient): Promise<number>
+    {
+        const entries = await client.StorageList('.')
+        const bytes = await client.StorageReadBytes('a')
+        const listed = await client.ListSolutions()
+        const selected = await client.SelectAuthoring({ SolutionId: 's1' })
+        const subscriptions = [client.OnStorageChanged(() => {}), client.OnGraphChanged(() => {}), client.OnBuildStateChanged(() => {})]
+        const members = [client.StorageReadText, client.StorageWriteText, client.StorageWriteBytes, client.StorageExists, client.StorageDelete,
+            client.StorageCreateDirectory, client.StorageRename, client.ActiveSolution]
+        return entries.length + bytes.length + listed.length + selected.members.length + subscriptions.length + members.length
+    }
+}
+
+describe('RelayAction.Develop', () =>
+{
+    it('has the wire value the server parses', () =>
+    {
+        expect(RelayAction.Develop).toBe('develop')
+    })
+
+    it('RelayClient exposes the develop-session surface', async () =>
+    {
+        const client = DevelopSurface.Fake()
+        expect(await client.StorageList('.')).toHaveLength(1)
+        expect(await client.SelectAuthoring({ SolutionId: 's1' })).toMatchObject({ name: 'S' })
+        expect(typeof client.OnStorageChanged(() => {}).dispose).toBe('function')
+        expect(typeof DevelopSurface.Touch).toBe('function')
     })
 })

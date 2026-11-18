@@ -1,3 +1,4 @@
+import type { TargetRef } from '../../../../shared/account-api.js'
 import { type Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
 
 // Where an opened solution came from. Today every solution is opened from the
@@ -18,6 +19,9 @@ export interface DevEnvironmentOrigin
 {
     readonly Kind: SolutionOriginKind.DevEnvironment
     readonly EnvironmentName: string
+    // The console source + env name needed to reconstruct the dev session.
+    readonly EnvironmentRef: TargetRef
+    readonly SolutionName: string
 }
 
 export type SolutionOrigin = FileSystemOrigin | DevEnvironmentOrigin
@@ -38,6 +42,16 @@ export class SolutionOrigins
     public static Of(_solution: Solution): SolutionOrigin
     {
         return SolutionOrigins.FileSystem
+    }
+
+    public static DevEnvironment(ref: TargetRef, solutionName: string): DevEnvironmentOrigin
+    {
+        return {
+            Kind: SolutionOriginKind.DevEnvironment,
+            EnvironmentName: ref.Name,
+            EnvironmentRef: ref,
+            SolutionName: solutionName,
+        }
     }
 
     public static Label(origin: SolutionOrigin): string

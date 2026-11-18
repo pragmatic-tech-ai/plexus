@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { Observable } from '@pragmatic-tech-ai/todl-runtime'
 import { type Solution, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { TargetSource } from '../../../../../shared/account-api.js'
 import { SolutionOrigins, SolutionOriginKind } from '../solution-origin.js'
 
 // The origin helper ignores the Solution's internals (nothing on it records an
@@ -36,7 +37,17 @@ describe('SolutionOrigins', () =>
 
     it('labels a dev-environment origin with its name', () =>
     {
-        expect(SolutionOrigins.Label({ Kind: SolutionOriginKind.DevEnvironment, EnvironmentName: 'loop-dev' })).toBe('Dev environment: loop-dev')
+        expect(SolutionOrigins.Label({ Kind: SolutionOriginKind.DevEnvironment, EnvironmentName: 'loop-dev', EnvironmentRef: { Name: 'loop-dev', Source: TargetSource.Console }, SolutionName: 'sol' })).toBe('Dev environment: loop-dev')
+    })
+
+    it('builds a dev-environment origin carrying ref and solution', () =>
+    {
+        const origin = SolutionOrigins.DevEnvironment({ Name: 'loop-dev', Source: TargetSource.Console }, 'sol')
+        expect(origin.Kind).toBe(SolutionOriginKind.DevEnvironment)
+        expect(origin.EnvironmentName).toBe('loop-dev')
+        expect(origin.EnvironmentRef).toEqual({ Name: 'loop-dev', Source: TargetSource.Console })
+        expect(origin.SolutionName).toBe('sol')
+        expect(SolutionOrigins.Label(origin)).toBe('Dev environment: loop-dev')
     })
 
     it('has no active label when no manager is present', () =>
