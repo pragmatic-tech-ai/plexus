@@ -80,4 +80,25 @@ describe('SolutionMemberIds', () =>
         expect(ids.StorageOfMember('c/project.todl.json')).toBeUndefined()
         expect(new SolutionMemberIds(() => undefined).MemberIdOf(fixture.StorageA)).toBeUndefined()
     })
+    test('a falsy storage never matches an unopened member', () =>
+    {
+        const fixture = new Fixture()
+        const ids = new SolutionMemberIds(() => fixture.Solution as never)
+        expect(ids.MemberIdOf(undefined as never)).toBeUndefined()
+    })
+
+    test('re-reads the active solution on every call', () =>
+    {
+        const fixture = new Fixture()
+        const other = { Ref: { path: 'z/project.todl.json', type: 't' }, Storage: { Tag: 'z' } as unknown as IStorage }
+        const replacement = { Members: { ToArray: () => [other] } }
+        let current: unknown = fixture.Solution
+        const ids = new SolutionMemberIds(() => current as never)
+        expect(ids.MemberIdOf(fixture.StorageA)).toBe('a/project.todl.json')
+        current = replacement
+        expect(ids.MemberIdOf(fixture.StorageA)).toBeUndefined()
+        expect(ids.MemberIdOf(other.Storage)).toBe('z/project.todl.json')
+        expect(ids.StorageOfMember('z/project.todl.json')).toBe(other.Storage)
+        expect(ids.StorageOfMember('a/project.todl.json')).toBeUndefined()
+    })
 })

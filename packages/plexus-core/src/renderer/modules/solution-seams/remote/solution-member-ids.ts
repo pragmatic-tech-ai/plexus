@@ -14,6 +14,7 @@ export class SolutionMemberIds implements IRemoteMemberIds
 
     public MemberIdOf(storage: IStorage): string | undefined
     {
+        if (!storage) return undefined
         return this.activeSolution()?.Members.ToArray().find(member => member.Storage === storage)?.Ref.path
     }
 
