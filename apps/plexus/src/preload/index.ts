@@ -14,6 +14,7 @@ import { ConnectionChannel, type IConnectionsApi } from '../shared/connections-a
 import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-server-api.js'
 import { EnvironmentPublishChannel, type IEnvironmentPublishBridge } from '../shared/environment-publish-api.js'
 import { DevSessionChannel, type IDevSessionBridge } from '../shared/dev-session-api.js'
+import { EnvSolutionsChannel, type IEnvSolutionsBridge } from '../shared/env-solutions-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
 import { UploadChannel, type IUploadBridge, type UploadContribution, type UploadEntry } from '../shared/upload-api.js'
 import { EnvironmentsChannel, type IEnvironmentsBridge } from '../shared/environment-contents-api.js'
@@ -169,6 +170,9 @@ const graphContribute: IGraphContributeBridge = {
     RelayBridge.Call(GraphContributeChannel.Contribute, target, graphName, solutionId, packages),
   ListGraphs: (target: TargetRef) => RelayBridge.Call(GraphContributeChannel.ListGraphs, target),
 }
+const envSolutions: IEnvSolutionsBridge = {
+  ListSolutions: (target: TargetRef) => RelayBridge.Call(EnvSolutionsChannel.ListSolutions, target),
+}
 const upload: IUploadBridge = {
   Upload: (target: TargetRef, solutionName: string, tree: UploadEntry[], contribution?: UploadContribution) =>
     RelayBridge.Call(UploadChannel.Upload, target, solutionName, tree, contribution),
@@ -271,7 +275,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, upload, devSession, environments, account, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, envSolutions, upload, devSession, environments, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {

@@ -15,6 +15,7 @@
 
 import ContributeTargetDialog from "./contribute-target-dialog.js"
 import PublishTargetDialog from "./publish-target-dialog.js"
+import OpenFromEnvDialog from "./open-from-env-dialog.js"
 
 resources TargetDialogsResources {
     DataTemplate [ DataType = ContributeTargetDialog ] {
@@ -40,6 +41,33 @@ resources TargetDialogsResources {
                          Visibility = $IsSignedIn << ToVisibility ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
                 Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Contribute" ] }
+            }
+        }
+    }
+
+    DataTemplate [ DataType = OpenFromEnvDialog ] {
+        StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
+            StackPanel [ Orientation = Vertical, Visibility = $HasEnvironments << ToVisibility ] {
+                TextBlock [ Text = "Environment", Style = @BodySm, Foreground = @Fg2 ]
+                ComboBox [ ItemsSource = $Environments, SelectedItem = $SelectedEnvironment, HorizontalAlignment = Stretch, Margin = (0,0,0,8) ]
+            }
+            StackPanel [ Orientation = Vertical, Visibility = $HasSolutions << ToVisibility ] {
+                TextBlock [ Text = "Solution", Style = @BodySm, Foreground = @Fg2 ]
+                ComboBox [ ItemsSource = $Solutions, SelectedItem = $SelectedSolution, HorizontalAlignment = Stretch, Margin = (0,0,0,8) ]
+            }
+
+            TextBlock [ Text = $Message, Style = @Body, Foreground = @Fg1, TextWrapping = Wrap,
+                        Visibility = $HasMessage << ToVisibility ]
+
+            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,12,0,0),
+                         Visibility = $NeedsSignIn << ToVisibility ] {
+                Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
+                Button [ Variant = Filled, Command = $SignInCommand ] { TextBlock [ Text = "Sign in" ] }
+            }
+            StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,12,0,0),
+                         Visibility = $IsSignedIn << ToVisibility ] {
+                Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
+                Button [ Variant = Filled, Command = $ConfirmCommand ] { TextBlock [ Text = "Open" ] }
             }
         }
     }

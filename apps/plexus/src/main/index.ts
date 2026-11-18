@@ -31,6 +31,8 @@ import { DevSessionHost } from './dev-session/dev-session-host.js'
 import { DevSessionIpc } from './dev-session/dev-session-ipc.js'
 import { UploadService } from './upload/upload-service.js'
 import { UploadIpc } from './upload/upload-ipc.js'
+import { EnvSolutionsService } from './env-solutions/env-solutions-service.js'
+import { EnvSolutionsIpc } from './env-solutions/env-solutions-ipc.js'
 import { GraphContributeIpc } from './graph-contribute/graph-contribute-ipc.js'
 import { EnvironmentContentsService } from './environments/environment-contents-service.js'
 import { EnvironmentContentsIpc } from './environments/environment-contents-ipc.js'
@@ -212,6 +214,7 @@ app.whenReady().then(async () => {
   const relay = new RelayConnector(account, (url, token) => PragmaticClient.ConnectAsync(url, { bearerToken: token }))
   EnvironmentPublishIpc.Register(ipcMain, new EnvironmentDeployService(relay))
   GraphContributeIpc.Register(ipcMain, new GraphContributeService(relay))
+  EnvSolutionsIpc.Register(ipcMain, new EnvSolutionsService(relay))
   UploadIpc.Register(ipcMain, new UploadService(relay))
   // The held develop session: one open relay per dev environment, driven by the renderer's IpcDevSession.
   const devSessions = new DevSessionHost(relay)
