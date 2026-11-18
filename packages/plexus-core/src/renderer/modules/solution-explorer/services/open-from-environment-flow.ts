@@ -47,6 +47,8 @@ export class OpenFromEnvironmentFlow
     private bound = false
     private opened: Solution | undefined
     private watch: IDisposable | undefined
+    // The session close the watcher started, if any: the next bind waits for it so it cannot tear that bind down.
+    private closing: Promise<void> | undefined
 
     public constructor(
         private readonly createPicker: () => ITargetPicker,
@@ -77,6 +79,7 @@ export class OpenFromEnvironmentFlow
 
     private async RunOnce(): Promise<void>
     {
+        await this.closing
         let choice: TargetChoice | undefined
         try
         {
@@ -137,6 +140,7 @@ export class OpenFromEnvironmentFlow
         }
         if (this.manager.ActiveSolution === previous) return false
         this.ForgetOpened()
+        this.registry.Unregister(previous)
         return true
     }
 
@@ -182,9 +186,16 @@ export class OpenFromEnvironmentFlow
         this.opened = undefined
     }
 
-    private async CloseSession(): Promise<void>
+    private CloseSession(): Promise<void>
     {
         this.bound = false
+        const closing = this.CloseQuietly()
+        this.closing = closing
+        return closing
+    }
+
+    private async CloseQuietly(): Promise<void>
+    {
         try
         {
             await this.session.Close()

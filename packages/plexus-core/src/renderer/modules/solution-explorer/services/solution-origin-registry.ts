@@ -13,6 +13,9 @@ export class SolutionOriginRegistry
     public static readonly Key = new ServiceKey<SolutionOriginRegistry>('SolutionOriginRegistry')
 
     private readonly origins = new WeakMap<Solution, DevEnvironmentOrigin>()
+    // Solutions that lost their origin (closed / replaced / rolled back): a late Get on one of them can
+    // never be mistaken for the open that is in flight, even when the new solution reuses its name.
+    private readonly retired = new WeakSet<Solution>()
     private expected: { readonly Root: string, readonly Ref: TargetRef, readonly SolutionName: string } | undefined
 
     public Register(solution: Solution, ref: TargetRef, solutionName: string): DevEnvironmentOrigin
@@ -30,6 +33,7 @@ export class SolutionOriginRegistry
     public Unregister(solution: Solution): void
     {
         this.origins.delete(solution)
+        this.retired.add(solution)
     }
 
     // Announces the dev-environment solution about to be opened, by its location, BEFORE the engine opens
@@ -56,7 +60,7 @@ export class SolutionOriginRegistry
     {
         const expected = this.expected
         const storage = solution.Storage
-        if (expected === undefined || !(storage instanceof RemoteFileStorage) || storage.Root !== expected.Root) return undefined
+        if (expected === undefined || this.retired.has(solution) || !(storage instanceof RemoteFileStorage) || storage.Root !== expected.Root) return undefined
         this.expected = undefined
         return this.Register(solution, expected.Ref, expected.SolutionName)
     }

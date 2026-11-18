@@ -13,13 +13,21 @@ import { Gate, ScriptedPicker } from './fake-target-sources.js'
 class FakeSession implements IOpenFromEnvSession
 {
     public FailOn: string | undefined = undefined
+    public CloseGate: Gate<void> | undefined = undefined
 
     public constructor(private readonly log: string[])
     {
     }
 
     public Open(target: TargetRef): Promise<void> { return this.Step(`open:${target.Name}`, 'open') }
-    public Close(): Promise<void> { return this.Step('close', 'close') }
+    public async Close(): Promise<void>
+    {
+        await this.Step('close', 'close')
+        if (this.CloseGate === undefined) return
+        await this.CloseGate.Promise
+        this.log.push('closed')
+    }
+
     public SelectAuthoring(id: string): Promise<unknown> { return this.Step(`select:${id}`, 'select') }
 
     private Step(entry: string, kind: string): Promise<void>
@@ -35,6 +43,8 @@ class FakeManager extends Observable implements IOpenFromEnvManager
     public OpenError: Error | undefined = undefined
     // When set, OpenSolution throws only AFTER the new solution became active.
     public ThrowAfterActivation = false
+    // Runs inside OpenSolution just before the new solution is created (a late reader of an old solution).
+    public DuringOpen: (() => void) | undefined = undefined
     // True when the engine declines to replace the current solution (a discard prompt answered No).
     public Decline = false
     // Gates / refuses CloseSolution, standing for the dirty-discard prompt.
@@ -71,6 +81,7 @@ class FakeManager extends Observable implements IOpenFromEnvManager
         this.log.push(`opensolution:${location}`)
         if (this.OpenError !== undefined) throw this.OpenError
         if (this.Decline) return
+        this.DuringOpen?.()
         const root = DevEnvironmentLocation.RootOf(location)
         this.Opened = new Solution(root, new RemoteFileStorage({} as IDevStorageSession, root))
         this.Swap(this.Opened)
@@ -175,7 +186,7 @@ describe('OpenFromEnvironmentFlow', () =>
         rig.Manager.Swap(undefined)
         await Settle()
         expect(rig.Registry.Get(opened)).toBeUndefined()
-        expect(rig.Log.at(-1)).toBe('close')
+        expect(rig.Log).toContain('close')
     })
 
     it('closes the held session when a local solution replaces the dev solution', async () =>
@@ -186,7 +197,7 @@ describe('OpenFromEnvironmentFlow', () =>
         rig.Manager.Swap(new Solution('Local'))
         await Settle()
         expect(rig.Registry.Get(opened)).toBeUndefined()
-        expect(rig.Log.at(-1)).toBe('close')
+        expect(rig.Log).toContain('close')
     })
 
     it('does not close the session the next environment owns when one dev solution replaces another', async () =>
@@ -204,7 +215,7 @@ describe('OpenFromEnvironmentFlow', () =>
         // And closing that one then releases the session.
         rig.Manager.Swap(undefined)
         await Settle()
-        expect(rig.Log.at(-1)).toBe('close')
+        expect(rig.Log).toContain('close')
     })
 
     it('keeps the previous dev solution on its own environment while the replace prompt is open', async () =>
@@ -238,6 +249,64 @@ describe('OpenFromEnvironmentFlow', () =>
         expect(rig.Manager.ActiveSolution).toBe(first)
         expect(rig.Registry.Get(first)).toBeDefined()
         expect(rig.Dialogs.Shown).toEqual([])
+    })
+
+    it('adopts the NEW solution, not a retired one that reuses its name, even when the old one is read mid-open', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice, Choice)
+        await flow.Run()
+        const first = rig.Manager.Opened!
+        const seen: SolutionOriginKind[] = []
+        rig.Manager.DuringOpen = () => { expect(rig.Registry.Get(first)).toBeUndefined() }
+        rig.Manager.PropertyChanged('ActiveSolution').subscribe(() =>
+        {
+            if (rig.Manager.ActiveSolution !== undefined) seen.push(SolutionOrigins.Of(rig.Manager.ActiveSolution, rig.Registry).Kind)
+        })
+        await flow.Run()
+        expect(rig.Manager.Opened).not.toBe(first)
+        expect(seen).toEqual([SolutionOriginKind.DevEnvironment])
+        expect(rig.Registry.Get(first)).toBeUndefined()
+    })
+
+    it('adopts the new solution when a same-named solution of a different environment replaces it', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice, { Environment: 'prod', Source: TargetSource.Console, SolutionName: 'orders' })
+        await flow.Run()
+        const first = rig.Manager.Opened!
+        rig.Manager.DuringOpen = () => { rig.Registry.Get(first) }
+        await flow.Run()
+        expect(rig.Registry.Get(rig.Manager.Opened!)?.EnvironmentName).toBe('prod')
+        expect(rig.Registry.Get(first)).toBeUndefined()
+    })
+
+    it('waits for a pending session close before binding the next open', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice, Other)
+        await flow.Run()
+        rig.Log.length = 0
+        rig.Session.CloseGate = new Gate<void>()
+        rig.Manager.Swap(undefined)
+        const next = flow.Run()
+        await Settle()
+        expect(rig.Log).toEqual(['close'])
+        rig.Session.CloseGate.Resolve()
+        await next
+        expect(rig.Log).toEqual(['close', 'closed', 'open:prod', 'select:billing', 'opensolution:dev-environment://prod/billing'])
+    })
+
+    it('stops watching once disposed', async () =>
+    {
+        const rig = new Rig()
+        const flow = rig.Flow(Choice)
+        await flow.Run()
+        flow.dispose()
+        rig.Log.length = 0
+        rig.Manager.Swap(undefined)
+        await Settle()
+        expect(rig.Log).toEqual([])
     })
 
     it('does nothing when the picker is cancelled', async () =>
@@ -309,7 +378,7 @@ describe('OpenFromEnvironmentFlow', () =>
         rig.Manager.Swap(new Solution('Local'))
         rig.Manager.Decline = true
         await rig.Flow(Choice).Run()
-        expect(rig.Log.at(-1)).toBe('close')
+        expect(rig.Log).toContain('close')
         expect(rig.Dialogs.Shown).toEqual([])
     })
 

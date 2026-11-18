@@ -70,6 +70,14 @@ export class ProjectCommandsService extends ServiceBase
     public get NewProjectCommand(): ICommand { return this._newProjectCommand }
     public get OpenFromEnvironmentCommand(): ICommand { return this._openFromEnvironmentCommand }
 
+    // Releases the open-from-environment flow's active-solution watcher with the service.
+    public override dispose(): void
+    {
+        this.openFromEnvironment?.dispose()
+        this.openFromEnvironment = undefined
+        super.dispose()
+    }
+
     private get dialogs(): DialogService { return this.Provider.getRequired(DialogService.Key) }
     private get fs(): FileSystemService { return this.Provider.getRequired(FileSystemService.Key) }
     private get storageRegistry(): StorageService { return this.Provider.getRequired(SolutionServices.Key).Storage }
