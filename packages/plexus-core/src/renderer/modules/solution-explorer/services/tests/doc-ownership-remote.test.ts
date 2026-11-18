@@ -7,7 +7,7 @@ import type { SolutionMember } from '@pragmatic-tech-ai/todl'
 import { DocOwnership } from '../doc-ownership.js'
 import { RemoteFileStorage } from '../../../storage/remote-file-storage.js'
 import type { IDevStorageSession } from '../../../storage/remote-file-storage.js'
-import { IncomingApplyResult } from '../../../storage/remote-change-coordinator.js'
+import { IncomingApplyResult } from '../../../storage/incoming-apply-result.js'
 
 class FakeDoc
 {
@@ -15,6 +15,8 @@ class FakeDoc
     public readonly Title = 'a'
     public IsDirty = true
     public applied = 0
+    public marker = false
+    public SetChangedOnServer(flag: boolean): void { this.marker = flag }
     public async ApplyIncoming(): Promise<IncomingApplyResult> { this.applied++; return IncomingApplyResult.DirtySkipped }
     public Save(): void {}
 }
@@ -40,10 +42,13 @@ test('rename re-tracks the open remote doc on the new path (old path ignored)', 
     assert.equal(doc.applied, 1)
     ;(docs as unknown as { FactoryFor(): unknown }).FactoryFor = () => ({ relocateOpenFile: () => {}, relocatable: true })
     docs.RepointOpenDocuments(member, 'src/old.todl', 'src/new.todl')
+    assert.equal(docs.RemoteChanges.IsChangedOnServer('src/new.todl'), true)   // carried across the rename
+    assert.equal(doc.marker, true)
     emit('src/old.todl'); await new Promise(r => setTimeout(r, 0))
     assert.equal(doc.applied, 1)
     emit('src/new.todl'); await new Promise(r => setTimeout(r, 0))
     assert.equal(doc.applied, 2)
     assert.equal(docs.RemoteChanges.IsChangedOnServer('src/new.todl'), true)
     assert.equal(docs.RemoteChanges.IsChangedOnServer('src/old.todl'), false)
+    assert.equal(doc.marker, true)
 })

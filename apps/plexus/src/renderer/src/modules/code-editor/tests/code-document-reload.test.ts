@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest'
 import { CodeDocument } from '../code-document.js'
-import { IncomingApplyResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage/remote-change-coordinator.js'
+import { IncomingApplyResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage/incoming-apply-result.js'
 import { type ICodeFile } from '../code-file.js'
 
 class FakeFile implements ICodeFile

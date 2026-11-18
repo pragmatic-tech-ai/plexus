@@ -2,19 +2,10 @@ import { Observable, type IDisposable } from '@pragmatic-tech-ai/mural/runtime'
 import { FileChangeKind } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileChange, IWatchableStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { IncomingChangeGuard } from './incoming-change-guard.js'
+import { IncomingApplyResult } from './incoming-apply-result.js'
 
 // The slice of an open buffer this coordinator needs: its dirty flag, a reload
 // from storage, and the save it wraps so a local save clears the flag.
-export enum IncomingApplyResult
-{
-    // The buffer was clean at apply time and now holds the server content.
-    Applied = 'applied',
-    // Server content equals the buffer's last-saved content (an own-write echo): nothing to do.
-    Unchanged = 'unchanged',
-    // The buffer was dirty when the content arrived: left untouched.
-    DirtySkipped = 'dirty-skipped',
-}
-
 // ApplyIncoming MUST read storage, then re-check dirtiness synchronously right before
 // applying (so keystrokes typed during the async read are never overwritten).
 export interface ITrackedDocument
@@ -68,10 +59,18 @@ export class RemoteChangeCoordinator extends Observable
     {
         if (change.IsDirectory || change.Kind === FileChangeKind.Removed) return
         if (RemoteChangeCoordinator.Normalize(change.Path) !== RemoteChangeCoordinator.Normalize(path)) return
-        const before = this.guard.IsChangedOnServer(path)
         const result = await doc.ApplyIncoming()
         if (result === IncomingApplyResult.Unchanged) return
+        const before = this.guard.IsChangedOnServer(path)
         this.guard.Decide(path, result === IncomingApplyResult.DirtySkipped)
+        this.Sync(path, before)
+    }
+
+    // Carry a flagged state to a renamed path: flag `path` (as a dirty skip would) and mark its doc.
+    public MarkChangedOnServer(path: string): void
+    {
+        const before = this.guard.IsChangedOnServer(path)
+        this.guard.Decide(path, true)
         this.Sync(path, before)
     }
 

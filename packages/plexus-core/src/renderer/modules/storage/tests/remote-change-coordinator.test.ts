@@ -2,7 +2,8 @@ import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { FileChangeKind } from '@pragmatic-tech-ai/todl-runtime'
 import type { FileChange, IWatchableStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { IncomingApplyResult, RemoteChangeCoordinator } from '../remote-change-coordinator.js'
+import { RemoteChangeCoordinator } from '../remote-change-coordinator.js'
+import { IncomingApplyResult } from '../incoming-apply-result.js'
 import type { ITrackedDocument } from '../remote-change-coordinator.js'
 
 class FakeStorage implements IWatchableStorage

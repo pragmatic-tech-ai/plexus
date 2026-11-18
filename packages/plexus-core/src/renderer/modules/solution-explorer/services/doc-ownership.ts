@@ -82,13 +82,15 @@ export class DocOwnership
     }
 
     // A rename/move re-points the tab: stop watching the old path and watch the new one.
-    private RetrackRemote(doc: IDocument, member: SolutionMember, newPath: string): void
+    private RetrackRemote(doc: IDocument, member: SolutionMember, oldPath: string, newPath: string): void
     {
         const old = this.remoteTracking.get(doc)
         if (old === undefined) return
+        const wasFlagged = this.remoteChanges.IsChangedOnServer(oldPath)
         old.dispose()
         this.remoteTracking.delete(doc)
         this.TrackRemote(doc, DocOwnership.StorageOf(member), newPath)
+        if (wasFlagged) this.remoteChanges.MarkChangedOnServer(newPath)
     }
 
     // Present a document through the host as either a reused ephemeral preview
@@ -181,7 +183,7 @@ export class DocOwnership
             const factory = this.FactoryFor(DocOwnership.ExtName(moved))
             if (factory !== undefined && isRelocatable(factory)) factory.relocateOpenFile(doc, moved)
             this.paths.set(doc, moved)
-            this.RetrackRemote(doc, member, moved)
+            this.RetrackRemote(doc, member, p, moved)
         }
     }
 

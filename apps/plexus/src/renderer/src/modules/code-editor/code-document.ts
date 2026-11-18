@@ -3,7 +3,7 @@ import type { IDocument } from '@pragmatic-tech-ai/mural/framework'
 import type { ICodeFile } from './code-file.js'
 import type { EditorDiagnostic } from './editor-diagnostic.js'
 import type { IStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { IncomingApplyResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage/remote-change-coordinator.js'
+import { IncomingApplyResult } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage/incoming-apply-result.js'
 
 function fileName(path: string): string
 {
