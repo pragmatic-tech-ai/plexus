@@ -314,7 +314,7 @@ describe('DevelopSession language / model / solution surface', () =>
         await Ticks.Settle()
         expect(client.InFlight).toBe(DevelopSession.MaxInFlight)
         // Budget saturated: a language request, a model request and a solution request must wait, not dispatch.
-        const extras = [session.HoverAt('u', { line: 0, character: 0 }), session.ModelView('m', { Limit: 1 }), session.ListSolutions()]
+        const extras = [session.HoverAt('u', { line: 0, character: 0 }), session.ModelView('m', { pageSize: 1 }), session.ListSolutions()]
         await Ticks.Settle()
         expect(client.InFlight).toBe(DevelopSession.MaxInFlight)
         expect(client.Started).toBe(DevelopSession.MaxInFlight)
