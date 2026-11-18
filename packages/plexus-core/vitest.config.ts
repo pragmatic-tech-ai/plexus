@@ -77,6 +77,7 @@ const todlShimPlugin: Plugin = {
         const p = (rel: string): string => JSON.stringify(`${TODL}/dist/${rel}`)
         return [
             `export { SolutionMember } from ${p('solution-services/solution-manager/engine/solution-member.js')}`,
+            `export { TodlProjectSourceFiles } from ${p('solution-services/project-services/core/todl-sources.js')}`,
             `export { SolutionPath } from ${p('solution-services/solution-manager/engine/solution-member-ref.js')}`,
             `export { Project, ProjectNode, ProjectNodeKind } from ${p('solution-services/project-services/core/project.js')}`,
             `export { ProjectFactoryRegistryKey } from ${p('solution-services/solution-manager/engine/host-services.js')}`,

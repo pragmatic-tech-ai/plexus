@@ -31,6 +31,9 @@ import { HtmlAppContributor } from './html-app-contributor.js'
 import { PublishToEnvironmentContributor } from './publish-to-environment-contributor.js'
 import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
+import { UploadToEnvironmentContributor } from './upload-to-environment-contributor.js'
+import { SolutionTreeEnumerator } from '../../upload/solution-tree-enumerator.js'
+import { UploadContributorKey } from '../../upload/upload-contributor.js'
 import { ContributeTargetDialog } from './contribute-target-dialog.js'
 import { AccountServiceKey } from '../../account/account-service.js'
 import { SolutionServices } from '../../solution-seams/index.js'
@@ -300,6 +303,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
                 const contributePicker = dialogs === undefined || account === undefined || graphs === undefined ? undefined : new ContributeTargetDialog(account, graphs, dialogs)
                 const contributeGraph = new ContributeToGraphContributor(solution, graphBuilder, this.provider.get(BackgroundWorkService.Key), graphs, dialogs, contributePicker)
                 this.handles.push(registry.RegisterInstance(contributeGraph, contributeGraph.Actions))
+                const uploadToEnvironment = new UploadToEnvironmentContributor(solution, new SolutionTreeEnumerator(), graphBuilder, this.provider.get(BackgroundWorkService.Key), this.provider.get(UploadContributorKey), dialogs, contributePicker)
+                this.handles.push(registry.RegisterInstance(uploadToEnvironment, uploadToEnvironment.Actions))
             }
         }
         this.setHasNoSolution(false)
