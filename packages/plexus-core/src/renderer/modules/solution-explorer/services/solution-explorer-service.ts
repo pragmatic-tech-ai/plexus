@@ -29,6 +29,8 @@ import { ConnectionActionsContributor, ConnectionActiveSubmenuContributor, Conne
 import { BuildContributor, BuildFlavorSubmenuContributor } from './build-contributor.js'
 import { HtmlAppContributor } from './html-app-contributor.js'
 import { PublishToEnvironmentContributor } from './publish-to-environment-contributor.js'
+import { RunTestContributor } from './run-test-contributor.js'
+import { RunTestTargetDialog } from './run-test-target-dialog.js'
 import { PublishTargetDialog } from './publish-target-dialog.js'
 import { ContributeToGraphContributor } from './contribute-to-graph-contributor.js'
 import { UploadToEnvironmentContributor } from './upload-to-environment-contributor.js'
@@ -42,6 +44,7 @@ import { GraphContributorKey } from '../../graph-contribute/graph-contributor.js
 import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { PreviewServerKey } from '../../preview-server/preview-server.js'
 import { EnvironmentPublisherKey } from '../../environment-publish/environment-publisher.js'
+import { EnvironmentRunTesterKey } from '../../environment-run-test/environment-run-tester.js'
 import { FileSystemService } from '../../storage/file-system-service.js'
 import { ConnectionNodeKey } from './connection-node-key.js'
 import { GlobalBagPersisterKey } from '../../bags/global-bag-persister.js'
@@ -292,6 +295,10 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             const publishPicker = dialogs === undefined || account === undefined ? undefined : new PublishTargetDialog(account, dialogs)
             const publishToEnvironment = new PublishToEnvironmentContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentPublisherKey), publishPicker)
             this.handles.push(registry.RegisterInstance(publishToEnvironment, publishToEnvironment.Actions))
+            // Run/Test loads the same remote build into a dev environment's own runtime and opens the served app.
+            const runTestPicker = dialogs === undefined || account === undefined ? undefined : new RunTestTargetDialog(account, dialogs)
+            const runTest = new RunTestContributor(buildService, this.provider.get(BackgroundWorkService.Key), this.workspace, this.provider.get(EnvironmentRunTesterKey), runTestPicker)
+            this.handles.push(registry.RegisterInstance(runTest, runTest.Actions))
             // Contribute the whole solution to a dev graph. SolutionPackageBuilder needs the build
             // registry + storage provider + package store (absent in headless/unit contexts): only
             // wire the graph contributor when all three resolve, mirroring the undefined-safe spirit.

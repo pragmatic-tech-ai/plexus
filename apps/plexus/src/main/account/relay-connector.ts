@@ -5,7 +5,7 @@ import { ConsoleRetirement } from './console-retirement.js'
 import type { SessionAddress } from './desktop-session-store.js'
 
 // The methods the contribute, publish and inspect flows call on a relay connection (PragmaticClient has them).
-export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'DisposeAsync' | 'CloseCode'
+export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'LoadRunTest' | 'DisposeAsync' | 'CloseCode'
     | 'StorageReadText' | 'StorageReadBytes' | 'StorageWriteText' | 'StorageWriteBytes' | 'StorageExists' | 'StorageDelete' | 'StorageCreateDirectory' | 'StorageRename' | 'StorageList'
     | 'CreateSolution' | 'ListSolutions' | 'SelectAuthoring' | 'ActiveSolution' | 'OnGraphChanged' | 'OnBuildStateChanged' | 'OnStorageChanged'
     | 'OnDiagnostics' | 'CompletionsAt' | 'HoverAt' | 'DefinitionAt' | 'ReferencesAt' | 'PrepareRename' | 'RenameEdits' | 'DocumentSymbols' | 'FoldingRanges' | 'WorkspaceSymbols' | 'SemanticTokens' | 'SignatureHelpAt' | 'CodeActions' | 'FormatDocument' | 'DiagnosticsFor' | 'ModelView' | 'Resources' | 'DidChange'>
@@ -17,6 +17,7 @@ export enum RelayAction
     Publish = 'publish',
     Inspect = 'inspect',
     Develop = 'develop',
+    RunTest = 'run-test',
 }
 
 // Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).

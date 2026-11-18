@@ -77,9 +77,10 @@ export class EnvironmentDeployService implements IEnvironmentPublishApi
         }
     }
 
+    // Shared with RunTestService (the same build output feeds both).
     // A lightweight sanity gate only. The real trust boundary is ReadFile's path confinement
     // (resolved path must start with root + sep) plus environment-scoping on the server.
-    private static RequireBuildDir(outputDir: string): void
+    public static RequireBuildDir(outputDir: string): void
     {
         if (!resolve(outputDir).split(sep).includes(RemoteBuildDirName))
         {
@@ -90,7 +91,7 @@ export class EnvironmentDeployService implements IEnvironmentPublishApi
     // Any failure other than the service's own sentences (an unexpected fs error naming a local path,
     // a TypeError from a malformed manifest entry) becomes one fixed sentence; only its name and code
     // are logged, never its message.
-    private static async AssembleOrSentence(outputDir: string): Promise<CypherAppDeployParamsDto>
+    public static async AssembleOrSentence(outputDir: string): Promise<CypherAppDeployParamsDto>
     {
         try
         {

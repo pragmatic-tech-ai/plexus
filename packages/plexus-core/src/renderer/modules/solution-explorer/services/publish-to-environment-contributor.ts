@@ -117,15 +117,16 @@ export class PublishToEnvironmentContributor implements IHierarchyContributor
             // The server keeps app versions immutable, so each publish deploys the next patch version; the
             // bump is written to the project before the build stamps it.
             if (this.mutations.IsVersionedMember(member)) await this.mutations.BumpMemberVersion(member, VersionPart.Patch)
-            const outputPath = await this.buildRemote(storage, ctx)
+            const outputPath = await PublishToEnvironmentContributor.BuildRemote(this.buildService, storage, ctx)
             const result = await publisher.Publish(target, outputPath)
             return PublishToEnvironmentContributor.RequireApplied(result)
         })
     }
 
     // Builds the remote flavor into <project>/build-remote and returns its output dir. The remote
-    // target AppName is the project manifest id (falling back to its name).
-    private async buildRemote(storage: IStorage, ctx: ITaskProgressSink): Promise<string>
+    // target AppName is the project manifest id (falling back to its name). Shared with RunTestContributor
+    // (the same build output feeds publish and run/test).
+    public static async BuildRemote(buildService: IBuildService, storage: IStorage, ctx: ITaskProgressSink): Promise<string>
     {
         const manifest = parseManifest(await storage.ReadText(PROJECT_MANIFEST_FILENAME))
         const options =
@@ -133,7 +134,7 @@ export class PublishToEnvironmentContributor implements IHierarchyContributor
             OutputRootOverride: (storage as unknown as ILocalFileAccess).ResolveOsPath(PublishToEnvironmentContributor.BuildDir),
             Remote: { AppName: manifest.id ?? manifest.name },
         }
-        const result = await this.buildService.Build(storage, PublishToEnvironmentContributor.SystemId, PublishToEnvironmentContributor.FlavorId, new BuildProgressReporter(ctx), options)
+        const result = await buildService.Build(storage, PublishToEnvironmentContributor.SystemId, PublishToEnvironmentContributor.FlavorId, new BuildProgressReporter(ctx), options)
         if (!result.Result.Ok)
         {
             throw new Error(`${PublishToEnvironmentContributor.BuildFailedPrefix}${BuildService.FormatErrors(result.Result.Diagnostics)}`)
