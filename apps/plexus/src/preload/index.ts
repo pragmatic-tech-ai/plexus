@@ -15,6 +15,7 @@ import { PreviewServerChannel, type IPreviewServerApi } from '../shared/preview-
 import { EnvironmentPublishChannel, type IEnvironmentPublishBridge } from '../shared/environment-publish-api.js'
 import { DevSessionChannel, type IDevSessionBridge } from '../shared/dev-session-api.js'
 import { GraphContributeChannel, type IGraphContributeBridge, type ContributedPackage } from '../shared/graph-contribute-api.js'
+import { UploadChannel, type IUploadBridge, type UploadContribution, type UploadEntry } from '../shared/upload-api.js'
 import { EnvironmentsChannel, type IEnvironmentsBridge } from '../shared/environment-contents-api.js'
 import { BundleChannel } from '@pragmatic-tech-ai/plexus-core/shared/bundle-api.js'
 import { AccountChannel, type AccountReply, type AccountState, type IAccountBridge, type RelayReply, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
@@ -168,6 +169,10 @@ const graphContribute: IGraphContributeBridge = {
     RelayBridge.Call(GraphContributeChannel.Contribute, target, graphName, solutionId, packages),
   ListGraphs: (target: TargetRef) => RelayBridge.Call(GraphContributeChannel.ListGraphs, target),
 }
+const upload: IUploadBridge = {
+  Upload: (target: TargetRef, solutionName: string, tree: UploadEntry[], contribution?: UploadContribution) =>
+    RelayBridge.Call(UploadChannel.Upload, target, solutionName, tree, contribution),
+}
 const devSession: IDevSessionBridge = {
   Open: (target: TargetRef) => RelayBridge.Call(DevSessionChannel.Open, target),
   Close: () => RelayBridge.Call(DevSessionChannel.Close),
@@ -231,7 +236,7 @@ const typeCheck = {
   Check: (request: TypeCheckRequest): Promise<TypeCheckResult> => ipcRenderer.invoke(TypeCheckChannel.Check, request),
 }
 
-const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, devSession, environments, account, bundle, typeCheck }
+const api = { fs, environment, settings, agent, fileWatch, titlebar, mcp, skillContext, connections, previewServer, environmentPublish, graphContribute, upload, devSession, environments, account, bundle, typeCheck }
 
 if (process.contextIsolated)
 {
