@@ -36,7 +36,11 @@ class Fixture
     public static readonly MemberPath = 'app/model.todl'
     public static readonly OriginalText = 'entity A;'
     public static readonly EditedText = 'entity A; entity B;'
-    public static readonly WriteVerb = 'storage/write'
+    public static readonly OpenLog = 'open:'
+    public static readonly CloseLog = 'close'
+    public static readonly SelectLog = 'select:'
+    public static readonly MissingPrefix = 'missing '
+    public static readonly ActiveSolutionProperty = 'ActiveSolution'
     public static readonly HostName = 'origin-selected-integration'
     public static readonly RecomposedMember = 'app'
     public static readonly RecomposedFile = 'app/model.todl'
@@ -47,17 +51,17 @@ class Fixture
 class FakeEnvBridge
 {
     public readonly Log: string[] = []
-    public readonly Writes: Array<{ Verb: string; Path: string; Content: string }> = []
+    public readonly Writes: Array<{ Path: string; Content: string }> = []
     public readonly Files = new Map<string, string>([[Fixture.ManifestPath, Fixture.ManifestText], [Fixture.MemberPath, Fixture.OriginalText]])
     public Authoring: string | undefined
     private readonly graph: Array<(c: SolutionGraphChangePayload) => void> = []
 
-    public Open(target: TargetRef): Promise<unknown> { this.Log.push('open:' + target.Name); return FakeEnvBridge.Ok(undefined) }
-    public Close(): Promise<unknown> { this.Log.push('close'); return FakeEnvBridge.Ok(undefined) }
+    public Open(target: TargetRef): Promise<unknown> { this.Log.push(Fixture.OpenLog + target.Name); return FakeEnvBridge.Ok(undefined) }
+    public Close(): Promise<unknown> { this.Log.push(Fixture.CloseLog); return FakeEnvBridge.Ok(undefined) }
 
     public SelectAuthoring(id: string): Promise<unknown>
     {
-        this.Log.push('select:' + id)
+        this.Log.push(Fixture.SelectLog + id)
         this.Authoring = id
         return FakeEnvBridge.Ok({ solutionId: id })
     }
@@ -65,12 +69,12 @@ class FakeEnvBridge
     public ReadText(path: string): Promise<unknown>
     {
         const text = this.Files.get(path)
-        return Promise.resolve(text === undefined ? { Ok: false, Error: { Message: 'missing ' + path } } : { Ok: true, Value: text })
+        return Promise.resolve(text === undefined ? { Ok: false, Error: { Message: Fixture.MissingPrefix + path } } : { Ok: true, Value: text })
     }
 
     public WriteText(path: string, content: string): Promise<unknown>
     {
-        this.Writes.push({ Verb: Fixture.WriteVerb, Path: path, Content: content })
+        this.Writes.push({ Path: path, Content: content })
         this.Files.set(path, content)
         this.Recompose()
         return FakeEnvBridge.Ok(undefined)
@@ -91,7 +95,7 @@ class FakeEnvBridge
     // The server recomposed the shared graph: every subscribed client is pushed the change.
     public Recompose(): void
     {
-        for (const handler of [...this.graph]) handler({ memberIds: [Fixture.RecomposedMember], fileIds: [Fixture.RecomposedFile] } as SolutionGraphChangePayload)
+        for (const handler of [...this.graph]) handler({ memberIds: [Fixture.RecomposedMember], fileIds: [Fixture.RecomposedFile] })
     }
 
     public get Subscribers(): number { return this.graph.length }
@@ -121,14 +125,14 @@ class FakeManager extends Observable implements IOpenFromEnvManager
         const next = new Solution(root, storage)
         const old = this.active
         this.active = next
-        this.RaisePropertyChanged('ActiveSolution', old, next)
+        this.RaisePropertyChanged(Fixture.ActiveSolutionProperty, old, next)
     }
 
     public async CloseSolution(): Promise<void>
     {
         const old = this.active
         this.active = undefined
-        this.RaisePropertyChanged('ActiveSolution', old, undefined)
+        this.RaisePropertyChanged(Fixture.ActiveSolutionProperty, old, undefined)
     }
 }
 
@@ -155,9 +159,10 @@ class Rig
 
     public constructor()
     {
-        const self = this
-        this.Provider.registerInstance(SolutionManagerService.Key, self.Manager as unknown as SolutionManagerService)
-        this.Provider.registerInstance(SolutionLanguageService.Key, self.LocalLanguage as unknown as SolutionLanguageService)
+
+        this.Provider.registerInstance(SolutionManagerService.Key, this.Manager as unknown as SolutionManagerService)
+        this.Provider.registerInstance(SolutionLanguageService.Key, this.LocalLanguage as unknown as SolutionLanguageService)
+        // Intentionally inert: this path never touches the local StorageService (Remote storage comes from the session).
         this.Provider.registerInstance(StorageService.Key, {} as unknown as StorageService)
         this.Provider.registerInstance(DevStorageSessionKeys.Session, this.Session)
         this.Provider.registerInstance(SolutionOriginRegistry.Key, this.Registry)
@@ -173,7 +178,7 @@ describe('open from dev environment integration (flow -> IpcDevSession -> fake e
         const rig = new Rig()
         expect(rig.Services.Current).toBeInstanceOf(IntegratedSolutionServices)
         await rig.Flow.Run()
-        expect(rig.Server.Log).toEqual(['open:' + Fixture.EnvName, 'select:' + Fixture.SolutionName])
+        expect(rig.Server.Log).toEqual([Fixture.OpenLog + Fixture.EnvName, Fixture.SelectLog + Fixture.SolutionName])
         expect(rig.Manager.Manifest).toBe(Fixture.ManifestText)
         expect(rig.Manager.ActiveSolution!.Storage).toBeInstanceOf(RemoteFileStorage)
         rig.Flow.dispose()
@@ -207,7 +212,7 @@ describe('open from dev environment integration (flow -> IpcDevSession -> fake e
         const storage = rig.Manager.ActiveSolution!.Storage!
         expect(await storage.ReadText(Fixture.MemberPath)).toBe(Fixture.OriginalText)
         await storage.WriteText(Fixture.MemberPath, Fixture.EditedText)
-        expect(rig.Server.Writes).toEqual([{ Verb: Fixture.WriteVerb, Path: Fixture.MemberPath, Content: Fixture.EditedText }])
+        expect(rig.Server.Writes).toEqual([{ Path: Fixture.MemberPath, Content: Fixture.EditedText }])
         expect(rig.Server.Files.get(Fixture.MemberPath)).toBe(Fixture.EditedText)
         expect(await storage.ReadText(Fixture.MemberPath)).toBe(Fixture.EditedText)
         rig.Flow.dispose()
@@ -218,8 +223,8 @@ describe('open from dev environment integration (flow -> IpcDevSession -> fake e
         const rig = new Rig()
         await rig.Flow.Run()
         const language = rig.Services.Language as RemoteLanguageService
-        const seen: Array<{ memberIds: readonly string[]; fileIds: readonly string[] }> = []
-        language.GraphChanged.subscribe(change => seen.push(change as never))
+        const seen: SolutionGraphChangePayload[] = []
+        language.GraphChanged.subscribe(change => seen.push(change as SolutionGraphChangePayload))
         expect(language.GraphRevision).toBe(0)
         // A save on the shared environment recomposes it; so does an explicit server-side recompose.
         await rig.Manager.ActiveSolution!.Storage!.WriteText(Fixture.MemberPath, Fixture.EditedText)
