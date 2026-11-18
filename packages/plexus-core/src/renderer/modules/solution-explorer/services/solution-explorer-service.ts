@@ -89,6 +89,7 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
     private references: ReferencesContributor | undefined
     private readonly handles: IDisposable[] = []
     private activeOff: IDisposable | undefined
+    private nameOff: IDisposable | undefined
     private selectionOff: (() => void) | undefined
     private _hasNoSolution = true
     private disposed = false
@@ -232,6 +233,15 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
         return this.files
     }
 
+    // Update the visible Solution node's caption in place (the node emitted by
+    // SolutionRootContributor under the invisible container). Used on a rename, which changes the
+    // active solution's Name without an ActiveSolution swap, so no full rebuild is needed.
+    public static ApplySolutionCaption(roots: readonly HierarchyItem[], name: string): void
+    {
+        const node = roots.find((r) => r.Key === NodeKey.Solution)
+        if (node !== undefined) node.Caption = name || SolutionExplorerService.RootCaptionFallback
+    }
+
     private rebuild(solution: Solution | undefined): void
     {
         this.teardownCurrent()
@@ -248,6 +258,11 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
             this.rootItem.Caption = solution.Name || SolutionExplorerService.RootCaptionFallback
             this.rootItem.ExtObject = solution
         }
+        // A rename mutates the same Solution instance (so ActiveSolution never fires); the engine
+        // raises Solution.Name PropertyChanged for exactly this. Refresh the visible Solution node's
+        // caption in place. Disposed and re-subscribed on each rebuild (teardownCurrent).
+        this.nameOff = solution.PropertyChanged('Name').subscribe(() =>
+            SolutionExplorerService.ApplySolutionCaption(this.hierarchy?.Roots.ToArray() ?? [], solution.Name))
         this.files = new FileTreeContributor(this.serviceItems)
         this.files.SetMutations(this.workspace)
         this.files.SetReferenceView(this.workspace.References)
@@ -424,6 +439,8 @@ export class SolutionExplorerService extends Observable implements HierarchyHost
 
     private teardownCurrent(): void
     {
+        this.nameOff?.dispose()
+        this.nameOff = undefined
         this.treeState?.dispose()
         this.treeState = undefined
         for (const handle of this.handles) handle.dispose()
