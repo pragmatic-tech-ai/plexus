@@ -1,4 +1,4 @@
-import { ConnectionLostError, ErrorCodes, ResponseError, UpgradeRefusedError, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { ConnectionLostError, ErrorCodes, ResponseError, RunTestProtocol, UpgradeRefusedError, type AppDeployResultDto, type CypherAppDeployParamsDto, type PragmaticClient } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { AccountError, AccountErrorKind, TargetSource, UrlBase, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TlsFailure } from '../net/system-trust.js'
 import { ConsoleRetirement } from './console-retirement.js'
@@ -9,6 +9,21 @@ export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications
     | 'StorageReadText' | 'StorageReadBytes' | 'StorageWriteText' | 'StorageWriteBytes' | 'StorageExists' | 'StorageDelete' | 'StorageCreateDirectory' | 'StorageRename' | 'StorageList'
     | 'CreateSolution' | 'ListSolutions' | 'SelectAuthoring' | 'ActiveSolution' | 'OnGraphChanged' | 'OnBuildStateChanged' | 'OnStorageChanged'
     | 'OnDiagnostics' | 'CompletionsAt' | 'HoverAt' | 'DefinitionAt' | 'ReferencesAt' | 'PrepareRename' | 'RenameEdits' | 'DocumentSymbols' | 'FoldingRanges' | 'WorkspaceSymbols' | 'SemanticTokens' | 'SignatureHelpAt' | 'CodeActions' | 'FormatDocument' | 'DiagnosticsFor' | 'ModelView' | 'Resources' | 'DidChange'>
+    & {
+        // Loads a build into the dev env's own co-located runtime host (runtime/run-test); distinct from DeployApplication.
+        LoadRunTest(params: CypherAppDeployParamsDto): Promise<AppDeployResultDto>;
+    }
+
+// Adds LoadRunTest to a PragmaticClient. The protocol client has no public method for runtime/run-test
+// yet, so the call goes through its request path (its connection-drop race included).
+export class RunTestRelayClient
+{
+    public static Wrap(client: Omit<RelayClient, 'LoadRunTest'>): RelayClient
+    {
+        const requester = client as unknown as { Request(type: typeof RunTestProtocol.Load, params: CypherAppDeployParamsDto): Promise<AppDeployResultDto> }
+        return Object.assign(client, { LoadRunTest: (params: CypherAppDeployParamsDto) => requester.Request(RunTestProtocol.Load, params) })
+    }
+}
 
 // The wire `action` the relay end parses (the server's DesktopAction).
 export enum RelayAction
@@ -17,6 +32,7 @@ export enum RelayAction
     Publish = 'publish',
     Inspect = 'inspect',
     Develop = 'develop',
+    RunTest = 'run-test',
 }
 
 // Opens the connection: production is PragmaticClient.ConnectAsync(url, { bearerToken: token }).
