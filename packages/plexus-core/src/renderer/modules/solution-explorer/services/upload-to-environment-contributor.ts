@@ -42,7 +42,7 @@ export class UploadToEnvironmentContributor implements IHierarchyContributor
 
     public readonly Actions: readonly CommandDefinition[]
 
-    constructor(
+    public constructor(
         private readonly solution: Solution,
         private readonly enumerator: SolutionTreeEnumerator | undefined,
         private readonly builder: SolutionPackageBuilder | undefined,
@@ -93,6 +93,19 @@ export class UploadToEnvironmentContributor implements IHierarchyContributor
         }
         const solution = this.solution
         const builder = this.builder
+        try
+        {
+            this.start(work, enumerator, contributor, builder, solution, target, graphName)
+        }
+        catch (e)
+        {
+            this.surface(UploadToEnvironmentContributor.UploadFailedTitle, e)
+        }
+    }
+
+    // Starts the background task. Kept apart so a synchronous throw from work.run surfaces like the picker's failures.
+    private start(work: BackgroundWorkService, enumerator: SolutionTreeEnumerator, contributor: IUploadContributor, builder: SolutionPackageBuilder | undefined, solution: Solution, target: TargetRef, graphName: string | undefined): void
+    {
         void work.run(`${UploadToEnvironmentContributor.TitlePrefix}${solution.Name}${UploadToEnvironmentContributor.InEnvironment}${target.Name}`, async (_ctx): Promise<number> =>
         {
             const tree = await enumerator.Enumerate(solution)

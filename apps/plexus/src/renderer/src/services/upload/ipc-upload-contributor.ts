@@ -16,7 +16,7 @@ export class IpcUploadContributor implements IUploadContributor
 
     private readonly api: IUploadBridge
 
-    constructor()
+    public constructor()
     {
         const bridge = (globalThis as unknown as { api?: { upload?: IUploadBridge } }).api
         if (bridge?.upload === undefined)

@@ -36,6 +36,8 @@ export class UploadService
     private static async Drive(client: RelayClient, solutionName: string, tree: readonly UploadEntry[], contribution?: UploadContribution): Promise<void>
     {
         const session = new DevelopSession(client)
+        // Relied-upon assumption: CreateSolution is create-or-REPLACE (last-writer-wins; the server clears and
+        // re-seeds the root), so a failed partial upload is recoverable by retrying the same command.
         await client.CreateSolution({ Name: solutionName })
         for (const entry of tree) await UploadService.Write(session, entry)
         if (contribution !== undefined)

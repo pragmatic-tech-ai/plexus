@@ -1,6 +1,7 @@
 import type { IpcMain } from 'electron'
 import { RelayWire, TargetIdentity, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { UploadChannel, type ContributedPackage, type UploadContribution, type UploadEntry } from '../../shared/upload-api.js'
+import { UploadPathGuard } from '@pragmatic-tech-ai/plexus-core/shared/upload-path-guard.js'
 import type { UploadService } from './upload-service.js'
 
 // Binds the upload IPC channel. The handler answers a RelayReply envelope so the failure sentence
@@ -28,7 +29,7 @@ export class UploadIpc
     private static Name(value: unknown): string
     {
         if (typeof value !== 'string' || value.trim() === '') throw new TypeError(UploadIpc.BadArguments)
-        return value
+        return value.trim()
     }
 
     private static Tree(value: unknown): UploadEntry[]
@@ -37,6 +38,7 @@ export class UploadIpc
         return value.map((item) => UploadIpc.Entry(item))
     }
 
+    // Each Path passes the same safety guard as the enumerator (this is the process trust boundary).
     // Only Path / Text / BytesBase64 are handed on; whether exactly one content field is set is the service's check.
     private static Entry(value: unknown): UploadEntry
     {
@@ -45,6 +47,7 @@ export class UploadIpc
         if (typeof raw.Path !== 'string' || raw.Path === '') throw new TypeError(UploadIpc.BadArguments)
         if (raw.Text !== undefined && typeof raw.Text !== 'string') throw new TypeError(UploadIpc.BadArguments)
         if (raw.BytesBase64 !== undefined && typeof raw.BytesBase64 !== 'string') throw new TypeError(UploadIpc.BadArguments)
+        UploadPathGuard.Clean(raw.Path)
         const entry: UploadEntry = { Path: raw.Path }
         if (raw.Text !== undefined) entry.Text = raw.Text as string
         if (raw.BytesBase64 !== undefined) entry.BytesBase64 = raw.BytesBase64 as string

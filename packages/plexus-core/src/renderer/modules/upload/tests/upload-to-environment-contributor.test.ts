@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { Solution } from '@pragmatic-tech-ai/todl'
+import { InfoDialog } from '../../solution-explorer/services/info-dialog.js'
 import { UploadToEnvironmentContributor } from '../../solution-explorer/services/upload-to-environment-contributor.js'
 import { ScriptedPicker } from '../../solution-explorer/services/tests/fake-target-sources.js'
 import { TargetSource, type TargetChoice, type TargetRef } from '../../../../shared/account-api.js'
@@ -108,6 +109,18 @@ describe('UploadToEnvironmentContributor', () =>
         await Fixture.Flush()
         await expect(work.task).rejects.toThrow(/cannot be built/)
         expect(up.Calls).toEqual([])
+    })
+
+    it('surfaces a synchronous throw from the background service as an error dialog', async () =>
+    {
+        const show = vi.spyOn(InfoDialog, 'Show').mockResolvedValue(undefined)
+        const work = { run: () => { throw new Error('queue broken') } }
+        const choice = { Environment: 'dev', Source: TargetSource.Console }
+        const c = new UploadToEnvironmentContributor(new Solution('S'), { Enumerate: () => Promise.resolve(Fixture.Tree) } as any, undefined, work as any, new FakeUploader(), {} as any, new ScriptedPicker([ScriptedPicker.PickOf(choice)]))
+        c.Resolve('environment.upload', {} as any)!.Execute()
+        await Fixture.Flush()
+        expect(show).toHaveBeenCalledWith({}, 'Upload to dev environment failed', 'queue broken')
+        show.mockRestore()
     })
 
     it('does nothing when the picker is cancelled, and is disabled without a contributor', async () =>

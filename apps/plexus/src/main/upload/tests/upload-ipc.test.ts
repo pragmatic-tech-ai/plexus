@@ -82,6 +82,23 @@ describe('UploadIpc', () =>
         expect(await h.Invoke(Dev, 'S', Tree)).toEqual({ Ok: false, Error: { Message: "You're signed out. Sign in and try again.", Kind: AccountErrorKind.SignedOut } })
     })
 
+    it('trims the solution name before forwarding', async () =>
+    {
+        const h = new Harness()
+        await h.Invoke(Dev, '  S  ', Tree)
+        expect(h.Service.Calls).toEqual([[Dev, 'S', Tree, undefined]])
+    })
+
+    it('refuses unsafe entry paths at the trust boundary before the service', async () =>
+    {
+        const h = new Harness()
+        for (const path of ['../x', 'a\\b', '/abs', 'C:/x', 'a\u0000b', 'a/../../x'])
+        {
+            expect(await h.Invoke(Dev, 'S', [{ Path: path, Text: 't' }])).toEqual({ Ok: false, Error: { Message: expect.stringContaining('unsafe path') } })
+        }
+        expect(h.Service.Calls).toEqual([])
+    })
+
     it('refuses malformed arguments before the service', async () =>
     {
         const h = new Harness()

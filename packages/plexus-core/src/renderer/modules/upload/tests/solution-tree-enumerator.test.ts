@@ -104,6 +104,15 @@ describe('SolutionTreeEnumerator', () =>
         expect(tree.map((e) => e.Path)).toEqual(['a/sub/x.todl'])
     })
 
+    it('refuses an unsafe solution manifest name', async () =>
+    {
+        for (const name of ['..\\x.pksln', 'C:x.pksln', 'a\u0001.pksln'])
+        {
+            const root: any = { List: () => Promise.resolve([{ Name: name, IsDirectory: false }]), ReadText: () => Promise.resolve('{}') }
+            await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', root, []) as any)).rejects.toThrow(/unsafe path/)
+        }
+    })
+
     it('refuses an empty solution rather than uploading nothing', async () =>
     {
         await expect(new SolutionTreeEnumerator().Enumerate(new FakeSolution('S', new FakeStorage(), []) as any)).rejects.toThrow(/no files to upload/)
