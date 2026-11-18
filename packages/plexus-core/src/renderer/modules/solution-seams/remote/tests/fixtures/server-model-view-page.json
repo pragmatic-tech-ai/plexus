@@ -147,7 +147,7 @@
       },
       "shop.eu2": {
         "kind": "openProject",
-        "memberId": "models"
+        "memberId": "models-b"
       },
       "shop.us2": {
         "kind": "package",
