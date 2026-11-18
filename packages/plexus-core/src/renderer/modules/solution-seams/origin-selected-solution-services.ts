@@ -32,10 +32,12 @@ export class OriginSelectedSolutionServices implements ISolutionServices
         const registry = this.provider.get(SolutionOriginRegistry.Key)
         if (solution === undefined || registry?.Get(solution) === undefined)
         {
+            this.DisposeRemote()
             return this.integrated
         }
         if (this.remote?.Solution !== solution)
         {
+            this.DisposeRemote()
             this.remote = { Solution: solution, Services: this.CreateRemote() }
         }
         return this.remote.Services
@@ -45,6 +47,13 @@ export class OriginSelectedSolutionServices implements ISolutionServices
     public get Language(): ISolutionServices['Language'] { return this.Current.Language }
     public get Build(): ISolutionServices['Build'] { return this.Current.Build }
     public get Storage(): ISolutionServices['Storage'] { return this.Current.Storage }
+
+    // Drops the cached Remote, releasing its session subscriptions.
+    private DisposeRemote(): void
+    {
+        this.remote?.Services.dispose()
+        this.remote = undefined
+    }
 
     private CreateRemote(): RemoteSolutionServices
     {

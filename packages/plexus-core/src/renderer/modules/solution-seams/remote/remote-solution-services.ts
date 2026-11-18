@@ -1,4 +1,5 @@
 import type { IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
+import type { IDisposable } from '@pragmatic-tech-ai/todl-runtime'
 import type { IBaseResolver, IBuildService, ILanguageService, IManager } from '@pragmatic-tech-ai/todl'
 import { BuildService, SolutionManagerService } from '@pragmatic-tech-ai/todl'
 import { StorageService } from '../../storage/index.js'
@@ -10,7 +11,7 @@ import { SolutionMemberIds } from './solution-member-ids.js'
 // The Remote facade: only Language is remote (the environment's shared language service, driven over
 // the held develop session). Manager, Build and Storage are the local singletons; they already work
 // against the remote storage backend because the solution is opened from a dev-environment:// location.
-export class RemoteSolutionServices implements ISolutionServices
+export class RemoteSolutionServices implements ISolutionServices, IDisposable
 {
     private readonly language: RemoteLanguageService
 
@@ -23,6 +24,12 @@ export class RemoteSolutionServices implements ISolutionServices
     {
         const memberIds = new SolutionMemberIds(() => this.Manager.ActiveSolution)
         this.language = new RemoteLanguageService(session, localBase, memberIds, log)
+    }
+
+    // Tears down the language service's session subscriptions.
+    public dispose(): void
+    {
+        this.language.dispose()
     }
 
     public get Manager(): IManager
