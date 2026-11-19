@@ -17,17 +17,31 @@ import GraphViewerDocument from "./graph-viewer-document.js"
 import GraphNodeVM from "./graph-node-vm.js"
 
 resources GraphViewerResources {
-    // ── Read-only canvas ──────────────────────────────────────────────────
+    // ── Read-only canvas + header ─────────────────────────────────────────
+    // A header strip (Refresh) docks above the canvas. Refresh re-pulls the whole
+    // graph and re-projects — this is also how "Live" stays current, since the env
+    // Inspect relay exposes no graph-change push to the renderer (no auto-subscribe).
     DataTemplate [DataType = GraphViewerDocument] {
-        Board x:name="canvas"
-            [ ItemsSource                  = $Nodes,
-              Connectors                   = $Connectors,
-              ItemsPanel                   = @BoardCanvasPanel,
-              CameraEnabled                = true,
-              SelectionResizeEnabled       = false,
-              ConnectorInteractionsEnabled = false,
-              AlignmentGuidesEnabled       = false,
-              RulersVisible                = false ]
+        DockPanel [ LastChildFill = true ] {
+            StackPanel
+                [ DockPanel.Dock   = Top,
+                  Orientation       = Horizontal,
+                  HorizontalAlignment = Right,
+                  Margin            = (8,6,8,6) ] {
+                Button [ Variant = Text, Command = $RefreshCommand ] {
+                    TextBlock [ Text = "Refresh" ]
+                }
+            }
+            Board x:name="canvas"
+                [ ItemsSource                  = $Nodes,
+                  Connectors                   = $Connectors,
+                  ItemsPanel                   = @BoardCanvasPanel,
+                  CameraEnabled                = true,
+                  SelectionResizeEnabled       = false,
+                  ConnectorInteractionsEnabled = false,
+                  AlignmentGuidesEnabled       = false,
+                  RulersVisible                = false ]
+        }
     }
 
     // ── Read-only node tile ───────────────────────────────────────────────

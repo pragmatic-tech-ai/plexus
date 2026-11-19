@@ -4,8 +4,7 @@ import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-ap
 import type { GraphData } from '../graph-data.js'
 import { EnvironmentsApiKey } from '../../../services/environments/environments-contents-source.js'
 import { GraphCypherSource, GraphSourceKey, type IGraphSource } from './graph-cypher-source.js'
-import { GraphBoardProjector } from './graph-board-projector.js'
-import { GraphLayout } from './graph-layout.js'
+import { GraphProjection } from './graph-projection.js'
 import { GraphViewerDocument } from '../graph-viewer-document.js'
 
 // How the viewer tracks the underlying graph. Snapshot projects once (a Refresh
@@ -45,7 +44,8 @@ export class GraphViewerService extends ServiceBase
 
     public async OpenGraph(target: TargetRef, graphName: string, mode: GraphViewMode): Promise<void>
     {
-        const data = await this.Source().LoadGraph(target)
+        const projection = new GraphProjection(this.Source(), target)
+        const data = await projection.Load()
         if (!(await this.WithinScale(data)))
         {
             return
@@ -53,12 +53,13 @@ export class GraphViewerService extends ServiceBase
 
         const doc = new GraphViewerDocument()
         doc.Title = graphName
-        new GraphBoardProjector().Project(data, doc)
-        new GraphLayout().Apply(doc)
+        projection.Apply(data, doc)
+        doc.SetRefresher(projection)
         this.Host().Open(doc)
 
-        // Live subscription/refresh wiring is a later task; Snapshot and Live both
-        // project once here today.
+        // Both modes project once here; the viewer's Refresh re-pulls on demand. Live
+        // is manual Refresh — the env Inspect relay exposes no graph-change push to the
+        // renderer (the Develop-session OnGraphChanged is a different plane).
         void mode
     }
 
