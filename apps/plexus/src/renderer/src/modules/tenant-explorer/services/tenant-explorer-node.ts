@@ -1,4 +1,5 @@
 import { Observable, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
+import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 
 // A uniform, read-only tree node for the Tenant Explorer panel — one type for
 // every level (tenant, environment, application, graph, message) so a single
@@ -25,6 +26,12 @@ export class TenantExplorerNode extends Observable
     private readonly children = new ObservableCollection<TenantExplorerNode>()
     private loader?: () => Promise<TenantExplorerNode[]>
     private loaded = false
+    // The deployed-graph identity a Graph node resolves (its environment TargetRef);
+    // undefined for every other kind.
+    private target?: TargetRef
+    // Set by the owner (TenantExplorerService) for a Graph node; run when the tree
+    // activates the row (double-click / Enter). Mirrors `loader`/OnExpand.
+    private onActivate?: () => void
 
     private constructor(kind: TenantExplorerNodeKind, label: string, status = '')
     {
@@ -38,6 +45,7 @@ export class TenantExplorerNode extends Observable
     public get Label(): string { return this.label }
     public get Status(): string { return this.status }
     public get Children(): ObservableCollection<TenantExplorerNode> { return this.children }
+    public get Target(): TargetRef | undefined { return this.target }
 
     public static Tenant(label: string): TenantExplorerNode
     {
@@ -59,14 +67,30 @@ export class TenantExplorerNode extends Observable
         return new TenantExplorerNode(TenantExplorerNodeKind.Application, label)
     }
 
-    public static Graph(label: string): TenantExplorerNode
+    public static Graph(label: string, target?: TargetRef): TenantExplorerNode
     {
-        return new TenantExplorerNode(TenantExplorerNodeKind.Graph, label)
+        const node = new TenantExplorerNode(TenantExplorerNodeKind.Graph, label)
+        node.target = target
+        return node
     }
 
     public static Message(label: string): TenantExplorerNode
     {
         return new TenantExplorerNode(TenantExplorerNodeKind.Message, label)
+    }
+
+    // Wire what happens when this row is activated (double-click / Enter). The tree
+    // calls OnActivate() on the bound node; the owner sets the behaviour here.
+    public SetActivation(handler: () => void): void
+    {
+        this.onActivate = handler
+    }
+
+    // Called by the tree when a leaf row is activated. No-op unless an activation
+    // was set (only Graph nodes carry one).
+    public OnActivate(): void
+    {
+        this.onActivate?.()
     }
 
     // Runs the loader exactly once; no-op on non-lazy nodes and later expands.

@@ -8,7 +8,7 @@ import type { SessionAddress } from './desktop-session-store.js'
 export type RelayClient = Pick<PragmaticClient, 'ListGraphs' | 'ListApplications' | 'GetLoadedGraph' | 'ContributeGraph' | 'DeployApplication' | 'LoadRunTest' | 'DisposeAsync' | 'CloseCode'
     | 'StorageReadText' | 'StorageReadBytes' | 'StorageWriteText' | 'StorageWriteBytes' | 'StorageExists' | 'StorageDelete' | 'StorageCreateDirectory' | 'StorageRename' | 'StorageList'
     | 'CreateSolution' | 'ListSolutions' | 'SelectAuthoring' | 'ActiveSolution' | 'OnGraphChanged' | 'OnBuildStateChanged' | 'OnStorageChanged'
-    | 'OnDiagnostics' | 'CompletionsAt' | 'HoverAt' | 'DefinitionAt' | 'ReferencesAt' | 'PrepareRename' | 'RenameEdits' | 'DocumentSymbols' | 'FoldingRanges' | 'WorkspaceSymbols' | 'SemanticTokens' | 'SignatureHelpAt' | 'CodeActions' | 'FormatDocument' | 'DiagnosticsFor' | 'ModelView' | 'Resources' | 'DidChange'>
+    | 'OnDiagnostics' | 'CompletionsAt' | 'HoverAt' | 'DefinitionAt' | 'ReferencesAt' | 'PrepareRename' | 'RenameEdits' | 'DocumentSymbols' | 'FoldingRanges' | 'WorkspaceSymbols' | 'SemanticTokens' | 'SignatureHelpAt' | 'CodeActions' | 'FormatDocument' | 'DiagnosticsFor' | 'ModelView' | 'Resources' | 'DidChange' | 'CypherQuery'>
 
 // The wire `action` the relay end parses (the server's DesktopAction).
 export enum RelayAction

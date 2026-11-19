@@ -46,9 +46,9 @@ class Harness
 
 describe('EnvironmentContentsIpc', () =>
 {
-    it('binds the contents channel', () =>
+    it('binds the contents and cypher channels', () =>
     {
-        expect([...new Harness().Ipc.Handlers.keys()]).toEqual(['environments:contents'])
+        expect([...new Harness().Ipc.Handlers.keys()]).toEqual(['environments:contents', 'environments:cypher'])
     })
 
     it('passes only the rebuilt Name and Source', async () =>

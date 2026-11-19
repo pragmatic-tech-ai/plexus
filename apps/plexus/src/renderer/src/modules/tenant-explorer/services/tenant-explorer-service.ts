@@ -11,7 +11,8 @@ import {
     AccountError, RelayError, TargetStatus, type EnvironmentTarget, type TargetRef,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { EnvironmentsApiKey } from '../../../services/environments/environments-contents-source.js'
-import { TenantExplorerNode } from './tenant-explorer-node.js'
+import { GraphViewerService, GraphViewMode } from '../../graph-viewer/services/graph-viewer-service.js'
+import { TenantExplorerNode, TenantExplorerNodeKind } from './tenant-explorer-node.js'
 
 // The bindable property names this service raises PropertyChanged for.
 export enum TenantExplorerProperty
@@ -123,7 +124,7 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
             const contents = await api.Contents(target)
             const nodes = [
                 ...contents.Applications.map((a) => TenantExplorerNode.Application(`${a.Name} ${a.Version}`)),
-                ...contents.Graphs.map((g) => TenantExplorerNode.Graph(g.Name)),
+                ...contents.Graphs.map((g) => this.GraphNode(g.Name, target)),
             ]
             return nodes.length > 0 ? nodes : [TenantExplorerNode.Message(TenantExplorerService.NothingDeployed)]
         }
@@ -131,6 +132,25 @@ export class TenantExplorerService extends ServiceBase implements IActivatable
         {
             return [TenantExplorerNode.Message(TenantExplorerService.SentenceOf(e))]
         }
+    }
+
+    // A Graph tree row that carries its environment identity and, when activated
+    // (double-click / Enter), opens the read-only Board viewer for that graph.
+    private GraphNode(name: string, target: TargetRef): TenantExplorerNode
+    {
+        const node = TenantExplorerNode.Graph(name, target)
+        node.SetActivation(() => this.ActivateGraph(node))
+        return node
+    }
+
+    // Open the Board viewer for a Graph node (Snapshot — the Live toggle lives in the
+    // viewer header). A no-op for any other kind, or a Graph node missing its target.
+    public ActivateGraph(node: TenantExplorerNode): void
+    {
+        if (node.Kind !== TenantExplorerNodeKind.Graph) return
+        const target = node.Target
+        if (target === undefined) return
+        void this.Provider.get(GraphViewerService.Key)?.OpenGraph(target, node.Label, GraphViewMode.Snapshot)
     }
 
     private SetFlags(signedIn: boolean, isEmpty: boolean): void

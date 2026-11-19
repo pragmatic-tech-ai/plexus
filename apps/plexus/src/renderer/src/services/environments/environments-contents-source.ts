@@ -1,6 +1,7 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
+import type { CypherQueryPageDto, PageParams } from '@pragmatic-tech-ai/pragmatic-protocol'
 import { RelayWire, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { EnvironmentContents, IEnvironmentsApi, IEnvironmentsBridge } from '../../../../shared/environment-contents-api.js'
+import type { EnvironmentContents, EnvironmentCypherParams, IEnvironmentsApi, IEnvironmentsBridge } from '../../../../shared/environment-contents-api.js'
 
 export const EnvironmentsApiKey = new ServiceKey<IEnvironmentsApi>('EnvironmentsApi')
 
@@ -31,6 +32,11 @@ export class EnvironmentsContentsSource implements IEnvironmentsApi
     {
         // Only Name and Source cross the bridge, whatever else the caller's object carries.
         return RelayWire.Unwrap(await this.api.Contents({ Name: target.Name, Source: target.Source }))
+    }
+
+    public async Cypher(target: TargetRef, cypher: string, params?: EnvironmentCypherParams, page?: PageParams): Promise<CypherQueryPageDto>
+    {
+        return RelayWire.Unwrap(await this.api.Cypher({ Name: target.Name, Source: target.Source }, cypher, params, page))
     }
 }
 
