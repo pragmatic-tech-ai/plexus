@@ -236,6 +236,8 @@ const devSession: IDevSessionBridge = {
 }
 const environments: IEnvironmentsBridge = {
   Contents: (target: TargetRef) => RelayBridge.Call(EnvironmentsChannel.Contents, target),
+  Cypher: (target: TargetRef, cypher: string, params?, page?) =>
+    RelayBridge.Call(EnvironmentsChannel.Cypher, target, cypher, params, page),
 }
 
 // Account bridge: sign in by email through the system browser. Every call resolves to the main

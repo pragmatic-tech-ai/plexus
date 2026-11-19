@@ -1,6 +1,6 @@
-import { ErrorCodes, ResponseError } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { ErrorCodes, ResponseError, type CypherQueryPageDto, type PageParams } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { AppSummary, EnvironmentContents, GraphSummary, IEnvironmentsApi } from '../../shared/environment-contents-api.js'
+import type { AppSummary, EnvironmentContents, EnvironmentCypherParams, GraphSummary, IEnvironmentsApi } from '../../shared/environment-contents-api.js'
 import { RelayAction, RelayConnector, type IRelayConnector, type RelayClient } from '../account/relay-connector.js'
 
 // Main-process environment listing: opens a read-only inspect relay to the target's environment
@@ -28,6 +28,13 @@ export class EnvironmentContentsService implements IEnvironmentsApi
             ])
             return EnvironmentContentsService.Merge(apps, named, loaded)
         })
+    }
+
+    // Read-only Cypher over the target environment's live graph (the graph DB behind the inspect
+    // relay). No modelId is passed, so the query spans the whole graph. One inspect relay per call.
+    public Cypher(target: TargetRef, cypher: string, params?: EnvironmentCypherParams, page?: PageParams): Promise<CypherQueryPageDto>
+    {
+        return this.With(target, (client) => client.CypherQuery(cypher, params, page));
     }
 
     private async With<T>(target: TargetRef, work: (client: RelayClient) => Promise<T>): Promise<T>

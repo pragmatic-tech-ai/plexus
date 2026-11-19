@@ -5,18 +5,25 @@
 // with plexus-core (renderer) and live there.
 import type { AppSummary, GraphSummary, EnvironmentContents } from '@pragmatic-tech-ai/plexus-core/shared/environment-contents-api.js'
 import type { RelayReply, TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import type { CypherParamValue, CypherQueryPageDto, PageParams } from '@pragmatic-tech-ai/pragmatic-protocol'
 
 export type { AppSummary, GraphSummary, EnvironmentContents }
 
 export enum EnvironmentsChannel
 {
     Contents = 'environments:contents',
+    Cypher = 'environments:cypher',
 }
 
-// What the main process does: open an inspect relay to the target's environment and list its contents.
+// A read-only Cypher query over the target environment's live graph (the graph DB behind the
+// inspect relay). `modelId` is intentionally NOT exposed: the viewer reads the WHOLE graph.
+export type EnvironmentCypherParams = { readonly [k: string]: CypherParamValue };
+
+// What the main process does: open an inspect relay to the target's environment and read it.
 export interface IEnvironmentsApi
 {
     Contents(target: TargetRef): Promise<EnvironmentContents>;
+    Cypher(target: TargetRef, cypher: string, params?: EnvironmentCypherParams, page?: PageParams): Promise<CypherQueryPageDto>;
 }
 
 // What the preload exposes: resolves to a RelayReply envelope (unwrap with RelayWire.Unwrap), so
@@ -24,4 +31,5 @@ export interface IEnvironmentsApi
 export interface IEnvironmentsBridge
 {
     Contents(target: TargetRef): Promise<RelayReply<EnvironmentContents>>;
+    Cypher(target: TargetRef, cypher: string, params?: EnvironmentCypherParams, page?: PageParams): Promise<RelayReply<CypherQueryPageDto>>;
 }
