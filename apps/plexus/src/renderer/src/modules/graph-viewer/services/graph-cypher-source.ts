@@ -1,6 +1,6 @@
 import { ServiceKey } from '@pragmatic-tech-ai/mural/runtime'
 import type { TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { CypherCellDto, CypherNodeCell, CypherNodeCellDto } from '@pragmatic-tech-ai/pragmatic-protocol'
+import { CypherCells } from '@pragmatic-tech-ai/pragmatic-protocol'
 import type { IEnvironmentsApi } from '../../../../../shared/environment-contents-api.js'
 import type { GraphData, GraphEdgeData, GraphNodeData } from '../graph-data.js'
 
@@ -22,7 +22,6 @@ export const GraphSourceKey = new ServiceKey<IGraphSource>('GraphViewerGraphSour
 export class GraphCypherSource implements IGraphSource
 {
     private static readonly MatchAllNodes = 'MATCH (n) RETURN n';
-    private static readonly NodeKey = '$node';
     private static readonly NodeColumn = 0;
 
     public constructor(private readonly api: IEnvironmentsApi)
@@ -39,7 +38,9 @@ export class GraphCypherSource implements IGraphSource
             const page = await this.api.Cypher(target, GraphCypherSource.MatchAllNodes, undefined, cursor === undefined ? undefined : { cursor });
             for (const row of page.items)
             {
-                const cell = GraphCypherSource.NodeOf(row[GraphCypherSource.NodeColumn]);
+                // Reuse the protocol's canonical node-cell decoder (the `$node` wrapper
+                // discrimination) rather than a private copy, so the two cannot drift.
+                const cell = CypherCells.AsNode(row[GraphCypherSource.NodeColumn]);
                 if (cell === undefined)
                 {
                     continue;
@@ -57,20 +58,5 @@ export class GraphCypherSource implements IGraphSource
         }
         while (cursor !== undefined);
         return { Nodes: nodes, Edges: edges };
-    }
-
-    // A row cell is a node only when it is the reserved `{ $node: … }` wrapper; everything else
-    // (scalars, arrays, plain maps) is not a node and is skipped.
-    private static NodeOf(cell: CypherCellDto | undefined): CypherNodeCellDto | undefined
-    {
-        if (typeof cell !== 'object' || cell === null || Array.isArray(cell))
-        {
-            return undefined;
-        }
-        if (!(GraphCypherSource.NodeKey in cell))
-        {
-            return undefined;
-        }
-        return (cell as CypherNodeCell).$node;
     }
 }

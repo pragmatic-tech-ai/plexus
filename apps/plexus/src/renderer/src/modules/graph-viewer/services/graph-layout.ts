@@ -36,6 +36,8 @@ export class GraphLayout
     // (disconnected, dropped, or an errored run), so each stays visible and distinct.
     private static readonly FallbackPitch = 200
 
+    private static readonly PipelineFailedWarning = 'GraphLayout: layout pipeline failed; falling back to a single row.'
+
     public Apply(doc: BoardDocument): void
     {
         const vms = doc.Nodes.ToArray()
@@ -95,10 +97,12 @@ export class GraphLayout
                 out.set(p.id, p)
             }
         }
-        catch
+        catch (err)
         {
-            // Swallowed deliberately: an unlayoutable graph still opens, every node
-            // on the fallback row.
+            // A viewer must still open, so an unlayoutable graph degrades to the
+            // fallback row — but log it, so a genuine contract drift is observable
+            // rather than silently flattening every graph.
+            console.warn(GraphLayout.PipelineFailedWarning, err)
         }
         return out
     }

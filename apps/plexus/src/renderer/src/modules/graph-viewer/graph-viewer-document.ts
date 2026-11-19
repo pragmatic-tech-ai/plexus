@@ -52,4 +52,13 @@ export class GraphViewerDocument extends BoardDocument
     {
         await this.refresher?.Refresh(this)
     }
+
+    // Clear the dirty flag. Projecting the graph adds connectors, and
+    // BoardDocument.CreateConnector marks the document dirty; with no storage the flag
+    // could never otherwise clear, so a read-only viewer would falsely show unsaved
+    // changes. Called after each (re)projection. Safe because the viewer never persists.
+    public MarkClean(): void
+    {
+        this.set_property_value(BoardDocument.IsDirtyKey, false)
+    }
 }

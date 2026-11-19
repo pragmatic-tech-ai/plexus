@@ -31,6 +31,9 @@ export class GraphProjection implements IGraphRefresher
         doc.Connectors.Clear()
         new GraphBoardProjector().Project(data, doc)
         new GraphLayout().Apply(doc)
+        // Projecting adds connectors, which marks the storage-less document dirty;
+        // clear it so the read-only viewer never shows unsaved changes.
+        doc.MarkClean()
     }
 
     // Re-pull and re-project — the Refresh path (both view modes; there is no env

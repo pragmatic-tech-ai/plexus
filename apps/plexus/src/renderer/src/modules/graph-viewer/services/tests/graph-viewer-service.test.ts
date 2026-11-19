@@ -67,6 +67,20 @@ describe('GraphViewerService.OpenGraph', () =>
         expect(vms.map((v) => v.Id).sort()).toEqual(['a', 'b'])
     })
 
+    it('the opened document is not dirty — a read-only viewer never shows unsaved changes', async () =>
+    {
+        const data: GraphData = {
+            Nodes: [
+                { Id: 'a', Concept: 'actor', Label: 'Alice', Properties: {} },
+                { Id: 'b', Concept: 'actor', Label: 'Bob', Properties: {} },
+            ],
+            Edges: [{ From: 'a', Type: 'knows', To: 'b' }],
+        }
+        const { provider, opened } = wire(data)
+        await new GraphViewerService(provider).OpenGraph(target, 'g', GraphViewMode.Snapshot)
+        expect((opened[0] as GraphViewerDocument).IsDirty).toBe(false)
+    })
+
     it('scale guard: over threshold and the user declines -> nothing opened', async () =>
     {
         const { provider, opened } = wire(bigGraph(801), false)
