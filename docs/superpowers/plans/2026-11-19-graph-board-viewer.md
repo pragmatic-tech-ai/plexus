@@ -4,9 +4,9 @@
 
 **Goal:** Clicking a graph node in the Tenant Explorer opens a read-only Board that renders the selected environment graph's full raw TODL model (every node and edge), sourced from a Develop-session `ModelView`, auto-laid-out via fresco, with a snapshot/live choice on open and a scale guard.
 
-**Architecture:** A new renderer module `modules/graph-viewer/` built over the existing Board framework and the held Develop session. A `GraphModelSource` fetches the compiled `Repository` for a named graph; a `GraphBoardProjector` maps `Repository` → `GraphNodeVM`s + `Connector`s on an in-memory read-only `GraphViewerDocument`; a `GraphLayout` seeds positions from fresco's pure pipeline via `SetNodeVisual`; a `GraphViewerService` orchestrates open (fetch → project → layout → open tab), the snapshot/live toggle, and the scale guard. Selection wiring is added to the existing `tenant-explorer` module.
+**Architecture:** A new renderer module `modules/graph-viewer/` built over the existing Board framework and a new renderer Cypher-read passthrough over the environment relay. The deployed graph is a live graph database (`@pragmatic-tech-ai/graph`); a `GraphCypherSource` reads it via `CypherQuery('MATCH (n) RETURN n', …)` (paged, no `modelId` = whole graph) and parses the `NodeCellDto`s (each carrying `links`, so one query yields nodes AND edges) into a plain `GraphData { nodes, edges }`; a `GraphBoardProjector` maps `GraphData` → `GraphNodeVM`s + `Connector`s on an in-memory read-only `GraphViewerDocument`; a `GraphLayout` seeds positions from fresco's pure pipeline via `SetNodeVisual`; a `GraphViewerService` orchestrates open (fetch → project → layout → open tab), the snapshot/live toggle, and the scale guard. Selection wiring is added to the existing `tenant-explorer` module. The frozen contributed packages are the bundle, NOT the live contents — not read here.
 
-**Tech Stack:** TypeScript (ESM, strict), mural Board framework + `.mu` markup (`compile:mu`), fresco layout engine, `@pragmatic-tech-ai/todl` `Repository`, the Plexus Develop session (`window.api.devSession` / `IpcDevSession`), vitest.
+**Tech Stack:** TypeScript (ESM, strict), mural Board framework + `.mu` markup (`compile:mu`), fresco layout engine, the environment relay Cypher API (`CypherQuery` → `CypherQueryPageDto`; `NodeCellDto` from `@pragmatic-tech-ai/graph`), a new `window.api.environments`-side Cypher passthrough, vitest.
 
 **Spec:** `docs/superpowers/specs/2026-11-19-graph-board-viewer-design.md`
 
@@ -32,22 +32,25 @@ Inputs the design implies but no single task's happy-path test exercises — eac
 
 ---
 
-## Task 1: GraphModelSource — resolve a named graph's Repository (RISK-FIRST)
+## Task 1: Cypher read seam + GraphCypherSource — live graph → GraphData
 
 **Files:**
-- Create: `apps/plexus/src/renderer/src/modules/graph-viewer/services/graph-model-source.ts`
-- Test: `apps/plexus/src/renderer/src/modules/graph-viewer/services/tests/graph-model-source.test.ts`
+- Create: `apps/plexus/src/renderer/src/modules/graph-viewer/services/graph-cypher-source.ts`, `apps/plexus/src/renderer/src/modules/graph-viewer/graph-data.ts` (the `GraphData`/`GraphNodeData`/`GraphEdgeData` types).
+- Modify (renderer Cypher-read passthrough): `apps/plexus/src/main/environments/*` (a `Cypher` handler on the env Inspect relay calling `client.CypherQuery`), `apps/plexus/src/preload/index.ts` (`environments.Cypher`), `packages/plexus-core/src/shared/environment-contents-api.ts` (the `Cypher` method on `IEnvironmentsBridge`/`EnvironmentsApiKey`).
+- Test: `.../services/tests/graph-cypher-source.test.ts`
 
 **Interfaces — Produces:**
-- `class GraphModelSource` with `public async ModelFor(target: TargetRef, graphName: string): Promise<Repository | undefined>` — opens/uses the held Develop session for `target` and returns the compiled `Repository` for the named graph (or `undefined` when unavailable).
+- `interface GraphNodeData { Id: string; Concept: string | null; Label: string; Properties: Record<string, unknown> }`, `interface GraphEdgeData { From: string; Type: string; To: string }`, `interface GraphData { Nodes: GraphNodeData[]; Edges: GraphEdgeData[] }`.
+- `class GraphCypherSource` with `public async LoadGraph(target: TargetRef): Promise<GraphData>` — runs `MATCH (n) RETURN n` paged over the env relay Cypher seam (no `modelId`), maps each `NodeCellDto { id, concept, properties, links: { [rel]: string[] } }` → a `GraphNodeData` and its `links` → `GraphEdgeData`s.
+- The env bridge gains `Cypher(target: TargetRef, cypher: string, params?, page?): Promise<CypherQueryPageDto>`.
 
-**Resolve the KEY RISK first:** determine the exact dev-session call sequence that yields a *specific named* graph's model. Primitives available: `IpcDevSession.Open(target)`, the protocol `ModelView(memberId, page?)` / renderer `ModelView(consumerStorage): {model, originOf, provenanceOf}`, and graph DTOs (`GraphRefParamsDto`/`GraphLoadParamsDto`/`GraphLoadedDto`). Read `apps/plexus/src/renderer/src/services/dev-session/plexus-dev-session.ts`, `packages/plexus-core/src/renderer/modules/dev-session/*`, and `apps/plexus/src/main/account/develop-session.ts` to find how a named graph maps to a `memberId`/consumer-storage. **Fallback if per-name selection is not reachable in v1:** target the session's developed/loaded graph (via `GetLoadedGraph`) and record the limitation as a ruling.
+**Verify first (ledger ruling already recorded):** confirm a bare `MATCH (n) RETURN n` returns each node's `links` (so edges come for free). If not, add a `MATCH (a)-[r]->(b) RETURN …` relationships query inside `LoadGraph` and record the fallback.
 
-- [ ] **Step 1 (RED):** Write a test with a fake dev-session seam (a stub exposing `Open` + a `ModelView` that returns a small assembled `Repository`). Assert `ModelFor(target, 'g')` resolves that `Repository`. Run — fails (class absent).
-- [ ] **Step 2:** Read the dev-session + protocol sources; decide the named-graph→model sequence (or fallback). Record the decision as a ledger ruling.
-- [ ] **Step 3 (GREEN):** Implement `GraphModelSource` against the dev-session seam (inject the session via constructor/`ServiceKey`, not a global).
-- [ ] **Step 4:** Run the test. Expected: PASS. Add a test that an unavailable graph resolves `undefined` (no throw).
-- [ ] **Step 5:** Commit `feat(graph-viewer): GraphModelSource resolves a named graph's Repository`.
+- [ ] **Step 1 (RED):** Test with a fake env-Cypher seam returning two paged `CypherQueryPageDto`s whose rows are `NodeCellDto`s (2 nodes, one with a `links` entry to the other). Assert `LoadGraph(target)` returns `GraphData` with 2 `Nodes` (Ids/Concepts/Labels mapped) and 1 `Edge` (`{From, Type, To}`). Run — fails (class absent).
+- [ ] **Step 2 (GREEN):** Add the Cypher-read passthrough (main handler → preload → `EnvironmentsApiKey.Cypher`); implement `GraphCypherSource.LoadGraph` paging `MATCH (n) RETURN n` and mapping cells (inject the bridge via constructor/`ServiceKey`, not a global).
+- [ ] **Step 3:** Run the test. Expected: PASS. Add an empty-result case (0 rows → empty `GraphData`, no throw) and a multi-page case (paging accumulates).
+- [ ] **Step 4:** `typecheck` (node + web for the preload/shared changes). Expected: green.
+- [ ] **Step 5:** Commit `feat(graph-viewer): env Cypher read seam + GraphCypherSource -> GraphData`.
 
 ## Task 2: GraphNodeVM + GraphBoardProjector — Repository → board nodes/edges
 
@@ -56,11 +59,11 @@ Inputs the design implies but no single task's happy-path test exercises — eac
 - Test: `.../services/tests/graph-board-projector.test.ts`
 
 **Interfaces:**
-- Consumes: a `Repository` (`allNodes(): Node[]`, `outEdges(id): Edge[]`; edge shape `{ kind, via, from, to }`), a `BoardDocument` (`Nodes.Add`, `CreateConnector(src, dst)` with `ConnectorEndpoint({ Node })`).
-- Produces: `class GraphNodeVM extends NodeViewModel` (`Id`, a `Label` from `localId ?? id`, a `Caption` from `metaKind`/`type`); `class GraphBoardProjector` with `public Project(model: Repository, doc: BoardDocument): void`.
+- Consumes: `GraphData` (from Task 1: `Nodes: GraphNodeData[]`, `Edges: GraphEdgeData[]`), a `BoardDocument` (`Nodes.Add`, `CreateConnector(src, dst)` with `ConnectorEndpoint({ Node })`).
+- Produces: `class GraphNodeVM extends NodeViewModel` (`Id`, a `Label` from the node's `Label`, a `Caption` from `Concept`); `class GraphBoardProjector` with `public Project(data: GraphData, doc: BoardDocument): void`.
 
-- [ ] **Step 1 (RED):** Test: build a tiny in-memory `Repository` (2 nodes + 1 edge between them) → `Project` adds 2 `GraphNodeVM`s (Ids match, `doc.Nodes.Count === 2`) and 1 connector (`doc.Connectors.Count === 1`). Run — fails.
-- [ ] **Step 2 (GREEN):** Implement `GraphNodeVM` and `GraphBoardProjector.Project`: one VM per `allNodes()` with `Id = node.id`; build an id→VM map; for each node's `outEdges`, create a connector ONLY when both endpoints are in the map (skip dangling). Label connectors with edge `kind`.
+- [ ] **Step 1 (RED):** Test: a tiny `GraphData` (2 nodes + 1 edge between them) → `Project` adds 2 `GraphNodeVM`s (Ids match, `doc.Nodes.Count === 2`) and 1 connector (`doc.Connectors.Count === 1`). Run — fails.
+- [ ] **Step 2 (GREEN):** Implement `GraphNodeVM` and `GraphBoardProjector.Project`: one VM per `data.Nodes` with `Id = node.Id`; build an id→VM map; for each edge, create a connector ONLY when both endpoints are in the map (skip dangling). Label connectors with edge `Type`.
 - [ ] **Step 3:** Run. Expected: PASS.
 - [ ] **Step 4 (Review Focus):** Add tests — empty graph (0 nodes → 0 nodes/0 connectors, no throw); dangling edge (skipped); self-edge and duplicate pair (each a distinct connector, no throw). Run. Expected: PASS.
 - [ ] **Step 5:** Commit `feat(graph-viewer): project a Repository onto a BoardDocument`.
@@ -102,12 +105,12 @@ Inputs the design implies but no single task's happy-path test exercises — eac
 - Test: `.../services/tests/graph-viewer-service.test.ts`
 
 **Interfaces:**
-- Consumes: `GraphModelSource`, `GraphBoardProjector`, `GraphLayout`, `ContentHostService` (cast to `DocumentsContentHostService`, `Open(doc)`), a confirm seam (`DialogService` or equivalent).
-- Produces: `class GraphViewerService` with `public async OpenGraph(target: TargetRef, graphName: string, mode: GraphViewMode): Promise<void>` where `enum GraphViewMode { Snapshot, Live }`. Pipeline: `ModelFor` → scale guard (confirm when `allNodes().length > 800`) → `Project` → `GraphLayout.Apply` → build `GraphViewerDocument` (`Title = graphName`) → `host.Open(doc)`.
+- Consumes: `GraphCypherSource`, `GraphBoardProjector`, `GraphLayout`, `ContentHostService` (cast to `DocumentsContentHostService`, `Open(doc)`), a confirm seam (`DialogService` or equivalent).
+- Produces: `class GraphViewerService` with `public async OpenGraph(target: TargetRef, graphName: string, mode: GraphViewMode): Promise<void>` where `enum GraphViewMode { Snapshot, Live }`. Pipeline: `LoadGraph(target)` → scale guard (confirm when `data.Nodes.length > 800`) → `Project` → `GraphLayout.Apply` → build `GraphViewerDocument` (`Title = graphName`) → `host.Open(doc)`.
 
-- [ ] **Step 1 (RED):** Test with fakes (model source returning a small Repository, a fake content host capturing `Open`): `OpenGraph(target, 'g', Snapshot)` opens exactly one `GraphViewerDocument` titled `'g'` with projected nodes. Run — fails.
+- [ ] **Step 1 (RED):** Test with fakes (cypher source returning a small `GraphData`, a fake content host capturing `Open`): `OpenGraph(target, 'g', Snapshot)` opens exactly one `GraphViewerDocument` titled `'g'` with projected nodes. Run — fails.
 - [ ] **Step 2 (GREEN):** Implement `GraphViewerService.OpenGraph` (Snapshot path) wiring the pipeline via injected collaborators (ServiceKeys, no globals).
-- [ ] **Step 3 (Review Focus):** Test the scale guard: a Repository with > 800 nodes and a fake confirm that DECLINES → no document opened, no session retained; a fake confirm that ACCEPTS → opens. Run. Expected: PASS.
+- [ ] **Step 3 (Review Focus):** Test the scale guard: a `GraphData` with > 800 nodes and a fake confirm that DECLINES → no document opened; a fake confirm that ACCEPTS → opens. Run. Expected: PASS.
 - [ ] **Step 4:** Author `graph-viewer.module.mu` registering the services; wire the module into the app alongside the other renderer modules. `compile:mu`; `typecheck`.
 - [ ] **Step 5:** Commit `feat(graph-viewer): GraphViewerService open pipeline + scale guard + module`.
 
@@ -133,10 +136,12 @@ Inputs the design implies but no single task's happy-path test exercises — eac
 - Test: `.../services/tests/graph-viewer-live.test.ts`
 
 **Interfaces:**
-- Consumes: the dev session `OnGraphChanged(handler): () => void` (unsubscribe), `GraphModelSource.ModelFor` (re-pull), the content host `Close`/`OpenDocuments` to detect close.
-- Produces: Live mode on `GraphViewerDocument` — on `GraphChanged`, re-`ModelFor` + re-`Project` + re-`GraphLayout`; `Refresh()`; a disposer invoked when the tab closes.
+- Consumes: `GraphCypherSource.LoadGraph` (re-pull), the content host `Close`/`OpenDocuments` to detect close, and the env relay's graph-change subscription IF one is exposed to the renderer (`environments.OnGraphChanged` or similar).
+- Produces: `Refresh()` on `GraphViewerDocument` (re-`LoadGraph` + re-`Project` + re-`GraphLayout`) for both modes; Live mode subscribes to the env change signal and calls `Refresh` on change; a disposer invoked when the tab closes.
 
-- [ ] **Step 1 (RED):** Test with a fake session emitting `GraphChanged`: opening in Live mode and firing a change re-projects (projector called again); closing the tab calls the unsubscribe and a subsequent change does NOT re-project. Run — fails.
-- [ ] **Step 2 (GREEN):** Implement the subscription + re-project + dispose-on-close; implement `Refresh` for Snapshot mode too.
+**Ruling to make in Step 1:** check whether the env Inspect relay exposes a graph-change push to the renderer. If NOT, Live degrades to manual `Refresh` only (record the ruling); do not reach into the Develop-session `OnGraphChanged` (wrong plane).
+
+- [ ] **Step 1 (RED):** Test with a fake change emitter: opening in Live mode and firing a change calls `LoadGraph`/re-projects again; closing the tab unsubscribes and a subsequent change does NOT re-project. (If no env push exists, test `Refresh()` re-pulls + re-projects and record the degrade ruling.) Run — fails.
+- [ ] **Step 2 (GREEN):** Implement `Refresh` (both modes) + the subscription/dispose-on-close (or Refresh-only per the ruling).
 - [ ] **Step 3:** Run. Expected: PASS. `compile:mu`; `typecheck` for the `.mu` header changes.
 - [ ] **Step 4:** Commit `feat(graph-viewer): live auto-refresh + refresh action + release on close`.

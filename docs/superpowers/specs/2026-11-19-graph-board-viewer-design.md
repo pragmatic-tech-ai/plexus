@@ -20,9 +20,11 @@ final vocabulary.
 
 - Clicking (activating) a graph node in the Tenant Explorer opens a **read-only
   Board tab** showing that graph's nodes and edges.
-- The view works for **any graph** listed under an environment, sourced from the
-  compiled **`ModelView`** (a `Repository`) of a **Develop** session on the
-  environment target.
+- The view renders the environment's **live graph** read via **Cypher over the
+  environment relay** (`CypherQuery('MATCH (n) RETURN n', …)`, paged) — the real
+  graph database (`@pragmatic-tech-ai/graph` GraphEngine), not the frozen package
+  bundle. v1 reads the environment's currently-loaded graph ("just cypher for
+  now"); loading an arbitrary promoted graph on demand is a later concern.
 - Render the **raw full TODL graph** — every node and every edge in the
   compiled model, including prelude / system / meta-model / ontology scaffolding
   (the user asked for the literal, complete graph, not a filtered content view).
@@ -69,52 +71,63 @@ final vocabulary.
 
 ## Approaches considered
 
-1. **ModelView via a Develop session + reuse the Board framework — CHOSEN.**
-   Open a Develop session on the environment target, pull the compiled
-   `Repository` via `ModelView`, project every node→`NodeViewModel` and every
+1. **Cypher the live graph DB + reuse the Board framework — CHOSEN.**
+   The deployed graph is now a real graph database (`@pragmatic-tech-ai/graph`
+   GraphEngine). Read it via `CypherQuery` over the environment relay
+   (`MATCH (n) RETURN n`, paged; a node cell carries its outgoing `links`, so one
+   query yields nodes AND edges — no `modelId`, which only narrows to one
+   model/package within the graph). Project every node→`NodeViewModel` and every
    edge→`Connector` onto an in-memory read-only `BoardDocument`, auto-layout via
-   fresco, open as a tab. Richest/most-complete model; works for any graph.
-   Cost: spins up a Develop session to view; singleton-session contention.
-2. **Parse the graph's contributed package `modelJson` via the read-only Inspect
-   path — rejected by owner.** Lighter and read-only, but `Contents` discards the
-   packages and `GetLoadedGraph` returns only the env's single loaded graph, so
-   "any graph" wouldn't be covered without new backend work. Owner chose the
-   richer ModelView path.
-3. **Build a bespoke graph canvas from scratch — rejected.** The Board already
+   fresco, open as a tab. Reads the actual live contents; reuses all board
+   machinery. Cost: needs a small renderer Cypher-read passthrough over the relay.
+2. **ModelView via a Develop session — rejected (wrong plane).** `ModelView` is a
+   solution-authoring view keyed by a member of the active solution; a deployed
+   graph is not a solution, so this does not address it.
+3. **Merge the frozen contributed-package `modelJson` — rejected (bundle, not
+   live).** Since the graph became a live DB, the packages are only the bundling
+   snapshot; merging them would render the bundle, not what the live graph holds.
+4. **Build a bespoke graph canvas from scratch — rejected.** The Board already
    renders node/connector models and auto-lays-out positionless nodes; building a
    second surface duplicates all of that.
 
 ## The design
 
-### Data path (renderer → compiled model)
+### Data path (renderer → live graph via Cypher)
 
 - Thread identity: `TenantExplorerService.LoadContents(target)` already has the
   environment `TargetRef`. Give `TenantExplorerNode.Graph` the `TargetRef` and
   the graph **name** (today it keeps only a label). Add selection/activation
   wiring to the Tenant Explorer `TreeView` (none exists): a `SelectedItem` +
   activation command that, for a `Graph` node, invokes the viewer open.
-- Open the viewer: `PlexusDevSession` (`IpcDevSession` over `window.api.devSession`)
-  → `Open(target)` to bind the held Develop session to the environment, then
-  `ModelView(...)` → `SolutionModelView { model: Repository }`.
-- **Named-graph targeting (KEY RISK — resolved in the plan):** the held session
-  is singular and `ModelView` takes a storage/document argument. The plan must
-  establish the exact call that yields the *selected* graph's model (select/load
-  the named graph on the session, then `ModelView`), with a concrete fallback if
-  only the session's developed graph is reachable (v1 may target the developed
-  graph and treat multi-graph selection as the first plan task to validate).
+- New **renderer Cypher-read passthrough** over the environment relay (today only
+  main touches Cypher): a thin main handler → preload bridge → renderer source
+  exposing `Cypher(target, cypher, params?, page?) → CypherQueryPageDto` on the
+  env Inspect relay (`client.CypherQuery`).
+- Read the whole graph: `GraphCypherSource.LoadGraph(target)` runs
+  `MATCH (n) RETURN n` **paged** (QueryAll-style) with **no `modelId`** (whole
+  graph). Each row is a `NodeCellDto { id, concept, properties, links: {
+  [relationship]: string[] } }`; map each node → a node, and each
+  `links[rel] = [toId…]` entry → an edge `{ from: node.id, type: rel, to: toId }`.
+  Produces a plain `GraphData { nodes, edges }` (decoupled from the board).
+- **Scope (v1 ruling):** reads the environment's currently-loaded live graph.
+  Loading an arbitrary promoted graph on demand is deferred ("just cypher for
+  now"). If `links` are not populated for a bare `MATCH (n)`, fall back to a
+  second `MATCH (a)-[r]->(b) RETURN …` relationships query.
 
-### Projection (Repository → read-only BoardDocument)
+### Projection (GraphData → read-only BoardDocument)
 
 New renderer service `GraphBoardProjector` (a class; methods, not free
 functions):
 
-- Input: a `Repository` (from `ModelView`).
-- For **every** node (`model.allNodes()`): a `NodeViewModel` subclass
-  (`GraphNodeVM extends NodeViewModel`) with `Id = node.id` and a label derived
-  from `localId ?? id`; a small secondary caption from `metaKind`/`type` for
-  legibility. `doc.Nodes.Add(vm)`.
+- Input: a plain `GraphData { nodes: GraphNodeData[], edges: GraphEdgeData[] }`
+  (from `GraphCypherSource`), decoupled from both the board and the DB cell shape.
+- For **every** node: a `NodeViewModel` subclass (`GraphNodeVM extends
+  NodeViewModel`) with `Id = node.id`, a label from the node's key property
+  (`properties.name`/`properties.label` ?? `id`), and a caption from `concept`.
+  `doc.Nodes.Add(vm)`.
 - For **every** edge: `doc.CreateConnector(new ConnectorEndpoint({ Node: src }),
-  new ConnectorEndpoint({ Node: dst }))`, label = edge `kind` (or `via`).
+  new ConnectorEndpoint({ Node: dst }))`, label = edge `type` — created only when
+  both endpoints exist in the node set (skip dangling).
 - No filtering — raw full graph (honours the owner's choice).
 
 ### Read-only board document + template
@@ -177,11 +190,13 @@ functions):
 
 ## Risks
 
-- **Named-graph targeting** on a singleton Develop session (above) — the main
-  feasibility unknown; the plan proves it first.
+- **Loaded-graph scope (v1)** — the viewer reads the environment's currently
+  loaded live graph. If an env holds several promoted graphs and the clicked one
+  is not the loaded one, v1 shows the loaded graph; per-name load-on-demand is a
+  deferred follow-up ("just cypher for now").
+- **Cypher node-cell `links`** — the plan assumes a bare `MATCH (n) RETURN n`
+  returns each node's outgoing `links` (so one query yields edges too); Task 1
+  verifies this and falls back to a separate relationships query if not.
 - **Performance** on large raw graphs — mitigated by the scale guard, but a
   multi-thousand-node layout may still be heavy; acceptable per the owner's
-  "render everything" choice with a warning.
-- **Session contention** — opening the viewer rebinds the held Develop session;
-  if another feature relies on it, there may be interference. The plan notes the
-  current single-session ownership and keeps the viewer's use scoped.
+  "render everything" choice with a warning. Cypher paging bounds the fetch.
