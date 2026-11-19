@@ -1,18 +1,27 @@
-# Diagram → Canvas Rename — Design
+# Diagram → Board Rename — Design
 
-**Status:** awaiting approval
+**Status:** shipped — merged to `main` across fresco/mural/TODL/Plexus/pragmatic-docs; published fresco@0.4.7, mural@0.67.0
 **Author:** (brainstormed 2026-11-18)
 **Kind:** Spec (to be registered in GitHub Project #1 per repo CLAUDE.md on approval)
+
+> **Term note (post-execution).** This design was written with the working name
+> **Canvas**. During execution "Canvas" collided with mural's existing
+> `Canvas extends Panel`; the retries "Surface" (61 identifier collisions) and
+> "Pane" (overlapping meaning) also failed, so the landed term is **Board**.
+> The text below has been swept Canvas→Board to match what shipped; read any
+> remaining "Canvas" as the mural-owned layout type that was deliberately kept
+> (e.g. `BoardCanvasService`). The filename keeps its original
+> `diagram-to-canvas` stem as a dated historical artifact.
 
 ## Intent and why
 
 The node-and-connector editing surface is called a *diagram* throughout the
-product and the `mural` framework. The owner wants it called a **canvas** —
+product and the `mural` framework. The owner wants it called a **board** —
 end to end, including type names and the on-disk file extension — because
-"canvas" better names what the surface is (a live drawing space), and because
+"board" better names what the surface is (a live drawing space), and because
 an upcoming feature (a read-only **graph viewer** that renders an environment
 graph's nodes/edges onto this surface) reads more naturally as "open the graph
-on a canvas" than "...on a diagram."
+on a board" than "...on a diagram."
 
 This design covers **only the rename**. The graph viewer is a separate project,
 brainstormed after this lands; the owner chose to do the rename first so the
@@ -20,21 +29,21 @@ viewer is built on the renamed vocabulary.
 
 ## Goals
 
-- Every **user-facing** occurrence of "Diagram" becomes "Canvas": module name,
+- Every **user-facing** occurrence of "Diagram" becomes "Board": module name,
   tab/document title, the "New Diagram" command, settings category and labels,
   menu items, icons' display names.
 - Every first-party **TS identifier** containing `Diagram`/`diagram` is renamed
-  to the `Canvas` equivalent, across `fresco`, `mural`, `TODL`, and `Plexus`
+  to the `Board` equivalent, across `fresco`, `mural`, `TODL`, and `Plexus`
   (full list in the plan; authoritative inventory already gathered).
 - The one user-facing `Diagram` string in **fresco** (`'Diagram (native)'`, the
   `CardinalSideRouter.Name` connector-routing label) is renamed so no visible
   "Diagram" survives anywhere.
-- File and folder names are renamed (`mural/src/framework/diagram/` → `.../canvas/`,
-  `diagram-document.ts` → `canvas-document.ts`, etc.).
+- File and folder names are renamed (`mural/src/framework/diagram/` → `.../board/`,
+  `diagram-document.ts` → `board-document.ts`, etc.).
 - The **wire strings** are renamed too (the owner chose "full rename incl.
-  types/extension"): `diagram.*` command ids → `canvas.*`; `diagram.*` setting
-  keys → `canvas.*`; the `"diagram"` document **Type** → `"canvas"`; the
-  `.diagram` file **extension** → `.canvas`; the `ServiceKey` identity strings
+  types/extension"): `diagram.*` command ids → `board.*`; `diagram.*` setting
+  keys → `board.*`; the `"diagram"` document **Type** → `"board"`; the
+  `.diagram` file **extension** → `.board`; the `ServiceKey` identity strings
   and the `HistoryLayerId.Diagram = 'diagram'` layer id.
 - **No user data is lost.** Existing `.diagram` files keep opening; existing
   `diagram.*` persisted settings keep applying.
@@ -52,13 +61,13 @@ viewer is built on the renamed vocabulary.
   identically; a reviewer diff should be pure rename + back-compat shims.
 - **`.archdiagram`** is not renamed. It is a legacy/parallel architecture-diagram
   extension already read as the Diagram kind; it stays readable (back-compat) but
-  is out of the canonical rename. New files are `.canvas`.
+  is out of the canonical rename. New files are `.board`.
 
 ## Anti-goals (would make this a failure even if it "works")
 
 - Orphaning a user's saved `.diagram` files or their persisted `diagram.*`
   settings. Either one silently losing work is a failure.
-- A half-rename where `Diagram` and `Canvas` identifiers coexist permanently in
+- A half-rename where `Diagram` and `Board` identifiers coexist permanently in
   first-party code (the owner rejected the aliased-migration approach; coexistence
   is only allowed transiently *within* the sweep, never as the end state).
 - Leaving the wire-string contracts inconsistent between `mural` (the enum values)
@@ -95,7 +104,7 @@ viewer is built on the renamed vocabulary.
    is red mid-sweep and green at the end of each phase. Feasible because the
    consumer set is small and fully in-workspace (no external consumer stuck on an
    old major). Clean end state, no lingering `Diagram` names.
-2. **Aliased migration — rejected by owner.** Add `Canvas` names in mural with
+2. **Aliased migration — rejected by owner.** Add `Board` names in mural with
    `Diagram` kept as deprecated aliases, migrate consumers incrementally, then
    delete the aliases. Lower risk and reversible, but both names coexist for a
    while and it needs a cleanup phase. The owner wants a clean full rename.
@@ -112,7 +121,9 @@ and by the rename being mechanical: each phase ends green before the next starts
   `Diagram*` export in mural, the `arch-diagram-*` and `diagram-*` clusters in
   Plexus, the `ProjectNodeKind.Diagram` family in TODL) is carried in the plan.
   One naming trap to resolve by hand, not by sed: `DiagramCanvasService` →
-  **`CanvasSurfaceService`** (a naive rename yields `CanvasCanvasService`).
+  **`BoardCanvasService`** — the `Canvas` segment is mural's own
+  `Canvas extends Panel` type and is NOT renamed, so only the `Diagram`
+  prefix flips.
 - **Wire-string rename** is a contract change and is done in lockstep across the
   producer (mural enum values) and every consumer (Plexus `.mu` literal strings,
   TODL extension/type maps, e2e fixtures). The string sites are enumerated in the
@@ -123,36 +134,36 @@ and by the rename being mechanical: each phase ends green before the next starts
 
 ### Back-compat for persisted data (never lose work)
 
-- **File extension `.diagram` → `.canvas`.** The on-disk format carries no
+- **File extension `.diagram` → `.board`.** The on-disk format carries no
   "diagram" marker (top-level `{version, nodes, visuals, connectors, nextId,
-  metadata}`), so an old file's bytes are already valid `.canvas` content — no
-  content migration. Mechanism: the canvas `DocumentDefinition.FileExtensions`
-  becomes `[".canvas", ".diagram"]` (the registry already loops the array and is
-  first-claim-wins); `newFile` writes `.canvas`; the project-tree extension→kind
+  metadata}`), so an old file's bytes are already valid `.board` content — no
+  content migration. Mechanism: the board `DocumentDefinition.FileExtensions`
+  becomes `[".board", ".diagram"]` (the registry already loops the array and is
+  first-claim-wins); `newFile` writes `.board`; the project-tree extension→kind
   maps accept both (mirroring the existing `DiagramExts = ['.archdiagram',
-  '.diagram']` precedent, extended to include `.canvas`); the hardcoded
+  '.diagram']` precedent, extended to include `.board`); the hardcoded
   `GetByExtension('.diagram')` in the headless renderer and the
   `.endsWith('.diagram')` gates (new-file participant, export/arch contributors)
-  accept `.canvas` too. Result: old `.diagram` files open and, on next save, are
-  written as `.canvas` (re-point on save) — or left in place; the plan picks
+  accept `.board` too. Result: old `.diagram` files open and, on next save, are
+  written as `.board` (re-point on save) — or left in place; the plan picks
   whichever is least surprising and states it. **Open question for the plan:**
-  whether opening a legacy `.diagram` silently re-saves it as `.canvas` (migrates
-  on touch) or leaves the old file and only writes `.canvas` for new files. Lean:
-  leave legacy files as-is, write `.canvas` for new — least surprising, no
+  whether opening a legacy `.diagram` silently re-saves it as `.board` (migrates
+  on touch) or leaves the old file and only writes `.board` for new files. Lean:
+  leave legacy files as-is, write `.board` for new — least surprising, no
   silent disk churn.
-- **Settings keys `diagram.*` → `canvas.*`.** These persist in the user's
-  `settings.json`. Renaming the keys would orphan a user's saved canvas settings
+- **Settings keys `diagram.*` → `board.*`.** These persist in the user's
+  `settings.json`. Renaming the keys would orphan a user's saved board settings
   (grid, default icon sizes, connector optimizer, …). The per-key read + overlay
-  lives in **mural's `ApplicationSettings`** (where the renamed `canvas.*`
+  lives in **mural's `ApplicationSettings`** (where the renamed `board.*`
   definitions register), but the back-compat is placed **in Plexus's host seam
   `ElectronSettingsStore.Load()`**: it rewrites legacy `diagram.<x>` entries to
-  `canvas.<x>` in the loaded snapshot before mural applies the overlay (keeping
-  the newer `canvas.<x>` when both exist), and writes `canvas.<x>` going forward.
+  `board.<x>` in the loaded snapshot before mural applies the overlay (keeping
+  the newer `board.<x>` when both exist), and writes `board.<x>` going forward.
   Placing it here means the back-compat does not depend on a mural release and
   keeps mural free of legacy-key knowledge. Implemented as a small tested helper
   with one home for the legacy-prefix map.
 - **Confirmed safe (no migration needed):** renaming `ProjectNodeKind`'s string
-  value `'diagram' → 'canvas'` does not orphan saved projects (node kind is
+  value `'diagram' → 'board'` does not orphan saved projects (node kind is
   recomputed from the file extension on load, never read from a persisted field),
   and the `"diagram"` document **Type** is runtime-only (never serialized into a
   saved document, project manifest, solution file, or session/tab-restore state).
@@ -168,7 +179,7 @@ phase with a **gated** version-bump + publish; the next phase reinstalls it.
    (`configuration-loader.test.ts`). Small. Bump + **publish** (gated); mural
    reinstalls it.
 1. **mural** (`D:\architecture-agent\Mural`): rename the `framework/diagram/`
-   folder → `framework/canvas/`; rename the ~20 source files and all exported
+   folder → `framework/board/`; rename the ~20 source files and all exported
    `Diagram*` identifiers; rename the `.mu` template block `resources Diagrams`
    (which changes the generated `DiagramModule` const) and its keys
    (`DefaultDiagram`, `Style[TargetType=Diagram]`, `DataTemplate[DataType=
@@ -179,7 +190,7 @@ phase with a **gated** version-bump + publish; the next phase reinstalls it.
    Plexus reinstalls the new mural (and fresco).
 2. **TODL** (`D:\architecture-agent\TODL`): rename `ProjectNodeKind.Diagram` /
    `ContentNodeKind.Diagram` family and the `displayName: 'Diagram'`; add
-   `.canvas` to the extension→kind maps (`architecture-project-factory`,
+   `.board` to the extension→kind maps (`architecture-project-factory`,
    `todl-project-factory`, `project-content-store.DiagramExts`) keeping
    `.diagram`/`.archdiagram` for back-compat; update TODL tests + scaffold docs.
    Rebuild TODL `dist`.
@@ -187,8 +198,8 @@ phase with a **gated** version-bump + publish; the next phase reinstalls it.
    fresco first; then rename the `modules/diagram/`, `modules/diagram-export/`,
    and `architecture-projects/services/arch-diagram-*` clusters (identifiers,
    files, `.mu` module/resources, command/setting Id strings to match mural's
-   renamed values); flip the `DocumentDefinition` to `Type="canvas"`,
-   `FileExtensions=[".canvas",".diagram"]`; implement the settings legacy-key
+   renamed values); flip the `DocumentDefinition` to `Type="board"`,
+   `FileExtensions=[".board",".diagram"]`; implement the settings legacy-key
    alias in `ElectronSettingsStore.Load()`; update `main.js`, `app.mu`, window
    chrome, `main/index.ts`, and the ~60 e2e/unit fixtures. Rebuild. (Plexus is the
    app — no publish.)
@@ -202,8 +213,9 @@ phase with a **gated** version-bump + publish; the next phase reinstalls it.
 - The settings legacy-key fallback mechanism's exact shape (after reading the
   settings store), as a small tested helper.
 - The migrate-on-open vs leave-legacy decision for `.diagram` files (lean: leave
-  legacy, write `.canvas` for new).
-- Collision-safe renames (`DiagramCanvasService` → `CanvasSurfaceService`; verify
-  no other document type already claims `.canvas`).
+  legacy, write `.board` for new).
+- Collision-safe renames (`DiagramCanvasService` → `BoardCanvasService`, keeping
+  the mural-owned `Canvas` segment; verify no other document type already claims
+  `.board`).
 - Keeping the two extension-matching strategies in sync (the exact-match
   `ProjectFileFormat.formats` list and the `endsWith` `DiagramExts` list).
