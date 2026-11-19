@@ -4,7 +4,7 @@
    font metrics), so serving it from the CDN meant two blocking network round-
    trips (googleapis CSS -> gstatic font) in front of the first paint — a white
    window for seconds on any latency. Pointing the face at the .ttf we already
-   ship (the diagram module's glyph-baking asset) makes that await resolve from
+   ship (the board module's glyph-baking asset) makes that await resolve from
    local disk in milliseconds, and drops the render-blocking external stylesheet.
 
    Same family name the .mu FontFamily / glyph resources reference. The .ttf is
@@ -17,5 +17,5 @@
     font-style: normal;
     font-weight: 400;
     font-display: block;
-    src: url("./modules/diagram/assets/material-symbols-outlined.ttf") format("truetype");
+    src: url("./modules/board/assets/material-symbols-outlined.ttf") format("truetype");
 }

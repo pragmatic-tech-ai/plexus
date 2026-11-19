@@ -13,17 +13,17 @@ import './fonts.css'
 import { app } from './app.mu.js'
 import { HtmlTarget } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ThemeManager, Density, RelayCommand, SettingSourceKey } from '@pragmatic-tech-ai/mural/runtime'
-import { ContentHostService, PanelDockService, DialogService, ApplicationSettings, DocumentShortcutsService, DiagramCanvasService, AutosaveService, DocumentCloseInterceptorKey } from '@pragmatic-tech-ai/mural/framework'
+import { ContentHostService, PanelDockService, DialogService, ApplicationSettings, DocumentShortcutsService, BoardCanvasService, AutosaveService, DocumentCloseInterceptorKey } from '@pragmatic-tech-ai/mural/framework'
 import { confirmCloseDocs } from './services/documents/confirm-close-docs.js'
 import { ChatSessionsService } from './modules/agent-chat/services/chat-sessions-service.js'
 import { ProjectAgentCatalog } from './modules/agent-chat/services/project-agent-catalog.js'
 import { TemplateGalleryService } from './modules/agent-chat/services/template-gallery-service.js'
 import { TenantExplorerService } from './modules/tenant-explorer/services/tenant-explorer-service.js'
-import { attachAutoOpenInspector } from './modules/diagram/behaviors/auto-open-inspector-behavior.js'
+import { attachAutoOpenInspector } from './modules/board/behaviors/auto-open-inspector-behavior.js'
 import { HelpOverlayController } from '@pragmatic-tech-ai/plexus-core/renderer/help/help-overlay-behavior.js'
 import { HelpDocumentStore } from '@pragmatic-tech-ai/plexus-core/renderer/help/help-document-store.js'
 import skillsMd from './modules/help-overlay/docs/skills.md?raw'
-import { attachZoomShortcuts } from './modules/diagram/behaviors/zoom-shortcuts.js'
+import { attachZoomShortcuts } from './modules/board/behaviors/zoom-shortcuts.js'
 import { ThemeSchemePicker } from '@pragmatic-tech-ai/plexus-core/renderer/theme'
 import { attachTitleBar, removeSplash, TitleService, MenuDragRegion } from '@pragmatic-tech-ai/plexus-core/renderer/modules/window-chrome'
 import { BackgroundWorkService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/background-work'
@@ -32,10 +32,10 @@ import { WorkspaceRefreshService } from './services/workspace/workspace-refresh-
 import { FileWatchService } from './services/file-watch/file-watch-service.js'
 import { EditorReloadService } from './services/file-watch/editor-reload-service.js'
 import { ProjectRescanService } from './services/file-watch/project-rescan-service.js'
-import { ArchDiagramBindingService } from './modules/architecture-projects/services/arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from './modules/architecture-projects/services/arch-board-binding-service.js'
 import { ArchModelToolboxContributor } from './modules/architecture-projects/services/arch-model-toolbox-contributor.js'
-import { DiagramCameraService } from '@pragmatic-tech-ai/mural/framework'
-import { DiagramGuidesService } from '@pragmatic-tech-ai/mural/framework'
+import { BoardCameraService } from '@pragmatic-tech-ai/mural/framework'
+import { BoardGuidesService } from '@pragmatic-tech-ai/mural/framework'
 import { registerTodlLanguage } from './modules/meta-model/todl-language.js'
 import { registerMuralLanguage } from './modules/code-editor/mural-language.js'
 import { TodlLanguageClient } from './services/todl/todl-language-client.js'
@@ -87,7 +87,7 @@ try {
     // store), which makes EditorShell SKIP wiring the SettingSourceKey→ApplicationSettings
     // bridge — its guard is `!Services.has(ApplicationSettings.Key)`. Without that bridge
     // the DP SettingValue tier (which resolves via SettingSourceKey, NOT ApplicationSettings.Key)
-    // finds no source, so every settings-backed DP — Diagram.DefaultIconWidth/Height, … —
+    // finds no source, so every settings-backed DP — Board.DefaultIconWidth/Height, … —
     // falls back to its registration default (0), collapsing canvas icons. Wire the bridge
     // here to the SAME singleton, idempotently, before any document renders.
     if (!app.Services.has(SettingSourceKey)) {
@@ -97,7 +97,7 @@ try {
     // already-registered singleton: bind each capability key to the SAME instance.
     // The `.mu` `Impl -> Key` alias can't express instance-sharing (it lowers to
     // `new Impl(p)` — a duplicate), so these three are wired code-side. The three
-    // adapter-backed capabilities (PublishedBases/DiagramTreeExport/ProjectMenuSource)
+    // adapter-backed capabilities (PublishedBases/BoardTreeExport/ProjectMenuSource)
     // ARE registered via the `.mu` alias, since each has only the one instance.
     app.Services.register(LiveValidationKey,  (p) => p.getRequired(TodlLanguageClient.Key))
     app.Services.register(BaseResolverKey,    (p) => p.getRequired(SolutionLanguageService.Key))
@@ -159,22 +159,22 @@ try {
     app.Services.get(EditorReloadService.Key)
     // Project-rescan consumer: re-validates the owning project on external change.
     app.Services.get(ProjectRescanService.Key)
-    // Arch diagram binding: construct now so it observes opened documents and
-    // binds architecture diagrams to their ArchModel from boot.
-    app.Services.get(ArchDiagramBindingService.Key)
+    // Arch board binding: construct now so it observes opened documents and
+    // binds architecture boards to their ArchModel from boot.
+    app.Services.get(ArchBoardBindingService.Key)
     // Arch model toolbox page: construct now so it observes the active document
-    // from boot and contributes the "Model:" page for architecture diagrams.
+    // from boot and contributes the "Model:" page for architecture boards.
     app.Services.get(ArchModelToolboxContributor.Key)
-    // Eagerly wake the diagram persistence trio (registered in app.mu's .services:
-    // block). Each restores per-diagram state on open and writes it back (debounced)
+    // Eagerly wake the board persistence trio (registered in app.mu's .services:
+    // block). Each restores per-board state on open and writes it back (debounced)
     // via the document's metadata slot; constructing them now makes their document +
     // settings subscriptions live from boot:
-    //   • DiagramCameraService — saved zoom/pan
-    //   • DiagramGuidesService — ruler guides
-    //   • DiagramCanvasService — PaginatedCanvas page size + grid (from "Diagram" settings)
-    app.Services.get(DiagramCameraService.Key)
-    app.Services.get(DiagramGuidesService.Key)
-    app.Services.get(DiagramCanvasService.Key)
+    //   • BoardCameraService — saved zoom/pan
+    //   • BoardGuidesService — ruler guides
+    //   • BoardCanvasService — PaginatedCanvas page size + grid (from "Board" settings)
+    app.Services.get(BoardCameraService.Key)
+    app.Services.get(BoardGuidesService.Key)
+    app.Services.get(BoardCanvasService.Key)
     // Close interceptor (SaveOnCloseGuard, app.mu .services:): prompts Save / Don't
     // Save / Cancel before a dirty document closes. The host's close commands (tab ✕,
     // Close All) and the solution-explorer delete/close paths route through it; app
@@ -184,7 +184,7 @@ try {
     // Autosave (app.mu .services:): periodically saves every dirty document (interval
     // + on/off from the "Documents" settings). Woken now so its timer starts at boot.
     app.Services.get(AutosaveService.Key)
-    // The architecture-project contributors (new-diagram viewpoints participant,
+    // The architecture-project contributors (new-board viewpoints participant,
     // edit-viewpoints toolbar command, explorer node context action) are now
     // alias-registered in app.mu's .services: block under the generic
     // framework/document extension keys — no bootstrap wiring needed here.
@@ -208,10 +208,10 @@ try {
     }
     // The content region is document-driven (DocumentsContentHostService under
     // ContentHostService.Key). Nothing is opened at launch: the app starts with
-    // no document tabs, and the user opens diagrams/files from the explorer. (We
-    // used to seed an in-memory "Untitled Diagram" + a scratch.md tab here, but a
-    // fixed seeded diagram fought the active-document model — the Format Shape
-    // inspector bound to it instead of the diagram the user actually opened.)
+    // no document tabs, and the user opens boards/files from the explorer. (We
+    // used to seed an in-memory "Untitled Board" + a scratch.md tab here, but a
+    // fixed seeded board fought the active-document model — the Format Shape
+    // inspector bound to it instead of the board the user actually opened.)
     const host = app.Services.get(ContentHostService.Key)
 
     // Ctrl+S / Ctrl+Shift+S → Save / Save All; Ctrl+W → close the active document
@@ -225,7 +225,7 @@ try {
             () => host.ActiveDocument !== undefined),
     })
 
-    // Ctrl +/−/0 → zoom in / out / reset on the active diagram's camera.
+    // Ctrl +/−/0 → zoom in / out / reset on the active board's camera.
     if (host !== undefined) attachZoomShortcuts(host)
 
     // Save-on-quit: the main process awaits this from the window 'close' handler
