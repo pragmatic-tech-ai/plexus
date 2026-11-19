@@ -1,7 +1,22 @@
 import { test, expect } from 'vitest'
 
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
-import { collectTaxonomySources } from '../todl-sources.js'
+import { collectTaxonomySources, collectTodlSources } from '../todl-sources.js'
+
+test('collectTodlSources skips build-output / vendor top-level dirs (build, dist, node_modules, .git)', async () => {
+    // Reproduces the LSP crash: a meta-model with a local publish-staging `build/`
+    // (and `dist/`) holds a COMPILED copy of `concepts/`, so walking it as source
+    // re-declares every concept node → `checkAgainst` throws `node "…" already exists`.
+    const s = new FakeStorage('fake://mm')
+    await s.WriteText('concepts/actor.todl', 'namespace tech_architecture { concept actor {} }')
+    await s.WriteText('build/npm-package/src/concepts/actor.todl', 'dup')
+    await s.WriteText('dist/concepts/actor.todl', 'dup')
+    await s.WriteText('node_modules/dep/x.todl', 'dep')
+    await s.WriteText('.git/hooks/x.todl', 'vcs')
+
+    const uris = (await collectTodlSources(s)).map((f) => f.uri).sort()
+    expect(uris).toEqual(['concepts/actor.todl'])
+})
 
 test('collects every .todl except those under excluded top-level folders', async () => {
     const s = new FakeStorage('fake://lib')
