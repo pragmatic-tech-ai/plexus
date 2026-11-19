@@ -32,3 +32,15 @@ test('reading an absent board path returns undefined', async () => {
     const s = await seeded()
     expect(await readBoardViewpoints(s, 'nope.board')).toBeUndefined()
 })
+
+test('reads a legacy manifest that stored the selection under the pre-rename "diagrams" key', async () => {
+    // This reader is the load-time fallback for projects saved BEFORE the Board rename,
+    // whose manifests persisted the selection under the on-disk key `diagrams`. That key
+    // must NOT be renamed to `boards` or legacy selections silently vanish.
+    const s = new FakeStorage('fake://Acme')
+    await s.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
+        type: 'architecture', name: 'Acme', version: 1,
+        diagrams: { 'deploy.diagram': { viewpoints: ['DeploymentView'] } },
+    }))
+    expect(await readBoardViewpoints(s, 'deploy.diagram')).toEqual(['DeploymentView'])
+})

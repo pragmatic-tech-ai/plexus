@@ -31,7 +31,7 @@ async function scenario(seedScope?: string[])
     const storage = new FakeStorage('fake://Acme')
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
         type: 'architecture', name: 'Acme', version: 1,
-        ...(seedScope ? { boards: { 'v.board': { viewpoints: seedScope } } } : {}),
+        ...(seedScope ? { diagrams: { 'v.board': { viewpoints: seedScope } } } : {}),
     }))
     const model = buildModel(storage)
     const open = new ObservableCollection<IDocument>()
