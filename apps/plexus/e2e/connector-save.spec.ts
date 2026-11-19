@@ -142,7 +142,7 @@ async function openBoard2(l: Launched): Promise<boolean>
     for (let attempt = 0; attempt < 4; attempt++)
     {
         if (await hasNode(l, A)) return true
-        await openBoardFile(l, 'board-2.board')
+        await openBoardFile(l, 'diagram-2.diagram')
     }
     return await hasNode(l, A)
 }
@@ -266,7 +266,7 @@ test.describe.serial('connector dirty + save', () => {
         // Clean slate: close whatever the session restored, then open EXACTLY
         // one board-2 tab programmatically (no double-click ambiguity, no dupes).
         await closeAllDocs(l)
-        const opened = await openBoardFile(l, 'board-2.board')
+        const opened = await openBoardFile(l, 'diagram-2.diagram')
         console.log('=== initial open: ' + JSON.stringify(opened) + ' ===')
     })
 
@@ -294,7 +294,7 @@ test.describe.serial('connector dirty + save', () => {
     // tabs) breaks this — see the report; that path is out of scope for this test.
     test('connector survives an in-session tab close + reopen (re-projects from model)', async () => {
         expect(connectorRecorded(copyRoot, A, B), 'connector on disk before reopen').toBe(true)
-        const r = await closeAndReopenActive(l, 'board-2.board')
+        const r = await closeAndReopenActive(l, 'diagram-2.diagram')
         expect(r.ok, `close+reopen: ${JSON.stringify(r)}`).toBe(true)
         expect(await hasNode(l, A), `endpoint ${A} present after reopen`).toBe(true)
         expect(connectorRecorded(copyRoot, A, B), 'connector STILL on disk after reopen').toBe(true)
@@ -395,7 +395,7 @@ test.describe.serial('connector route/port visual state persists (Bug 1)', () =>
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await openBoardFile(l, 'board-2.board')
+        await openBoardFile(l, 'diagram-2.diagram')
     })
 
     test.afterAll(async () => {
@@ -418,7 +418,7 @@ test.describe.serial('connector route/port visual state persists (Bug 1)', () =>
         await saveActiveDoc(l)
 
         // Close + reopen the tab.
-        await closeAndReopenActive(l, 'board-2.board')
+        await closeAndReopenActive(l, 'diagram-2.diagram')
         // Wait for the connector to re-project.
         for (let i = 0; i < 20; i++) { if (await labelBetween(l, A, B) !== undefined) break; await l.win.waitForTimeout(500) }
         expect(await labelBetween(l, A, B), 'connector re-projected').toBe('calls')
@@ -445,7 +445,7 @@ test.describe.serial('external .todl edit refreshes the board (Bug 2)', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await openBoardFile(l, 'board-2.board')
+        await openBoardFile(l, 'diagram-2.diagram')
     })
 
     test.afterAll(async () => {
@@ -512,7 +512,7 @@ test.describe.serial('duplicate-document repro', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await openBoardFile(l, 'board-2.board')
+        await openBoardFile(l, 'diagram-2.diagram')
     })
 
     test.afterAll(async () => {
@@ -523,7 +523,7 @@ test.describe.serial('duplicate-document repro', () => {
 
     test('drawing then re-opening the same file keeps ONE document and the connector on disk', async () => {
         expect(await hasNode(l, A)).toBe(true)
-        expect(await openCount('board-2.board'), 'one doc after first open').toBe(1)
+        expect(await openCount('diagram-2.diagram'), 'one doc after first open').toBe(1)
 
         // Draw a connector — this fires model.save() → file-watch → RefreshProjects,
         // which re-adopts the OpenProject (the dedup-key churn under test).
@@ -534,12 +534,12 @@ test.describe.serial('duplicate-document repro', () => {
         await l.win.waitForTimeout(2500)
 
         // Open the SAME file again (as a user might, or as session-restore + open).
-        await openBoardFile(l, 'board-2.board')
+        await openBoardFile(l, 'diagram-2.diagram')
         await l.win.waitForTimeout(1500)
 
         // BUG: a second document for the same file appears (dedup keyed on the
         // stale OpenProject instance), and the duplicate binding clobbers the .todl.
-        expect(await openCount('board-2.board'), 'still ONE doc after re-open').toBe(1)
+        expect(await openCount('diagram-2.diagram'), 'still ONE doc after re-open').toBe(1)
         expect(connectorRecorded(copyRoot, A, B), 'connector STILL on disk after re-open').toBe(true)
     })
 })

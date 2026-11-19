@@ -77,21 +77,21 @@ test.describe.serial('arch node title edit', () => {
         await l.win.waitForTimeout(12_000)
 
         // Open the project explorer (activity-rail NavigationItem[1]), wheel the
-        // virtualized tree until board-2.board (arch nodes) renders, then open it.
+        // virtualized tree until diagram-2.diagram (arch nodes) renders, then open it.
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 16; i++)
         {
-            if (await l.win.getByText('board-2.board', { exact: true }).count()) break
+            if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
         for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++)
         {
-            const dd = l.win.getByText('board-2.board', { exact: true }).first()
+            const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)

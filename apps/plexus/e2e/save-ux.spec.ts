@@ -205,7 +205,7 @@ test.describe.serial('save-ux', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await ensureBoardOpen(l, 'board-2.board', A)
+        await ensureBoardOpen(l, 'diagram-2.diagram', A)
     })
 
     test.afterAll(async () => {
@@ -222,7 +222,7 @@ test.describe.serial('save-ux', () => {
     })
 
     test('closing a dirty tab prompts; Cancel keeps it, Don\'t Save closes it', async () => {
-        expect(await ensureBoardOpen(l, 'board-2.board', A), 'board-2 opened').toBe(true)
+        expect(await ensureBoardOpen(l, 'diagram-2.diagram', A), 'board-2 opened').toBe(true)
         expect(await openCount(l), 'exactly one doc open').toBe(1)
 
         // Make the document dirty.

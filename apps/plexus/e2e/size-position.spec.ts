@@ -145,7 +145,7 @@ test.describe.serial('Size & Position sub-editors drive the selected shape', () 
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'board.board')
+        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
         // Shapes project asynchronously after the document opens; poll for them.
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }

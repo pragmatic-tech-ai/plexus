@@ -1,5 +1,5 @@
 // GO/NO-GO probe: multi-level MODEL-BACKED container nesting projects at depth.
-// Opens nesting-demo.board (azure ⊃ m365 ⊃ power_platform ⊃ business_agent) and
+// Opens nesting-demo.diagram (azure ⊃ m365 ⊃ power_platform ⊃ business_agent) and
 // asserts each level nests into its direct parent as a true SVG-DOM descendant —
 // the depth generalization the container-drag-follow demo (1 level) does not cover.
 //
@@ -86,7 +86,7 @@ test.describe.serial('multi-level model-backed nesting projects at depth', () =>
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'nesting-demo.board')
+        await openProjectFile(l, 'test_architecture', 'nesting-demo.diagram')
         // Multi-level nesting projects asynchronously after the open; poll for it.
         for (let i = 0; i < 40 && (await probe(l)).rows.length === 0; i++) await l.win.waitForTimeout(500)
     })

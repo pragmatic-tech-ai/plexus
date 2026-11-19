@@ -126,13 +126,13 @@ test.describe.serial('arch rename undo/redo (live)', () => {
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // Open the project explorer, then open board-2.board (arch nodes)
+        // Open the project explorer, then open diagram-2.diagram (arch nodes)
         // through the workspace service (the nested solution tree keeps project
         // nodes collapsed, so a tree double-click can't see the file row).
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'board-2.board')
+        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
         // Arch nodes project asynchronously after the document opens (model load +
         // binding), so poll generously for them to appear.
         for (let i = 0; i < 40 && (await archNodes(l)).length === 0; i++) await l.win.waitForTimeout(500)

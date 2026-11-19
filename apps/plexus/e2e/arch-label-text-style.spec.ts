@@ -70,7 +70,7 @@ test.describe.serial('arch node label responds to the Text page', () => {
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 14; i++)
         {
-            if (await l.win.getByText('board.board', { exact: true }).count()) break
+            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
@@ -78,7 +78,7 @@ test.describe.serial('arch node label responds to the Text page', () => {
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let attempt = 0; attempt < 3 && figs.length === 0; attempt++)
         {
-            const dd = l.win.getByText('board.board', { exact: true }).first()
+            const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)

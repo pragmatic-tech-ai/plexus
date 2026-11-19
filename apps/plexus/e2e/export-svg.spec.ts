@@ -31,7 +31,7 @@ function makeCopy(): string
   return copyRoot
 }
 
-// Open `board-2.board` from the arch project (it has nodes, so
+// Open `diagram-2.diagram` from the arch project (it has nodes, so
 // `canExportActive` will be true once the board is loaded).
 async function openBoard(l: Launched): Promise<void>
 {
@@ -45,7 +45,7 @@ async function openBoard(l: Launched): Promise<void>
     if (!explorer) return
     const proj = explorer.OpenProjects.ToArray()
       .find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
-    if (proj) await explorer.OpenFileInProject(proj.Folder, 'board-2.board', 0, 0)
+    if (proj) await explorer.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
   })
   await l.win.waitForTimeout(5000)
 }

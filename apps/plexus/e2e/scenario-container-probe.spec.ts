@@ -73,7 +73,7 @@ async function openBoard(l: Launched, name: string, prevSig: string): Promise<st
     return sig(await nodes(l))
 }
 
-const DIAGRAMS = ['board.board', 'board-2.board', 'board-3.board', 'board-4.board']
+const DIAGRAMS = ['diagram.diagram', 'diagram-2.diagram', 'diagram-3.diagram', 'diagram-4.diagram']
 
 test.describe.serial('block-as-container + in_block nesting on real boards', () => {
     let l: Launched

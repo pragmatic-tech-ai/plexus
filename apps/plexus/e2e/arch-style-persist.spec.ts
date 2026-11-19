@@ -77,7 +77,7 @@ test.describe.serial('arch node style is saved (dirty-tracking)', () => {
         await l.win.waitForTimeout(1200)
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
-        await openProjectFile(l, 'test_architecture', 'board.board')
+        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
         // Arch cards project asynchronously after the document opens; poll for them.
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }
@@ -102,7 +102,7 @@ test.describe.serial('arch node style is saved (dirty-tracking)', () => {
 
         // The save actually wrote both to disk.
         await l.win.waitForTimeout(2000)
-        const raw = fs.readFileSync(path.join(archDir, 'board.board'), 'utf8')
+        const raw = fs.readFileSync(path.join(archDir, 'diagram.diagram'), 'utf8')
         const doc = JSON.parse(raw) as { nodes: Array<{ id: string; data: any }>; visuals: Record<string, any> }
         const rec = doc.nodes.find((n) => n.id === r.id)!
         expect(rec.data?.labelStyle?.fontSize, `labelStyle.fontSize saved (${JSON.stringify(rec.data)})`).toBe(30)

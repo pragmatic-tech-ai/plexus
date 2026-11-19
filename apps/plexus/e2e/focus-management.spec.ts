@@ -64,14 +64,14 @@ test.describe.serial('focus management (live)', () => {
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 16; i++)
         {
-            if (await l.win.getByText('board-2.board', { exact: true }).count()) break
+            if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
         for (let attempt = 0; attempt < 3 && (await archNodeCount(l)) === 0; attempt++)
         {
-            const dd = l.win.getByText('board-2.board', { exact: true }).first()
+            const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)

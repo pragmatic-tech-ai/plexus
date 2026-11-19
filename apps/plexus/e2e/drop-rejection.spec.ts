@@ -70,12 +70,12 @@ test.describe.serial('dropping a location on a Scenarios board is interrupted', 
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 30; i++)
         {
-            if (await l.win.getByText('board-3.board', { exact: true }).count()) break
+            if (await l.win.getByText('diagram-3.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 300); await l.win.waitForTimeout(150)
         }
         for (let a = 0; a < 4 && (await nodeCount(l)) <= 0; a++)
         {
-            const dd = l.win.getByText('board-3.board', { exact: true }).first()
+            const dd = l.win.getByText('diagram-3.diagram', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
         }

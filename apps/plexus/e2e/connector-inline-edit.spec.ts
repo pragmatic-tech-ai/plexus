@@ -141,7 +141,7 @@ test.describe.serial('connector inline edit', () => {
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'board-2.board')
+        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
         // Arch nodes project asynchronously after the open; poll for them.
         for (let i = 0; i < 40 && !(await hasNodes(l)); i++) await l.win.waitForTimeout(500)
     })

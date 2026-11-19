@@ -104,7 +104,7 @@ test.describe.serial('layout preview overlay (live)', () => {
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'board-2.board')
+        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
         for (let i = 0; i < 40 && (await archNodeCount(l)) === 0; i++) await l.win.waitForTimeout(500)
     })
 

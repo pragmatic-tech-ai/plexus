@@ -1,5 +1,5 @@
 // Regression: dragging a container carries its nested children. Opens the
-// test_arch containment-demo.board (the `on_premises` location plus two nodes
+// test_arch containment-demo.diagram (the `on_premises` location plus two nodes
 // that declare `in = on_premises`), drags the container by a known delta, and
 // asserts each nested child (a) is a true DOM descendant of the container's SVG
 // group and (b) moves on screen by the SAME delta as the container.
@@ -101,7 +101,7 @@ test.describe.serial('container drag carries nested children', () => {
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'containment-demo.board')
+        await openProjectFile(l, 'test_architecture', 'containment-demo.diagram')
         // Containment projects asynchronously after the open; poll for it.
         for (let i = 0; i < 40 && (await probe(l)).rows.length === 0; i++) await l.win.waitForTimeout(500)
     })

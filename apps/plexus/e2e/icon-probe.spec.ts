@@ -113,7 +113,7 @@ test.describe.serial('canvas icon probe', () => {
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'nesting-demo.board')
+        await openProjectFile(l, 'test_architecture', 'nesting-demo.diagram')
         for (let i = 0; i < 40 && (await probeIcons(l)).nodes.length === 0; i++) await l.win.waitForTimeout(500)
     })
 

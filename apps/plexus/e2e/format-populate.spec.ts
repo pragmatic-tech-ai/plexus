@@ -78,13 +78,13 @@ test.describe.serial('Format Shape populates from the selected figure', () => {
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 16; i++)
         {
-            if (await l.win.getByText('board.board', { exact: true }).count()) break
+            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(250)
         }
         let figs: any[] = []
         for (let a = 0; a < 4 && figs.length === 0; a++)
         {
-            const dd = l.win.getByText('board.board', { exact: true }).first()
+            const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)

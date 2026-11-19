@@ -61,10 +61,10 @@ test.describe.serial('toolbox annotate page', () => {
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 20; i++)
         {
-            if (await l.win.getByText('containment-demo.board', { exact: true }).count()) break
+            if (await l.win.getByText('containment-demo.diagram', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(200)
         }
-        const dd = l.win.getByText('containment-demo.board', { exact: true }).first()
+        const dd = l.win.getByText('containment-demo.diagram', { exact: true }).first()
         await dd.dblclick({ timeout: 4000 }).catch(() => {})
         await l.win.waitForTimeout(3500)
     })
