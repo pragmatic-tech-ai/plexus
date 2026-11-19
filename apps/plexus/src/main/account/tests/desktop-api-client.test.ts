@@ -82,6 +82,26 @@ describe('DesktopApiClient', () =>
         expect(found.Tenants.map(t => t.FromTenantPlane)).toEqual([false, true, true, true])
     })
 
+    it('Discover without a tenant plane keeps the tenants with their own console and drops the others', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { tenants: [{ id: 'a', displayName: 'A', consoleUrl: 'https://console-a.example' }, { id: 'b', displayName: 'B' }] })
+        const found = await client.Discover('https://agent.example', 'ada@acme.example')
+        expect(found.TenantPlaneUrl).toBeUndefined()
+        expect(found.Tenants).toEqual([{ Id: 'a', DisplayName: 'A', ConsoleUrl: 'https://console-a.example', FromTenantPlane: false, PlatformEnvironments: false }])
+    })
+
+    it('Discover without a tenant plane and no tenant with a console is NoAccount', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { tenants: [{ id: 'b', displayName: 'B' }] })
+        expect(await Caught.Kind(client.Discover('https://agent.example', 'ada@acme.example'))).toBe(AccountErrorKind.NoAccount)
+    })
+
+    it('Discover with a tenantPlaneUrl that is not a string is Unavailable', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { tenants: [{ id: 'a', displayName: 'A', consoleUrl: 'https://console-a.example' }], tenantPlaneUrl: 42 })
+        expect(await Caught.Kind(client.Discover('https://agent.example', 'ada@acme.example'))).toBe(AccountErrorKind.Unavailable)
+    })
+
     it('Console answers the served tenant', async () =>
     {
         fake.Answer = () => FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme' })

@@ -83,7 +83,7 @@ export class AccountService
     public readonly Changed = new Signal<AccountState>()
     // Consoles: tenant id -> the discovered console to sign in at; TenantPlaneUrl: the platform's
     // tenant plane from the same answer (main-process only).
-    private discovered: { PlatformUrl: string; Email: string; TenantPlaneUrl: string; Consoles: ReadonlyMap<string, DiscoveredConsole> } | undefined
+    private discovered: { PlatformUrl: string; Email: string; TenantPlaneUrl?: string; Consoles: ReadonlyMap<string, DiscoveredConsole> } | undefined
     private attempt: SignInAttempt | undefined
     // RememberChoice read-modify-writes run one at a time, so concurrent calls neither share a temp
     // file nor lose each other's update.
@@ -124,7 +124,8 @@ export class AccountService
         const platform = AccountService.Platform(platformUrl)
         const address = email.trim()
         const found = await this.client.Discover(platform, address)
-        if (!TenantPlaneAddress.IsUsable(found.TenantPlaneUrl)) throw new AccountError(AccountErrorKind.Unavailable)
+        // No tenant plane is normal (a platform serving in-hive consoles only); a given one must be usable.
+        if (found.TenantPlaneUrl !== undefined && !TenantPlaneAddress.IsUsable(found.TenantPlaneUrl)) throw new AccountError(AccountErrorKind.Unavailable)
         this.discovered = { PlatformUrl: platform, Email: address, TenantPlaneUrl: found.TenantPlaneUrl, Consoles: new Map(found.Tenants.map(t => [t.Id, t])) }
         // Exactly the renderer's shape: a console address never crosses IPC.
         return found.Tenants.map(t => ({ Id: t.Id, DisplayName: t.DisplayName }))
@@ -138,8 +139,9 @@ export class AccountService
             const { Console: found, TenantPlaneUrl } = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
             const target: ConsoleTarget = { ConsoleUrl: AccountService.SignInAddress(found), TenantId: tenantId }
             // The platform step is offered only when the tenant signs in somewhere other than the
-            // tenant plane: signed in there, it already sees the platform's environments.
-            if (found.PlatformEnvironments && !found.FromTenantPlane) target.PlatformSignInUrl = UrlBase.Of(TenantPlaneUrl)
+            // tenant plane (signed in there, it already sees the platform's environments), and only
+            // when the platform has a tenant plane to offer it at.
+            if (found.PlatformEnvironments && !found.FromTenantPlane && TenantPlaneUrl !== undefined) target.PlatformSignInUrl = UrlBase.Of(TenantPlaneUrl)
             return target
         }, address)
     }
@@ -405,7 +407,7 @@ export class AccountService
 
     // From the cached discovery; discovered again when the platform or email differ or the tenant is
     // not in the cached answer (it may be stale). Still absent afterwards: no such account.
-    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<{ Console: DiscoveredConsole; TenantPlaneUrl: string }>
+    private async ConsoleFor(platform: string, email: string, tenantId: string): Promise<{ Console: DiscoveredConsole; TenantPlaneUrl: string | undefined }>
     {
         const cached = this.discovered
         const fresh = cached !== undefined && cached.PlatformUrl === platform && cached.Email === email && cached.Consoles.has(tenantId)

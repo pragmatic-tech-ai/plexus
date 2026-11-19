@@ -819,6 +819,15 @@ describe('AccountService platform session', () =>
         expect((await h.Store.Load()).Console!.PlatformSignInUrl).toBeUndefined()
     })
 
+    it('a discovery answer without a tenant plane signs in at the tenant console and offers no platform step', async () =>
+    {
+        h.InHive()
+        h.Fetch.Routes.set('/api/desktop/discover', () => FakeFetch.Json(200, { tenants: [{ id: 't1', displayName: 'Acme', consoleUrl: Harness.Console, platformEnvironments: true }] }))
+        expect(await h.SignIn()).toEqual({ SignedIn: true, Email: 'ada@acme.example', TenantName: 'Acme' })
+        expect((await h.Store.Load()).Console).toMatchObject({ ConsoleUrl: Harness.Console })
+        expect((await h.Store.Load()).Console!.PlatformSignInUrl).toBeUndefined()
+    })
+
     it('a typed-console sign-in is never offered the platform step', async () =>
     {
         h.InHive()

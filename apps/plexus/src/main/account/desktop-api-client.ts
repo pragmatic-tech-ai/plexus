@@ -5,11 +5,13 @@ import { ConsoleRetirement } from './console-retirement.js'
 import { TextValue } from './text-value.js'
 
 // A discovered tenant and the console address to sign in at: its own consoleUrl, else the
-// platform's tenant plane (FromTenantPlane; that address may carry a base path, so it is checked
-// with TenantPlaneAddress rather than ConsoleAddress). Main-process only; the renderer sees only Id
-// and DisplayName.
+// platform's tenant plane when the platform has one (FromTenantPlane; that address may carry a base
+// path, so it is checked with TenantPlaneAddress rather than ConsoleAddress). A platform without a
+// tenant plane (e.g. a deployed control plane serving in-hive consoles only) sends no
+// tenantPlaneUrl: then only tenants with their own console are discovered. Main-process only; the
+// renderer sees only Id and DisplayName.
 export type DiscoveredConsole = { Id: string; DisplayName: string; ConsoleUrl: string; FromTenantPlane: boolean; PlatformEnvironments: boolean }
-export type Discovery = { Tenants: DiscoveredConsole[]; TenantPlaneUrl: string }
+export type Discovery = { Tenants: DiscoveredConsole[]; TenantPlaneUrl?: string }
 // The tenant a console address serves.
 export type ServedTenant = { TenantId: string; TenantName: string }
 export type CompletedSignIn = { Token: string; ExpiresAt: string; TenantId: string; TenantName: string; Email?: string }
@@ -54,10 +56,10 @@ export class DesktopApiClient
         if (res.status === DesktopApiClient.StatusNotFound) throw new AccountError(AccountErrorKind.NoAccount)
         if (res.status === DesktopApiClient.StatusBadRequest) throw new AccountError(AccountErrorKind.InvalidEmail)
         const { tenants, tenantPlaneUrl: plane } = await DesktopApiClient.Body(res)
-        if (!Array.isArray(tenants) || typeof plane !== 'string') throw new AccountError(AccountErrorKind.Unavailable)
+        if (!Array.isArray(tenants) || (plane !== undefined && typeof plane !== 'string')) throw new AccountError(AccountErrorKind.Unavailable)
         const parsed = tenants.map(t => DesktopApiClient.Tenant(t, plane)).filter((t): t is DiscoveredConsole => t !== undefined)
         if (parsed.length === 0) throw new AccountError(AccountErrorKind.NoAccount)
-        return { Tenants: parsed, TenantPlaneUrl: plane }
+        return plane === undefined ? { Tenants: parsed } : { Tenants: parsed, TenantPlaneUrl: plane }
     }
 
     // Asks an address which tenant's console it is. Anything that does not answer like a console
@@ -180,18 +182,20 @@ export class DesktopApiClient
         return parsed as Record<string, unknown>
     }
 
-    // A tenant without a usable consoleUrl of its own signs in at the platform's tenant plane. Any
-    // other string is kept as given; the caller validates it before dialling.
-    private static Tenant(raw: unknown, tenantPlaneUrl: string): DiscoveredConsole | undefined
+    // A tenant without a usable consoleUrl of its own signs in at the platform's tenant plane, or is
+    // left out when the platform has none. Any other string is kept as given; the caller validates it
+    // before dialling.
+    private static Tenant(raw: unknown, tenantPlaneUrl: string | undefined): DiscoveredConsole | undefined
     {
         if (typeof raw !== 'object' || raw === null) return undefined
         const { id, displayName, consoleUrl, platformEnvironments } = raw as Record<string, unknown>
         if (!TextValue.Filled(id)) return undefined
         const own = TextValue.Filled(consoleUrl)
+        if (!own && tenantPlaneUrl === undefined) return undefined
         return {
             Id: id,
             DisplayName: TextValue.Filled(displayName) ? displayName : id,
-            ConsoleUrl: own ? consoleUrl : tenantPlaneUrl,
+            ConsoleUrl: own ? consoleUrl : tenantPlaneUrl as string,
             FromTenantPlane: !own,
             PlatformEnvironments: platformEnvironments === true,
         }
