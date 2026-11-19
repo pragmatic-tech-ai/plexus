@@ -81,6 +81,7 @@ import OriginSelectedSolutionServices from "@pragmatic-tech-ai/plexus-core/rende
 import SolutionOriginRegistry from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer"
 import MetaModelModule from "./modules/meta-model/meta-model.module.mu.js"
 import TenantExplorerModule from "./modules/tenant-explorer/tenant-explorer.module.mu.js"
+import GraphViewerModule from "./modules/graph-viewer/graph-viewer.module.mu.js"
 import LibraryModule from "./modules/library/library.module.mu.js"
 import McpClientModule from "./modules/mcp-client/mcp-client.module.mu.js"
 import SkillsModule from "./modules/skills/skills.module.mu.js"
@@ -217,6 +218,7 @@ import ConnectionInspectionResources from "./modules/connections/connection-insp
 // (DataTemplate[MetaModelsService] + HierarchicalDataTemplate[MetaModelTreeNode]).
 import MetaModelResources from "./modules/meta-model/meta-model.resources.mu.js"
 import TenantExplorerResources from "./modules/tenant-explorer/tenant-explorer.resources.mu.js"
+import GraphViewerResources from "./modules/graph-viewer/graph-viewer.resources.mu.js"
 
 // Libraries capability panel (DataTemplate[LibrariesPanelService] + rows).
 import LibraryResources from "./modules/library/library.resources.mu.js"
@@ -585,6 +587,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         SolutionExplorerModule
         MetaModelModule
         TenantExplorerModule
+        GraphViewerModule
         LibraryModule
         McpClientModule
         SkillsModule
@@ -714,6 +717,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
 
         // Tenant Explorer capability panel (DataTemplate[TenantExplorerService] + rows).
         merge TenantExplorerResources
+        merge GraphViewerResources
 
         // Libraries capability panel (DataTemplate[LibrariesPanelService] + rows).
         merge LibraryResources
