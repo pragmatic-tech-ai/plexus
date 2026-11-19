@@ -8,7 +8,7 @@ import { iconKeyForKind, KindToGeometry, __resetKindGeometryCache } from '@pragm
 // each get their own glyph; anything unknown falls back to the generic file.
 test('maps each node kind to its icon resource key', () => {
     expect(iconKeyForKind('folder')).toBe('Folder')
-    expect(iconKeyForKind('diagram')).toBe('Diagram')
+    expect(iconKeyForKind('board')).toBe('Board')
     expect(iconKeyForKind('todl')).toBe('Todl')
     expect(iconKeyForKind('file')).toBe('File')
 })
@@ -36,11 +36,11 @@ describe('KindToGeometry — memoised per kind', () => {
     afterEach(() => { Application.current = prev; __resetKindGeometryCache() })
 
     test('repeated converts of the same kind reuse one resolved geometry', () => {
-        const a = KindToGeometry.convert('diagram')
-        const b = KindToGeometry.convert('diagram')
+        const a = KindToGeometry.convert('board')
+        const b = KindToGeometry.convert('board')
         expect(a).toBe(b)                                  // same instance
         expect(resolve).toHaveBeenCalledTimes(1)           // resolved once, not per row
-        expect(resolve).toHaveBeenCalledWith('Diagram')
+        expect(resolve).toHaveBeenCalledWith('Board')
     })
 
     test('distinct kinds each resolve once', () => {

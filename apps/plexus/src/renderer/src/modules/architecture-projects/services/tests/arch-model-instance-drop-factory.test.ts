@@ -1,19 +1,19 @@
 import { test, expect, vi } from 'vitest'
 import { Point, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
-import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../diagram/services/arch-toolbox-item.js'
-import { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
-import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
+import { BoardDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../board/services/arch-toolbox-item.js'
+import { EntityIconVM } from '../../../board/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
+import { ArchBoardBindingService } from '../arch-board-binding-service.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ArchModelInstanceDropFactory, ArchModelInstanceDropFactoryKey, entityIdOf } from '../arch-model-instance-drop-factory.js'
 
-function makeContext(doc: DiagramDocument, entityId: string): ToolboxDropContext
+function makeContext(doc: BoardDocument, entityId: string): ToolboxDropContext
 {
     const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'service')
     const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
     const item = new ArchToolboxItem('instance:' + entityId, 'Svc', descriptor, ArchModelInstanceDropFactoryKey, new EntityIconVM(reg, 'service'))
-    return { Item: item, Descriptor: descriptor, Position: new Point(10, 20), Diagram: undefined as never, Mutator: doc }
+    return { Item: item, Descriptor: descriptor, Position: new Point(10, 20), Board: undefined as never, Mutator: doc }
 }
 
 // A stub binding service + model just recording the calls the factory makes.
@@ -24,7 +24,7 @@ function stubProvider(placed: Set<string>)
         modelForDocument: () => model,
         isPlaced: (_doc: unknown, id: string) => placed.has(id),
     }
-    const provider = { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
+    const provider = { get: (k: unknown) => (k === ArchBoardBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
     return { provider, model }
 }
 
@@ -34,7 +34,7 @@ test('entityIdOf strips the instance: prefix', () => {
 })
 
 test('placing an existing entity adds an ArchNodeVM at the drop point and notifies', () => {
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const { provider, model } = stubProvider(new Set())
     const factory = new ArchModelInstanceDropFactory(provider)
 
@@ -50,14 +50,14 @@ test('placing an existing entity adds an ArchNodeVM at the drop point and notifi
     expect(visual?.top).toBe(20)
     expect(result).toBe(nodes[0])
     expect(model.notifyChanged).toHaveBeenCalledOnce()
-    // Placement is diagram-only: no model mutation.
+    // Placement is board-only: no model mutation.
     expect(model.create).not.toHaveBeenCalled()
     expect(model.addRef).not.toHaveBeenCalled()
     expect(model.save).not.toHaveBeenCalled()
 })
 
 test('a second placement of an already-placed entity is a no-op (dedup)', () => {
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const { provider, model } = stubProvider(new Set(['svc1']))   // already placed
     const factory = new ArchModelInstanceDropFactory(provider)
 

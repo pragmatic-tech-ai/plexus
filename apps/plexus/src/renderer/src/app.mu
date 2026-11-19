@@ -9,7 +9,7 @@
 // Navigation (left), Content (fill), Inspector (right), Status (bottom).
 // Each body child picks its region via the `Shell.Region` attached
 // property; an unpopulated region collapses. This is the same shell the
-// demo platform uses, mapped to a diagram editor's frame:
+// demo platform uses, mapped to a board editor's frame:
 //
 //   Header      brand bar
 //   Commands    editing toolbar
@@ -19,7 +19,7 @@
 //   Status      status bar (bottom)
 //
 // Regions are populated with a real-but-minimal skeleton; each grows into
-// its full control (a data-driven toolbox, DiagramDocument-backed canvas,
+// its full control (a data-driven toolbox, BoardDocument-backed canvas,
 // live ShapeFormatControl, etc.) as the editor fills in.
 
 // Theme / Scheme are real class references (the no-string-proxies rule);
@@ -33,8 +33,8 @@ import Shell from "@pragmatic-tech-ai/mural/framework/shell/shell.js"
 // Listed in the `.modules:` block below, they compose onto the shell:
 // every capability's Name (and, later, Icon) becomes a root-nav entry, and
 // the NavigationService surfaces the active capability's Panel.
-import DiagramModule from "./modules/diagram/diagram.module.mu.js"
-import DiagramExportModule from "./modules/diagram-export/diagram-export.module.mu.js"
+import BoardModule from "./modules/board/board.module.mu.js"
+import BoardExportModule from "./modules/board-export/board-export.module.mu.js"
 import ArchitectureProjectsModule from "./modules/architecture-projects/architecture-projects.module.mu.js"
 // The Solution Explorer module — its Capability is the left-panel tree (a
 // Hierarchy over the active solution's members + their file trees), backed
@@ -188,18 +188,18 @@ import PlexusWindowChrome from "./window/plexus-window.resources.mu.js"
 // Capability content services + their side-pane templates.
 import PanelsResources from "./services/panels/panels.resources.mu.js"
 
-// Diagram editor (ported from the Diagrammer demo, distributed across the shell
-// regions). DiagramWorkspaceService owns the seeded DiagramDocument + the live
-// Diagram control and presents the canvas in the Content region; DiagramResources
+// Board editor (ported from the Boardmer demo, distributed across the shell
+// regions). BoardWorkspaceService owns the seeded BoardDocument + the live
+// Board control and presents the canvas in the Content region; BoardResources
 // carries the icons, toolbar/tile templates, and the ToolBox shapes panel.
-import DiagramWorkspaceService from "@pragmatic-tech-ai/mural/framework"
-import DiagramResources from "./modules/diagram/diagram.resources.mu.js"
+import BoardWorkspaceService from "@pragmatic-tech-ai/mural/framework"
+import BoardResources from "./modules/board/board.resources.mu.js"
 
 // Layout pipeline inspector: composes a Fresco layout pipeline and runs it on
-// the active diagram. Root-registered so the shell Inspector region reaches
+// the active board. Root-registered so the shell Inspector region reaches
 // the same instance the canvas menu opens.
-import LayoutPipelineService from "./modules/diagram/layout/layout-pipeline-service.js"
-import LayoutInspectorResources from "./modules/diagram/layout/layout-inspector.resources.mu.js"
+import LayoutPipelineService from "./modules/board/layout/layout-pipeline-service.js"
+import LayoutInspectorResources from "./modules/board/layout/layout-inspector.resources.mu.js"
 
 // The New/Open project, references, set-version and shared Confirm DIALOG templates.
 import SolutionDialogsResources from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/solution-dialogs.resources.mu.js"
@@ -252,9 +252,9 @@ import DockTabsResources from "./services/dock-tabs/dock-tabs.resources.mu.js"
 // project's .todl files against its declared bases via checkAgainst. Root-scoped
 // like ProjectFactoryRegistry so every module's editor can attach documents.
 import TodlLanguageClient from "./services/todl/todl-language-client.js"
-import TodlPresentationRegistry from "./modules/diagram/services/todl-presentation-registry.js"
+import TodlPresentationRegistry from "./modules/board/services/todl-presentation-registry.js"
 import ArchitectureModelService from "./modules/architecture-projects/services/architecture-model-service.js"
-import ArchDiagramBindingService from "./modules/architecture-projects/services/arch-diagram-binding-service.js"
+import ArchBoardBindingService from "./modules/architecture-projects/services/arch-board-binding-service.js"
 import ArchNavigationService from "./modules/architecture-projects/services/arch-navigation-service.js"
 import CandidateChooserService from "@pragmatic-tech-ai/mural/framework"
 import ChooserResources from "./modules/architecture-projects/services/chooser.resources.mu.js"
@@ -262,7 +262,7 @@ import ViewpointPickerResources from "./modules/architecture-projects/services/v
 import SkillsResources from "./modules/skills/skills.resources.mu.js"
 import SkillsAuthoringResources from "./modules/skills/skills-authoring.resources.mu.js"
 import HelpOverlayResources from "@pragmatic-tech-ai/plexus-core/renderer/help/help-overlay.resources.mu.js"
-import DiagramViewpointsEditor from "./modules/architecture-projects/services/diagram-viewpoints-editor.js"
+import BoardViewpointsEditor from "./modules/architecture-projects/services/board-viewpoints-editor.js"
 import DiagnosticsService from "@pragmatic-tech-ai/plexus-core/renderer/diagnostics/diagnostics-service.js"
 import WorkspaceRefreshService from "./services/workspace/workspace-refresh-service.js"
 import FileWatchService from "./services/file-watch/file-watch-service.js"
@@ -273,21 +273,21 @@ import SvgEditorResources from "./modules/svg-editor/svg-editor.resources.mu.js"
 import MarkdownViewerResources from "./modules/markdown-viewer/markdown-viewer.resources.mu.js"
 
 // Services formerly registered imperatively in the renderer bootstrap (main.js),
-// moved here so ALL service registration is declarative in one place. The diagram
+// moved here so ALL service registration is declarative in one place. The board
 // persistence trio + close-guard + autosave keep their eager `.get()` in main.js
 // (they must construct at boot); the three architecture contributors are
 // alias-registered under the generic framework/document extension keys (the same
 // `Impl -> Key` form as ElectronSettingsStore / DocumentsContentHostService above).
-import DiagramCameraService from "@pragmatic-tech-ai/mural/framework"
-import DiagramGuidesService from "@pragmatic-tech-ai/mural/framework"
-import DiagramCanvasService from "@pragmatic-tech-ai/mural/framework"
+import BoardCameraService from "@pragmatic-tech-ai/mural/framework"
+import BoardGuidesService from "@pragmatic-tech-ai/mural/framework"
+import BoardCanvasService from "@pragmatic-tech-ai/mural/framework"
 import SaveOnCloseGuard from "@pragmatic-tech-ai/mural/framework"
 import DocumentCloseInterceptorKey from "@pragmatic-tech-ai/mural/framework"
 import AutosaveService from "@pragmatic-tech-ai/mural/framework"
-import ArchNewDiagramParticipant from "./modules/architecture-projects/services/arch-new-diagram-participant.js"
+import ArchNewBoardParticipant from "./modules/architecture-projects/services/arch-new-board-participant.js"
 import NewFileParticipantKey from "@pragmatic-tech-ai/plexus-core/renderer/documents/new-file-participant.js"
 import ArchEditViewpointsCommand from "./modules/architecture-projects/services/arch-edit-viewpoints-command.js"
-import DiagramCommandExtensionKey from "./modules/diagram/services/diagram-command-extension.js"
+import BoardCommandExtensionKey from "./modules/board/services/board-command-extension.js"
 // Solution workspace capability impls + their DI keys (interfaces in plexus-core).
 import PublishedBases from "./modules/meta-model/services/published-bases.js"
 import PublishedBasesKey from "@pragmatic-tech-ai/plexus-core/renderer/projects"
@@ -306,7 +306,7 @@ import ElectronSettingsStore from "@pragmatic-tech-ai/plexus-core/renderer/setti
 import PlexusSettingsContribution from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings-contribution.js"
 import SettingsResources from "@pragmatic-tech-ai/plexus-core/renderer/settings/settings.resources.mu.js"
 import SavePromptResources from "./services/dialogs/save-prompt.resources.mu.js"
-import DiagramExportPreviewResources from "./modules/diagram-export/diagram-export-preview.resources.mu.js"
+import BoardExportPreviewResources from "./modules/board-export/board-export-preview.resources.mu.js"
 
 // Help menu: About + Keyboard Shortcuts dialog bodies (services/menu/), opened
 // by HelpCommandsService (registered below in `.services:`).
@@ -413,11 +413,11 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // which presents CreateView() in the content region. Bound to the framework
         // token so the shell resolves it.
         PlexusSettingsContribution -> SettingsContributionKey
-        // Diagram editor hub: owns the seeded diagram DOCUMENT (an IDocument).
+        // Board editor hub: owns the seeded board DOCUMENT (an IDocument).
         // Root-registered so the ToolBox panel and the startup opener (main.js)
         // resolve the SAME instance. It no longer holds a control — the canvas is
-        // materialized by DataTemplate[DiagramDocument] in the content region.
-        DiagramWorkspaceService
+        // materialized by DataTemplate[BoardDocument] in the content region.
+        BoardWorkspaceService
         // Layout pipeline inspector service — reachable shell-wide (the Inspector
         // region template and the canvas "Layout" menu resolve this instance).
         LayoutPipelineService
@@ -445,7 +445,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // Main-menu command services (Edit/View/Help — the menu bar's Edit/View/
         // Help MenuButtons bind their commands via $service(X), which resolves
         // these from the ROOT the moment the title bar's ControlTemplate applies,
-        // same timing as the File MenuButton's DiagramExportService). Each is a
+        // same timing as the File MenuButton's BoardExportService). Each is a
         // thin command bridge; see services/menu/ for the seams each resolves.
         EditCommandsService
         ViewCommandsService
@@ -477,7 +477,7 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         TodlLanguageClient
         // Aggregates every presentation source's baked icon assets + entityKey index
         // into one merged app dictionary. Owns its own sources + refresh lifecycle
-        // (EnsureStarted/Refresh); every icon consumer (diagram canvas, toolbox) bakes
+        // (EnsureStarted/Refresh); every icon consumer (board canvas, toolbox) bakes
         // through its one Refresh() API, kept fresh on solution-graph rebuilds.
         TodlPresentationRegistry
         // One live architecture model per open architecture project (keyed by
@@ -485,24 +485,24 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // ModelDraft.fromSources. Built lazily on first modelFor; its
         // ActiveSolutionMembers subscription drops a model when its project closes.
         ArchitectureModelService
-        // Observes opened documents and binds architecture-project diagrams to
+        // Observes opened documents and binds architecture-project boards to
         // their ArchModel (label sync + orphan removal); eagerly resolved in
         // main.js so its OpenDocuments subscription is live from boot.
-        ArchDiagramBindingService
+        ArchBoardBindingService
         // Resolves an architecture node's navigable relations (component /
         // technology / category) and routes "Go to Definition" to either the
         // declaring .todl source or the published term in the Libraries panel.
-        // Consumed by ArchDiagramBinding to populate each node's nav-target facet.
+        // Consumed by ArchBoardBinding to populate each node's nav-target facet.
         ArchNavigationService
         // (ArchModelToolboxContributor retired — the ToolboxService now owns the
         // Model/Scenario pages via ModelToolboxPage/ScenarioToolboxPage.)
         // Popup for ambiguous term-drops: lists candidate (X,m) actions and
-        // completes the drop with the chosen one. Mounted as a diagram-canvas
-        // overlay (see DiagramResources); resolved on demand by the drop factory.
+        // completes the drop with the chosen one. Mounted as a board-canvas
+        // overlay (see BoardResources); resolved on demand by the drop factory.
         CandidateChooserService
         // Shared "edit governing viewpoints" flow (pick → confirm removals →
-        // re-scope) for the diagram toolbar command + explorer context menu.
-        DiagramViewpointsEditor
+        // re-scope) for the board toolbar command + explorer context menu.
+        BoardViewpointsEditor
         // Agent workspace tools: subscribes to the agent event stream and services
         // refresh_project (re-scan + re-validate + reply). Eagerly resolved in
         // main.js so it's listening before the first turn.
@@ -520,12 +520,12 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         WikiLocator
         WikiService
         // ── Moved from the renderer bootstrap (main.js) ──────────────────────
-        // Diagram persistence trio (camera zoom/pan, ruler guides, canvas page +
-        // grid) — generic to every .diagram. Eagerly resolved in main.js so each
+        // Board persistence trio (camera zoom/pan, ruler guides, canvas page +
+        // grid) — generic to every .board. Eagerly resolved in main.js so each
         // one's document + settings subscriptions are live from boot.
-        DiagramCameraService
-        DiagramGuidesService
-        DiagramCanvasService
+        BoardCameraService
+        BoardGuidesService
+        BoardCanvasService
         // Close interceptor: the framework SaveOnCloseGuard prompts Save / Don't Save /
         // Cancel before a dirty tab closes. DocumentsContentHostService (above) finds it
         // through DocumentCloseInterceptorKey; eagerly resolved in main.js.
@@ -536,11 +536,11 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         AutosaveService
         // Architecture-project contributions, alias-registered under the generic
         // framework/document extension keys: prompt for governing viewpoints when a
-        // new .diagram is created (NewFileParticipant), the "Edit Viewpoints…"
-        // toolbar command (DiagramCommandExtension), and the explorer node
+        // new .board is created (NewFileParticipant), the "Edit Viewpoints…"
+        // toolbar command (BoardCommandExtension), and the explorer node
         // context-menu action (NodeCommandContributor).
-        ArchNewDiagramParticipant -> NewFileParticipantKey
-        ArchEditViewpointsCommand -> DiagramCommandExtensionKey
+        ArchNewBoardParticipant -> NewFileParticipantKey
+        ArchEditViewpointsCommand -> BoardCommandExtensionKey
         // Solution workspace capability impls (DI seams defined in plexus-core). Each
         // is registered ONLY under its interface key ⇒ a single instance (the alias
         // `Impl -> Key` lowers to `register(Key, p => new Impl(p))`). The three
@@ -561,8 +561,8 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         // seeded). The Solution workspace resolves StorageService to build a project's
         // rooted IStorage; remote backends (cloud/REST) register more providers.
         Storage
-        DiagramModule
-        DiagramExportModule
+        BoardModule
+        BoardExportModule
         ArchitectureProjectsModule
         // Host seams for the solution engine's SolutionManagerService — MUST compose
         // before the EditorShell resolves TitleService/ToolboxService (both build the
@@ -681,18 +681,18 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         merge PanelsResources
         merge SettingsResources
         merge SavePromptResources
-        merge DiagramExportPreviewResources
+        merge BoardExportPreviewResources
         merge AboutDialogResources
         merge ShortcutsDialogResources
         merge SkillsResources
         merge SkillsAuthoringResources
         merge HelpOverlayResources
 
-        // Diagram editor: icons + canvas/toolbar-tile/shapes templates. The shell
+        // Board editor: icons + canvas/toolbar-tile/shapes templates. The shell
         // chrome (command toolbar, document tabs, Format-Shape inspector) is now
         // the framework EditorShell default, data-driven from the app's declared
         // commands + the active document — so no per-app shell template override.
-        merge DiagramResources
+        merge BoardResources
 
         // Layout pipeline builder view (DataTemplate[LayoutInspector]).
         merge LayoutInspectorResources
@@ -729,12 +729,12 @@ Application [ Theme = Pragmatic, Scheme = PragmaticDark ] {
         merge ProblemsResources
 
         // Drop-candidate chooser popup (DataTemplate[CandidateChooserService] +
-        // ChooserRow rows), overlaid on the diagram canvas.
+        // ChooserRow rows), overlaid on the board canvas.
         merge ChooserResources
 
-        // Diagram-viewpoints picker dialog (DataTemplate[ViewpointPickerModel] +
-        // PickerRow checkbox rows), shown modally via DialogService at diagram
-        // creation and when editing the diagram's governing viewpoints.
+        // Board-viewpoints picker dialog (DataTemplate[ViewpointPickerModel] +
+        // PickerRow checkbox rows), shown modally via DialogService at board
+        // creation and when editing the board's governing viewpoints.
         merge ViewpointPickerResources
 
         // Code editor (DataTemplate[CodeDocument] declares a CodeEditor — a

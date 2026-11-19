@@ -1,5 +1,5 @@
 import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, DialogService, type IDocument, type IToolboxDropFactory, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, DialogService, type IDocument, type IToolboxDropFactory, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 
 import { resolveDropActions, DropActionKind, type DropAction } from './arch-drop-resolver.js'
 import { containmentMemberFor, isContainerConcept } from './containment.js'
@@ -9,18 +9,18 @@ import { propagationFills } from './arch-propagate.js'
 import { materializeOf } from './arch-materialize.js'
 import { conceptTypeOf } from './arch-concept-type.js'
 import { defaultLabel } from './arch-default-label.js'
-import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from './arch-board-binding-service.js'
 import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import type { ArchModel } from './arch-model.js'
 import { ArchNodeVM, ARCH_TILE_DEFAULT } from './arch-node-vm.js'
 
 export const ArchInstanceDropFactoryKey = new ServiceKey<IToolboxDropFactory>('ArchInstanceDropFactory')
 
-// Drops a toolbox term onto a diagram. For an architecture diagram it routes the
+// Drops a toolbox term onto a board. For an architecture board it routes the
 // drop through the project's ArchModel (Phase-3 semantics): resolve candidate
 // (X,m) actions from the meta-model schema — 0 reject, 1 auto, many chooser —
 // then create the routed entity, wire the reference, materialize a bound Figure,
-// and persist. A standalone diagram (no ArchModel) falls back to a plain shape.
+// and persist. A standalone board (no ArchModel) falls back to a plain shape.
 export class ArchInstanceDropFactory implements IToolboxDropFactory
 {
     public constructor(private readonly provider: IServiceProvider) {}
@@ -28,20 +28,20 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
     public CreateDropped(context: ToolboxDropContext): unknown | null
     {
         const doc = context.Mutator as unknown as IDocument
-        const bindingSvc = this.provider.get(ArchDiagramBindingService.Key)
+        const bindingSvc = this.provider.get(ArchBoardBindingService.Key)
         const model = bindingSvc?.modelForDocument(doc)
         if (model === undefined)
         {
-            // Standalone diagram: keep the old generic behavior.
+            // Standalone board: keep the old generic behavior.
             return context.Mutator.CreateNode(context.Descriptor.Key, context.Position.X, context.Position.Y) ?? null
         }
 
-        // Read-filter: candidates + routing are scoped to the diagram's selected
+        // Read-filter: candidates + routing are scoped to the board's selected
         // viewpoints (default all when the binding service has no scope).
         const scope = bindingSvc?.scopeForDocument(doc) ?? new Set(model.viewpoints().map((v) => v.id))
         const actions = resolveDropActions(model.repository(), context.Descriptor.Key, scope)
         if (actions.length === 0) return null
-        // A rejected drop can't be honored here (a container concept the diagram's
+        // A rejected drop can't be honored here (a container concept the board's
         // viewpoint doesn't frame). Interrupt with a comprehensive modal explaining
         // the problem instead of silently minting the wrong node.
         if (actions.length === 1 && actions[0].kind === DropActionKind.Rejected)
@@ -65,12 +65,12 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         // PLACE: bind the dropped term's OWN entity (a container concept, e.g. a
         // library location) as a node — no new instance, no model mutation. The
         // binding renders it as a container and projects its children from the
-        // model. Skipped if it is already on this diagram (no duplicate).
+        // model. Skipped if it is already on this board (no duplicate).
         if (action.kind === DropActionKind.Place)
         {
             const entityId = action.term
             if (entityId === undefined) return null
-            const doc = context.Mutator as unknown as DiagramDocument
+            const doc = context.Mutator as unknown as BoardDocument
             if ([...doc.Nodes].some((n) => (n as { Id?: string }).Id === entityId)) return null
             const vm = new ArchNodeVM()
             vm.Id = entityId
@@ -141,7 +141,7 @@ export class ArchInstanceDropFactory implements IToolboxDropFactory
         vm.Id = entity.id
         // Geometry lives on the container Figure + the document store, not the VM.
         // Write it by id; ContainerBound seeds the container when it realizes.
-        ;(context.Mutator as unknown as DiagramDocument).SetNodeVisual(entity.id, { left: X, top: Y, ...ARCH_TILE_DEFAULT })
+        ;(context.Mutator as unknown as BoardDocument).SetNodeVisual(entity.id, { left: X, top: Y, ...ARCH_TILE_DEFAULT })
         context.Mutator.AddNode(vm)
         model.notifyChanged()      // rescan binds + labels the new node (T6)
         void model.save()          // persist the .todl (fire-and-forget)

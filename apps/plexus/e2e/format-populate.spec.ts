@@ -16,12 +16,12 @@ function selectByIndex(l: Launched, index: number)
 {
     return l.win.evaluate((index) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
-        const items = diagram?.ItemsSource
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
+        const items = board?.ItemsSource
         const item = items?.Get ? items.Get(index) : items?.[index]
-        const container = diagram?.Generator?.ContainerFromItem(item)
-        if (container) diagram.HandleContainerClick(container, 0)
+        const container = board?.Generator?.ContainerFromItem(item)
+        if (container) board.HandleContainerClick(container, 0)
         return item?.Fill?.Color?.ToHex?.() ?? null
     }, index)
 }
@@ -78,19 +78,19 @@ test.describe.serial('Format Shape populates from the selected figure', () => {
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 16; i++)
         {
-            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('board.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(250)
         }
         let figs: any[] = []
         for (let a = 0; a < 4 && figs.length === 0; a++)
         {
-            const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
+            const dd = l.win.getByText('board.board', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
             figs = await canvasFigs(l)
         }
-        expect(figs.length, 'diagram opened').toBeGreaterThan(0)
+        expect(figs.length, 'board opened').toBeGreaterThan(0)
     })
 
     test.afterAll(async () => { await l.app.close().catch(() => {}); restore?.() })

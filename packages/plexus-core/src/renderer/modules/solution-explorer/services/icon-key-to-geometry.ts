@@ -11,7 +11,7 @@ import { ConnectionNodeKey } from './connection-node-key.js'
 export const BuildFolderIconKey = 'build-folder'
 
 // The hierarchy row's leading glyph key for a HierarchyNode.IconKey. Content-node keys
-// (folder/file/diagram/todl) reuse the existing project-node glyph mapping; the coarse
+// (folder/file/board/todl) reuse the existing project-node glyph mapping; the coarse
 // project family and the solution root get the folder glyph as a P2 placeholder (a real
 // project/solution icon is a P4/registry concern). One home for the mapping, referenced
 // by the converter below and unit-tested directly (no Application needed).
@@ -58,7 +58,7 @@ export class IconKeyGlyphs
     }
 
     // The glyph for an EXPANDED row: a node drawn as a folder shows the open-folder
-    // glyph; every other node (connections, leaves, files, diagrams) keeps its glyph,
+    // glyph; every other node (connections, leaves, files, boards) keeps its glyph,
     // so a non-folder icon never vanishes or changes on expand.
     public static ForExpanded(iconKey: string): string
     {

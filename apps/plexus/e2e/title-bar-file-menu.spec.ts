@@ -1,8 +1,8 @@
 // E2E: the title-bar File menu opens on click and surfaces the Export item.
 //
 // The File menu lives in the always-present title bar; its Export ▸ SVG/PPTX
-// commands simply disable (via DiagramExportService.canExportActive) when no
-// diagram is open, so this test needs no seeded corpus. It asserts pure menu
+// commands simply disable (via BoardExportService.canExportActive) when no
+// board is open, so this test needs no seeded corpus. It asserts pure menu
 // behaviour: a MenuButton whose Header is "File" exists, and clicking it mounts
 // its dropdown so a MenuItem headed "Export" appears where there was none.
 //

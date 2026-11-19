@@ -14,9 +14,9 @@ function desc(over: Partial<SkillDescriptor> = {}): SkillDescriptor
 }
 
 test('exposes typed metadata', () => {
-    const s = new Skill(desc({ category: 'Diagrams' }))
+    const s = new Skill(desc({ category: 'Boards' }))
     expect(s.Title).toBe('Title')
-    expect(s.Category).toBe('Diagrams')
+    expect(s.Category).toBe('Boards')
     expect(s.IsPlexusSuperset).toBe(true)
     expect(s.HasInputs).toBe(false)
 })

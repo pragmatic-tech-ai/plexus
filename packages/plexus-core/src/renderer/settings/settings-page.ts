@@ -142,7 +142,7 @@ export class SettingsCategory extends MuralBase
 //
 // Modeled as an IDocument so the framework SettingsLauncherService can open it
 // into the editor's DocumentsContentHostService — settings shows as a closeable
-// tab alongside diagrams, not a bespoke overlay. Its Id is constant ('settings')
+// tab alongside boards, not a bespoke overlay. Its Id is constant ('settings')
 // so re-opening the gear dedupes to the one page rather than stacking tabs.
 // Never dirty (edits persist live through ApplicationSettings' store), so Save
 // is a no-op.

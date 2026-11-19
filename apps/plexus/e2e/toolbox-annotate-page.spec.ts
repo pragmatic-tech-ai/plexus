@@ -1,4 +1,4 @@
-// Live smoke: opening a diagram surfaces the framework "Callouts, Text &
+// Live smoke: opening a board surfaces the framework "Callouts, Text &
 // Containers" toolbox page (container / text / callout), wired by Mural's
 // ensureToolboxDefaults. Reaches the ToolboxRepository through the shell's
 // service provider (no DOM/panel-visibility dependency).
@@ -53,7 +53,7 @@ test.describe.serial('toolbox annotate page', () => {
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // Open a diagram so a Diagram is instantiated (ensureToolboxDefaults runs).
+        // Open a board so a Board is instantiated (ensureToolboxDefaults runs).
         const { rectsForCtor, clickCenter } = await import('./plexus-app')
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
@@ -61,10 +61,10 @@ test.describe.serial('toolbox annotate page', () => {
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 20; i++)
         {
-            if (await l.win.getByText('containment-demo.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('containment-demo.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(200)
         }
-        const dd = l.win.getByText('containment-demo.diagram', { exact: true }).first()
+        const dd = l.win.getByText('containment-demo.board', { exact: true }).first()
         await dd.dblclick({ timeout: 4000 }).catch(() => {})
         await l.win.waitForTimeout(3500)
     })

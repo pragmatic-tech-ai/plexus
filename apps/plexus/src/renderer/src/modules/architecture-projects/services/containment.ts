@@ -3,7 +3,7 @@ import { MetaKind, type Entity, type Repository } from '@pragmatic-tech-ai/todl'
 const ContainmentAnnotationSuffix = '@todl.containment'
 const HasChildrenAnnotationSuffix = '@todl.has_children'
 
-// Diagram containment metadata, derived from the meta-model. A containment
+// Board containment metadata, derived from the meta-model. A containment
 // relationship's refs project as visual NESTING (a child node inside a container
 // node) instead of a connector; the ref lives on the CONTAINED entity and points
 // at its container (`component --in--> location`). Both facts are read from the
@@ -85,7 +85,7 @@ export function membershipFieldFor(repo: Repository, containerConcept: string, c
 // (e.g. a block's `components`). Reads every reference-typed field: a scalar field
 // (id, label) yields no refs, and an `in`-style up-ref is a relationship (not a
 // field), so both are naturally excluded. Used to materialize a container's full
-// membership when it is placed on the diagram.
+// membership when it is placed on the board.
 export function membershipChildrenOf(repo: Repository, container: Entity): Entity[]
 {
     const out: Entity[] = []

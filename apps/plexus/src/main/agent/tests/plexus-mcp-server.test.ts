@@ -105,14 +105,14 @@ describe('PlexusMcpServer — create_project', () => {
         const events: AgentEvent[] = []
         server.setSink((t) => events.push(t.Event))
 
-        const pending = server.requestCreateProject('', { name: 'Acme', type: 'diagram' })
+        const pending = server.requestCreateProject('', { name: 'Acme', type: 'board' })
         expect(events.length).toBe(1)
         const evt = events[0]!
         expect(evt.Kind).toBe(AgentEventKind.CreateProject)
         const req = (evt as { Request: { id: string; prefill?: { name?: string } } }).Request
         expect(req.prefill?.name).toBe('Acme')
 
-        const result: CreateProjectResult = { id: req.id, created: true, folder: '/p/acme', name: 'Acme', type: 'diagram' }
+        const result: CreateProjectResult = { id: req.id, created: true, folder: '/p/acme', name: 'Acme', type: 'board' }
         server.resolveCreate(result)
         expect(await pending).toEqual(result)
     })

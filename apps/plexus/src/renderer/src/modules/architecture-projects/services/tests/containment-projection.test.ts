@@ -1,10 +1,10 @@
 import { test, expect } from 'vitest'
 import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
-import type { Diagram } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
+import type { Board } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBinding } from '../arch-diagram-binding.js'
+import { ArchBoardBinding } from '../arch-board-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 
 // component `comp` sits in location `loc` via the default `in` containment ref.
@@ -25,12 +25,12 @@ function buildModel(): ArchModel
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
-// A structural fake of the mounted Diagram view: it realizes each VM into a real
+// A structural fake of the mounted Board view: it realizes each VM into a real
 // Figure (so `fig instanceof Figure` holds) whose Id mirrors the VM, and its
 // ContainerPlacement records reparent calls, mutating ContainerParent to model
 // the nesting. Nesting mechanics themselves are mural's (tested there); here we
 // verify the binding drives reparent with the right (figure, parentId).
-function fakeView(): { view: Diagram; reparents: Array<{ id: string | undefined; parentId: string | undefined }>; figFor: (id: string) => Figure }
+function fakeView(): { view: Board; reparents: Array<{ id: string | undefined; parentId: string | undefined }>; figFor: (id: string) => Figure }
 {
     const figs = new Map<string, Figure>()
     const figFor = (id: string): Figure => {
@@ -55,20 +55,20 @@ function fakeView(): { view: Diagram; reparents: Array<{ id: string | undefined;
         RemoveDeleteRequestedListener: () => {},
         AddNodeReparentedListener: () => {},
         RemoveNodeReparentedListener: () => {},
-    } as unknown as Diagram
+    } as unknown as Board
     return { view, reparents, figFor }
 }
 
 // A doc whose ActiveView is a test-supplied fake, bypassing the real DP (setting
 // the DP wires a view-mirror the fake can't satisfy).
-class TestDoc extends DiagramDocument
+class TestDoc extends BoardDocument
 {
-    public fakeView: Diagram | undefined
-    public override get ActiveView(): Diagram | undefined { return this.fakeView }
-    public override set ActiveView(_v: Diagram | undefined) { /* driven via fakeView in tests */ }
+    public fakeView: Board | undefined
+    public override get ActiveView(): Board | undefined { return this.fakeView }
+    public override set ActiveView(_v: Board | undefined) { /* driven via fakeView in tests */ }
 }
 
-function addVM(doc: DiagramDocument, id: string): ArchNodeVM
+function addVM(doc: BoardDocument, id: string): ArchNodeVM
 {
     const vm = new ArchNodeVM()
     vm.Id = id
@@ -84,7 +84,7 @@ test('an `in` ref nests the child Figure into its container and draws no connect
     const { view, reparents, figFor } = fakeView()
     doc.fakeView = view
 
-    new ArchDiagramBinding(doc, model).attach()
+    new ArchBoardBinding(doc, model).attach()
 
     // comp's Figure got re-parented into loc; loc stays at root (no spurious call).
     expect(reparents).toContainEqual({ id: 'archmm.comp', parentId: 'archmm.loc' })

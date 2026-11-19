@@ -1,11 +1,11 @@
-// E2E coverage for SVG export: the DiagramExportService resolves from the
-// running renderer, DiagramSvgRenderer renders the active diagram, and the result
+// E2E coverage for SVG export: the BoardExportService resolves from the
+// running renderer, BoardSvgRenderer renders the active board, and the result
 // is a valid, non-degenerate '<svg'. The save dialog is stubbed (the real
 // Electron dialog cannot be driven headlessly) so the test asserts on the SVG
 // string itself rather than a written file.
 //
 // Requires: `npm run build` to be current; the PLEXUS_TEST_CORPUS env var (or
-// the default path) to point at a corpus containing at least one diagram with
+// the default path) to point at a corpus containing at least one board with
 // ≥1 node so `canExportActive()` returns true.
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
@@ -31,9 +31,9 @@ function makeCopy(): string
   return copyRoot
 }
 
-// Open `diagram-2.diagram` from the arch project (it has nodes, so
-// `canExportActive` will be true once the diagram is loaded).
-async function openDiagram(l: Launched): Promise<void>
+// Open `board-2.board` from the arch project (it has nodes, so
+// `canExportActive` will be true once the board is loaded).
+async function openBoard(l: Launched): Promise<void>
 {
   await l.win.evaluate(async () => {
     let explorer: any
@@ -45,7 +45,7 @@ async function openDiagram(l: Launched): Promise<void>
     if (!explorer) return
     const proj = explorer.OpenProjects.ToArray()
       .find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
-    if (proj) await explorer.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
+    if (proj) await explorer.OpenFileInProject(proj.Folder, 'board-2.board', 0, 0)
   })
   await l.win.waitForTimeout(5000)
 }
@@ -77,13 +77,13 @@ const RESOLVE_BY_DESC = `
   }
 `
 
-// Resolve DiagramExportService from the running renderer and call its test hook
+// Resolve BoardExportService from the running renderer and call its test hook
 // (bypassing the save dialog) to get the SVG string.
-async function callRenderDiagramSvg(l: Launched): Promise<string | null>
+async function callRenderBoardSvg(l: Launched): Promise<string | null>
 {
   return l.win.evaluate((resolveSrc) => {
     const resolveByDesc = (0, eval)(resolveSrc) as (d: string) => any
-    const svc: any = resolveByDesc('DiagramExportService')
+    const svc: any = resolveByDesc('BoardExportService')
     if (!svc) return '__unresolved__'
     if (!svc.canExportActive()) return '__cannot_export__'
     if (typeof svc._renderSvgForTest !== 'function') return '__no_test_hook__'
@@ -92,15 +92,15 @@ async function callRenderDiagramSvg(l: Launched): Promise<string | null>
   }, RESOLVE_BY_DESC)
 }
 
-// Check whether any diagram node is present in the active diagram.
-async function diagramHasNodes(l: Launched): Promise<boolean>
+// Check whether any board node is present in the active board.
+async function boardHasNodes(l: Launched): Promise<boolean>
 {
   return l.win.evaluate(() => {
     const S = Symbol.for('mural:visual-backref')
     for (const el of document.querySelectorAll('*'))
     {
       const v = (el as any)[S]
-      if (v?.constructor?.name === 'Diagram')
+      if (v?.constructor?.name === 'Board')
         return (v.DataContext?.Nodes?.Count ?? 0) > 0
     }
     return false
@@ -121,7 +121,7 @@ test.describe.serial('export-svg', () => {
     const navs = await rectsForCtor(l.win, 'NavigationItem')
     if (navs[1]) await clickCenter(l.win, navs[1])
     await l.win.waitForTimeout(1500)
-    await openDiagram(l)
+    await openBoard(l)
   })
 
   test.afterAll(async () => {
@@ -130,14 +130,14 @@ test.describe.serial('export-svg', () => {
     if (copyRoot) fs.rmSync(copyRoot, { recursive: true, force: true })
   })
 
-  test('diagram is loaded with at least one node', async () => {
-    expect(await diagramHasNodes(l), 'diagram-2 has nodes').toBe(true)
+  test('board is loaded with at least one node', async () => {
+    expect(await boardHasNodes(l), 'board-2 has nodes').toBe(true)
   })
 
-  test('DiagramExportService.canExportActive() is true once a diagram is open', async () => {
+  test('BoardExportService.canExportActive() is true once a board is open', async () => {
     const canExport = await l.win.evaluate((resolveSrc) => {
       const resolveByDesc = (0, eval)(resolveSrc) as (d: string) => any
-      const svc: any = resolveByDesc('DiagramExportService')
+      const svc: any = resolveByDesc('BoardExportService')
       if (!svc) return '__unresolved__'
       return svc.canExportActive?.() ?? false
     }, RESOLVE_BY_DESC)
@@ -145,15 +145,15 @@ test.describe.serial('export-svg', () => {
   })
 
   test('_renderSvgForTest returns a valid, non-degenerate SVG', async () => {
-    const svg = await callRenderDiagramSvg(l)
+    const svg = await callRenderBoardSvg(l)
     expect(svg, '_renderSvgForTest result').not.toBeNull()
     expect(svg, 'service should resolve').not.toBe('__unresolved__')
     expect(svg, 'should not fall back to __no_test_hook__').not.toBe('__no_test_hook__')
     expect(svg!.startsWith('<svg'), 'svg starts with <svg').toBe(true)
 
-    // Regression guard for the "renders nothing" bug: the whole-diagram export
+    // Regression guard for the "renders nothing" bug: the whole-board export
     // took bounds from geometry-less content VMs (doc.Nodes) → a 1×1 viewBox →
-    // a blank SVG. A real diagram must be many times larger than a pixel.
+    // a blank SVG. A real board must be many times larger than a pixel.
     const w = Number(/width="(\d+)"/.exec(svg!)?.[1] ?? '0')
     const h = Number(/height="(\d+)"/.exec(svg!)?.[1] ?? '0')
     expect(w, `svg width (${w}) must be non-degenerate`).toBeGreaterThan(10)

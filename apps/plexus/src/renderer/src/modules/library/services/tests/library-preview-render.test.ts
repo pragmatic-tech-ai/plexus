@@ -5,9 +5,9 @@ import { ContentControl, VisualContext, VisualContextScope } from '@pragmatic-te
 
 import { LibraryResources } from '../../library.resources.mu.js'
 import { LibraryTreeNode } from '../library-tree-node.js'
-import { TodlVisualSelector } from '../../../diagram/services/todl-visual-selector.js'
-import type { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import { TodlVisualSelector } from '../../../board/services/todl-visual-selector.js'
+import type { EntityIconVM } from '../../../board/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 const noIconReg = { iconKeyFor: () => undefined, onChanged: () => () => {} } as unknown as TodlPresentationRegistry
 
@@ -31,7 +31,7 @@ function withApp(): Application
     app.Resources.AddMergedDictionary(LibraryResources.Clone())
     // The preview only checks the ContentControl wiring (selector + Tile context +
     // $Icon binding + caption); it never applies the selector's returned template, so
-    // sentinel context templates suffice (the real ones live in DiagramResources).
+    // sentinel context templates suffice (the real ones live in BoardResources).
     app.Resources.Set('TodlVisualSelector',
         new TodlVisualSelector(new DataTemplate(() => new Border()), new DataTemplate(() => new Border())))
     return app

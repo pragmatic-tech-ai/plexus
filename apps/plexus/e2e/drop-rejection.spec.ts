@@ -1,7 +1,7 @@
 // Verifies the real-app interrupt: dropping a microsoft-stack location onto the
-// Scenarios-scoped diagram-3 (which doesn't frame `location`) must NOT silently
+// Scenarios-scoped board-3 (which doesn't frame `location`) must NOT silently
 // create a component — it must show an explanatory modal and add no node. Drives
-// the production drop path via diagram._fireItemDropped, exactly like a toolbox
+// the production drop path via board._fireItemDropped, exactly like a toolbox
 // drag of the `microsoft_tech.azure` term.
 import { test, expect } from '@playwright/test'
 import fs from 'node:fs'
@@ -14,13 +14,13 @@ async function nodeCount(l: Launched): Promise<number>
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        return diagram?.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray().length : -1
+        return board?.ItemsSource?.ToArray ? board.ItemsSource.ToArray().length : -1
     })
 }
 
@@ -29,16 +29,16 @@ async function fireTermDrop(l: Launched, termId: string, x: number, y: number): 
 {
     return l.win.evaluate(({ termId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram || typeof diagram._fireItemDropped !== 'function') return false
+        if (!board || typeof board._fireItemDropped !== 'function') return false
         const FORMAT = '@pragmatic-tech-ai/mural/toolbox-item'
         const data = { Has: (f: string) => f === FORMAT, Get: (f: string) => (f === FORMAT ? termId : undefined) }
-        diagram._fireItemDropped({ Data: data, Position: { X: x, Y: y }, TargetContainer: undefined })
+        board._fireItemDropped({ Data: data, Position: { X: x, Y: y }, TargetContainer: undefined })
         return true
     }, { termId, x, y })
 }
@@ -49,7 +49,7 @@ async function dialogText(l: Launched): Promise<string>
     return l.win.evaluate(() => (document.body.innerText || '').replace(/\s+/g, ' ').trim())
 }
 
-test.describe.serial('dropping a location on a Scenarios diagram is interrupted', () => {
+test.describe.serial('dropping a location on a Scenarios board is interrupted', () => {
     let l: Launched
     let restoreSession: () => void
     let cloneRoot: string
@@ -62,7 +62,7 @@ test.describe.serial('dropping a location on a Scenarios diagram is interrupted'
         restoreSession = seedSession(clone.projects)
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
-        // Open diagram-3 (arch.viewpoints = ["Scenarios"]).
+        // Open board-3 (arch.viewpoints = ["Scenarios"]).
         const { rectsForCtor, clickCenter } = await import('./plexus-app')
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
@@ -70,12 +70,12 @@ test.describe.serial('dropping a location on a Scenarios diagram is interrupted'
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 30; i++)
         {
-            if (await l.win.getByText('diagram-3.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('board-3.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 300); await l.win.waitForTimeout(150)
         }
         for (let a = 0; a < 4 && (await nodeCount(l)) <= 0; a++)
         {
-            const dd = l.win.getByText('diagram-3.diagram', { exact: true }).first()
+            const dd = l.win.getByText('board-3.board', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
         }
@@ -89,7 +89,7 @@ test.describe.serial('dropping a location on a Scenarios diagram is interrupted'
 
     test('shows an explanatory modal and adds no node', async () => {
         const before = await nodeCount(l)
-        // Toolbox item id for a library term is `term:<id>` (diagram-panel-services).
+        // Toolbox item id for a library term is `term:<id>` (board-panel-services).
         await fireTermDrop(l, 'term:microsoft_tech.azure', 500, 300)
         await l.win.waitForTimeout(1500)
         await l.win.screenshot({ path: path.join(ART, 'drop-rejection.png') }).catch(() => {})

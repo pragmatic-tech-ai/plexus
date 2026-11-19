@@ -1,5 +1,5 @@
 // Regression: dragging a container carries its nested children. Opens the
-// test_arch containment-demo.diagram (the `on_premises` location plus two nodes
+// test_arch containment-demo.board (the `on_premises` location plus two nodes
 // that declare `in = on_premises`), drags the container by a known delta, and
 // asserts each nested child (a) is a true DOM descendant of the container's SVG
 // group and (b) moves on screen by the SAME delta as the container.
@@ -10,7 +10,7 @@
 // container move left it behind (Δscreen = 0). The bug slipped past the headless
 // suites because they asserted the visual tree, never the rendered SVG DOM.
 //
-// A container move autosaves the .diagram, so the run opens a scratch COPY of the
+// A container move autosaves the .board, so the run opens a scratch COPY of the
 // corpus (PLEXUS_TEST_CORPUS pointed at a temp clone) — the real corpus is never
 // mutated.
 import { test, expect } from '@playwright/test'
@@ -38,18 +38,18 @@ async function probe(l: Launched)
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         const elByVisual = new Map<any, Element>()
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
             if (!v) continue
             if (!elByVisual.has(v)) elByVisual.set(v, el)
-            if (v?.constructor?.name === 'Diagram') diagram = v
+            if (v?.constructor?.name === 'Board') board = v
         }
-        if (!diagram) return { rows: [] as any[] }
-        const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
-        const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+        if (!board) return { rows: [] as any[] }
+        const arr: any[] = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
+        const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
         const rows: any[] = []
         for (const vm of arr)
         {
@@ -91,7 +91,7 @@ test.describe.serial('container drag carries nested children', () => {
             fs.cpSync(path.join(CORPUS, rel), dst, { recursive: true })
             projects.push(dst)
         }
-        // The demo diagram is generated per-run into the clone (never shipped in
+        // The demo board is generated per-run into the clone (never shipped in
         // the real corpus): places on_premises + its two `in` children.
         writeContainmentDemoFixture(path.join(copyRoot, 'architecures/test_architecture'))
         restoreSession = seedSession(projects)
@@ -101,7 +101,7 @@ test.describe.serial('container drag carries nested children', () => {
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'containment-demo.diagram')
+        await openProjectFile(l, 'test_architecture', 'containment-demo.board')
         // Containment projects asynchronously after the open; poll for it.
         for (let i = 0; i < 40 && (await probe(l)).rows.length === 0; i++) await l.win.waitForTimeout(500)
     })
@@ -178,19 +178,19 @@ test.describe.serial('container drag carries nested children', () => {
         // the flakiness of a synthetic drop landing pixel-perfectly in the box.
         const reparented = await l.win.evaluate((looseId: string) => {
             const S = Symbol.for('mural:visual-backref')
-            let diagram: any
+            let board: any
             for (const el of document.querySelectorAll('*'))
             {
                 const v = (el as any)[S]
-                if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+                if (v?.constructor?.name === 'Board') { board = v; break }
             }
-            if (!diagram) return { ok: false, reason: 'no diagram' }
-            const arr: any[] = diagram.ItemsSource?.ToArray?.() ?? []
-            const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+            if (!board) return { ok: false, reason: 'no board' }
+            const arr: any[] = board.ItemsSource?.ToArray?.() ?? []
+            const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
             const looseVm = arr.find((vm: any) => (vm?.Id ?? figOf(vm)?.Id) === looseId)
             const fig = figOf(looseVm)
             if (!fig) return { ok: false, reason: 'no figure for loose node' }
-            diagram.ContainerPlacement.reparent(fig, 'on_premises')
+            board.ContainerPlacement.reparent(fig, 'on_premises')
             return { ok: true }
         }, loose.id)
         expect(reparented.ok, `reparent fired: ${JSON.stringify(reparented)}`).toBe(true)
@@ -207,14 +207,14 @@ test.describe.serial('container drag carries nested children', () => {
         const before = (await probe(l)).rows
         await l.win.evaluate(({ dx, dy }) => {
             const S = Symbol.for('mural:visual-backref')
-            let diagram: any
+            let board: any
             for (const el of document.querySelectorAll('*'))
             {
                 const v = (el as any)[S]
-                if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+                if (v?.constructor?.name === 'Board') { board = v; break }
             }
-            const arr: any[] = diagram.ItemsSource?.ToArray?.() ?? []
-            const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+            const arr: any[] = board.ItemsSource?.ToArray?.() ?? []
+            const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
             const contVm = arr.find((vm: any) => (vm?.Id ?? figOf(vm)?.Id) === 'on_premises')
             const cont = figOf(contVm)
             cont.Left = cont.Left + dx

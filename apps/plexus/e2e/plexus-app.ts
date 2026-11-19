@@ -66,7 +66,7 @@ export const PROJECT_RELS = [
 
 // Clone the corpus projects into a fresh temp dir. Returns the clone root (remove
 // it in afterAll), the cloned project dirs (pass to seedSession), and the arch
-// project dir (where diagram fixtures live).
+// project dir (where board fixtures live).
 export function cloneCorpus(): { root: string; projects: string[]; archDir: string }
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'plexus-corpus-'))
@@ -80,7 +80,7 @@ export function cloneCorpus(): { root: string; projects: string[]; archDir: stri
     return { root, projects, archDir: path.join(root, 'architecures/test_architecture') }
 }
 
-// Write the `containment-demo.diagram` fixture into a corpus CLONE's arch project.
+// Write the `containment-demo.board` fixture into a corpus CLONE's arch project.
 // It places the `on_premises` location plus its two `in = on_premises` children
 // (component `enterprise_legacy_app`, network `on_prem_network`) — all entities in
 // landscape.todl. On open, the containment projection realizes `on_premises` as a
@@ -93,7 +93,7 @@ export function cloneCorpus(): { root: string; projects: string[]; archDir: stri
 // enterprise_legacy_app child).
 export function writeContainmentDemoFixture(archDir: string): void
 {
-    const diagram = {
+    const board = {
         version: 3,
         nodes: [
             { id: 'on_premises', type: 'arch', data: {} },
@@ -108,10 +108,10 @@ export function writeContainmentDemoFixture(archDir: string): void
             m365_copilot_chat: { left: 640, top: 200, w: 150, h: 80, baseWidth: 150, baseHeight: 80 },
         },
     }
-    fs.writeFileSync(path.join(archDir, 'containment-demo.diagram'), JSON.stringify(diagram, null, 1))
+    fs.writeFileSync(path.join(archDir, 'containment-demo.board'), JSON.stringify(board, null, 1))
 }
 
-// Write the `nesting-demo.diagram` fixture: a 4-level MODEL-BACKED nest —
+// Write the `nesting-demo.board` fixture: a 4-level MODEL-BACKED nest —
 // azure ⊃ m365 ⊃ power_platform ⊃ business_agent. The three locations
 // (microsoft_tech.*) carry a `parent` chain in the microsoft library
 // (m365.parent = azure, power_platform.parent = m365); once the tech-architecture
@@ -119,11 +119,11 @@ export function writeContainmentDemoFixture(archDir: string): void
 // nesting. `business_agent` is a component with `in = microsoft_tech.power_platform`,
 // so it nests as the leaf. Each location is a container concept (target of
 // `component.in`) → realizes as a ContentContainerFigure, exercising the
-// re-mint-at-depth path. Nodes are placed at diagram-space coords that are visually
+// re-mint-at-depth path. Nodes are placed at board-space coords that are visually
 // nested; membership itself comes from the model (projectContainment), not geometry.
 export function writeNestingFixture(archDir: string): void
 {
-    const diagram = {
+    const board = {
         version: 3,
         nodes: [
             { id: 'microsoft_tech.azure', type: 'arch', data: {} },
@@ -138,7 +138,7 @@ export function writeNestingFixture(archDir: string): void
             business_agent: { left: 210, top: 300, w: 150, h: 80, baseWidth: 150, baseHeight: 80 },
         },
     }
-    fs.writeFileSync(path.join(archDir, 'nesting-demo.diagram'), JSON.stringify(diagram, null, 1))
+    fs.writeFileSync(path.join(archDir, 'nesting-demo.board'), JSON.stringify(board, null, 1))
 }
 
 export interface Launched

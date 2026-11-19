@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft, type Entity } from '@pragmatic-tech-ai/todl'
 import { resolveElementPresentation } from '../element-presentation.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 import { jsonNode } from '../../../../test-support/todl-fixture.js'
 
 const MM = `namespace t {

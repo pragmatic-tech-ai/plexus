@@ -1,6 +1,6 @@
-// Drives the REAL scenario-drop path in the running app: opens diagram-2 (which
+// Drives the REAL scenario-drop path in the running app: opens board-2 (which
 // already places the chat_surface + ai_data_sources block containers) and fires
-// the toolbox drop for a scenario through diagram._fireItemDropped — the same
+// the toolbox drop for a scenario through board._fireItemDropped — the same
 // entry canvas-drop-behavior uses, so the router looks the scenario item up in
 // the ToolboxRepository, resolves ArchScenarioDropFactory, and runs it for real.
 // Then it dumps the resulting nodes (geometry + nesting) and any app errors, so
@@ -13,23 +13,23 @@ import { launchPlexus, seedSession, corpusAvailable, appErrors, cloneCorpus, ope
 const ART = path.join(__dirname, '.artifacts')
 
 // Every realized node with geometry + nesting + whether its figure sits inside
-// its container's diagram-space rect.
+// its container's board-space rect.
 async function probe(l: Launched)
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         const elByVisual = new Map<any, Element>()
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
             if (!v) continue
             if (!elByVisual.has(v)) elByVisual.set(v, el)
-            if (v?.constructor?.name === 'Diagram') diagram = v
+            if (v?.constructor?.name === 'Board') board = v
         }
-        if (!diagram) return { rows: [] as any[] }
-        const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
-        const figOf = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm))
+        if (!board) return { rows: [] as any[] }
+        const arr: any[] = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
+        const figOf = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm))
         const rows: any[] = []
         for (const vm of arr)
         {
@@ -81,23 +81,23 @@ async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: n
 {
     return l.win.evaluate(({ scenarioId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         let services: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
             if (!v) continue
             if (!services && v.Services) services = v.Services
-            if (v?.constructor?.name === 'Diagram') diagram = v
+            if (v?.constructor?.name === 'Board') board = v
         }
-        if (!diagram || !services) return { fired: false, itemFound: false }
+        if (!board || !services) return { fired: false, itemFound: false }
         let host: any, binding: any
         for (let p = services; p; p = p._parent)
             for (const [, e] of (p._cache ?? new Map()))
             {
                 const n = (e as any)?.constructor?.name
                 if (n === 'DocumentsContentHostService') host = e
-                else if (n === 'ArchDiagramBindingService') binding = e
+                else if (n === 'ArchBoardBindingService') binding = e
             }
         const doc = host?.ActiveDocument
         if (doc === undefined) return { fired: false, itemFound: false }
@@ -126,13 +126,13 @@ async function fireScenarioDrop(l: Launched, scenarioId: string, x: number, y: n
         }
         if (factory === undefined || typeof factory.CreateDropped !== 'function') return { fired: false, itemFound: true }
         // The bound document is the mutator: it is what the binding keys
-        // modelForDocument on, and DiagramDocument exposes AddNode/SetNodeVisual/
+        // modelForDocument on, and BoardDocument exposes AddNode/SetNodeVisual/
         // GetNodeVisual/Nodes — everything context.Mutator needs.
         factory.CreateDropped({
             Item: { Id: 'scenario:' + scenarioId },
             Descriptor: {},
             Position: { X: x, Y: y },
-            Diagram: diagram,
+            Board: board,
             Mutator: doc,
             TargetContainer: undefined,
         })
@@ -165,10 +165,10 @@ async function dropScenarioUntilChanged(l: Launched, scenarioId: string, x: numb
 // as roomy boxes, nothing else. Dropping a scenario then adds its member
 // components fresh — so `m365_copilot_chat` (in_block = chat_surface) is a genuine
 // new node that the factory must position INSIDE the existing chat_surface.
-const FIXTURE = 'a-scenario-drop-demo.diagram'   // sorts to the top of the project files
+const FIXTURE = 'a-scenario-drop-demo.board'   // sorts to the top of the project files
 function writeScenarioDropFixture(archDir: string): void
 {
-    const diagram = {
+    const board = {
         version: 3,
         nodes: [
             { id: 'chat_surface', type: 'arch', data: {} },
@@ -179,34 +179,34 @@ function writeScenarioDropFixture(archDir: string): void
             ai_data_sources: { left: 520, top: 100, w: 320, h: 260, baseWidth: 320, baseHeight: 260, userSized: true },
         },
     }
-    fs.writeFileSync(path.join(archDir, FIXTURE), JSON.stringify(diagram, null, 1))
+    fs.writeFileSync(path.join(archDir, FIXTURE), JSON.stringify(board, null, 1))
 }
 
-// Whether a Diagram visual is currently mounted in the canvas.
-async function diagramOpen(l: Launched): Promise<boolean>
+// Whether a Board visual is currently mounted in the canvas.
+async function boardOpen(l: Launched): Promise<boolean>
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') return true
+            if (v?.constructor?.name === 'Board') return true
         }
         return false
     })
 }
 
-// Open the named arch-project file and wait for a Diagram to mount. Opens
+// Open the named arch-project file and wait for a Board to mount. Opens
 // through the workspace service (the nested solution tree keeps project nodes
 // collapsed, so a tree double-click can't see the file row).
 async function openByName(l: Launched, name: string): Promise<boolean>
 {
     for (let attempt = 0; attempt < 3; attempt++)
     {
-        if (await diagramOpen(l)) return true
+        if (await boardOpen(l)) return true
         await openProjectFile(l, 'test_architecture', name)
     }
-    return diagramOpen(l)
+    return boardOpen(l)
 }
 
 // Poll until BOTH readiness conditions a synthetic scenario drop needs are met:
@@ -235,7 +235,7 @@ async function waitForScenarioFlow(l: Launched, scenarioId: string): Promise<boo
                 {
                     const n = (e as any)?.constructor?.name
                     if (n === 'DocumentsContentHostService') host = e
-                    else if (n === 'ArchDiagramBindingService') binding = e
+                    else if (n === 'ArchBoardBindingService') binding = e
                 }
             const doc = host?.ActiveDocument
             if (!doc || !binding || typeof binding.modelForDocument !== 'function') return false
@@ -257,7 +257,7 @@ async function waitForScenarioFlow(l: Launched, scenarioId: string): Promise<boo
     return false
 }
 
-test.describe.serial('scenario drop onto a diagram with block containers', () => {
+test.describe.serial('scenario drop onto a board with block containers', () => {
     let l: Launched
     let restoreSession: () => void
     let cloneRoot: string
@@ -317,15 +317,15 @@ test.describe.serial('scenario drop onto a diagram with block containers', () =>
     })
 })
 
-// Empty diagram: the container (chat_surface) is added by the SAME scenario drop
+// Empty board: the container (chat_surface) is added by the SAME scenario drop
 // as its child (m365_copilot_chat). The child must still end up positioned inside
 // the container — not scattered in the free flow and then reparented far away.
 function writeEmptyFixture(archDir: string): void
 {
-    fs.writeFileSync(path.join(archDir, 'a-scenario-empty-demo.diagram'), JSON.stringify({ version: 3, nodes: [], visuals: {} }, null, 1))
+    fs.writeFileSync(path.join(archDir, 'a-scenario-empty-demo.board'), JSON.stringify({ version: 3, nodes: [], visuals: {} }, null, 1))
 }
 
-test.describe.serial('scenario drop onto an EMPTY diagram (container added same drop)', () => {
+test.describe.serial('scenario drop onto an EMPTY board (container added same drop)', () => {
     let l: Launched
     let restoreSession: () => void
     let cloneRoot: string
@@ -339,7 +339,7 @@ test.describe.serial('scenario drop onto an EMPTY diagram (container added same 
         restoreSession = seedSession(clone.projects)
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
-        await openByName(l, 'a-scenario-empty-demo.diagram')
+        await openByName(l, 'a-scenario-empty-demo.board')
         await waitForScenarioFlow(l, 'conversational')
     })
 

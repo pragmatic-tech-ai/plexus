@@ -1,12 +1,12 @@
 import { ToolboxPage, type ToolboxItem } from '@pragmatic-tech-ai/mural/framework'
 
-// A toolbox page whose CONTENT depends on the active architecture diagram (its
+// A toolbox page whose CONTENT depends on the active architecture board (its
 // viewpoint scope + already-placed nodes), not only on its model. It reconciles
 // its items (by key) when its source changes and when it becomes the active
 // context — but never while hidden, so switching away costs nothing.
 export interface ScopedPageDeps
 {
-    // Compute the page's desired items now (reads active-diagram scope + placed).
+    // Compute the page's desired items now (reads active-board scope + placed).
     resolveItems(): ToolboxItem[]
     // Subscribe to the underlying model/source change signal (e.g. ArchModel.onChanged).
     onSourceChanged(cb: () => void): () => void

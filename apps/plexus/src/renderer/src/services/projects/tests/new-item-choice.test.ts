@@ -4,8 +4,8 @@ import { NewItemChoice } from '@pragmatic-tech-ai/plexus-core/renderer/projects/
 
 test('NewItemChoice exposes its label and runs its command', () => {
     let ran = false
-    const choice = new NewItemChoice('Architecture Diagram', new RelayCommand(() => { ran = true }))
-    expect(choice.Label).toBe('Architecture Diagram')
+    const choice = new NewItemChoice('Architecture Board', new RelayCommand(() => { ran = true }))
+    expect(choice.Label).toBe('Architecture Board')
     choice.Command!.Execute(undefined)
     expect(ran).toBe(true)
 })

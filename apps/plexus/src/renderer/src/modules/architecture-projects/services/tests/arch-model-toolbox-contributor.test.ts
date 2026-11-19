@@ -4,7 +4,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { modelPageItems, scenarioPageTitle } from '../arch-model-toolbox-contributor.js'
 import { ArchModelInstanceDropFactoryKey } from '../arch-model-instance-drop-factory.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 // A registry stub exposing iconKeyFor (the EntityIconVM surface each tile carries).
 const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry

@@ -9,15 +9,15 @@ describe('IconKeyGlyphs.For', () =>
 {
     it('maps every content key + member + solution to a non-empty glyph key', () =>
     {
-        for (const key of [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Diagram, ContentNodeKey.Todl, NodeKey.Project, NodeKey.Solution])
+        for (const key of [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Board, ContentNodeKey.Todl, NodeKey.Project, NodeKey.Solution])
         {
             expect(IconKeyGlyphs.For(key).length).toBeGreaterThan(0)
         }
     })
 
-    it('folder and diagram map to distinct glyphs', () =>
+    it('folder and board map to distinct glyphs', () =>
     {
-        expect(IconKeyGlyphs.For(ContentNodeKey.Folder)).not.toEqual(IconKeyGlyphs.For(ContentNodeKey.Diagram))
+        expect(IconKeyGlyphs.For(ContentNodeKey.Folder)).not.toEqual(IconKeyGlyphs.For(ContentNodeKey.Board))
     })
 
     it('a todl file gets its own glyph, distinct from a plain file', () =>
@@ -91,7 +91,7 @@ describe('IconKeyGlyphs.ForExpanded', () =>
         expect(IconKeyGlyphs.ForExpanded(NodeKey.Solution)).toBe('SolutionNode')
         expect(IconKeyGlyphs.ForExpanded(NodeKey.References)).toBe('References')
         expect(IconKeyGlyphs.ForExpanded(NodeKey.Connections)).toBe('ConnectionsFolder')
-        expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.Diagram)).toBe(IconKeyGlyphs.For(ContentNodeKey.Diagram))
+        expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.Board)).toBe(IconKeyGlyphs.For(ContentNodeKey.Board))
         expect(IconKeyGlyphs.ForExpanded(ContentNodeKey.File)).toBe(IconKeyGlyphs.For(ContentNodeKey.File))
     })
 

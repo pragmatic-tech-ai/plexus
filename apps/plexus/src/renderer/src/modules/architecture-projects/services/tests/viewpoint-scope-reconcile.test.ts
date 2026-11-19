@@ -1,5 +1,5 @@
 import { test, expect } from 'vitest'
-import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
@@ -26,7 +26,7 @@ test('a node whose concept is framed only by an excluded viewpoint leaves scope'
     const model = buildModel()
     model.create('archmm.service', 'archmm.svc1')
     model.create('archmm.store', 'archmm.db1')
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     doc.Nodes.Add(node('archmm.svc1'))
     doc.Nodes.Add(node('archmm.db1'))
 
@@ -37,7 +37,7 @@ test('a node whose concept is framed only by an excluded viewpoint leaves scope'
 test('nodes still framed by a chosen viewpoint stay', () => {
     const model = buildModel()
     model.create('archmm.service', 'archmm.svc1')
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     doc.Nodes.Add(node('archmm.svc1'))
     expect(nodesLeavingScope(doc, model, ['archmm.LogicalView'])).toEqual([])
 })
@@ -45,14 +45,14 @@ test('nodes still framed by a chosen viewpoint stay', () => {
 test('empty scope (all viewpoints) removes nothing', () => {
     const model = buildModel()
     model.create('archmm.store', 'archmm.db1')
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     doc.Nodes.Add(node('archmm.db1'))
     expect(nodesLeavingScope(doc, model, [])).toEqual([])
 })
 
 test('a freeform node (no matching entity) is never removed', () => {
     const model = buildModel()
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     doc.Nodes.Add(node('not-an-entity'))
     expect(nodesLeavingScope(doc, model, ['archmm.LogicalView'])).toEqual([])
 })
@@ -61,7 +61,7 @@ test('the leaving node carries the entity display label', () => {
     const model = buildModel()
     model.create('archmm.store', 'archmm.db1')
     model.setField('archmm.db1', 'label', 'Primary Store')
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     doc.Nodes.Add(node('archmm.db1'))
     expect(nodesLeavingScope(doc, model, ['archmm.LogicalView'])[0]!.label).toBe('Primary Store')
 })

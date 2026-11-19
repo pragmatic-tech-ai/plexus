@@ -1,9 +1,9 @@
 // Live end-to-end: a committed arch-node RENAME is one undo step that reverts
-// BOTH the diagram label AND the persisted .todl on disk; redo replays it.
+// BOTH the board label AND the persisted .todl on disk; redo replays it.
 //
 // This exercises the wiring the vitest suite can only approximate: the REAL
-// ArchDiagramBindingService attaches a binding (registering the model history
-// layer) on the REAL opened DiagramDocument; the rename commits through the REAL
+// ArchBoardBindingService attaches a binding (registering the model history
+// layer) on the REAL opened BoardDocument; the rename commits through the REAL
 // ArchModel over REAL file storage, writing a REAL .todl; undo restores the model
 // layer and Reconcile re-saves — all in the launched Electron app against a corpus
 // CLONE (never the real corpus).
@@ -41,10 +41,10 @@ async function archNodes(l: Launched): Promise<Array<{ id: string; label: string
     })
 }
 
-// Reach the live DiagramDocument (host.ActiveDocument) + its first ArchNodeVM,
+// Reach the live BoardDocument (host.ActiveDocument) + its first ArchNodeVM,
 // exactly as arch-style-persist does, and run one op against them. `rename`
 // commits an in-place title edit (→ the binding's bracketed setField + save);
-// `undo` / `redo` drive the document's history. Returns the label the diagram
+// `undo` / `redo` drive the document's history. Returns the label the board
 // shows for that node afterwards, plus the history flags.
 function onDoc(l: Launched, op: 'rename' | 'undo' | 'redo', probe: string)
 {
@@ -126,13 +126,13 @@ test.describe.serial('arch rename undo/redo (live)', () => {
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // Open the project explorer, then open diagram-2.diagram (arch nodes)
+        // Open the project explorer, then open board-2.board (arch nodes)
         // through the workspace service (the nested solution tree keeps project
         // nodes collapsed, so a tree double-click can't see the file row).
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
+        await openProjectFile(l, 'test_architecture', 'board-2.board')
         // Arch nodes project asynchronously after the document opens (model load +
         // binding), so poll generously for them to appear.
         for (let i = 0; i < 40 && (await archNodes(l)).length === 0; i++) await l.win.waitForTimeout(500)
@@ -147,7 +147,7 @@ test.describe.serial('arch rename undo/redo (live)', () => {
     test('rename commits to disk; undo reverts model + label; redo replays', async () => {
         const before = await archNodes(l)
         await shot(l, 'undo-00-canvas')
-        expect(before.length, 'expected arch nodes on diagram-2').toBeGreaterThan(0)
+        expect(before.length, 'expected arch nodes on board-2').toBeGreaterThan(0)
         expect(todlText(archDir).includes(PROBE), 'probe absent before rename').toBe(false)
 
         // ── Rename (commit) → written to the model's .todl ───────────────────

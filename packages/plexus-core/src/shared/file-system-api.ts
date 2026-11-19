@@ -105,6 +105,6 @@ export interface IFileSystemApi
     // another.
     rename(from: string, to: string): Promise<void>;
     listDirectory(path: string): Promise<readonly FileEntry[]>;
-    // Open a path with the OS default application (for non-diagram attachments).
+    // Open a path with the OS default application (for non-board attachments).
     openExternal(path: string): Promise<void>;
 }

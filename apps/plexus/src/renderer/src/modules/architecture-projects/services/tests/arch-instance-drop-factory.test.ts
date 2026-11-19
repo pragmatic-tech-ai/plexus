@@ -1,10 +1,10 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, DialogService, Figure, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, DialogService, Figure, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from '../arch-board-binding-service.js'
 import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import { ArchInstanceDropFactory } from '../arch-instance-drop-factory.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
@@ -21,27 +21,27 @@ function buildModel(storage: FakeStorage): ArchModel
     return new ArchModel(draft, storage, 'archmm')
 }
 
-// A provider whose ArchDiagramBindingService maps `doc` → `model`.
-function wire(doc: DiagramDocument, model: ArchModel | undefined)
+// A provider whose ArchBoardBindingService maps `doc` → `model`.
+function wire(doc: BoardDocument, model: ArchModel | undefined)
 {
     const provider = new ServiceProvider()
-    provider.registerInstance(ArchDiagramBindingService.Key, {
+    provider.registerInstance(ArchBoardBindingService.Key, {
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
         scopeForDocument: () => undefined,   // falls back to all viewpoints
-    } as unknown as ArchDiagramBindingService)
+    } as unknown as ArchBoardBindingService)
     provider.registerInstance(CandidateChooserService.Key, new CandidateChooserService(provider))
     return provider
 }
 
-function ctx(doc: DiagramDocument, key: string): ToolboxDropContext
+function ctx(doc: BoardDocument, key: string): ToolboxDropContext
 {
-    return { Descriptor: { Key: key }, Position: { X: 5, Y: 6 }, Diagram: {}, Mutator: doc } as unknown as ToolboxDropContext
+    return { Descriptor: { Key: key }, Position: { X: 5, Y: 6 }, Board: {}, Mutator: doc } as unknown as ToolboxDropContext
 }
 
 test('a single-candidate drop creates the routed entity + an ArchNodeVM at the drop position', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model))
 
     const result = factory.CreateDropped(ctx(doc, 'archmm.Stack.azure')) as ArchNodeVM
@@ -63,7 +63,7 @@ test('a single-candidate drop creates the routed entity + an ArchNodeVM at the d
 test('a no-candidate drop returns null and mutates nothing', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model))
     const before = model.entities().length
     expect(factory.CreateDropped(ctx(doc, 'nonesuch'))).toBeNull()
@@ -71,7 +71,7 @@ test('a no-candidate drop returns null and mutates nothing', () => {
 })
 
 test('a non-architecture document falls back to a plain CreateNode', () => {
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, undefined))   // no model
     const result = factory.CreateDropped(ctx(doc, 'rectangle')) as Figure
     expect(result).toBeInstanceOf(Figure)
@@ -101,7 +101,7 @@ function buildPropModel(storage: FakeStorage): ArchModel
 test('dropping a technology wires the primary member AND back-fills the category by propagation', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildPropModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model))
 
     const result = factory.CreateDropped(ctx(doc, 'archmm.Stack.azure')) as ArchNodeVM
@@ -137,22 +137,22 @@ function buildContainModel(storage: FakeStorage): ArchModel
     return new ArchModel(draft, storage, 'archmm')
 }
 // A provider that also carries a spy DialogService, so the reject modal is observable.
-function wireWithDialogs(doc: DiagramDocument, model: ArchModel): { provider: ServiceProvider; shows: Array<{ Title?: string }> }
+function wireWithDialogs(doc: BoardDocument, model: ArchModel): { provider: ServiceProvider; shows: Array<{ Title?: string }> }
 {
     const provider = wire(doc, model)
     const shows: Array<{ Title?: string }> = []
     provider.registerInstance(DialogService.Key, { Show: (o: { Title?: string }) => { shows.push(o); return Promise.resolve(undefined) }, Close: () => {} } as unknown as DialogService)
     return { provider, shows }
 }
-function ctxInto(doc: DiagramDocument, key: string, targetId: string): ToolboxDropContext
+function ctxInto(doc: BoardDocument, key: string, targetId: string): ToolboxDropContext
 {
-    return { Descriptor: { Key: key }, Position: { X: 5, Y: 6 }, Diagram: {}, Mutator: doc, TargetContainer: { Id: targetId } } as unknown as ToolboxDropContext
+    return { Descriptor: { Key: key }, Position: { X: 5, Y: 6 }, Board: {}, Mutator: doc, TargetContainer: { Id: targetId } } as unknown as ToolboxDropContext
 }
 
 test('a legal drop into a model-backed container writes the containment ref, no modal', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildContainModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const loc = model.createInViewpoint('archmm.location', 'archmm.V')
     const { provider, shows } = wireWithDialogs(doc, model)
     const factory = new ArchInstanceDropFactory(provider)
@@ -184,7 +184,7 @@ function buildPlaceModel(storage: FakeStorage): ArchModel
 test('dropping a location term places the location entity itself (container), no new entity', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildPlaceModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const before = model.entities().length
     const factory = new ArchInstanceDropFactory(wire(doc, model))
 
@@ -200,7 +200,7 @@ test('dropping a location term places the location entity itself (container), no
     expect(factory.CreateDropped(ctx(doc, 'archmm.Regions.azure'))).toBeNull()
 })
 
-// A container-concept term dropped on a diagram whose viewpoint does NOT frame it
+// A container-concept term dropped on a board whose viewpoint does NOT frame it
 // must be REJECTED with an explanatory modal — not silently turned into a component
 // (the facet-drop fallback). `Scenarios` frames component but not location.
 const REJECT_MM = `namespace archmm {
@@ -220,14 +220,14 @@ function buildRejectModel(storage: FakeStorage): ArchModel
 test('dropping a location where its viewpoint is not framed is REJECTED with a modal, no component', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildRejectModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const before = model.entities().length
     const provider = new ServiceProvider()
     const shows: Array<{ Title?: string }> = []
-    provider.registerInstance(ArchDiagramBindingService.Key, {
+    provider.registerInstance(ArchBoardBindingService.Key, {
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
         scopeForDocument: () => new Set(['archmm.Scenarios']),   // frames component, NOT location
-    } as unknown as ArchDiagramBindingService)
+    } as unknown as ArchBoardBindingService)
     provider.registerInstance(CandidateChooserService.Key, new CandidateChooserService(provider))
     provider.registerInstance(DialogService.Key, { Show: (o: { Title?: string }) => { shows.push(o); return Promise.resolve(undefined) }, Close: () => {} } as unknown as DialogService)
     const factory = new ArchInstanceDropFactory(provider)
@@ -244,7 +244,7 @@ test('dropping a location where its viewpoint is not framed is REJECTED with a m
 test('an illegal drop into a container shows the modal, creates no entity', () => {
     const storage = new FakeStorage('fake://Acme')
     const model = buildContainModel(storage)
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const zone = model.createInViewpoint('archmm.zone', 'archmm.V')
     const before = model.entities().length
     const { provider, shows } = wireWithDialogs(doc, model)

@@ -33,7 +33,7 @@ class Parity
         return origins
     }
 
-    // The diagram's per-member slicing predicate (SolutionGraphPresentationSource.OwnIds), verbatim.
+    // The board's per-member slicing predicate (SolutionGraphPresentationSource.OwnIds), verbatim.
     public static OwnIds(view: { model: { allNodes(): Iterable<{ id: string }> }; originOf: ReadonlyMap<string, WikiOrigin> }, storage: IStorage): Set<string>
     {
         const ids = new Set<string>()

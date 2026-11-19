@@ -39,7 +39,7 @@ test.describe.serial('arch-go-to-definition', () => {
       const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
       if (ws) ex = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
       const proj = ex?.OpenProjects?.ToArray?.().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
-      if (proj) await ex.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
+      if (proj) await ex.OpenFileInProject(proj.Folder, 'board-2.board', 0, 0)
     })
     await l.win.waitForTimeout(5000)
   })
@@ -50,10 +50,10 @@ test.describe.serial('arch-go-to-definition', () => {
     if (copyRoot) fs.rmSync(copyRoot, { recursive: true, force: true })
   })
 
-  // Re-activate the architecture diagram so its ArchNodeVM tiles are in the DOM.
+  // Re-activate the architecture board so its ArchNodeVM tiles are in the DOM.
   // Navigation steals focus (opens a .todl tab), so each invocation test re-opens
-  // the diagram before scanning for nodes.
-  async function reopenDiagram(): Promise<void>
+  // the board before scanning for nodes.
+  async function reopenBoard(): Promise<void>
   {
     await l.win.evaluate(async () => {
       let ex: any
@@ -63,15 +63,15 @@ test.describe.serial('arch-go-to-definition', () => {
       const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
       if (ws) ex = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
       const proj = ex?.OpenProjects?.ToArray?.().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
-      if (proj) await ex.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
+      if (proj) await ex.OpenFileInProject(proj.Folder, 'board-2.board', 0, 0)
     })
     await l.win.waitForTimeout(3000)
   }
 
   test('a real right-click on a node shows the Go to Definition submenu', async () => {
     // The click point: center of the smallest on-screen tile bound to a nav-target
-    // node (its icon). The diagram surface captures the pointer (the menu opens
-    // with the document as DataContext), but ArchDiagramBinding's capture-phase
+    // node (its icon). The board surface captures the pointer (the menu opens
+    // with the document as DataContext), but ArchBoardBinding's capture-phase
     // right-click hit-test publishes the clicked node as doc.ContextTargetNode, so
     // the menu's node items resolve against it.
     const pt = await l.win.evaluate(() => {
@@ -144,7 +144,7 @@ test.describe.serial('arch-go-to-definition', () => {
   })
 
   test('invoking Go to Component opens the source AND reveals the declaration line', async () => {
-    await reopenDiagram()
+    await reopenBoard()
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       for (const el of document.querySelectorAll('*'))
@@ -195,7 +195,7 @@ test.describe.serial('arch-go-to-definition', () => {
     // decides the route: a published technology reveals in the Libraries panel
     // (activating the side pane + selecting the term); a project-local one opens
     // its .todl source. Either is a successful navigation.
-    await reopenDiagram()
+    await reopenBoard()
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       for (const el of document.querySelectorAll('*'))
@@ -233,7 +233,7 @@ test.describe.serial('arch-go-to-definition', () => {
   })
 
   test('a participant node exposes Go to Scenario, and invoking it reveals the scenario source', async () => {
-    await reopenDiagram()
+    await reopenBoard()
     // A node participating in ≥1 scenario, and how many (drives flat vs submenu).
     const invoked = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')

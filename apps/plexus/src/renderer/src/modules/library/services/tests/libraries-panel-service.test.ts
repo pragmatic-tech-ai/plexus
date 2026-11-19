@@ -7,7 +7,7 @@ import { PACKAGES_BACKEND_ID } from '../../../../services/projects/packages-back
 import { LibraryRegistry } from '../library-registry.js'
 import { LibrariesPanelService } from '../libraries-panel-service.js'
 import { LibraryNodeKind, LibraryTreeNode } from '../library-tree-node.js'
-import { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 // Synchronous seed (see the registry test) so all files exist before Reload lists.
 function providerWith(seed: (b: FakeStorage) => void): ServiceProvider

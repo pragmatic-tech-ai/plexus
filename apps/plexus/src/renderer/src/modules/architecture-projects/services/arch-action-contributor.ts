@@ -9,27 +9,28 @@ import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/rendere
 import { ActiveSolutionMembers } from '../../../services/solution/active-solution-members.js'
 import { ContentNodeKey, type ProjectContentNode } from '@pragmatic-tech-ai/todl'
 import type { SolutionMember } from '@pragmatic-tech-ai/todl'
-import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
-import { DiagramViewpointsEditor } from './diagram-viewpoints-editor.js'
+import { ArchBoardBindingService } from './arch-board-binding-service.js'
+import { BoardViewpointsEditor } from './board-viewpoints-editor.js'
 
-// The "Edit Viewpoints…" command for a .diagram node in an architecture project — the
+// The "Edit Viewpoints…" command for a .board node in an architecture project — the
 // INodeCommandContributor replacement on the command-dispatch seam, Context-tagged to the
-// diagram content key. Resolves the member's resolved project, opens/focuses the
-// diagram, ensures its arch binding, then runs the shared viewpoints editor. Gating (arch
-// project + .diagram) rides the resolved command's CanExecute.
+// board content key. Resolves the member's resolved project, opens/focuses the
+// board, ensures its arch binding, then runs the shared viewpoints editor. Gating (arch
+// project + .board) rides the resolved command's CanExecute.
 export class ArchActionContributor extends ServiceBase implements IHierarchyContributor
 {
     public static readonly Key = new ServiceKey<ArchActionContributor>('ArchActionContributor')
     public static readonly EditViewpointsId = 'arch.editViewpoints.node'
-    private static readonly DiagramExt = '.diagram'
+    // Canonical `.board` plus the legacy `.diagram` still readable as a board.
+    private static readonly BoardExts: readonly string[] = ['.board', '.diagram']
     private static readonly ArchType = 'architecture'
 
-    public readonly ParentKeys = [ContentNodeKey.Diagram]
+    public readonly ParentKeys = [ContentNodeKey.Board]
     public readonly Order = 100
 
     public constructor(provider: IServiceProvider) { super(provider) }
 
-    // Action-only: the diagram rows come from the file-tree provider.
+    // Action-only: the board rows come from the file-tree provider.
     public Contribute(_parent: HierarchyItem): HierarchyContribution
     {
         return new NodeContribution([])
@@ -46,7 +47,7 @@ export class ArchActionContributor extends ServiceBase implements IHierarchyCont
         const canEdit = (): boolean =>
             handle !== undefined
             && handle.Project.Type === ArchActionContributor.ArchType
-            && node.Path.toLowerCase().endsWith(ArchActionContributor.DiagramExt)
+            && ArchActionContributor.BoardExts.some((e) => node.Path.toLowerCase().endsWith(e))
         return new RelayCommand(() => { if (handle !== undefined) void this.edit(member, node.Path) }, canEdit)
     }
 
@@ -54,8 +55,8 @@ export class ArchActionContributor extends ServiceBase implements IHierarchyCont
     {
         const doc = await this.Provider.getRequired(SolutionWorkspaceService.Key).OpenPath(member, path)
         if (doc === undefined) return
-        await this.Provider.get(ArchDiagramBindingService.Key)?.ensureBound(doc)
-        await this.Provider.get(DiagramViewpointsEditor.Key)?.edit(doc)
+        await this.Provider.get(ArchBoardBindingService.Key)?.ensureBound(doc)
+        await this.Provider.get(BoardViewpointsEditor.Key)?.edit(doc)
     }
 }
 

@@ -8,14 +8,14 @@ import { TodlProjectFactory, isTodlProject, type ScaffoldFile } from '../todl-pr
 
 // A minimal concrete factory: one extra scaffold file, a manifest that carries
 // an unrelated field to prove saveProject preserves it, and two formats so the
-// kind-mapping is exercised (.todl → 'todl', .diagram → 'diagram').
+// kind-mapping is exercised (.todl → 'todl', .board → 'board').
 class FakeFactory extends TodlProjectFactory
 {
     public readonly typeId = 'fake'
     public readonly title = 'Fake Project'
     public readonly description = ''
     public readonly formats: readonly ProjectFileFormat[] = [
-        { extension: '.diagram', kind: 'diagram', displayName: 'Diagram' },
+        { extension: '.board', kind: 'board', displayName: 'Board' },
         { extension: '.todl', kind: 'todl', displayName: 'TODL Definition' },
     ]
     protected buildManifest(name: string, _bindings?: BaseBindings): ProjectManifestEnvelope
@@ -54,11 +54,11 @@ test('populate maps node kind from formats; unmatched → file; manifest hidden'
     const storage = new FakeStorage()
     await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({ type: 'fake', name: 'P', version: 1 }))
     await storage.WriteText('defs/core.todl', 'namespace d {}')
-    await storage.WriteText('view.diagram', '{}')
+    await storage.WriteText('view.board', '{}')
     await storage.WriteText('notes.md', 'hi')
     const project = await factory().openProject(storage)
     const top = new Map(project.Root.Children.ToArray().map((n) => [n.Name, n.Kind]))
-    expect(top.get('view.diagram')).toBe('diagram')
+    expect(top.get('view.board')).toBe('board')
     expect(top.get('notes.md')).toBe('file')
     expect([...top.keys()]).not.toContain(PROJECT_MANIFEST_FILENAME)
     const defs = project.Root.Children.ToArray().find((n) => n.Name === 'defs')!

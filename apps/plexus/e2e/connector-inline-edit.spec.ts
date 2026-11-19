@@ -1,4 +1,4 @@
-// Live check: inline text editing on arch-diagram connectors.
+// Live check: inline text editing on arch-board connectors.
 //   1. VISIBILITY — double-clicking an EMPTY-label connector's route shows a
 //      visible editor (the empty RichTextBox now honours a MinWidth/MinHeight;
 //      before, it measured to zero size and "no editor appeared").
@@ -45,17 +45,17 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: bo
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
-        const arr: any[] = diagram.ItemsSource.ToArray()
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
+        const arr: any[] = board.ItemsSource.ToArray()
         const byId = (id: string) => arr.find((vm: any) => vm?.Id === id)
         // CreateConnector needs a real ConnectorEndpoint (it attaches DP
         // listeners) — borrow the class from a projected connector.
-        const Ep = diagram.Connectors?.ToArray?.()[0]?.Source?.constructor
+        const Ep = board.Connectors?.ToArray?.()[0]?.Source?.constructor
         if (!Ep) return { ok: false, reason: 'no ConnectorEndpoint class to borrow' }
         const src = byId(fromId), tgt = byId(toId)
         if (!src || !tgt) return { ok: false, reason: 'node not found' }
-        diagram._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
+        board._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
         return { ok: true }
     }, { fromId, toId })
 }
@@ -64,7 +64,7 @@ async function hasNodes(l: Launched): Promise<boolean>
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0 }
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0 }
         return false
     })
 }
@@ -76,7 +76,7 @@ async function connectorCount(l: Launched): Promise<number>
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') return v.Connectors?.ToArray?.().length ?? 0 }
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') return v.Connectors?.ToArray?.().length ?? 0 }
         return 0
     })
 }
@@ -85,10 +85,10 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        for (const c of diagram.Connectors?.ToArray?.() ?? [])
+        for (const c of board.Connectors?.ToArray?.() ?? [])
         {
             const s = idOf(c.Source), t = idOf(c.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) return c.LabelText
@@ -103,11 +103,11 @@ async function editLabel(l: Launched, fromId: string, toId: string, text: string
 {
     return l.win.evaluate(({ fromId, toId, text }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
         let c: any
-        for (const x of diagram.Connectors?.ToArray?.() ?? [])
+        for (const x of board.Connectors?.ToArray?.() ?? [])
         {
             const s = idOf(x.Source), t = idOf(x.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) { c = x; break }
@@ -141,7 +141,7 @@ test.describe.serial('connector inline edit', () => {
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
+        await openProjectFile(l, 'test_architecture', 'board-2.board')
         // Arch nodes project asynchronously after the open; poll for them.
         for (let i = 0; i < 40 && !(await hasNodes(l)); i++) await l.win.waitForTimeout(500)
     })
@@ -181,12 +181,12 @@ test.describe.serial('connector inline edit', () => {
     }
 
     test('double-click and F2 edit a connector-entity label, and the edit persists', async () => {
-        expect(await hasNodes(l), 'diagram-2 opened with nodes').toBe(true)
+        expect(await hasNodes(l), 'board-2 opened with nodes').toBe(true)
         // draw() borrows the ConnectorEndpoint class from a projected connector.
         // The model's edges project asynchronously; wait, and skip cleanly if this
         // environment projected none (the behaviours are covered by unit tests).
         for (let i = 0; i < 40 && (await connectorCount(l)) === 0; i++) await l.win.waitForTimeout(500)
-        test.skip((await connectorCount(l)) === 0, 'diagram-2 projected no connectors to draw from this run')
+        test.skip((await connectorCount(l)) === 0, 'board-2 projected no connectors to draw from this run')
 
         // Draw A→B → auto-mint a connector entity labeled with its type (calls).
         const drawn = await draw(l, A, B)

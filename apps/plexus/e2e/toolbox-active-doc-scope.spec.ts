@@ -1,4 +1,4 @@
-// Live smoke: opening an architecture diagram scopes the toolbox to the active
+// Live smoke: opening an architecture board scopes the toolbox to the active
 // document's model — the Model + Scenarios pages carry the model namespace, and
 // the library / meta-model pages narrow to the bases the model references.
 // The corpus arch project (test_architecture) is `pilot_project.models` and
@@ -41,7 +41,7 @@ async function toolboxPages(l: Launched): Promise<Array<{ id: string; title: str
     })
 }
 
-test.describe.serial('toolbox scopes to the active architecture diagram', () => {
+test.describe.serial('toolbox scopes to the active architecture board', () => {
     let l: Launched
     let restoreSession: () => void
     let copyRoot: string
@@ -60,17 +60,17 @@ test.describe.serial('toolbox scopes to the active architecture diagram', () => 
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // Open an architecture diagram so its model binds and the toolbox scopes.
+        // Open an architecture board so its model binds and the toolbox scopes.
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 20; i++)
         {
-            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('board.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 400); await l.win.waitForTimeout(200)
         }
-        const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
+        const dd = l.win.getByText('board.board', { exact: true }).first()
         await dd.dblclick({ timeout: 4000 }).catch(() => {})
         await l.win.waitForTimeout(3500)
     })
@@ -87,7 +87,7 @@ test.describe.serial('toolbox scopes to the active architecture diagram', () => 
         console.log('APP ERRORS:', JSON.stringify(appErrors(l.errors), null, 2))
 
         const titles = pages.map((p) => p.title)
-        // Model page unchanged (confirms the arch diagram bound + wiring resolved).
+        // Model page unchanged (confirms the arch board bound + wiring resolved).
         expect(titles).toContain('Model: pilot_project.models')
         // Scenarios page now carries the model namespace (the change under test).
         expect(titles).toContain('Scenarios: pilot_project.models')

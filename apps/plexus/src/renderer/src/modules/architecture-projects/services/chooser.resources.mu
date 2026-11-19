@@ -1,7 +1,7 @@
 // chooser.resources.mu — the drop-candidate chooser popup. A hidden MenuButton
 // whose floating popup lists the candidate (X,m) actions for an ambiguous
 // term-drop. IsOpen / Rows bind the CandidateChooserService (the host's
-// DataContext at the mount site — the diagram canvas overlay). Mirrors the
+// DataContext at the mount site — the board canvas overlay). Mirrors the
 // Problems dock popup contract (MenuPopupHost + ClickAwayScrim + container).
 
 import CandidateChooserService from "@pragmatic-tech-ai/mural/framework"

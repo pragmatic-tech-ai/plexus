@@ -82,7 +82,7 @@ export class SkillRunner extends ServiceBase
     {
         return {
             currentProject: () => ({ name: projectName, path: projectDir }),
-            diagramSelection: () => this.selection(),
+            boardSelection: () => this.selection(),
             activeDocument: () => this.activeDoc(),
             primaryEntity: () => this.selection()?.entities[0],
             workspaceRoot: () => { const p = this.Provider.get(EnvironmentService.Key)?.CurrentDirectory; return p !== undefined ? { path: p } : undefined },

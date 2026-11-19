@@ -1,20 +1,20 @@
 import type { Entity } from '@pragmatic-tech-ai/todl'
-import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
+import type { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
 import { resolveElementPresentation } from './element-presentation.js'
 import { ElementProjection, type Element, type ToElementOptions } from './element-projection.js'
-import type { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
-import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
+import type { ArchBoardBindingService } from './arch-board-binding-service.js'
+import type { TodlPresentationRegistry } from '../../board/services/todl-presentation-registry.js'
 
 // SelectedItems is inherited from Selector (readonly unknown[]) and not on the
-// Diagram d.ts — reach it through a narrow interface.
+// Board d.ts — reach it through a narrow interface.
 interface WithSelectedItems { SelectedItems?: readonly unknown[] }
 
-// Projects the active diagram's selected node view-models to Elements of the
+// Projects the active board's selected node view-models to Elements of the
 // document's bound ArchModel, with presentation + provenance.home wired in.
 // Unbound document or empty selection -> [].
 export function selectionToElements(
-    doc: DiagramDocument,
-    bindingSvc: ArchDiagramBindingService,
+    doc: BoardDocument,
+    bindingSvc: ArchBoardBindingService,
     registry: TodlPresentationRegistry,
 ): Element[]
 {

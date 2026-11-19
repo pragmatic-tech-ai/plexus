@@ -7,7 +7,7 @@ function sources(over: Partial<BindingContextSources> = {}): BindingContextSourc
 {
     return {
         currentProject: () => ({ name: 'P', path: '/p' }),
-        diagramSelection: () => ({ entityIds: ['a', 'b'], entities: [{ id: 'a' }, { id: 'b' }] }),
+        boardSelection: () => ({ entityIds: ['a', 'b'], entities: [{ id: 'a' }, { id: 'b' }] }),
         activeDocument: () => ({ path: '/p/x.todl', kind: 'todl' }),
         primaryEntity: () => ({ id: 'a', term: 'Service' }),
         workspaceRoot: () => ({ path: '/ws' }),
@@ -18,7 +18,7 @@ function sources(over: Partial<BindingContextSources> = {}): BindingContextSourc
 test('resolves each source to its payload kind, preserving the alias', () => {
     const r = new BindingResolver(sources())
     const out = r.resolve([
-        { source: BindingSource.CurrentProject }, { source: BindingSource.DiagramSelection },
+        { source: BindingSource.CurrentProject }, { source: BindingSource.BoardSelection },
         { source: BindingSource.ActiveDocument }, { source: BindingSource.EntityRef, as: 'ent' },
         { source: BindingSource.WorkspaceRoot },
     ])
@@ -30,8 +30,8 @@ test('resolves each source to its payload kind, preserving the alias', () => {
 })
 
 test('absent context resolves to Empty, never throws', () => {
-    const r = new BindingResolver(sources({ diagramSelection: () => undefined }))
-    const [b] = r.resolve([{ source: BindingSource.DiagramSelection }])
+    const r = new BindingResolver(sources({ boardSelection: () => undefined }))
+    const [b] = r.resolve([{ source: BindingSource.BoardSelection }])
     expect(b.kind).toBe(BindingPayloadKind.Empty)
     expect(b.data).toBeNull()
 })

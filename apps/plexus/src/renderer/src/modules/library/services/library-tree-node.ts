@@ -1,7 +1,7 @@
 import { DataObject, DragDropEffects, MetaData, MuralBase, ObservableCollection, type ICommand } from '@pragmatic-tech-ai/mural/runtime'
 import { TOOLBOX_ITEM_FORMAT } from '@pragmatic-tech-ai/mural/framework'
-import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
-import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
+import { EntityIconVM } from '../../board/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../board/services/todl-presentation-registry.js'
 
 // The three tiers of the Libraries tree. One node type carries all three, kept
 // apart by Kind (mirrors ProjectNode's single-type-plus-Kind shape).
@@ -12,7 +12,7 @@ export enum LibraryNodeKind { Library = 'library', Concept = 'concept', Class = 
 // binds against ($Display/$Label/$LocalId/$Concept), an icon VM ($Icon, rendered
 // by the preview's ContentControl + TodlVisualSelector), and a drag payload
 // emitting the term's repository item id (TOOLBOX_ITEM_FORMAT) so the leaf can be
-// dropped onto a diagram — the drop router no-ops for a class that isn't a toolbox item.
+// dropped onto a board — the drop router no-ops for a class that isn't a toolbox item.
 export class LibraryTreeNode extends MuralBase
 {
     public static readonly NameKey = MuralBase.RegisterProperty<string>(LibraryTreeNode, 'Name', '', MetaData.None)

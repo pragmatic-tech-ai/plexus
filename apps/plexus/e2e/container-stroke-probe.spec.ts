@@ -11,20 +11,20 @@ async function dumpFigures(l: Launched)
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return []
-        const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
+        if (!board) return []
+        const arr: any[] = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
         const brush = (b: any) => (b == null ? null : (b.Color?.toString?.() ?? b.Color ?? b.toString?.() ?? String(b)))
         const pen = (p: any) => (p == null ? null : { brush: brush(p.Brush), thickness: p.Thickness })
         const out: any[] = []
         for (const vm of arr)
         {
-            const fig = vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+            const fig = vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
             if (!fig) continue
             out.push({
                 id: vm?.Id ?? fig?.Id,
@@ -57,12 +57,12 @@ test.describe.serial('container stroke vs shape stroke', () => {
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 30; i++)
         {
-            if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('board-2.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300); await l.win.mouse.wheel(0, 300); await l.win.waitForTimeout(150)
         }
         for (let a = 0; a < 4 && (await dumpFigures(l)).length === 0; a++)
         {
-            const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
+            const dd = l.win.getByText('board-2.board', { exact: true }).first()
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
         }

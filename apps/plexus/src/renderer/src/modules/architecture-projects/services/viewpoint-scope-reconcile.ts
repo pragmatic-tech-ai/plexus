@@ -1,10 +1,10 @@
-import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
 import { NodeNames } from './node-names.js'
 import type { Entity } from '@pragmatic-tech-ai/todl'
 import { ArchNodeVM } from './arch-node-vm.js'
 import type { ArchModel } from './arch-model.js'
 
-// A diagram node that would fall out of scope under a narrowed viewpoint set.
+// A board node that would fall out of scope under a narrowed viewpoint set.
 export interface LeavingNode
 {
     node: ArchNodeVM | Figure
@@ -12,13 +12,13 @@ export interface LeavingNode
     label: string
 }
 
-// The nodes that would leave scope if `chosen` becomes the diagram's governing
+// The nodes that would leave scope if `chosen` becomes the board's governing
 // viewpoint set: every present node bound to a live entity whose concept is
 // framed by NO viewpoint in `chosen`. Freeform nodes (no matching entity) and
 // nodes still framed by a chosen viewpoint stay. `chosen` empty means "all
 // viewpoints" — nothing leaves. Pure: it reads the doc and model but mutates
 // neither, so the caller can list the casualties before confirming.
-export function nodesLeavingScope(doc: DiagramDocument, model: ArchModel, chosen: readonly string[]): LeavingNode[]
+export function nodesLeavingScope(doc: BoardDocument, model: ArchModel, chosen: readonly string[]): LeavingNode[]
 {
     if (chosen.length === 0) return []
     const chosenSet = new Set(chosen)

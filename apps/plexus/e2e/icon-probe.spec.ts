@@ -26,13 +26,13 @@ async function probeIcons(l: Launched)
         const S = Symbol.for('mural:visual-backref')
         const elByVisual = new Map<any, Element>()
         const parts: any[] = []
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
             if (!v) continue
             if (!elByVisual.has(v)) elByVisual.set(v, el)
-            if (v?.constructor?.name === 'Diagram') diagram = v
+            if (v?.constructor?.name === 'Board') board = v
         }
         // Map each ArchNodeVM's Icon (its EntityIconVM instance) → node id + role, so
         // a PART_Icon can be attributed to its owning node. The icon's string IconKey
@@ -40,7 +40,7 @@ async function probeIcons(l: Launched)
         // specific node's icon is located by the EntityIconVM IDENTITY, not by key.
         const nodes: any[] = []
         const iconToNode = new Map<any, { id: string; isContainer: boolean }>()
-        const arr: any[] = diagram?.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
+        const arr: any[] = board?.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
         for (const vm of arr)
         {
             if (vm?.constructor?.name !== 'ArchNodeVM') continue
@@ -77,8 +77,8 @@ async function probeIcons(l: Launched)
         const settings = gs
             ? {
                   hasGetter: true,
-                  defaultIconWidth: gs('diagram.DefaultIconWidth'),
-                  defaultIconHeight: gs('diagram.DefaultIconHeight'),
+                  defaultIconWidth: gs('board.DefaultIconWidth'),
+                  defaultIconHeight: gs('board.DefaultIconHeight'),
                   toolboxItemWidth: gs('toolbox.item.width'),   // known-working control
               }
             : { hasGetter: false }
@@ -113,7 +113,7 @@ test.describe.serial('canvas icon probe', () => {
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'nesting-demo.diagram')
+        await openProjectFile(l, 'test_architecture', 'nesting-demo.board')
         for (let i = 0; i < 40 && (await probeIcons(l)).nodes.length === 0; i++) await l.win.waitForTimeout(500)
     })
 
@@ -141,7 +141,7 @@ test.describe.serial('canvas icon probe', () => {
 
         // The leaf arch node (business_agent, a component — not a container) must
         // paint its class icon at the ~80px settings size, with real glyph geometry.
-        // widthProp === 80 proves the DP resolved Diagram.DefaultIconWidth from the
+        // widthProp === 80 proves the DP resolved Board.DefaultIconWidth from the
         // setting via the SettingSourceKey bridge — a default (0) would collapse it,
         // which is the exact regression (bridge unwired when app.mu owns
         // ApplicationSettings.Key). This is the user-facing guarantee, asserted on the
@@ -151,7 +151,7 @@ test.describe.serial('canvas icon probe', () => {
         const leaf = leafOf(data)
         expect(leaf, 'business_agent PART_Icon present').toBeTruthy()
         expect(leaf.isContainer, 'business_agent is a leaf (non-container)').toBe(false)
-        expect(leaf.widthProp, 'icon ContentControl width = Diagram.DefaultIconWidth (80)').toBe(80)
+        expect(leaf.widthProp, 'icon ContentControl width = Board.DefaultIconWidth (80)').toBe(80)
         expect(leaf.rect.w, 'icon laid out at a real size, not collapsed').toBeGreaterThan(40)
         expect(leaf.paths, 'icon glyph actually rendered').toBeGreaterThan(0)
     })

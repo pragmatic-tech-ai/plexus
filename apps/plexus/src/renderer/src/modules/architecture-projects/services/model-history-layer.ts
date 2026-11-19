@@ -3,8 +3,8 @@ import type { ArchModel } from './arch-model.js'
 
 // The TODL model as a history layer: snapshots the own .todl files, restores them
 // silently, and reconciles by firing the model's change signal (→ binding rescan)
-// and re-saving. Registered on a document's DiagramHistory while the binding lives,
-// so a model-mutating diagram edit undoes the model alongside the diagram visuals.
+// and re-saving. Registered on a document's BoardHistory while the binding lives,
+// so a model-mutating board edit undoes the model alongside the board visuals.
 export class ModelHistoryLayer implements IHistoryLayer
 {
     public readonly Id = HistoryLayerId.Model

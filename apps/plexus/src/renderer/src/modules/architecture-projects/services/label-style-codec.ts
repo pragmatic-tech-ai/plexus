@@ -15,7 +15,7 @@ export interface LabelStyle
     textAlignment?: TextAlignment
 }
 
-// Round-trips a LabelStyle to/from the JSON-safe form persisted in a diagram (a node
+// Round-trips a LabelStyle to/from the JSON-safe form persisted in a board (a node
 // record's `labelStyle`, or a connector visual's `label.style`). The enum values
 // (weight / style / decorations / alignment) travel as their raw wire form, so a
 // guarded cast restores them; the foreground SolidColorBrush travels as a hex string.

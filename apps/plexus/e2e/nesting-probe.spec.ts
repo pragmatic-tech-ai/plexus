@@ -1,5 +1,5 @@
 // GO/NO-GO probe: multi-level MODEL-BACKED container nesting projects at depth.
-// Opens nesting-demo.diagram (azure ⊃ m365 ⊃ power_platform ⊃ business_agent) and
+// Opens nesting-demo.board (azure ⊃ m365 ⊃ power_platform ⊃ business_agent) and
 // asserts each level nests into its direct parent as a true SVG-DOM descendant —
 // the depth generalization the container-drag-follow demo (1 level) does not cover.
 //
@@ -31,18 +31,18 @@ async function probe(l: Launched)
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         const elByVisual = new Map<any, Element>()
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
             if (!v) continue
             if (!elByVisual.has(v)) elByVisual.set(v, el)
-            if (v?.constructor?.name === 'Diagram') diagram = v
+            if (v?.constructor?.name === 'Board') board = v
         }
-        if (!diagram) return { rows: [] as any[] }
-        const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
-        const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+        if (!board) return { rows: [] as any[] }
+        const arr: any[] = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
+        const figOf = (vm: any) => vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
         const rows: any[] = []
         for (const vm of arr)
         {
@@ -86,7 +86,7 @@ test.describe.serial('multi-level model-backed nesting projects at depth', () =>
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'nesting-demo.diagram')
+        await openProjectFile(l, 'test_architecture', 'nesting-demo.board')
         // Multi-level nesting projects asynchronously after the open; poll for it.
         for (let i = 0; i < 40 && (await probe(l)).rows.length === 0; i++) await l.win.waitForTimeout(500)
     })

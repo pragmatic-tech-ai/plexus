@@ -2,7 +2,7 @@
 // ($Label), not the container Figure's blank ShapeText.
 //
 // F2 and double-click funnel through the SAME line — resolveEditTarget(container)
-// ?.BeginEdit() (mural diagram.ts F2 handler + figure.ts double-click). Making
+// ?.BeginEdit() (mural board.ts F2 handler + figure.ts double-click). Making
 // ArchNodeVM IEditable (it now exposes BeginEdit) is what flips resolveEditTarget
 // from the fallback ShapeText to the node itself. This harness drives the
 // double-click gesture because Playwright cannot inject a key event into mural's
@@ -77,21 +77,21 @@ test.describe.serial('arch node title edit', () => {
         await l.win.waitForTimeout(12_000)
 
         // Open the project explorer (activity-rail NavigationItem[1]), wheel the
-        // virtualized tree until diagram-2.diagram (arch nodes) renders, then open it.
+        // virtualized tree until board-2.board (arch nodes) renders, then open it.
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 16; i++)
         {
-            if (await l.win.getByText('diagram-2.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('board-2.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
         for (let attempt = 0; attempt < 3 && (await archNodes(l)).length === 0; attempt++)
         {
-            const dd = l.win.getByText('diagram-2.diagram', { exact: true }).first()
+            const dd = l.win.getByText('board-2.board', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
@@ -106,7 +106,7 @@ test.describe.serial('arch node title edit', () => {
     test('double-click opens a title editor seeded with the node label; Escape cancels', async () => {
         const before = await archNodes(l)
         await shot(l, 'f2-00-canvas')
-        expect(before.length, 'expected arch nodes on diagram-2').toBeGreaterThan(0)
+        expect(before.length, 'expected arch nodes on board-2').toBeGreaterThan(0)
         expect(before.every((n) => !n.editing)).toBe(true)
         const baseBoxes = await visibleTextBoxes(l)
 

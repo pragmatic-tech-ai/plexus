@@ -5,7 +5,7 @@
 // a hardcoded items slot). The strip layout + menu chrome come from the module;
 // these two ControlTemplates are the Plexus-specific fills the module hosts via
 // ContentControl[Template].
-import DiagramExportService from "../modules/diagram-export/services/diagram-export-service.js"
+import BoardExportService from "../modules/board-export/services/board-export-service.js"
 import ProjectCommandsService from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/project-commands-service.js"
 import SolutionCommandsService from "@pragmatic-tech-ai/plexus-core/renderer/modules/solution-explorer/services/solution-commands-service.js"
 import EditCommandsService from "@pragmatic-tech-ai/mural/framework"
@@ -59,8 +59,8 @@ resources PlexusWindowChrome {
         // open/close popup; the strip just lays them out left to right).
         StackPanel [ Orientation = Horizontal ] {
             // File: project lifecycle, then document save, then export, then
-            // close-all. Export… opens the diagram export dialog — the same
-            // command the diagram context menu binds.
+            // close-all. Export… opens the board export dialog — the same
+            // command the board context menu binds.
             MenuButton
                 [ Header            = "File",
                   Template          = @WindowMenuPopup,
@@ -78,11 +78,11 @@ resources PlexusWindowChrome {
                 MenuItem [ Header = "Save",     RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveActiveCommand ]
                 MenuItem [ Header = "Save All", RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).SaveAllCommand ]
                 MenuSeparator
-                MenuItem [ Header = "Export…", RowTemplate = @CompactMenuItemRow, Command = $service(DiagramExportService).OpenExportDialogCommand ]
+                MenuItem [ Header = "Export…", RowTemplate = @CompactMenuItemRow, Command = $service(BoardExportService).OpenExportDialogCommand ]
                 MenuSeparator
                 MenuItem [ Header = "Close All", RowTemplate = @CompactMenuItemRow, Command = $service(ContentHostService).CloseAllCommand ]
             }
-            // Edit: Undo/Redo bridge to the active diagram's own History; Cut/
+            // Edit: Undo/Redo bridge to the active board's own History; Cut/
             // Copy/Paste bridge to the active view — see EditCommandsService.
             MenuButton
                 [ Header            = "Edit",
@@ -96,7 +96,7 @@ resources PlexusWindowChrome {
                 MenuItem [ Header = "Copy",  RowTemplate = @CompactMenuItemRow, Command = $service(EditCommandsService).CopyCommand ]
                 MenuItem [ Header = "Paste", RowTemplate = @CompactMenuItemRow, Command = $service(EditCommandsService).PasteCommand ]
             }
-            // View: zoom bridges to the active diagram's camera; Side Bar/
+            // View: zoom bridges to the active board's camera; Side Bar/
             // Problems are genuine toggles; Agent Chat is a show/focus (its
             // dock panel is permanent — see ViewCommandsService.ShowAgentChatCommand).
             MenuButton

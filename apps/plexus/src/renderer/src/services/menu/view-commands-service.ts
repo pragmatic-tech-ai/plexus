@@ -3,16 +3,16 @@ import {
     type ICommand, type IDisposable, type IServiceProvider,
 } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    ContentHostService, DiagramDocument,
-    type Diagram, type DocumentsContentHostService,
+    ContentHostService, BoardDocument,
+    type Board, type DocumentsContentHostService,
 } from '@pragmatic-tech-ai/mural/framework'
 import { ProblemsService } from '../../modules/problems/problems-service.js'
 import { ChatSessionsService } from '../../modules/agent-chat/services/chat-sessions-service.js'
 
 // Zoom + view-panel commands for the main menu's View menu. Zoom bridges to
-// the active diagram's live camera (ZoomIn/ZoomOut/ResetZoom), resolving
+// the active board's live camera (ZoomIn/ZoomOut/ResetZoom), resolving
 // ContentHostService → ActiveDocument → ActiveView exactly like
-// zoom-shortcuts.ts / EditCommandsService; enabled only while a diagram is
+// zoom-shortcuts.ts / EditCommandsService; enabled only while a board is
 // active with a mounted view. Problems is a genuine toggle (flip a boolean) and
 // stays always-enabled. Agent Chat is NOT a toggle: its primary dock panel is
 // permanent (ChatSessionsService.EnsurePrimary), so this command only ensures it
@@ -77,16 +77,16 @@ export class ViewCommandsService extends ServiceBase
         super.dispose()
     }
 
-    private ActiveDiagram(): DiagramDocument | undefined
+    private ActiveBoard(): BoardDocument | undefined
     {
         const host = this.Provider.get(ContentHostService.Key) as DocumentsContentHostService | undefined
         const doc = host?.ActiveDocument
-        return doc instanceof DiagramDocument ? doc : undefined
+        return doc instanceof BoardDocument ? doc : undefined
     }
 
-    private ActiveView(): Diagram | undefined
+    private ActiveView(): Board | undefined
     {
-        return this.ActiveDiagram()?.ActiveView
+        return this.ActiveBoard()?.ActiveView
     }
 
     private RaiseZoomCanExecuteChanged(): void

@@ -1,0 +1,64 @@
+// board-export-preview.resources.mu — the export preview dialog body.
+//
+// Renders BoardExportPreviewModel as DialogService modal content: a live SVG
+// preview on the left, the export options on the right, Cancel / Export below.
+// Every option two-way-binds a VM DP (ComboBox SelectedItem / Switch IsChecked);
+// the VM re-renders the preview on each change. Mirrors save-prompt.resources.mu.
+//
+// Merged app-global by app.mu (`merge BoardExportPreviewResources`) so
+// DialogService.Show({ Content: vm }) resolves this template by data type.
+
+import BoardExportPreviewModel from "./services/board-export-preview-model.js"
+
+resources BoardExportPreviewResources {
+
+    DataTemplate [ DataType = BoardExportPreviewModel ] {
+        DockPanel [ LastChildFill = true, Width = 860, MinHeight = 460 ] {
+            // Actions row (bottom): Cancel + Export (Filled primary).
+            StackPanel [ DockPanel.Dock = Bottom, Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,16,0,0) ] {
+                Button [ Variant = Text,   Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }
+                Button [ Variant = Filled, Command = $ExportCommand ] { TextBlock [ Text = "Export" ] }
+            }
+
+            // Preview (left): the rendered board on a neutral backdrop + a size readout.
+            Border [ DockPanel.Dock = Left, Width = 500, MinHeight = 440, Fill = @Bg2,
+                     CornerRadius = @RadiusMd, Margin = (0,0,16,0), Padding = (8) ] {
+                StackPanel [ Orientation = Vertical, HorizontalAlignment = Center, VerticalAlignment = Center ] {
+                    Image [ Source = $Preview, Stretch = Uniform, MaxWidth = 480, MaxHeight = 460 ]
+                    TextBlock [ Text = $PreviewSize, Style = @BodySm, Foreground = @Fg2,
+                                HorizontalAlignment = Center, Margin = (0,8,0,0) ]
+                }
+            }
+
+            // Options (right, fills remaining).
+            StackPanel [ Orientation = Vertical ] {
+                DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Formats, SelectedIndex = $FormatIndex, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Format", Foreground = @Fg1, VerticalAlignment = Center ]
+                }
+                DockPanel x:name="PART_SelectionOption" [ LastChildFill = true, Margin = (0,4,0,4) ] {
+                    Switch [ DockPanel.Dock = Right, IsChecked = $UseSelection, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Selection only", Foreground = @Fg1, VerticalAlignment = Center ]
+                }
+                DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Backgrounds, SelectedIndex = $BackgroundIndex, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Background", Foreground = @Fg1, VerticalAlignment = Center ]
+                }
+                DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $ForegroundChoices, SelectedIndex = $ForegroundIndex, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Foreground", Foreground = @Fg1, VerticalAlignment = Center ]
+                }
+                DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
+                    Switch [ DockPanel.Dock = Right, IsChecked = $ShowPageBreaks, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Page breaks", Foreground = @Fg1, VerticalAlignment = Center ]
+                }
+                DockPanel [ LastChildFill = true, Margin = (0,4,0,4) ] {
+                    ComboBox [ DockPanel.Dock = Right, Width = 180, ItemsSource = $Scales, SelectedIndex = $ScaleIndex, VerticalAlignment = Center ]
+                    TextBlock [ Style = @Body, Text = "Scale (raster)", Foreground = @Fg1, VerticalAlignment = Center ]
+                }
+            }
+        }
+        // Hide the selection toggle when nothing is selected — there is no selection to scope to.
+        when ( $HasSelection = false ) { PART_SelectionOption.Visibility = Collapsed; }
+    }
+}

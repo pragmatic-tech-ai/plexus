@@ -5,12 +5,12 @@ import { InputKind, BindingSource, OutputKind } from '../../../../../../shared/s
 
 describe('SkillFrontmatterFormVm', () => {
     it('seeds from an extension and round-trips via toExtension', () => {
-        const ext = { ...XPlexuses.empty(), version: 1, title: 'T', category: 'Diagrams',
+        const ext = { ...XPlexuses.empty(), version: 1, title: 'T', category: 'Boards',
             inputs: [{ key: 'v', label: 'V', type: InputKind.Enum, options: ['a'], required: true }],
             bindings: [{ source: BindingSource.CurrentProject }], outputs: [{ kind: OutputKind.Conversation }] }
         const vm = new SkillFrontmatterFormVm(ext, false, () => {})
         const back = vm.toExtension()
-        expect(back.title).toBe('T'); expect(back.category).toBe('Diagrams')
+        expect(back.title).toBe('T'); expect(back.category).toBe('Boards')
         expect(back.inputs[0]).toMatchObject({ key: 'v', type: InputKind.Enum, options: ['a'], required: true })
         expect(back.bindings[0].source).toBe(BindingSource.CurrentProject)
         expect(back.outputs[0].kind).toBe(OutputKind.Conversation)

@@ -28,9 +28,9 @@ function languageForPath(path: string): string
 }
 
 // A file opened in the editor, modeled as an IDocument so it shows as a tab in
-// the shell's content host alongside diagrams and settings. It is the VM: it
+// the shell's content host alongside boards and settings. It is the VM: it
 // OWNS the text (Content) and the load/save/dirty lifecycle — exactly as a
-// DiagramDocument owns its Nodes. The view is a CodeEditor declared in
+// BoardDocument owns its Nodes. The view is a CodeEditor declared in
 // DataTemplate[CodeDocument] that binds $Content (TwoWay), $Language, and
 // $Diagnostics; the document never touches the editor.
 //

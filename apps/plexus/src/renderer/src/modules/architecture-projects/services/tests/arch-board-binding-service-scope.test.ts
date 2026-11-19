@@ -1,0 +1,73 @@
+import { test, expect } from 'vitest'
+import { FakeFacade } from '../../../../services/todl/tests/fake-language-service.js'
+import { ServiceProvider, ObservableCollection } from '@pragmatic-tech-ai/mural/runtime'
+import { ContentHostService, BoardDocument, type IDocument, type DocumentsContentHostService } from '@pragmatic-tech-ai/mural/framework'
+import { load, toJSON, Repository, graphFromJSON, ModelDraft, SolutionLanguageService, type SolutionManagerService } from '@pragmatic-tech-ai/todl'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { FileBoardStorage } from '@pragmatic-tech-ai/mural/framework'
+import { FakeSolutionManager } from '../../../../services/solution/tests/fake-solution-manager.js'
+import { ArchitectureModelService } from '../architecture-model-service.js'
+import { Project } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project.js'
+import { ProjectNode, ProjectNodeKind } from '@pragmatic-tech-ai/todl'
+import { PROJECT_MANIFEST_FILENAME } from '@pragmatic-tech-ai/plexus-core/renderer/projects/project-factory.js'
+import { ArchModel } from '../arch-model.js'
+import { ArchBoardBindingService } from '../arch-board-binding-service.js'
+import { readViewpoints } from '../arch-board-viewpoints-store.js'
+
+const MM = `namespace archmm {
+  concept component {}
+  viewpoint ComponentView : frames component
+  viewpoint DeploymentView : frames component
+}`
+function buildModel(storage: FakeStorage): ArchModel
+{
+    const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
+    return new ArchModel(draft, storage, 'archmm')
+}
+const tick = () => new Promise((r) => setTimeout(r, 0))
+
+async function scenario(seedScope?: string[])
+{
+    const storage = new FakeStorage('fake://Acme')
+    await storage.WriteText(PROJECT_MANIFEST_FILENAME, JSON.stringify({
+        type: 'architecture', name: 'Acme', version: 1,
+        ...(seedScope ? { boards: { 'v.board': { viewpoints: seedScope } } } : {}),
+    }))
+    const model = buildModel(storage)
+    const open = new ObservableCollection<IDocument>()
+    const host = { OpenDocuments: open } as unknown as DocumentsContentHostService
+    const project = new Project('architecture', 'Acme', storage.Root, new ProjectNode('Acme', '', ProjectNodeKind.Folder))
+    const manager = new FakeSolutionManager()
+    manager.AddResolved(project, storage)
+
+    const provider = new ServiceProvider()
+    provider.registerInstance(ContentHostService.Key, host as unknown as ContentHostService)
+    const language = { ResolveBasesFor: async () => ({ bases: [], problems: [] }) } as unknown as SolutionLanguageService
+    manager.RegisterOn(provider)
+    FakeFacade.Register(provider, { Language: language, Manager: manager as unknown as SolutionManagerService })
+    provider.registerInstance(ArchitectureModelService.Key, { modelFor: async () => model } as unknown as ArchitectureModelService)
+
+    const doc = new BoardDocument(new FileBoardStorage('v.board', storage, null))
+    const svc = new ArchBoardBindingService(provider)
+    open.Add(doc)
+    await tick()
+    return { svc, doc, storage, model }
+}
+
+test('attach reads the manifest scope', async () => {
+    const { svc, doc } = await scenario(['archmm.ComponentView'])
+    expect([...svc.scopeForDocument(doc)!]).toEqual(['archmm.ComponentView'])
+})
+
+test('no manifest entry defaults to all viewpoints', async () => {
+    const { svc, doc } = await scenario()
+    expect([...svc.scopeForDocument(doc)!].sort()).toEqual(['archmm.ComponentView', 'archmm.DeploymentView'])
+})
+
+test('setDocumentScope updates the binding and persists into the board metadata', async () => {
+    const { svc, doc } = await scenario()
+    await svc.setDocumentScope(doc, ['archmm.DeploymentView'])
+    expect([...svc.scopeForDocument(doc)!]).toEqual(['archmm.DeploymentView'])
+    // The selection now travels with the board (its metadata), not the manifest.
+    expect(readViewpoints(doc)).toEqual(['archmm.DeploymentView'])
+})

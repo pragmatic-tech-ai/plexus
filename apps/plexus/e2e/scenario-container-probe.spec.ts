@@ -1,5 +1,5 @@
 // EVIDENCE probe for the block-as-container + in_block work: opens the corpus's
-// scenario-participant diagrams (diagram-2/3/4), which place blocks (chat_surface,
+// scenario-participant boards (board-2/3/4), which place blocks (chat_surface,
 // command_bus, microsoft_agent_framework, ai_data_sources — now @has_children
 // containers) alongside their member components (which now carry `in_block`). It
 // dumps every node's realized figure + container parent and any app errors, then
@@ -16,18 +16,18 @@ async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; 
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return []
-        const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
+        if (!board) return []
+        const arr: any[] = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
         const out: Array<{ id: string; concept: string; figure: string; parent: string | undefined }> = []
         for (const vm of arr)
         {
-            const fig = vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+            const fig = vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
             out.push({
                 id: vm?.Id ?? fig?.Id,
                 concept: vm?.Concept ?? '',
@@ -42,9 +42,9 @@ async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; 
 const sig = (ns: Array<{ id: string }>) => ns.map((n) => n.id).sort().join(',')
 
 // Open `name` and wait until the canvas node-set actually CHANGES from `prevSig`
-// (an already-open diagram never re-empties the canvas, so a nodes==0 gate would
-// silently keep the prior diagram — the bug this replaces). Returns the new sig.
-async function openDiagram(l: Launched, name: string, prevSig: string): Promise<string>
+// (an already-open board never re-empties the canvas, so a nodes==0 gate would
+// silently keep the prior board — the bug this replaces). Returns the new sig.
+async function openBoard(l: Launched, name: string, prevSig: string): Promise<string>
 {
     const { rectsForCtor, clickCenter } = await import('./plexus-app')
     const navs = await rectsForCtor(l.win, 'NavigationItem')
@@ -73,9 +73,9 @@ async function openDiagram(l: Launched, name: string, prevSig: string): Promise<
     return sig(await nodes(l))
 }
 
-const DIAGRAMS = ['diagram.diagram', 'diagram-2.diagram', 'diagram-3.diagram', 'diagram-4.diagram']
+const DIAGRAMS = ['board.board', 'board-2.board', 'board-3.board', 'board-4.board']
 
-test.describe.serial('block-as-container + in_block nesting on real diagrams', () => {
+test.describe.serial('block-as-container + in_block nesting on real boards', () => {
     let l: Launched
     let restoreSession: () => void
     let cloneRoot: string
@@ -101,7 +101,7 @@ test.describe.serial('block-as-container + in_block nesting on real diagrams', (
     {
         test(`open ${name}: dump nesting + surface app errors`, async () => {
             const before = l.errors.length
-            prevSig = await openDiagram(l, name, prevSig)
+            prevSig = await openBoard(l, name, prevSig)
             await l.win.screenshot({ path: path.join(ART, `probe-${name}.png`) }).catch(() => {})
             const ns = await nodes(l)
             fs.writeFileSync(path.join(ART, `probe-${name}.json`), JSON.stringify(ns, null, 2))
@@ -109,7 +109,7 @@ test.describe.serial('block-as-container + in_block nesting on real diagrams', (
             // eslint-disable-next-line no-console
             console.log(`\n===== ${name} =====\nnodes: ${JSON.stringify(ns, null, 2)}\nNEW app errors: ${JSON.stringify(newErrors, null, 2)}`)
 
-            // Every block placed on the diagram must realize as a container, and no
+            // Every block placed on the board must realize as a container, and no
             // new renderer errors may appear while opening it.
             const blocks = ns.filter((n) => n.concept === 'block')
             for (const b of blocks)

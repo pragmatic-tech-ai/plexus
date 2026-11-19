@@ -1,9 +1,9 @@
 import { MetaData, MuralBase, ObservableCollection, RelayCommand, type ICommand, type PropertyKey } from '@pragmatic-tech-ai/mural/runtime'
-import { NodeViewModel, type Diagram, type DiagramDocument, type DiagramInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
+import { NodeViewModel, type Board, type BoardDocument, type BoardInspector, type ITextStyleTarget } from '@pragmatic-tech-ai/mural/framework'
 import { Brush, FontFamily, FontStyle, FontWeight, TextAlignment, TextDecorations } from '@pragmatic-tech-ai/mural/visual-engine'
 import { ArchNavItemVM } from './arch-nav-item-vm.js'
 import type { NavTarget, NavTargets } from './arch-navigation-service.js'
-import type { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
+import type { EntityIconVM } from '../../board/services/entity-icon-vm.js'
 
 // Initial box for a freshly-dropped arch tile. The container fits its content
 // once measured (SizeToContent), but a drop needs a starting box before the
@@ -23,7 +23,7 @@ export class ArchNodeVM extends NodeViewModel
     static readonly LabelKey = MuralBase.RegisterProperty<string>(ArchNodeVM, 'Label', '', MetaData.None)
     // The icon-presentation VM the ContentControl + TodlVisualSelector renders:
     // maps this node's entity key to its baked icon resource key ($Icon.IconKey).
-    // Set by ArchDiagramBinding.rescan; refreshed in place by the binding's
+    // Set by ArchBoardBinding.rescan; refreshed in place by the binding's
     // registry.onChanged subscription when async discovery upgrades an icon.
     static readonly IconKey = MuralBase.RegisterProperty<EntityIconVM | undefined>(
         ArchNodeVM,
@@ -34,20 +34,20 @@ export class ArchNodeVM extends NodeViewModel
 
     // The concept this node instantiates + whether it has an openable wiki page.
     // Drive the "Open Wiki" context menu (Visibility via HasWiki, CommandParameter
-    // via Concept). Populated by ArchDiagramBinding.rescan.
+    // via Concept). Populated by ArchBoardBinding.rescan.
     static readonly ConceptKey = MuralBase.RegisterProperty<string>(ArchNodeVM, 'Concept', '', MetaData.None)
     static readonly HasWikiKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasWiki', false, MetaData.None)
 
     // Whether this node's concept is a container (holds nested children). Read
     // duck-typed by mural's GetContainerForItemOverride (0.21.0) to realize the
     // node as a ContentContainerFigure instead of a plain content tile. Set from
-    // the concept by ArchDiagramBinding.rescan.
+    // the concept by ArchBoardBinding.rescan.
     static readonly IsContainerKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'IsContainer', false, MetaData.None)
 
     // ── "Go to Definition" nav-target facet ─────────────────────────────────
     // Bindable, adaptive destinations resolved off this node's backing entity by
-    // the ArchNavigationService and pushed here by ArchDiagramBinding.rescan (via
-    // ApplyNavTargets). The diagram's "Go to Definition ▸" submenu binds these:
+    // the ArchNavigationService and pushed here by ArchBoardBinding.rescan (via
+    // ApplyNavTargets). The board's "Go to Definition ▸" submenu binds these:
     // the component is a single flat item; technologies and categories are LISTS
     // (a component has ≤1 of each, a technology maps to N applicable_to
     // categories), so each renders as a flat item when it has one target and a
@@ -84,27 +84,27 @@ export class ArchNodeVM extends NodeViewModel
     // item so a node with no navigable relations shows no submenu at all.
     static readonly HasNavTargetsKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'HasNavTargets', false, MetaData.None)
 
-    // The document this node lives in, set by ArchDiagramBinding.rescan. Lets the
-    // node's right-click menu reuse the SHARED @DiagramContextMenu (Copy/Cut/Align/
+    // The document this node lives in, set by ArchBoardBinding.rescan. Lets the
+    // node's right-click menu reuse the SHARED @BoardContextMenu (Copy/Cut/Align/
     // Export/Format), whose items bind $ActiveView / $Inspector — properties of the
     // document. Exposing them here (delegating to the live document) means the same
     // menu resource works whether its data context is the document (empty-canvas
     // right-click) or a node (node right-click), with no per-node menu duplication.
-    static readonly HostDocumentKey = MuralBase.RegisterProperty<DiagramDocument | undefined>(
+    static readonly HostDocumentKey = MuralBase.RegisterProperty<BoardDocument | undefined>(
         ArchNodeVM, 'HostDocument', undefined, MetaData.None)
 
-    get HostDocument(): DiagramDocument | undefined { return this.get_property_value(ArchNodeVM.HostDocumentKey) }
-    set HostDocument(v: DiagramDocument | undefined) { this.set_property_value(ArchNodeVM.HostDocumentKey, v) }
+    get HostDocument(): BoardDocument | undefined { return this.get_property_value(ArchNodeVM.HostDocumentKey) }
+    set HostDocument(v: BoardDocument | undefined) { this.set_property_value(ArchNodeVM.HostDocumentKey, v) }
 
     // Menu-facing aliases so $ActiveView / $Inspector resolve on a node exactly as
-    // they do on the DiagramDocument (the shared context menu binds these names).
-    get ActiveView(): Diagram | undefined { return this.HostDocument?.ActiveView }
-    get Inspector(): DiagramInspector | undefined { return this.HostDocument?.Inspector }
+    // they do on the BoardDocument (the shared context menu binds these names).
+    get ActiveView(): Board | undefined { return this.HostDocument?.ActiveView }
+    get Inspector(): BoardInspector | undefined { return this.HostDocument?.Inspector }
 
     // ── In-place title editing (F2 / double-click) ──────────────────────────
     // An arch node's editable text is its TITLE ($Label), NOT the container
     // Figure's ShapeText (a geometric shape's centred caption). Implementing the
-    // BeginEdit/CommitEdit/CancelEdit lifecycle makes the diagram's F2 handler
+    // BeginEdit/CommitEdit/CancelEdit lifecycle makes the board's F2 handler
     // (and double-click) resolve the edit target to THIS VM — see mural
     // resolveEditTarget, which duck-types on BeginEdit — instead of falling back
     // to the blank ShapeText.
@@ -115,7 +115,7 @@ export class ArchNodeVM extends NodeViewModel
     // them), so they are DPs — not plain fields. The commit does NOT persist by
     // itself: the Label is DERIVED from the backing entity on every rescan, so a
     // local write would be clobbered. CommitEdit fires LabelCommitted; the
-    // ArchDiagramBinding writes the entity's `label` field + saves, and the next
+    // ArchBoardBinding writes the entity's `label` field + saves, and the next
     // rescan re-derives the same title.
     static readonly IsEditingKey = MuralBase.RegisterProperty<boolean>(ArchNodeVM, 'IsEditing', false, MetaData.None)
     static readonly EditingLabelKey = MuralBase.RegisterProperty<string>(ArchNodeVM, 'EditingLabel', '', MetaData.None)
@@ -127,7 +127,7 @@ export class ArchNodeVM extends NodeViewModel
     // ITextStyleTarget). Each DP is undefined until the user overrides it, so the
     // template keeps the @BodySmall / @OnSurface defaults (`$LabelX is set`
     // triggers) and only the touched properties override — no visual drift on
-    // existing diagrams. Persisted per-node in the .diagram visual (labelStyle),
+    // existing boards. Persisted per-node in the .board visual (labelStyle),
     // like the per-shape lock/anchor intents.
     static readonly LabelFontFamilyKey = MuralBase.RegisterProperty<string | undefined>(ArchNodeVM, 'LabelFontFamily', undefined, MetaData.None)
     static readonly LabelFontSizeKey = MuralBase.RegisterProperty<number | undefined>(ArchNodeVM, 'LabelFontSize', undefined, MetaData.None)
@@ -142,14 +142,14 @@ export class ArchNodeVM extends NodeViewModel
     static readonly LABEL_DEFAULT_FONT_SIZE = 12
 
     // Listeners notified when an edit COMMITS with a changed, non-empty title.
-    // The ArchDiagramBinding subscribes to persist the new title to the entity.
+    // The ArchBoardBinding subscribes to persist the new title to the entity.
     private readonly labelCommitted: Array<(title: string) => void> = []
 
     constructor()
     {
         super()
         // Icon size is no longer a per-node concern: the canvas PART_Icon binds the
-        // inheritable Diagram.DefaultIconWidth/Height attached DPs (settings-backed).
+        // inheritable Board.DefaultIconWidth/Height attached DPs (settings-backed).
         // Stable collections the submenu's ItemsSource subscribes to; ApplyNavTargets
         // mutates them in place (the DP reference never changes).
         this.set_property_value(ArchNodeVM.TechnologiesKey, new ObservableCollection<ArchNavItemVM>())
@@ -256,8 +256,8 @@ export class ArchNodeVM extends NodeViewModel
         return (this._textStyle ??= new ArchLabelTextStyle(this))
     }
 
-    // The persisted style DPs whose edit must dirty the diagram (mural's
-    // DiagramDocument watches these — a content VM has no Fill/Stroke/geometry of
+    // The persisted style DPs whose edit must dirty the board (mural's
+    // BoardDocument watches these — a content VM has no Fill/Stroke/geometry of
     // its own, so without this a label-style edit never marks the doc dirty and is
     // never saved). The card fill/stroke lives on the container Figure, which the
     // document tracks separately.
@@ -396,7 +396,7 @@ export class ArchNodeVM extends NodeViewModel
             first !== undefined ? new RelayCommand(() => run(first)) : undefined)
     }
 
-    // Subscribe to committed title edits (the ArchDiagramBinding wires this to
+    // Subscribe to committed title edits (the ArchBoardBinding wires this to
     // persist the new title to the backing entity). Returns an unsubscribe thunk.
     AddLabelCommittedListener(cb: (title: string) => void): () => void
     {

@@ -1,11 +1,11 @@
-// Live check of every Size & Position sub-editor in the diagram Format-Shape
-// inspector. Opens a corpus diagram, selects a shape, opens the Format Shape
+// Live check of every Size & Position sub-editor in the board Format-Shape
+// inspector. Opens a corpus board, selects a shape, opens the Format Shape
 // inspector's Size & Position page, then drives each field's committed value
 // and asserts the selected figure's geometry actually changes.
 //
 // This is the end-to-end guard for the `$$` (TemplateBinding) two-way fix:
 // each field is `SpinEdit [ Value = $$WidthValue ]` etc., so a committed edit
-// must flow field -> SizePositionControl DP -> Diagram.SelectedShape* ->
+// must flow field -> SizePositionControl DP -> Board.SelectedShape* ->
 // Figure. With the old one-way `$$` the figure would not move and these
 // assertions would fail.
 import { test, expect } from '@playwright/test'
@@ -24,7 +24,7 @@ function readState(l: Launched)
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any, ctl: any
+        let board: any, ctl: any
         const spins: any[] = []
         const combos: any[] = []
         let sw: any
@@ -33,13 +33,13 @@ function readState(l: Launched)
             const v = (el as any)[S]
             if (!v) continue
             const n = v.constructor?.name
-            if (n === 'Diagram') diagram = v
+            if (n === 'Board') board = v
             else if (n === 'SizePositionControl') ctl = v
             else if (n === 'SpinEdit' && !spins.includes(v)) spins.push(v)
             else if (n === 'Switch' && !sw) sw = v
             else if (n === 'ComboBox' && !combos.includes(v)) combos.push(v)
         }
-        const sel = diagram?.SelectedItems?.[0]
+        const sel = board?.SelectedItems?.[0]
         const fromCombos = combos.filter((c) => c.SelectedItem === 'Top Left Corner' || c.SelectedItem === 'Center')
         return {
             fig: sel ? { L: sel.Left, T: sel.Top, W: sel.Width, H: sel.Height, R: sel.Rotation } : null,
@@ -54,19 +54,19 @@ function readState(l: Launched)
     })
 }
 
-// Deterministically select the i-th diagram node through the real selection
+// Deterministically select the i-th board node through the real selection
 // path (HandleContainerClick), independent of canvas position — clicking by
 // pixel is unreliable once earlier tests have moved/resized shapes.
 function selectFigureByIndex(l: Launched, index: number)
 {
     return l.win.evaluate((index) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
-        const items = diagram?.ItemsSource ?? diagram?.Items
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
+        const items = board?.ItemsSource ?? board?.Items
         const item = items?.Get ? items.Get(index) : items?.[index]
-        const container = diagram?.Generator?.ContainerFromItem(item)
-        if (container) diagram.HandleContainerClick(container, 0) // ModifierKeys.None
+        const container = board?.Generator?.ContainerFromItem(item)
+        if (container) board.HandleContainerClick(container, 0) // ModifierKeys.None
     }, index)
 }
 
@@ -139,21 +139,21 @@ test.describe.serial('Size & Position sub-editors drive the selected shape', () 
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
 
-        // 1. open the project explorer, then open the diagram through the
+        // 1. open the project explorer, then open the board through the
         //    workspace service (the nested solution tree keeps project nodes
         //    collapsed, so a tree double-click can't see the file row).
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
+        await openProjectFile(l, 'test_architecture', 'board.board')
         // Shapes project asynchronously after the document opens; poll for them.
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }
-        expect(figs.length, 'diagram opened with canvas figures').toBeGreaterThan(0)
+        expect(figs.length, 'board opened with canvas figures').toBeGreaterThan(0)
 
         // 2. Select the first shape through the real selection path
         //    (HandleContainerClick). Pixel clicks are unreliable — the corpus
-        //    diagram's layout can put a shape under the toolbar or behind a
+        //    board's layout can put a shape under the toolbar or behind a
         //    container, so a screen-center click selects nothing. Selecting a shape
         //    AUTO-OPENS the Format Shape inspector bound to the active document
         //    (see auto-open-inspector.spec), so no right-click menu is needed.
@@ -212,7 +212,7 @@ test.describe.serial('Size & Position sub-editors drive the selected shape', () 
     })
 
     test('Scale Width field scales width off the base size', async () => {
-        // base width is 80 (from the diagram file); 50% -> 40.
+        // base width is 80 (from the board file); 50% -> 40.
         await setSpin(l, SPIN.ScaleWidth, 50)
         await l.win.waitForTimeout(300)
         const st = await readState(l)

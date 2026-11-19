@@ -17,8 +17,8 @@ const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'c:/Users/Eugene/Projects/archi
 const PROJECT_RELS = [
     'meta-models/tech-architecture', 'libraries/microsoft', 'libraries/aws', 'architecures/test_architecture',
 ]
-// Two component nodes on diagram-2 with no connector between them (drawing one
-// flips the DiagramDocument's IsDirty flag — our "make it dirty" lever).
+// Two component nodes on board-2 with no connector between them (drawing one
+// flips the BoardDocument's IsDirty flag — our "make it dirty" lever).
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
@@ -33,19 +33,19 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<boolean>
 {
     const r = await l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return false
-        const arr: any[] = diagram.ItemsSource.ToArray()
+        if (!board) return false
+        const arr: any[] = board.ItemsSource.ToArray()
         const byId = (id: string) => arr.find((vm: any) => vm?.Id === id)
-        const Ep = diagram.Connectors?.ToArray?.()[0]?.Source?.constructor
+        const Ep = board.Connectors?.ToArray?.()[0]?.Source?.constructor
         if (!Ep) return false
         const src = byId(fromId), tgt = byId(toId)
         if (!src || !tgt) return false
-        diagram._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
+        board._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
         return true
     }, { fromId, toId })
     await l.win.waitForTimeout(1200)
@@ -59,7 +59,7 @@ async function hasNode(l: Launched, id: string): Promise<boolean>
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram')
+            if (v?.constructor?.name === 'Board')
                 return (v.ItemsSource?.ToArray?.() ?? []).some((vm: any) => vm?.Id === id)
         }
         return false
@@ -70,12 +70,12 @@ async function docIsDirty(l: Launched): Promise<boolean | undefined>
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        const doc = diagram?.DataContext
+        const doc = board?.DataContext
         return typeof doc?.IsDirty === 'boolean' ? doc.IsDirty : undefined
     })
 }
@@ -163,7 +163,7 @@ async function closeAllDocs(l: Launched): Promise<void>
     await l.win.waitForTimeout(1200)
 }
 
-async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void>
+async function openBoardFileOnce(l: Launched, relPath: string): Promise<void>
 {
     await l.win.evaluate(async (relPath) => {
         let explorer: any
@@ -179,14 +179,14 @@ async function openDiagramFileOnce(l: Launched, relPath: string): Promise<void>
     await l.win.waitForTimeout(3500)
 }
 
-// Open diagram-2 and wait until a diagram-2-specific node is present, retrying the
+// Open board-2 and wait until a board-2-specific node is present, retrying the
 // open (OpenFileInProject can no-op if the explorer service isn't reachable yet).
-async function ensureDiagramOpen(l: Launched, relPath: string, probeId: string): Promise<boolean>
+async function ensureBoardOpen(l: Launched, relPath: string, probeId: string): Promise<boolean>
 {
     for (let attempt = 0; attempt < 6; attempt++)
     {
         if (await hasNode(l, probeId)) return true
-        await openDiagramFileOnce(l, relPath)
+        await openBoardFileOnce(l, relPath)
     }
     return hasNode(l, probeId)
 }
@@ -205,7 +205,7 @@ test.describe.serial('save-ux', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await ensureDiagramOpen(l, 'diagram-2.diagram', A)
+        await ensureBoardOpen(l, 'board-2.board', A)
     })
 
     test.afterAll(async () => {
@@ -222,7 +222,7 @@ test.describe.serial('save-ux', () => {
     })
 
     test('closing a dirty tab prompts; Cancel keeps it, Don\'t Save closes it', async () => {
-        expect(await ensureDiagramOpen(l, 'diagram-2.diagram', A), 'diagram-2 opened').toBe(true)
+        expect(await ensureBoardOpen(l, 'board-2.board', A), 'board-2 opened').toBe(true)
         expect(await openCount(l), 'exactly one doc open').toBe(1)
 
         // Make the document dirty.

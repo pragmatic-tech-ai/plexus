@@ -1,4 +1,4 @@
-// E2E: right-clicking an architecture node shows the SHARED diagram context menu
+// E2E: right-clicking an architecture node shows the SHARED board context menu
 // (Copy/Cut/Align/Export/Format) plus a node-only "Open Wiki" item — not the bare
 // Open-Wiki menu it used to swap in. Guards the ArchNodeVM.HostDocument wiring:
 // the menu's $ActiveView-bound items must resolve their Command through the node.
@@ -35,7 +35,7 @@ test.describe.serial('arch-node-context-menu', () => {
       const roots = (mgr?.ActiveSolution?.Members.ToArray() ?? []).filter((m: any) => m.Storage !== undefined).map((m: any) => ({ Folder: m.Storage.Root, Name: m.Title }))
       if (ws) ex = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } } }
       const proj = ex?.OpenProjects?.ToArray?.().find((p: any) => (p?.Folder ?? '').toLowerCase().includes('test_architecture'))
-      if (proj) await ex.OpenFileInProject(proj.Folder, 'diagram-2.diagram', 0, 0)
+      if (proj) await ex.OpenFileInProject(proj.Folder, 'board-2.board', 0, 0)
     })
     await l.win.waitForTimeout(5000)
   })
@@ -46,7 +46,7 @@ test.describe.serial('arch-node-context-menu', () => {
     if (copyRoot) fs.rmSync(copyRoot, { recursive: true, force: true })
   })
 
-  test('right-click node shows the full diagram menu + gated Open Wiki', async () => {
+  test('right-click node shows the full board menu + gated Open Wiki', async () => {
     const node = await l.win.evaluate(() => {
       const S = Symbol.for('mural:visual-backref')
       for (const el of document.querySelectorAll('*'))
@@ -87,7 +87,7 @@ test.describe.serial('arch-node-context-menu', () => {
       return items
     })
 
-    // The full diagram menu actually RENDERS on the node (visible, not just
+    // The full board menu actually RENDERS on the node (visible, not just
     // instantiated in the DOM) — i.e. the node shows this menu, not the bare
     // Open-Wiki menu it used to swap in. (Export/Layout carry a trailing ellipsis
     // in their menu copy — they open a dialog.)

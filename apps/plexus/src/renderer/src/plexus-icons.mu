@@ -57,7 +57,7 @@ resources PlexusIcons {
 
     // Project-tree leading glyphs, one per ProjectNodeKind (folder reuses
     // @Folder above). Painted as a Shape/Fill by the tree row's leading slot.
-    include "icons/diagram.svg"                  as Diagram
+    include "icons/board.svg"                  as Board
     include "icons/todl.svg"                     as Todl
     include "icons/file.svg"                     as File
 

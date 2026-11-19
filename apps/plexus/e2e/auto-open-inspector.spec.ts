@@ -1,11 +1,11 @@
 // Guards the Format Shape inspector's document binding. Two invariants:
-//   1. The app starts with NO seeded document tabs (no "Untitled Diagram", no
+//   1. The app starts with NO seeded document tabs (no "Untitled Board", no
 //      scratch.md) — the content region is empty until the user opens a file.
 //   2. Selecting a shape AUTO-OPENS the Format Shape panel bound to the ACTIVE
 //      document, and an edit there reaches that document's figure.
 //
 // Regression this locks down: the auto-open behavior used to be hard-wired to a
-// fixed seeded "Untitled Diagram". Editing a shape on a real project diagram
+// fixed seeded "Untitled Board". Editing a shape on a real project board
 // then went to an inspector bound to the wrong (empty) document, so the whole
 // Style page silently did nothing. attachAutoOpenInspector now follows
 // host.ActiveDocument. See auto-open-inspector-behavior.ts.
@@ -36,7 +36,7 @@ function openDocTitles(l: Launched)
     })
 }
 
-test('no seeded tabs at startup; auto-opened inspector edits the active diagram', async () => {
+test('no seeded tabs at startup; auto-opened inspector edits the active board', async () => {
     test.skip(!corpusAvailable(), 'built app (out/) or test corpus not available')
     const restore = seedSession()
     const l = await launchPlexus()
@@ -44,19 +44,19 @@ test('no seeded tabs at startup; auto-opened inspector edits the active diagram'
     {
         await l.win.waitForTimeout(12_000)
 
-        // (1) No Untitled Diagram / scratch.md tab at launch.
+        // (1) No Untitled Board / scratch.md tab at launch.
         const atStart = await openDocTitles(l)
 
-        // Open the project diagram through the workspace service — the nested
+        // Open the project board through the workspace service — the nested
         // solution tree keeps project nodes collapsed, so a tree double-click can't
         // see the file row.
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
+        await openProjectFile(l, 'test_architecture', 'board.board')
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }
-        expect(figs.length, 'diagram opened with canvas figures').toBeGreaterThan(0)
+        expect(figs.length, 'board opened with canvas figures').toBeGreaterThan(0)
 
         // (2) Select a shape on the ACTIVE document's view (deterministic
         //     HandleContainerClick), which must AUTO-OPEN its Format Shape panel.
@@ -101,12 +101,12 @@ test('no seeded tabs at startup; auto-opened inspector edits the active diagram'
                     if (e?.constructor?.name === 'DocumentsContentHostService') host = e
                 }
             }
-            const diagram = host?.ActiveDocument?.ActiveView
-            const sel = diagram?.SelectedItems?.[0]
+            const board = host?.ActiveDocument?.ActiveView
+            const sel = board?.SelectedItems?.[0]
             const cp = fe?._bodyRoot?.FindName?.('PART_SolidColor')
             const dockPanels = (dock?.Panels?.ToArray?.() ?? []).map((p: any) => p?.Id)
             const present = { fe: !!fe, sel: !!sel, cp: !!cp, dockPanels }
-            if (!diagram || !fe || !sel || !cp) return { present }
+            if (!board || !fe || !sel || !cp) return { present }
             const ColorClass = (sel.Fill ?? fe.Fill)?.Color?.constructor
             const before = sel.Fill?.Color?.ToHex?.() ?? null
             const target = before === '#00cc00' ? '#ff3366' : '#00cc00'
@@ -118,7 +118,7 @@ test('no seeded tabs at startup; auto-opened inspector edits the active diagram'
         })
 
         expect(atStart.some((t: string) => /untitled/i.test(t) || /scratch/i.test(t)), 'no seeded tabs at startup').toBe(false)
-        expect((result as any).present?.dockPanels, 'Format Shape auto-opened for the active diagram').toContain('diagram-format')
+        expect((result as any).present?.dockPanels, 'Format Shape auto-opened for the active board').toContain('board-format')
         expect((result as any).after, 'auto-opened inspector fill reaches the active figure').toBe((result as any).target)
     }
     finally

@@ -1,10 +1,10 @@
 import { test, expect } from 'vitest'
 import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
-import type { Diagram } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
+import type { Board } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBinding } from '../arch-diagram-binding.js'
+import { ArchBoardBinding } from '../arch-board-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 
 interface ReparentArgs { Node: { Id: string | undefined }; OldParentId: string | undefined; NewParentId: string | undefined }
@@ -30,14 +30,14 @@ function buildModel(): ArchModel
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
-class TestDoc extends DiagramDocument
+class TestDoc extends BoardDocument
 {
-    public fakeView: Diagram | undefined
-    public override get ActiveView(): Diagram | undefined { return this.fakeView }
-    public override set ActiveView(_v: Diagram | undefined) { /* driven via fakeView */ }
+    public fakeView: Board | undefined
+    public override get ActiveView(): Board | undefined { return this.fakeView }
+    public override set ActiveView(_v: Board | undefined) { /* driven via fakeView */ }
 }
 
-function fakeView(): { view: Diagram; fire: (a: ReparentArgs) => void; snapBacks: string[] }
+function fakeView(): { view: Board; fire: (a: ReparentArgs) => void; snapBacks: string[] }
 {
     const figs = new Map<string, Figure>()
     const figFor = (id: string): Figure => {
@@ -65,7 +65,7 @@ function fakeView(): { view: Diagram; fire: (a: ReparentArgs) => void; snapBacks
         RemoveNodeReparentedListener: (l: (a: ReparentArgs) => void) => {
             const i = listeners.indexOf(l); if (i >= 0) listeners.splice(i, 1)
         },
-    } as unknown as Diagram
+    } as unknown as Board
     return { view, fire: (a) => { for (const l of [...listeners]) l(a) }, snapBacks }
 }
 
@@ -85,7 +85,7 @@ function setup(): { model: ArchModel; doc: TestDoc; fire: (a: ReparentArgs) => v
     const { view, fire, snapBacks } = fakeView()
     doc.fakeView = view
     const { dialogs, shows } = fakeDialogs()
-    new ArchDiagramBinding(doc, model, undefined, undefined, undefined, dialogs as never).attach()
+    new ArchBoardBinding(doc, model, undefined, undefined, undefined, dialogs as never).attach()
     const refsIn = (id: string): string[] => model.entities().find((e) => e.id === id)!.refs('in').map((e) => e.id)
     return { model, doc, fire, snapBacks, shows, refsIn }
 }
@@ -145,7 +145,7 @@ test('dragging a component into a LIBRARY (non-own) location writes the `in` ref
     for (const id of ['archmm.comp', 'archmm.libloc']) { const vm = new ArchNodeVM(); vm.Id = id; doc.Nodes.Add(vm) }
     const { view, fire } = fakeView()
     doc.fakeView = view
-    new ArchDiagramBinding(doc, model, undefined, undefined, undefined, fakeDialogs().dialogs as never).attach()
+    new ArchBoardBinding(doc, model, undefined, undefined, undefined, fakeDialogs().dialogs as never).attach()
 
     fire({ Node: { Id: 'archmm.comp' }, OldParentId: undefined, NewParentId: 'archmm.libloc' })
     const comp = model.entities().find((e) => e.id === 'archmm.comp')!

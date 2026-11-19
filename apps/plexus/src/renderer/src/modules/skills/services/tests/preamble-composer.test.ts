@@ -27,7 +27,7 @@ test('inputs + bindings render a deterministic block', () => {
 test('selection binding summarizes the entity count', () => {
     const out = composer.render({
         skillName: 's', inputs: [],
-        bindings: [{ source: BindingSource.DiagramSelection, kind: BindingPayloadKind.Selection, data: { entityIds: ['a', 'b', 'c'] } }],
+        bindings: [{ source: BindingSource.BoardSelection, kind: BindingPayloadKind.Selection, data: { entityIds: ['a', 'b', 'c'] } }],
     })
-    expect(out).toContain('diagramSelection: 3 entities')
+    expect(out).toContain('boardSelection: 3 entities')
 })

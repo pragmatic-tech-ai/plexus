@@ -3,7 +3,7 @@ import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pr
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { modelPageItems, scenarioPageItems, conceptToolboxVisible } from '../arch-model-toolbox-contributor.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 

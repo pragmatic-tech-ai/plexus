@@ -1,8 +1,8 @@
-// viewpoint-picker.resources.mu — the diagram-viewpoints picker dialog. Shown by
+// viewpoint-picker.resources.mu — the board-viewpoints picker dialog. Shown by
 // DialogService as modal content (it supplies the surface/title/padding); the
 // VM's Confirm/Cancel commands close it with the chosen ids (or undefined). A
-// checkbox list over $Rows makes the "which viewpoints govern this diagram"
-// choice, used both at diagram creation and when editing the scope.
+// checkbox list over $Rows makes the "which viewpoints govern this board"
+// choice, used both at board creation and when editing the scope.
 
 import ViewpointPickerModel from "./viewpoint-picker.js"
 import PickerRow from "./viewpoint-picker.js"
@@ -24,7 +24,7 @@ resources ViewpointPickerResources {
     DataTemplate [ DataType = ViewpointPickerModel ] {
         StackPanel [ Orientation = Vertical, HorizontalAlignment = Stretch ] {
             TextBlock [ Style = @BodySm, TextWrapping = Wrap, Foreground = @Fg2, Margin = (0,0,0,10),
-                        Text = "Choose the viewpoints that govern what can be added to this diagram." ]
+                        Text = "Choose the viewpoints that govern what can be added to this board." ]
             ItemsControl [ ItemsSource = $Rows, ItemsPanel = @VerticalStackPanel ]
             StackPanel [ Orientation = Horizontal, HorizontalAlignment = Right, Margin = (0,14,0,0) ] {
                 Button [ Variant = Text, Command = $CancelCommand, Margin = (0,0,8,0) ] { TextBlock [ Text = "Cancel" ] }

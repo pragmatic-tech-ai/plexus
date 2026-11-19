@@ -13,7 +13,7 @@ export interface NodeAction
 // Optional contributor of a node context-menu action, consulted by the
 // ProjectExplorer as it wires each node. Keeps the generic explorer decoupled
 // from module-specific node commands (e.g. the architecture "Edit Viewpoints…"
-// on a .diagram node). A no-op when unregistered; returns undefined for nodes it
+// on a .board node). A no-op when unregistered; returns undefined for nodes it
 // doesn't act on.
 export interface INodeCommandContributor
 {

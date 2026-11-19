@@ -1,16 +1,16 @@
 import { test, expect } from 'vitest'
 import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
-import type { Diagram } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, Figure } from '@pragmatic-tech-ai/mural/framework'
+import type { Board } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBinding } from '../arch-diagram-binding.js'
+import { ArchBoardBinding } from '../arch-board-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 
 // A `block` is a container with TWO membership channels: the child-side
 // @containment up-ref (`component.in_block`) and its own forward list
 // (`block.components`). `listed` is a member ONLY via the list (no in_block) — the
-// case that left blocks looking empty on the diagram. `command_bus`/`event_stream`
+// case that left blocks looking empty on the board. `command_bus`/`event_stream`
 // exercise the up-ref channel for the write-back symmetry test.
 const MM = `namespace archmm {
   concept location {}
@@ -46,7 +46,7 @@ function buildModel(): ArchModel
 // A fake mounted view that realizes each VM into a Figure, records reparents, and
 // captures the NodeReparented listener so a test can fire a drag write-back.
 function fakeView(): {
-    view: Diagram
+    view: Board
     reparents: Array<{ id: string | undefined; parentId: string | undefined }>
     fireReparent: (args: { Node: { Id?: string }; OldParentId?: string; NewParentId?: string }) => void
 }
@@ -75,18 +75,18 @@ function fakeView(): {
         RemoveDeleteRequestedListener: () => {},
         AddNodeReparentedListener: (l: (args: unknown) => void) => { onReparent = l },
         RemoveNodeReparentedListener: () => { onReparent = undefined },
-    } as unknown as Diagram
+    } as unknown as Board
     return { view, reparents, fireReparent: (args) => onReparent?.(args) }
 }
 
-class TestDoc extends DiagramDocument
+class TestDoc extends BoardDocument
 {
-    public fakeView: Diagram | undefined
-    public override get ActiveView(): Diagram | undefined { return this.fakeView }
-    public override set ActiveView(_v: Diagram | undefined) { /* driven via fakeView */ }
+    public fakeView: Board | undefined
+    public override get ActiveView(): Board | undefined { return this.fakeView }
+    public override set ActiveView(_v: Board | undefined) { /* driven via fakeView */ }
 }
 
-function addVM(doc: DiagramDocument, id: string): void
+function addVM(doc: BoardDocument, id: string): void
 {
     const vm = new ArchNodeVM()
     vm.Id = id
@@ -101,7 +101,7 @@ test('a component listed only in a block`s `components` field nests into that bl
     const { view, reparents } = fakeView()
     doc.fakeView = view
 
-    new ArchDiagramBinding(doc, model).attach()
+    new ArchBoardBinding(doc, model).attach()
 
     // `listed` carries no in_block — it nests purely from chat_surface.components.
     expect(reparents).toContainEqual({ id: 'archmm.listed', parentId: 'archmm.chat_surface' })
@@ -115,7 +115,7 @@ test('un-nesting a list-only member strips it from the block`s `components` (dra
     addVM(doc, 'archmm.listed')
     const { view, fireReparent } = fakeView()
     doc.fakeView = view
-    new ArchDiagramBinding(doc, model).attach()
+    new ArchBoardBinding(doc, model).attach()
 
     fireReparent({ Node: { Id: 'archmm.listed' }, OldParentId: 'archmm.chat_surface', NewParentId: undefined })
 
@@ -130,7 +130,7 @@ test('un-nesting an in_block member strips the child`s in_block up-ref', () => {
     addVM(doc, 'archmm.upref')
     const { view, fireReparent } = fakeView()
     doc.fakeView = view
-    new ArchDiagramBinding(doc, model).attach()
+    new ArchBoardBinding(doc, model).attach()
 
     fireReparent({ Node: { Id: 'archmm.upref' }, OldParentId: 'archmm.command_bus', NewParentId: undefined })
 

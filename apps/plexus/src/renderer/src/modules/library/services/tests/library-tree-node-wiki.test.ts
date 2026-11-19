@@ -1,6 +1,6 @@
 import { test, expect } from 'vitest'
 import { LibraryTreeNode } from '../library-tree-node.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 

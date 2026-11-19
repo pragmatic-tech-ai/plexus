@@ -1,7 +1,7 @@
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 import type { PresentationHint } from './element-projection.js'
 import { iconEntityKey } from './arch-icon.js'
-import type { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../board/services/todl-presentation-registry.js'
 
 // Resolves an element's presentation hint: the caller's default label, plus the
 // icon resource key looked up through the same chain the canvas node resolver

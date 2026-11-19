@@ -1,7 +1,7 @@
 import { ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, type IDocument, type IToolboxDropFactory, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, type IDocument, type IToolboxDropFactory, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 
-import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from './arch-board-binding-service.js'
 import { ArchNodeVM, ARCH_TILE_DEFAULT } from './arch-node-vm.js'
 import { planScenarioDrop, collectScenarioFlow, containerChildSlot, type ContainmentLayout, type FlowEntity } from './scenario-flow.js'
 import { containingContainerOf, isContainerConcept, membershipChildrenOf } from './containment.js'
@@ -24,15 +24,15 @@ export function scenarioIdOf(itemId: string): string | undefined
 // that it did not derive, so a raw drawn connector would be reconciled away on
 // the next rescan. Pure visualization — no create/addRef; the binding's rescan
 // derives each node's label/icon; addScenario persists the shown-scenario id.
-// Meant for a Scenarios-viewpoint diagram, where structural edges are out of scope.
+// Meant for a Scenarios-viewpoint board, where structural edges are out of scope.
 export class ArchScenarioDropFactory implements IToolboxDropFactory
 {
   public constructor(private readonly provider: IServiceProvider) {}
 
   public CreateDropped(context: ToolboxDropContext): unknown | null
   {
-    const doc = context.Mutator as unknown as DiagramDocument
-    const bindingSvc = this.provider.get(ArchDiagramBindingService.Key)
+    const doc = context.Mutator as unknown as BoardDocument
+    const bindingSvc = this.provider.get(ArchBoardBindingService.Key)
     const model = bindingSvc?.modelForDocument(doc as unknown as IDocument)
     if (bindingSvc === undefined || model === undefined) return null
 
@@ -85,7 +85,7 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory
   // projectContainment nests them on the binding's rescan.
   private materializeMembership(
     model: ArchModel,
-    doc: DiagramDocument,
+    doc: BoardDocument,
     mutator: { AddNode(vm: ArchNodeVM): void },
     scenario: FlowEntity,
     placedBefore: ReadonlySet<string>,
@@ -139,7 +139,7 @@ export class ArchScenarioDropFactory implements IToolboxDropFactory
   // AND a container concept) so a node is positioned inside precisely the
   // container the binding will nest it into. `placedBefore` excludes the nodes
   // this drop is about to add.
-  private buildContainmentLayout(model: ArchModel, doc: DiagramDocument, placedBefore: ReadonlySet<string>): ContainmentLayout | undefined
+  private buildContainmentLayout(model: ArchModel, doc: BoardDocument, placedBefore: ReadonlySet<string>): ContainmentLayout | undefined
   {
     if (typeof model.repository !== 'function') return undefined
     const repo = model.repository()

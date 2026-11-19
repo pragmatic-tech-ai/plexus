@@ -1,9 +1,9 @@
 import { test, expect, vi } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBinding } from '../arch-diagram-binding.js'
+import { ArchBoardBinding } from '../arch-board-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { mintConnectorEntity, isConnectorEntity } from '../connector-entity.js'
 
@@ -28,11 +28,11 @@ function setup()
     const b = model.createInViewpoint('archmm.component', 'archmm.V')
     const connId = mintConnectorEntity(model, a.id, b.id, 'calls')
 
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const va = new ArchNodeVM(); va.Id = a.id
     const vb = new ArchNodeVM(); vb.Id = b.id
     doc.Nodes.Add(va); doc.Nodes.Add(vb)
-    const binding = new ArchDiagramBinding(doc, model)
+    const binding = new ArchBoardBinding(doc, model)
     binding.attach()
     return { model, binding, doc, connId }
 }

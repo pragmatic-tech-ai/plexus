@@ -1,6 +1,6 @@
 // Live smoke for the layout preview overlay (mural 0.34.0):
 //  - LayoutPipelineService.Preview() publishes a proposed arrangement on the
-//    active diagram's Diagram.LayoutPreview WITHOUT moving figures.
+//    active board's Board.LayoutPreview WITHOUT moving figures.
 //  - The framework mounts a LayoutPreviewAdorner into the canvas AdornerLayer and
 //    paints it (opaque backdrop covering the canvas + a block per node).
 //  - ApplyPreview() commits and clears the overlay; CancelPreview() just clears.
@@ -13,7 +13,7 @@ import { launchPlexus, seedSession, corpusAvailable, appErrors, rectsForCtor, cl
 
 const ART = path.join(__dirname, '.artifacts')
 
-// Reach the root-registered LayoutPipelineService + the active diagram view, run
+// Reach the root-registered LayoutPipelineService + the active board view, run
 // one op, and report the resulting preview state.
 function layoutOp(l: Launched, op: 'preview' | 'apply' | 'cancel')
 {
@@ -104,7 +104,7 @@ test.describe.serial('layout preview overlay (live)', () => {
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1200)
-        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
+        await openProjectFile(l, 'test_architecture', 'board-2.board')
         for (let i = 0; i < 40 && (await archNodeCount(l)) === 0; i++) await l.win.waitForTimeout(500)
     })
 
@@ -114,7 +114,7 @@ test.describe.serial('layout preview overlay (live)', () => {
     })
 
     test('Preview paints the overlay; Apply commits and clears it', async () => {
-        expect(await archNodeCount(l), 'diagram opened with nodes').toBeGreaterThan(0)
+        expect(await archNodeCount(l), 'board opened with nodes').toBeGreaterThan(0)
 
         // Preview: publishes the arrangement + flips PreviewActive.
         const previewed = await layoutOp(l, 'preview')
@@ -137,7 +137,7 @@ test.describe.serial('layout preview overlay (live)', () => {
         expect(applied.previewActive, 'preview cleared after Apply').toBe(false)
         expect(applied.hasPreview, 'overlay removed from the view').toBe(false)
         // The overlay stops painting once its data is gone — poll (Apply also
-        // kicks a full diagram re-layout, so the adorner's clearing render may
+        // kicks a full board re-layout, so the adorner's clearing render may
         // land a frame or two later). A stuck ghost would fail this.
         await expect.poll(async () => (await overlayPaint(l)).drawn, { timeout: 5000 })
             .toBe(0)
@@ -145,7 +145,7 @@ test.describe.serial('layout preview overlay (live)', () => {
         // No app errors throughout.
         expect(appErrors(l.errors), appErrors(l.errors).join('\n')).toEqual([])
         // (sanity) the adorner class did reach the tree at least once
-        expect(await countByCtor(l.win, 'Diagram')).toBeGreaterThan(0)
+        expect(await countByCtor(l.win, 'Board')).toBeGreaterThan(0)
     })
 
     test('Cancel clears a fresh preview without committing', async () => {

@@ -1,15 +1,15 @@
 import { test, expect, vi } from 'vitest'
 import { checkAgainst, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { Point, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
-import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../diagram/services/arch-toolbox-item.js'
-import { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import { BoardDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../board/services/arch-toolbox-item.js'
+import { EntityIconVM } from '../../../board/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ArchScenarioDropFactory, ArchScenarioDropFactoryKey } from '../arch-scenario-drop-factory.js'
-import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from '../arch-board-binding-service.js'
 import { containerChildSlot } from '../scenario-flow.js'
 
 // A block is a container with a forward `components` list; a scenario step touches
@@ -42,18 +42,18 @@ function buildModel(): ArchModel
     return new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
 }
 
-function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext
+function makeContext(doc: BoardDocument, scenarioId: string): ToolboxDropContext
 {
     const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'archmm.scenario')
     const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
     const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'archmm.scenario'))
-    return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Diagram: undefined as never, Mutator: doc }
+    return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Board: undefined as never, Mutator: doc }
 }
 
 function providerFor(model: ArchModel): IServiceProvider
 {
     const bindingSvc = { modelForDocument: () => model, addScenario: vi.fn(() => Promise.resolve()) }
-    return { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
+    return { get: (k: unknown) => (k === ArchBoardBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
 }
 
 test('dropping a scenario materializes a participant block`s full membership, nested inside it', () => {
@@ -68,7 +68,7 @@ test('dropping a scenario materializes a participant block`s full membership, ne
     const sq = model.createInViewpoint('archmm.sequence', 'archmm.S'); model.addRef(sq.id, 'steps', st.id)
     const sc = model.createInViewpoint('archmm.scenario', 'archmm.S'); model.addRef(sc.id, 'sequences', sq.id)
 
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     new ArchScenarioDropFactory(providerFor(model)).CreateDropped(makeContext(doc, sc.id))
 
     // Participants (chat, standalone) AND the block's non-participant members (c1, c2).
@@ -92,7 +92,7 @@ test('a member already on the canvas is reused, not duplicated or repositioned',
     const sq = model.createInViewpoint('archmm.sequence', 'archmm.S'); model.addRef(sq.id, 'steps', st.id)
     const sc = model.createInViewpoint('archmm.scenario', 'archmm.S'); model.addRef(sc.id, 'sequences', sq.id)
 
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const pre = new ArchNodeVM(); pre.Id = c1.id
     doc.AddNode(pre)
     doc.SetNodeVisual(c1.id, { left: 777, top: 777, w: 72, h: 56 })

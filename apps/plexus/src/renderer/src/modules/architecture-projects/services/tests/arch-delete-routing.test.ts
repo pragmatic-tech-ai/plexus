@@ -1,9 +1,9 @@
 import { test, expect, vi } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBinding } from '../arch-diagram-binding.js'
+import { ArchBoardBinding } from '../arch-board-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 
 const MM = `namespace archmm {
@@ -19,10 +19,10 @@ function setup()
     const model = new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
     vi.spyOn(model, 'save').mockResolvedValue()
     const comp = model.createInViewpoint('component', 'V')
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const node = new ArchNodeVM(); node.Id = comp.id
     doc.Nodes.Add(node)
-    const binding = new ArchDiagramBinding(doc, model)
+    const binding = new ArchBoardBinding(doc, model)
     binding.attach()
     return { model, binding, node, comp }
 }

@@ -7,7 +7,7 @@ import { BindingPayloadKind, type ResolvedBinding } from '../../../../../shared/
 export interface BindingContextSources
 {
     currentProject(): { name: string; path: string } | undefined
-    diagramSelection(): { entityIds: string[]; entities: Array<{ id: string; term?: string }> } | undefined
+    boardSelection(): { entityIds: string[]; entities: Array<{ id: string; term?: string }> } | undefined
     activeDocument(): { path: string; kind: string; text?: string } | undefined
     primaryEntity(): { id: string; term?: string; path?: string } | undefined   // EntityRef ← first selected
     workspaceRoot(): { path: string } | undefined
@@ -35,7 +35,7 @@ export class BindingResolver
         switch (b.source)
         {
             case BindingSource.CurrentProject:   return wrap(BindingPayloadKind.Project, this.sources.currentProject())
-            case BindingSource.DiagramSelection: return wrap(BindingPayloadKind.Selection, this.sources.diagramSelection())
+            case BindingSource.BoardSelection: return wrap(BindingPayloadKind.Selection, this.sources.boardSelection())
             case BindingSource.ActiveDocument:   return wrap(BindingPayloadKind.Document, this.sources.activeDocument())
             case BindingSource.EntityRef:        return wrap(BindingPayloadKind.Entity, this.sources.primaryEntity())
             case BindingSource.WorkspaceRoot:    return wrap(BindingPayloadKind.Path, this.sources.workspaceRoot())

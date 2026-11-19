@@ -7,6 +7,6 @@ test('enum wire values are stable', () => {
 })
 
 test('empty context has the skill name and no inputs/bindings', () => {
-    const c: SkillContext = SkillContexts.empty('gen-diagram')
-    expect(c).toEqual({ skillName: 'gen-diagram', inputs: [], bindings: [] })
+    const c: SkillContext = SkillContexts.empty('gen-board')
+    expect(c).toEqual({ skillName: 'gen-board', inputs: [], bindings: [] })
 })

@@ -41,7 +41,7 @@ export class ArchitectureModelService extends ServiceBase
         })
         // Refresh a cached model when its project's .todl files change on disk
         // (external edit, or the in-app TODL editor saving). Without this the model
-        // is a stale snapshot: a diagram re-projects deleted/edited entities from it
+        // is a stale snapshot: a board re-projects deleted/edited entities from it
         // and only a project-close or app-restart clears it. Debounced per project.
         this.fileWatchUnsubscribe = this.Provider.get(FileWatchService.Key)?.Subscribe((e) => this.onTodlChange(e))
     }
@@ -70,9 +70,9 @@ export class ArchitectureModelService extends ServiceBase
     }
 
     // Re-read the project's .todl sources and rebuild the cached model's draft, so
-    // open diagrams re-project against the current source of truth. A parse error
+    // open boards re-project against the current source of truth. A parse error
     // in the edited source leaves the previous model in place (the language client
-    // surfaces the diagnostic; the diagram keeps rendering).
+    // surfaces the diagnostic; the board keeps rendering).
     private async reloadModel(rootPath: string, model: ArchModel): Promise<void>
     {
         if (this.models.get(rootPath) !== model) return   // closed / replaced meanwhile

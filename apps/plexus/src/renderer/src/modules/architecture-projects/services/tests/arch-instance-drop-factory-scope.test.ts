@@ -1,11 +1,11 @@
 import { test, expect } from 'vitest'
 import { ServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from '../arch-board-binding-service.js'
 import { CandidateChooserService } from '@pragmatic-tech-ai/mural/framework'
 import { ArchInstanceDropFactory } from '../arch-instance-drop-factory.js'
 
@@ -25,24 +25,24 @@ function buildModel(storage: FakeStorage): ArchModel
     const draft = ModelDraft.fromSources([new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))], [], { namespace: 'archmm' })
     return new ArchModel(draft, storage, 'archmm')
 }
-function wire(doc: DiagramDocument, model: ArchModel, scope: Set<string>)
+function wire(doc: BoardDocument, model: ArchModel, scope: Set<string>)
 {
     const provider = new ServiceProvider()
-    provider.registerInstance(ArchDiagramBindingService.Key, {
+    provider.registerInstance(ArchBoardBindingService.Key, {
         modelForDocument: (d: unknown) => (d === doc ? model : undefined),
         scopeForDocument: (d: unknown) => (d === doc ? scope : undefined),
-    } as unknown as ArchDiagramBindingService)
+    } as unknown as ArchBoardBindingService)
     provider.registerInstance(CandidateChooserService.Key, new CandidateChooserService(provider))
     return provider
 }
-function ctx(doc: DiagramDocument, key: string): ToolboxDropContext
+function ctx(doc: BoardDocument, key: string): ToolboxDropContext
 {
-    return { Descriptor: { Key: key }, Position: { X: 1, Y: 2 }, Diagram: {}, Mutator: doc } as unknown as ToolboxDropContext
+    return { Descriptor: { Key: key }, Position: { X: 1, Y: 2 }, Board: {}, Mutator: doc } as unknown as ToolboxDropContext
 }
 
 test('scope=ComponentView → the drop creates a component (node is out of scope)', () => {
     const model = buildModel(new FakeStorage('fake://Acme'))
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model, new Set(['archmm.ComponentView'])))
     const result = factory.CreateDropped(ctx(doc, 'archmm.Stack.azure')) as ArchNodeVM
     expect(result).toBeInstanceOf(ArchNodeVM)
@@ -51,7 +51,7 @@ test('scope=ComponentView → the drop creates a component (node is out of scope
 
 test('scope=DeploymentView → the same drop creates a node', () => {
     const model = buildModel(new FakeStorage('fake://Acme'))
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const factory = new ArchInstanceDropFactory(wire(doc, model, new Set(['archmm.DeploymentView'])))
     factory.CreateDropped(ctx(doc, 'archmm.Stack.azure'))
     expect(model.entities().map((e) => e.concept)).toEqual(['archmm.node'])

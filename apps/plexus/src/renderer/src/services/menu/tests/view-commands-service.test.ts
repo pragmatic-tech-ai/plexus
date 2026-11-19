@@ -1,7 +1,7 @@
 import { test, expect, vi } from 'vitest'
 import { ServiceProvider, Signal } from '@pragmatic-tech-ai/mural/runtime'
 import {
-    ContentHostService, Diagram, DiagramDocument, NavigationService, PanelDockService,
+    ContentHostService, Board, BoardDocument, NavigationService, PanelDockService,
     type IDockPanel, type IDocument,
 } from '@pragmatic-tech-ai/mural/framework'
 import { ProblemsService } from '../../../modules/problems/problems-service.js'
@@ -37,9 +37,9 @@ class FakeDocumentsContentHostService
     }
 }
 
-// A document that is not a diagram — exercises the "non-diagram active document
+// A document that is not a board — exercises the "non-board active document
 // disables zoom, never throws" path.
-class FakeNonDiagramDocument implements IDocument
+class FakeNonBoardDocument implements IDocument
 {
     public readonly Id = 'notes-1'
     public readonly Title = 'Notes'
@@ -104,9 +104,9 @@ function flush(): Promise<void>
     return new Promise((resolve) => setTimeout(resolve, 0))
 }
 
-test('zoom commands are enabled and dispatch to the active diagram view when a diagram is active', () => {
-    const doc = new DiagramDocument()
-    const view = new Diagram()
+test('zoom commands are enabled and dispatch to the active board view when a board is active', () => {
+    const doc = new BoardDocument()
+    const view = new Board()
     const zoomIn = vi.spyOn(view, 'ZoomIn').mockImplementation(() => {})
     const zoomOut = vi.spyOn(view, 'ZoomOut').mockImplementation(() => {})
     const resetZoom = vi.spyOn(view, 'ResetZoom').mockImplementation(() => {})
@@ -126,8 +126,8 @@ test('zoom commands are enabled and dispatch to the active diagram view when a d
     expect(resetZoom).toHaveBeenCalledTimes(1)
 })
 
-test('zoom commands are disabled for a non-diagram active document', () => {
-    const { svc } = buildService(new FakeNonDiagramDocument())
+test('zoom commands are disabled for a non-board active document', () => {
+    const { svc } = buildService(new FakeNonBoardDocument())
     expect(svc.ZoomInCommand.CanExecute()).toBe(false)
     expect(svc.ZoomOutCommand.CanExecute()).toBe(false)
     expect(svc.ResetZoomCommand.CanExecute()).toBe(false)
@@ -145,8 +145,8 @@ test('zoom commands are disabled when there is no active document', () => {
     expect(svc.ResetZoomCommand.CanExecute()).toBe(false)
 })
 
-test('zoom commands are disabled when a diagram is active but has no live view yet', () => {
-    const { svc } = buildService(new DiagramDocument())
+test('zoom commands are disabled when a board is active but has no live view yet', () => {
+    const { svc } = buildService(new BoardDocument())
     expect(svc.ZoomInCommand.CanExecute()).toBe(false)
 })
 
@@ -155,8 +155,8 @@ test('zoom CanExecuteChanged fires when the active document changes', () => {
     const listener = vi.fn()
     svc.ZoomInCommand.AddCanExecuteChangedListener(listener)
 
-    const doc = new DiagramDocument()
-    doc.ActiveView = new Diagram()
+    const doc = new BoardDocument()
+    doc.ActiveView = new Board()
     host.ActiveDocument = doc
 
     expect(listener).toHaveBeenCalled()
@@ -169,7 +169,7 @@ test('dispose releases the ActiveDocument subscription so later changes do not r
     svc.ZoomInCommand.AddCanExecuteChangedListener(listener)
 
     svc.dispose()
-    host.ActiveDocument = new FakeNonDiagramDocument()
+    host.ActiveDocument = new FakeNonBoardDocument()
 
     expect(listener).not.toHaveBeenCalled()
 })

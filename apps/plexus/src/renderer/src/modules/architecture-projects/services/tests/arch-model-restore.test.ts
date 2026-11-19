@@ -30,7 +30,7 @@ test('capture then restore round-trips own entities', () => {
 
 // Project namespace (`myproj`) DIFFERS from the meta-model namespace
 // (`tech_architecture`): a minted id must carry the PROJECT namespace and a bare
-// local name, so it survives a save -> reload and the diagram node re-binds.
+// local name, so it survives a save -> reload and the board node re-binds.
 test('a minted instance id is project-namespaced + bare-based and survives save/reload', async () => {
     const TECH = `namespace tech_architecture {
   concept component { }

@@ -14,7 +14,7 @@ import { SolutionWorkspaceService } from '@pragmatic-tech-ai/plexus-core/rendere
 const LIST_HEIGHT_FRACTION = 0.3
 const FALLBACK_LIST_MAX_HEIGHT = 240
 
-// A standalone ServiceKey (like the framework's DiagramEditingContext). The
+// A standalone ServiceKey (like the framework's BoardEditingContext). The
 // StatusBar ShellControlDefinition references THIS as its DataContext: the shell
 // resolves it via provider.get(def.DataContext) with no class→Key normalization,
 // so it must be handed the ServiceKey instance, not the ProblemsService class.

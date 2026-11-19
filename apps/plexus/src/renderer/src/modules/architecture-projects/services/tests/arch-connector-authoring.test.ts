@@ -1,9 +1,9 @@
 import { test, expect, vi } from 'vitest'
 import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
-import { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
 import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
-import { ArchDiagramBinding } from '../arch-diagram-binding.js'
+import { ArchBoardBinding } from '../arch-board-binding.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import type { ConnectorAction } from '../arch-connector-resolver.js'
 
@@ -32,13 +32,13 @@ function setup(model: ArchModel, srcConcept: string, tgtConcept: string)
 {
     const src = model.createInViewpoint(srcConcept, 'archmm.V')
     const tgt = model.createInViewpoint(tgtConcept, 'archmm.V')
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const a = new ArchNodeVM(); a.Id = src.id
     const b = new ArchNodeVM(); b.Id = tgt.id
     doc.Nodes.Add(a); doc.Nodes.Add(b)
     let shown: { actions: readonly ConnectorAction[]; onPick: (a: ConnectorAction) => void } | undefined
     const chooser = { Show: vi.fn((actions: readonly ConnectorAction[], onPick: (a: ConnectorAction) => void) => { shown = { actions, onPick } }) }
-    const binding = new ArchDiagramBinding(doc, model, chooser as never)
+    const binding = new ArchBoardBinding(doc, model, chooser as never)
     binding.attach()
     return { binding, src, tgt, a, b, chooser, getShown: () => shown }
 }

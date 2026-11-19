@@ -74,10 +74,10 @@ const FLUSH_DURABLE_PROBE = 'window.__flushDurable ? window.__flushDurable() : n
 if (is.dev) app.commandLine.appendSwitch('disable-http-cache')
 
 // Main process — owns the window and (later) the native capabilities Plexus
-// reaches for as a desktop app: file open/save for diagram documents, the
+// reaches for as a desktop app: file open/save for board documents, the
 // app menu, recent files. Those land as typed IPC handlers here and are
 // consumed in the renderer through an INJECTED mural service (the same seam
-// the demo's DiagramStorageKey uses), so no view / view-model code ever
+// the demo's BoardStorageKey uses), so no view / view-model code ever
 // imports electron directly.
 function createWindow(): void
 {

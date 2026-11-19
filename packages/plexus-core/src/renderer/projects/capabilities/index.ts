@@ -4,6 +4,6 @@
 export { PublishedBasesKey, type IPublishedBases } from './published-bases.js'
 export { LiveValidationKey, type ILiveValidation } from './live-validation.js'
 export { BaseResolverKey, type IBaseResolver } from './base-resolver.js'
-export { DiagramTreeExportKey, DiagramExportFormat, type IDiagramTreeExport } from './diagram-tree-export.js'
+export { BoardTreeExportKey, BoardExportFormat, type IBoardTreeExport } from './board-tree-export.js'
 export { ProjectMenuSourceKey, type IProjectMenuSource } from './project-menu-source.js'
 export { ProblemsDockKey, type IProblemsDock } from './problems-dock.js'

@@ -7,7 +7,7 @@ import { materializeRoots } from './arch-materialize.js'
 import { NodeNames } from './node-names.js'
 
 // A dropped container-concept term (a location / block / subscription / …) that
-// this diagram's viewpoint does not frame can't be placed here, and the drop
+// this board's viewpoint does not frame can't be placed here, and the drop
 // resolver's facet-drop fallback would otherwise silently mint a DIFFERENT
 // concept (e.g. a component `in` the dropped location). The resolver returns a
 // Rejected action for that case; these helpers turn it into a comprehensive,
@@ -36,7 +36,7 @@ function termLabel(repo: Repository, termId: string): string
 }
 
 // Build the title + body for the rejected-drop modal. Pure (repo-only) so it is
-// unit-testable. `scope` is the diagram's selected viewpoint set.
+// unit-testable. `scope` is the board's selected viewpoint set.
 export function dropRejectionMessage(repo: Repository, termId: string, scope: ReadonlySet<string>): { title: string; message: string }
 {
     const ct = conceptTypeOf(repo, termId)
@@ -51,12 +51,12 @@ export function dropRejectionMessage(repo: Repository, termId: string, scope: Re
         ? ` Dropping it here would instead create a ${NodeNames.Simple(fallback.concept)} (its "${fallback.member}" pointing at "${label}") — which isn't what you dropped, so the drop was cancelled.`
         : ' The drop was cancelled.'
     const howToFix = framing.length > 0
-        ? `To place a ${ctName} on a diagram, change this diagram's viewpoint to one that includes ${ctName} — ${framing.join(', ')} — using the viewpoints selector, then drop it again.`
-        : `No viewpoint in this model frames ${ctName}, so it cannot be placed on any diagram.`
+        ? `To place a ${ctName} on a board, change this board's viewpoint to one that includes ${ctName} — ${framing.join(', ')} — using the viewpoints selector, then drop it again.`
+        : `No viewpoint in this model frames ${ctName}, so it cannot be placed on any board.`
 
     return {
         title: `Can't place "${label}" here`,
-        message: `"${label}" is a ${ctName}, but this diagram's viewpoint (${hereList}) doesn't include ${ctName}.${whatWouldHappen}\n\n${howToFix}`,
+        message: `"${label}" is a ${ctName}, but this board's viewpoint (${hereList}) doesn't include ${ctName}.${whatWouldHappen}\n\n${howToFix}`,
     }
 }
 

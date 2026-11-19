@@ -17,7 +17,7 @@ const MARKER_OWNER = 'meta-model'
 // A DomHost that hosts a Monaco editor. It IS the foreign control — overriding
 // DomHost.CreateHostElement to build Monaco inside the slot-filling host
 // element. It is a pure VIEW: the document (its DataContext) owns the text and
-// save/dirty, exactly as a Diagram binds a DiagramDocument's Nodes. The editor
+// save/dirty, exactly as a Board binds a BoardDocument's Nodes. The editor
 // is declared directly in DataTemplate[CodeDocument] and configured by property
 // bindings:
 //

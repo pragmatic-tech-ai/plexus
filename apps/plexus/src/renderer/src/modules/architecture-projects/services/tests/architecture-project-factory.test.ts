@@ -62,21 +62,23 @@ test('openProject tags .todl files as openable todl nodes; the manifest is hidde
     expect([...kinds.keys()]).not.toContain(PROJECT_MANIFEST_FILENAME)
 })
 
-test('architecture factory lists Diagram first, then TODL Definition', () => {
+test('architecture factory lists Board first, legacy .diagram, then TODL Definition', () => {
     const f = factory()
-    expect(f.formats.map((x) => x.extension)).toEqual(['.diagram', '.todl'])
-    expect(f.formats[0]).toEqual({ extension: '.diagram', kind: 'diagram', displayName: 'Diagram' })
-    expect(f.formats[1]).toEqual({ extension: '.todl', kind: 'todl', displayName: 'TODL Definition' })
+    expect(f.formats.map((x) => x.extension)).toEqual(['.board', '.diagram', '.todl'])
+    expect(f.formats[0]).toEqual({ extension: '.board', kind: 'board', displayName: 'Board' })
+    // Legacy `.diagram` still maps to the Board kind (read back-compat).
+    expect(f.formats[1]).toEqual({ extension: '.diagram', kind: 'board', displayName: 'Board (legacy)' })
+    expect(f.formats[2]).toEqual({ extension: '.todl', kind: 'todl', displayName: 'TODL Definition' })
 })
 
-test('openProject marks a .diagram as a diagram node and a .todl as a todl node', async () => {
+test('openProject marks a .board as a board node and a .todl as a todl node', async () => {
     const storage = new FakeStorage('fake://City')
     await factory().createProject(storage, 'City')
-    await storage.WriteText('city.diagram', '{}')
+    await storage.WriteText('city.board', '{}')
     await storage.WriteText('city.todl', 'namespace city\n{\n}\n')
 
     const project = await factory().openProject(storage)
     const kinds = new Map(project.Root.Children.ToArray().map((n) => [n.Name, n.Kind]))
-    expect(kinds.get('city.diagram')).toBe('diagram')
+    expect(kinds.get('city.board')).toBe('board')
     expect(kinds.get('city.todl')).toBe('todl')
 })

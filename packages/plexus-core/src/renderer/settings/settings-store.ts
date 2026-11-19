@@ -1,5 +1,6 @@
 import type { ISettingsStore } from '@pragmatic-tech-ai/mural/framework'
 import type { ISettingsBridge } from '../../shared/settings-api.js'
+import { LegacySettingsKeys } from './legacy-settings-keys.js'
 
 // ElectronSettingsStore — the Plexus host's ISettingsStore, adapting the preload
 // settings bridge (window.api.settings) to the framework contract the
@@ -30,7 +31,9 @@ export class ElectronSettingsStore implements ISettingsStore
 
     public Load(): Record<string, unknown>
     {
-        return this.bridge.snapshot;
+        // Migrate legacy `diagram.*` setting keys to `board.*` before mural overlays them,
+        // so a user's saved board settings survive the Diagram→Board rename.
+        return LegacySettingsKeys.Apply(this.bridge.snapshot);
     }
 
     public Save(values: Record<string, unknown>): void

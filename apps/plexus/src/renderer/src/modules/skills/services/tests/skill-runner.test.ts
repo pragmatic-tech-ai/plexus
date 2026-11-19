@@ -16,7 +16,7 @@ function skill(over: Partial<SkillDescriptor> = {}): Skill
 }
 
 const emptySources: BindingContextSources = {
-    currentProject: () => undefined, diagramSelection: () => undefined, activeDocument: () => undefined,
+    currentProject: () => undefined, boardSelection: () => undefined, activeDocument: () => undefined,
     primaryEntity: () => undefined, workspaceRoot: () => undefined,
 }
 

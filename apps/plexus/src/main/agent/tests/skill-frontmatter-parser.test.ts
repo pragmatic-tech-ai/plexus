@@ -13,12 +13,12 @@ description: A plain skill.
 # body`
 
 const SUPER = `---
-name: gen-diagram
-description: Make a diagram.
+name: gen-board
+description: Make a board.
 x-plexus:
   version: 1
-  title: Generate Diagram
-  category: Diagrams
+  title: Generate Board
+  category: Boards
   model: sonnet
   tags: [c4, arch]
   requiresProjectType: [Architecture]
@@ -35,7 +35,7 @@ x-plexus:
       default: context
   bindings:
     - source: CurrentProject
-    - source: DiagramSelection
+    - source: BoardSelection
       as: selectedNodes
   outputs:
     - kind: Conversation
@@ -56,15 +56,15 @@ test('base-only skill parses to a ClaudeCode descriptor', () => {
 test('x-plexus block parses all superset fields', () => {
     const d = parser.parse(SUPER, CTX)
     expect(d.sourceKind).toBe(SkillSourceKind.PlexusSuperset)
-    expect(d.title).toBe('Generate Diagram')
-    expect(d.category).toBe('Diagrams')
+    expect(d.title).toBe('Generate Board')
+    expect(d.category).toBe('Boards')
     expect(d.model).toBe('sonnet')
     expect(d.tags).toEqual(['c4', 'arch'])
     expect(d.requiresProjectType).toEqual([ProjectType.Architecture])
     expect(d.allowedTools).toEqual(['Read', 'Grep'])
     expect(d.deprecation).toEqual({ replacedBy: 'gen-c4', note: 'superseded' })
     expect(d.inputs[0]).toEqual({ key: 'viewpoint', label: 'Viewpoint', type: InputKind.Enum, options: ['context', 'container'], required: true, default: 'context' })
-    expect(d.bindings).toEqual([{ source: BindingSource.CurrentProject, as: undefined }, { source: BindingSource.DiagramSelection, as: 'selectedNodes' }])
+    expect(d.bindings).toEqual([{ source: BindingSource.CurrentProject, as: undefined }, { source: BindingSource.BoardSelection, as: 'selectedNodes' }])
     expect(d.outputs).toEqual([{ kind: OutputKind.Conversation, target: undefined }, { kind: OutputKind.ModelPatch, target: 'CurrentProject' }])
 })
 

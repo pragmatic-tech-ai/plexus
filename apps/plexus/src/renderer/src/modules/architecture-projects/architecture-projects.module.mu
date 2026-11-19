@@ -1,12 +1,12 @@
 // architecture-projects.module.mu - the Architecture Projects module.
 //
 // A ShellModule with NO nav Capability (like code-editor/problems/agent-chat): it
-// carries the model-patch applier + a diagram-toolbar command. The `architecture`
+// carries the model-patch applier + a board-toolbar command. The `architecture`
 // project TYPE itself (ArchitectureProjectFactory) now lives in TODL's
 // project-system module (TodlProjectSystemModule); this module keeps only its shell
 // contributions. Its
-// `.todl` files are the architecture model; `.diagram` files inside are edited by
-// the diagram module's generic DiagramDocumentFactory (resolved by extension).
+// `.todl` files are the architecture model; `.board` files inside are edited by
+// the board module's generic BoardDocumentFactory (resolved by extension).
 
 import ModelPatchApplier from "./services/model-patch-applier.js"
 import ArchActionContributor from "./services/arch-action-contributor.js"
@@ -18,30 +18,30 @@ shell module ArchitectureProjectsModule [ Name = "Architecture Projects" ] {
         ArchActionContributor
     }
 
-    // "Edit Viewpoints…" on a .diagram row in an architecture project — the
+    // "Edit Viewpoints…" on a .board row in an architecture project — the
     // INodeCommandContributor replacement on the B+C1 command seam. ArchActionContributor
-    // resolves the Id to the shared viewpoints editor; arch-project + .diagram gating
+    // resolves the Id to the shared viewpoints editor; arch-project + .board gating
     // rides the resolved command's CanExecute.
     Hierarchy {
-        Contributor [ Under = "diagram", Use = ArchActionContributor, Order = 100 ] {
+        Contributor [ Under = "board", Use = ArchActionContributor, Order = 100 ] {
             CommandDefinition
                 [ Id      = "arch.editViewpoints.node",
                   Title   = "Edit Viewpoints…",
-                  Context = "diagram" ]
+                  Context = "board" ]
         }
     }
 
-    // Diagram-toolbar command: edit the diagram's governing viewpoints. Rides the
-    // DiagramEditingContext (shown while any diagram is active); its handler
-    // (ArchEditViewpointsCommand, via the diagram command-extension seam) enables
-    // it only for an arch-bound diagram and greys it out otherwise. Order 400
-    // places it after the framework diagram commands.
+    // Board-toolbar command: edit the board's governing viewpoints. Rides the
+    // BoardEditingContext (shown while any board is active); its handler
+    // (ArchEditViewpointsCommand, via the board command-extension seam) enables
+    // it only for an arch-bound board and greys it out otherwise. Order 400
+    // places it after the framework board commands.
     .commands: {
         CommandDefinition
             [ Id      = "arch.editViewpoints",
               Title   = "Edit Viewpoints",
               Icon    = @MetaModels,
-              Context = DiagramEditingContext,
+              Context = BoardEditingContext,
               Group   = "arch",
               Order   = 400 ]
     }

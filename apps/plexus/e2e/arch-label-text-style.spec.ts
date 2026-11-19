@@ -19,20 +19,20 @@ function styleFirstArchNode(l: Launched)
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
-        if (!diagram) return { ok: false, reason: 'no diagram' }
-        const items = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
+        if (!board) return { ok: false, reason: 'no board' }
+        const items = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
         const vm = items.find((i: any) => i?.constructor?.name === 'ArchNodeVM')
         if (!vm) return { ok: false, reason: 'no arch node' }
-        const container = diagram.Generator?.ContainerFromItem(vm)
+        const container = board.Generator?.ContainerFromItem(vm)
         if (!container) return { ok: false, reason: 'no container' }
-        diagram.HandleContainerClick(container, 0) // ModifierKeys.None
+        board.HandleContainerClick(container, 0) // ModifierKeys.None
 
         // Drive the Text page's backing DPs (font size / bold / colour / alignment).
-        diagram.SelectionFontSize = 26
-        diagram.SelectionBold = true
-        diagram.SelectionFontColorHex = '#ff0000'
+        board.SelectionFontSize = 26
+        board.SelectionBold = true
+        board.SelectionFontColorHex = '#ff0000'
 
         // Read the rendered label tile's FontSize (the TextBlock showing the label).
         let labelFontSize: number | undefined
@@ -70,7 +70,7 @@ test.describe.serial('arch node label responds to the Text page', () => {
         const scrollX = navs[1]!.x + navs[1]!.w + 120
         for (let i = 0; i < 14; i++)
         {
-            if (await l.win.getByText('diagram.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('board.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
@@ -78,13 +78,13 @@ test.describe.serial('arch node label responds to the Text page', () => {
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let attempt = 0; attempt < 3 && figs.length === 0; attempt++)
         {
-            const dd = l.win.getByText('diagram.diagram', { exact: true }).first()
+            const dd = l.win.getByText('board.board', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
             figs = await canvasFigs(l)
         }
-        expect(figs.length, 'diagram opened with canvas figures').toBeGreaterThan(0)
+        expect(figs.length, 'board opened with canvas figures').toBeGreaterThan(0)
     })
 
     test.afterAll(async () => { await l.app.close().catch(() => {}); restore?.() })

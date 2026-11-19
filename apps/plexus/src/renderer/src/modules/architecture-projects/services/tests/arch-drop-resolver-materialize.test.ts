@@ -77,7 +77,7 @@ test('place-leaf is gated on the concept being a root — a non-root taxonomy ar
     expect(actions[0]).toMatchObject({ kind: DropActionKind.Reference, concept: 'm.component', member: 'implementedBy' })
 })
 
-test('an actor archetype dropped on a diagram that does not frame actor does not place', () => {
+test('an actor archetype dropped on a board that does not frame actor does not place', () => {
     // scope excludes actor's framing viewpoint → no place action (falls through).
     const actions = resolveDropActions(leafRepo(), 'm.Actors.internal', new Set(['m.other']))
     expect(actions.some((a) => a.kind === DropActionKind.Place)).toBe(false)

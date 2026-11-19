@@ -18,7 +18,7 @@ export function iconKeyForKind(kind: ProjectNodeKind): string
     switch (kind)
     {
         case 'folder': return 'Folder'
-        case 'diagram': return 'Diagram'
+        case 'board': return 'Board'
         case 'todl': return 'Todl'
         default: return 'File'
     }

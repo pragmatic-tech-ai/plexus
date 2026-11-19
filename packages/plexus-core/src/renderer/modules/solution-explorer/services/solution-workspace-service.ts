@@ -96,7 +96,7 @@ import {
 // path; there is no OpenProject). The participant may veto a just-created file (e.g.
 // the architecture viewpoint picker was cancelled), after which the file is deleted.
 // An unregistered participant is treated as "keep". A later task migrates the
-// OpenProject-based INewFileParticipant (arch-new-diagram-participant) onto this seam.
+// OpenProject-based INewFileParticipant (arch-new-board-participant) onto this seam.
 export interface IMemberNewFileParticipant
 {
     OnCreated(member: SolutionMember, path: string): Promise<boolean>

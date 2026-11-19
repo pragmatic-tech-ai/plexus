@@ -43,13 +43,13 @@ export class ShortcutsDialogVm extends Observable
     private static readonly RenameGesture = 'F2'
     private static readonly RenameDescription = 'Rename'
     private static readonly CopyGesture = 'Ctrl+C'
-    private static readonly CopyDescription = 'Copy (diagram)'
+    private static readonly CopyDescription = 'Copy (board)'
     private static readonly CutGesture = 'Ctrl+X'
-    private static readonly CutDescription = 'Cut (diagram)'
+    private static readonly CutDescription = 'Cut (board)'
     private static readonly PasteGesture = 'Ctrl+V'
-    private static readonly PasteDescription = 'Paste (diagram)'
+    private static readonly PasteDescription = 'Paste (board)'
     private static readonly DeleteGesture = 'Delete'
-    private static readonly DeleteDescription = 'Delete (diagram)'
+    private static readonly DeleteDescription = 'Delete (board)'
 
     private static readonly StaticEntries: readonly ShortcutEntry[] = [
         new ShortcutEntry(ShortcutsDialogVm.SaveGesture, ShortcutsDialogVm.SaveDescription),

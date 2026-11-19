@@ -5,8 +5,8 @@ import { LibraryRegistry } from './library-registry.js'
 import { LibraryTreeNode, LibraryNodeKind } from './library-tree-node.js'
 import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 import { StorageService } from '@pragmatic-tech-ai/plexus-core/renderer/modules/storage'
-import { registerArchToolboxAdapters } from '../../diagram/services/register-arch-toolbox-adapters.js'
-import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
+import { registerArchToolboxAdapters } from '../../board/services/register-arch-toolbox-adapters.js'
+import { TodlPresentationRegistry } from '../../board/services/todl-presentation-registry.js'
 import { WikiService } from '../../../services/wiki/wiki-service.js'
 
 // The Libraries capability's panel content: a TreeView of published libraries

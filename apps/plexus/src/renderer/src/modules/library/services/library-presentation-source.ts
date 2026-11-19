@@ -1,6 +1,6 @@
 import { ResourceDictionary, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 
-import type { PresentationContribution, PresentationSource } from '../../diagram/services/todl-presentation-registry.js'
+import type { PresentationContribution, PresentationSource } from '../../board/services/todl-presentation-registry.js'
 import { ensurePackagesBackend } from '../../../services/projects/packages-backend.js'
 import type { LoadedLibrary } from './library-loader.js'
 import { loadCompiledPresentation } from '../../meta-model/services/compiled-presentation.js'

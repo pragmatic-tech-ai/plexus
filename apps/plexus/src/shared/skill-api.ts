@@ -1,7 +1,7 @@
 import { AgentSkillKind } from './agent-api.js'
 
 export enum InputKind { Text = 'text', Number = 'number', Bool = 'bool', Enum = 'enum', Selection = 'selection', Entity = 'entity' }
-export enum BindingSource { CurrentProject = 'currentProject', DiagramSelection = 'diagramSelection', ActiveDocument = 'activeDocument', EntityRef = 'entityRef', WorkspaceRoot = 'workspaceRoot' }
+export enum BindingSource { CurrentProject = 'currentProject', BoardSelection = 'boardSelection', ActiveDocument = 'activeDocument', EntityRef = 'entityRef', WorkspaceRoot = 'workspaceRoot' }
 export enum OutputKind { Conversation = 'conversation', File = 'file', ModelPatch = 'modelPatch' }
 export enum SkillScope { Project = 'project', Global = 'global', Packaged = 'packaged' }
 export enum SkillSourceKind { ClaudeCode = 'claudeCode', PlexusSuperset = 'plexusSuperset' }

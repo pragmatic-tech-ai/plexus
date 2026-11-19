@@ -2,7 +2,7 @@ import { DialogService } from '@pragmatic-tech-ai/mural/framework'
 import { ConfirmDialogModel } from '@pragmatic-tech-ai/plexus-core/renderer/dialogs/confirm-dialog-model.js'
 
 // The "illegal containment" rejection modal, shared by the drop-into-container
-// (ArchInstanceDropFactory) and drag-into-container (ArchDiagramBinding.handleReparent)
+// (ArchInstanceDropFactory) and drag-into-container (ArchBoardBinding.handleReparent)
 // paths so both explain a refused nest identically. Informational — a single OK
 // button (the confirm command); the caller has already refused / reverted the nest.
 // No-op when there is no DialogService (headless / tests).

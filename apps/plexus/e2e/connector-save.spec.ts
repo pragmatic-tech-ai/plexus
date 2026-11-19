@@ -1,10 +1,10 @@
-// Comprehensive dirty + save coverage for diagram CONNECTORS on an arch diagram.
+// Comprehensive dirty + save coverage for board CONNECTORS on an arch board.
 //
-// Bug under investigation: "the diagram does not save the changes related to
-// connectors." Arch-diagram connectors are model-derived (IsDerived) — drawing
+// Bug under investigation: "the board does not save the changes related to
+// connectors." Arch-board connectors are model-derived (IsDerived) — drawing
 // one mints a `connector` entity (or a concept ref) and calls model.save(),
 // which writes the .todl; the visual connector re-projects from the model on
-// open. So persistence flows through the .todl, NOT the .diagram file.
+// open. So persistence flows through the .todl, NOT the .board file.
 //
 // We drive the REAL production path (view._fireConnectorCreated with genuine
 // ConnectorEndpoints) against a scratch COPY of plexus_test_projects, then check:
@@ -23,7 +23,7 @@ const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'c:/Users/Eugene/Projects/archi
 const PROJECT_RELS = [
     'meta-models/tech-architecture', 'libraries/microsoft', 'libraries/aws', 'architecures/test_architecture',
 ]
-// Two component nodes on diagram-2 with no connector between them.
+// Two component nodes on board-2 with no connector between them.
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
@@ -52,19 +52,19 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: bo
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return { ok: false, reason: 'no Diagram view' }
-        const arr: any[] = diagram.ItemsSource.ToArray()
+        if (!board) return { ok: false, reason: 'no Board view' }
+        const arr: any[] = board.ItemsSource.ToArray()
         const byId = (id: string) => arr.find((vm: any) => vm?.Id === id)
-        const Ep = diagram.Connectors?.ToArray?.()[0]?.Source?.constructor
+        const Ep = board.Connectors?.ToArray?.()[0]?.Source?.constructor
         if (!Ep) return { ok: false, reason: 'no ConnectorEndpoint class to borrow' }
         const src = byId(fromId), tgt = byId(toId)
         if (!src || !tgt) return { ok: false, reason: 'node not found' }
-        diagram._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
+        board._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
         return { ok: true }
     }, { fromId, toId })
 }
@@ -73,14 +73,14 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return undefined
+        if (!board) return undefined
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        for (const c of diagram.Connectors?.ToArray?.() ?? [])
+        for (const c of board.Connectors?.ToArray?.() ?? [])
         {
             const s = idOf(c.Source), t = idOf(c.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) return c.LabelText
@@ -89,22 +89,22 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
     }, { fromId, toId })
 }
 
-// The active DiagramDocument's IsDirty (the Diagram view's DataContext IS the doc).
+// The active BoardDocument's IsDirty (the Board view's DataContext IS the doc).
 async function docIsDirty(l: Launched): Promise<boolean | undefined>
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        const doc = diagram?.DataContext
+        const doc = board?.DataContext
         return typeof doc?.IsDirty === 'boolean' ? doc.IsDirty : undefined
     })
 }
 
-// Whether a node with the given entity id is present on the diagram.
+// Whether a node with the given entity id is present on the board.
 async function hasNode(l: Launched, id: string): Promise<boolean>
 {
     return l.win.evaluate((id) => {
@@ -112,7 +112,7 @@ async function hasNode(l: Launched, id: string): Promise<boolean>
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram')
+            if (v?.constructor?.name === 'Board')
                 return (v.ItemsSource?.ToArray?.() ?? []).some((vm: any) => vm?.Id === id)
         }
         return false
@@ -126,30 +126,30 @@ async function hasNodes(l: Launched): Promise<boolean>
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0
+            if (v?.constructor?.name === 'Board') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0
         }
         return false
     })
 }
 
-// Open diagram-2, verifying it truly opened by a diagram-2-SPECIFIC node
+// Open board-2, verifying it truly opened by a board-2-SPECIFIC node
 // (endpoint A), retrying until it lands. (A generic hasNodes guard is unreliable:
-// another diagram may already be open.) Opens through the workspace service — the
+// another board may already be open.) Opens through the workspace service — the
 // nested solution tree keeps project nodes collapsed, so a tree double-click
 // can't see the file row.
-async function openDiagram2(l: Launched): Promise<boolean>
+async function openBoard2(l: Launched): Promise<boolean>
 {
     for (let attempt = 0; attempt < 4; attempt++)
     {
         if (await hasNode(l, A)) return true
-        await openDiagramFile(l, 'diagram-2.diagram')
+        await openBoardFile(l, 'board-2.board')
     }
     return await hasNode(l, A)
 }
 
-// Reliably CLOSE then REOPEN the active diagram tab, the way a user does it —
+// Reliably CLOSE then REOPEN the active board tab, the way a user does it —
 // close via the content host, reopen via SolutionWorkspaceService.OpenFileInProject
-// (folder + project-relative path off the doc's FileDiagramStorage). This is the
+// (folder + project-relative path off the doc's FileBoardStorage). This is the
 // EXACT in-session tab close+reopen path; the explorer double-click is flaky
 // after a close, so we drive the service method the double-click ultimately calls.
 // Close every open document (clean slate).
@@ -172,9 +172,9 @@ async function closeAllDocs(l: Launched): Promise<string[]>
     return ids
 }
 
-// Open one diagram file programmatically via OpenFileInProject (folder = the
+// Open one board file programmatically via OpenFileInProject (folder = the
 // test_architecture project's RootPath).
-async function openDiagramFile(l: Launched, relPath: string): Promise<any>
+async function openBoardFile(l: Launched, relPath: string): Promise<any>
 {
     const r = await l.win.evaluate(async (relPath) => {
         let explorer: any
@@ -218,7 +218,7 @@ async function closeAndReopenActive(l: Launched, fileHint: string): Promise<any>
         if (ws) explorer = { OpenFileInProject: (...a: any[]) => ws.OpenFileInProject(...a), OpenProjects: { ToArray: () => roots } }
         if (!host) return { ok: false, reason: 'no content host' }
         if (!explorer) return { ok: false, reason: 'no explorer service' }
-        // The open doc whose FileDiagramStorage path is the target diagram file.
+        // The open doc whose FileBoardStorage path is the target board file.
         const openDocs = host.OpenDocuments.ToArray()
         const target = openDocs.find((d: any) => (d?.Storage?.Path ?? '').includes(fileHint))
         if (!target) return { ok: false, reason: 'target not open', openPaths: openDocs.map((d: any) => d?.Storage?.Path) }
@@ -264,9 +264,9 @@ test.describe.serial('connector dirty + save', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         // Clean slate: close whatever the session restored, then open EXACTLY
-        // one diagram-2 tab programmatically (no double-click ambiguity, no dupes).
+        // one board-2 tab programmatically (no double-click ambiguity, no dupes).
         await closeAllDocs(l)
-        const opened = await openDiagramFile(l, 'diagram-2.diagram')
+        const opened = await openBoardFile(l, 'board-2.board')
         console.log('=== initial open: ' + JSON.stringify(opened) + ' ===')
     })
 
@@ -277,7 +277,7 @@ test.describe.serial('connector dirty + save', () => {
     })
 
     test('draw flips the document dirty flag AND writes the connector to .todl', async () => {
-        expect(await hasNode(l, A), 'diagram-2 opened (endpoint present)').toBe(true)
+        expect(await hasNode(l, A), 'board-2 opened (endpoint present)').toBe(true)
         expect(await labelBetween(l, A, B), 'no connector initially').toBeUndefined()
 
         const drawn = await draw(l, A, B)
@@ -290,11 +290,11 @@ test.describe.serial('connector dirty + save', () => {
     })
 
     // A SINGLE-tab close + reopen (the clean flow) re-projects the connector from
-    // the model. NOTE: a duplicate-document state (the same diagram open as two
+    // the model. NOTE: a duplicate-document state (the same board open as two
     // tabs) breaks this — see the report; that path is out of scope for this test.
     test('connector survives an in-session tab close + reopen (re-projects from model)', async () => {
         expect(connectorRecorded(copyRoot, A, B), 'connector on disk before reopen').toBe(true)
-        const r = await closeAndReopenActive(l, 'diagram-2.diagram')
+        const r = await closeAndReopenActive(l, 'board-2.board')
         expect(r.ok, `close+reopen: ${JSON.stringify(r)}`).toBe(true)
         expect(await hasNode(l, A), `endpoint ${A} present after reopen`).toBe(true)
         expect(connectorRecorded(copyRoot, A, B), 'connector STILL on disk after reopen').toBe(true)
@@ -314,10 +314,10 @@ async function setWaypoint(l: Launched, fromId: string, toId: string, x: number,
 {
     return l.win.evaluate(({ fromId, toId, x, y }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        const c = (diagram?.Connectors?.ToArray?.() ?? []).find((x: any) => {
+        const c = (board?.Connectors?.ToArray?.() ?? []).find((x: any) => {
             const s = idOf(x.Source), t = idOf(x.Target)
             return (s === fromId && t === toId) || (s === toId && t === fromId)
         })
@@ -338,10 +338,10 @@ async function waypointsOf(l: Launched, fromId: string, toId: string): Promise<A
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        const c = (diagram?.Connectors?.ToArray?.() ?? []).find((x: any) => {
+        const c = (board?.Connectors?.ToArray?.() ?? []).find((x: any) => {
             const s = idOf(x.Source), t = idOf(x.Target)
             return (s === fromId && t === toId) || (s === toId && t === fromId)
         })
@@ -349,14 +349,14 @@ async function waypointsOf(l: Launched, fromId: string, toId: string): Promise<A
     }, { fromId, toId })
 }
 
-// Save the active document (persists the .diagram to disk).
+// Save the active document (persists the .board to disk).
 async function saveActiveDoc(l: Launched): Promise<void>
 {
     await l.win.evaluate(async () => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
-        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break } }
-        const doc = diagram?.DataContext
+        let board: any
+        for (const el of document.querySelectorAll('*')) { const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break } }
+        const doc = board?.DataContext
         if (doc?.Save) { const r = doc.Save(); if (r?.then) await r }
         const store = doc?.Storage
         if (store?.WhenWritten) await store.WhenWritten()
@@ -380,7 +380,7 @@ function restoreTodl(snap: Map<string, string>): void
 
 // Bug 1: a connector's VISUAL state (route waypoints, routing mode, pinned port
 // sides) must survive a tab close + reopen. Derived connectors were skipped by the
-// .diagram serializer, so a manual route was lost on reopen.
+// .board serializer, so a manual route was lost on reopen.
 test.describe.serial('connector route/port visual state persists (Bug 1)', () => {
     let l: Launched
     let restoreSession: () => void
@@ -395,7 +395,7 @@ test.describe.serial('connector route/port visual state persists (Bug 1)', () =>
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await openDiagramFile(l, 'diagram-2.diagram')
+        await openBoardFile(l, 'board-2.board')
     })
 
     test.afterAll(async () => {
@@ -410,7 +410,7 @@ test.describe.serial('connector route/port visual state persists (Bug 1)', () =>
         await l.win.waitForTimeout(1500)
         expect(await labelBetween(l, A, B)).toBe('calls')
 
-        // Reroute: pin a waypoint, then save the diagram.
+        // Reroute: pin a waypoint, then save the board.
         expect(await setWaypoint(l, A, B, 424, 242), 'waypoint set').toBe(true)
         await l.win.waitForTimeout(500)
         const before = await waypointsOf(l, A, B)
@@ -418,7 +418,7 @@ test.describe.serial('connector route/port visual state persists (Bug 1)', () =>
         await saveActiveDoc(l)
 
         // Close + reopen the tab.
-        await closeAndReopenActive(l, 'diagram-2.diagram')
+        await closeAndReopenActive(l, 'board-2.board')
         // Wait for the connector to re-project.
         for (let i = 0; i < 20; i++) { if (await labelBetween(l, A, B) !== undefined) break; await l.win.waitForTimeout(500) }
         expect(await labelBetween(l, A, B), 'connector re-projected').toBe('calls')
@@ -429,9 +429,9 @@ test.describe.serial('connector route/port visual state persists (Bug 1)', () =>
     })
 })
 
-// Bug 2: deleting a connector from the .todl must be reflected in the open diagram
+// Bug 2: deleting a connector from the .todl must be reflected in the open board
 // (the cached ArchModel must not project stale connectors after an external edit).
-test.describe.serial('external .todl edit refreshes the diagram (Bug 2)', () => {
+test.describe.serial('external .todl edit refreshes the board (Bug 2)', () => {
     let l: Launched
     let restoreSession: () => void
     let copyRoot: string
@@ -445,7 +445,7 @@ test.describe.serial('external .todl edit refreshes the diagram (Bug 2)', () => 
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await openDiagramFile(l, 'diagram-2.diagram')
+        await openBoardFile(l, 'board-2.board')
     })
 
     test.afterAll(async () => {
@@ -454,7 +454,7 @@ test.describe.serial('external .todl edit refreshes the diagram (Bug 2)', () => 
         if (copyRoot) fs.rmSync(copyRoot, { recursive: true, force: true })
     })
 
-    test('deleting the connector from .todl removes it from the live diagram', async () => {
+    test('deleting the connector from .todl removes it from the live board', async () => {
         expect(await hasNode(l, A)).toBe(true)
         // Snapshot the .todl BEFORE drawing (this state has no A→B connector).
         const preDraw = snapshotTodl(copyRoot)
@@ -468,7 +468,7 @@ test.describe.serial('external .todl edit refreshes the diagram (Bug 2)', () => 
         restoreTodl(preDraw)
         expect(connectorRecorded(copyRoot, A, B), 'connector removed from disk').toBe(false)
 
-        // The file-watch must refresh the cached model → the diagram drops the
+        // The file-watch must refresh the cached model → the board drops the
         // now-deleted connector. Poll up to ~10s for the live re-projection.
         let label: string | undefined = 'calls'
         for (let i = 0; i < 20; i++)
@@ -477,11 +477,11 @@ test.describe.serial('external .todl edit refreshes the diagram (Bug 2)', () => 
             if (label === undefined) break
             await l.win.waitForTimeout(500)
         }
-        expect(label, 'connector removed from the live diagram after external .todl delete').toBeUndefined()
+        expect(label, 'connector removed from the live board after external .todl delete').toBeUndefined()
     })
 })
 
-// Reproduction of the reported bug: opening the SAME diagram file a second time
+// Reproduction of the reported bug: opening the SAME board file a second time
 // must not create a duplicate document, and must not lose the connector on disk.
 test.describe.serial('duplicate-document repro', () => {
     let l: Launched
@@ -512,7 +512,7 @@ test.describe.serial('duplicate-document repro', () => {
         if (navs[1]) await clickCenter(l.win, navs[1])
         await l.win.waitForTimeout(1500)
         await closeAllDocs(l)
-        await openDiagramFile(l, 'diagram-2.diagram')
+        await openBoardFile(l, 'board-2.board')
     })
 
     test.afterAll(async () => {
@@ -523,7 +523,7 @@ test.describe.serial('duplicate-document repro', () => {
 
     test('drawing then re-opening the same file keeps ONE document and the connector on disk', async () => {
         expect(await hasNode(l, A)).toBe(true)
-        expect(await openCount('diagram-2.diagram'), 'one doc after first open').toBe(1)
+        expect(await openCount('board-2.board'), 'one doc after first open').toBe(1)
 
         // Draw a connector — this fires model.save() → file-watch → RefreshProjects,
         // which re-adopts the OpenProject (the dedup-key churn under test).
@@ -534,12 +534,12 @@ test.describe.serial('duplicate-document repro', () => {
         await l.win.waitForTimeout(2500)
 
         // Open the SAME file again (as a user might, or as session-restore + open).
-        await openDiagramFile(l, 'diagram-2.diagram')
+        await openBoardFile(l, 'board-2.board')
         await l.win.waitForTimeout(1500)
 
         // BUG: a second document for the same file appears (dedup keyed on the
         // stale OpenProject instance), and the duplicate binding clobbers the .todl.
-        expect(await openCount('diagram-2.diagram'), 'still ONE doc after re-open').toBe(1)
+        expect(await openCount('board-2.board'), 'still ONE doc after re-open').toBe(1)
         expect(connectorRecorded(copyRoot, A, B), 'connector STILL on disk after re-open').toBe(true)
     })
 })
@@ -557,14 +557,14 @@ test.describe.serial('connector survives app relaunch', () => {
         // Session 1: draw a connector, then close the app.
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
-        await openDiagram2(l)
+        await openBoard2(l)
         await draw(l, A, B)
         await l.win.waitForTimeout(2000)
         await l.app.close()
         // Session 2: relaunch against the same copy.
         l = await launchPlexus()
         await l.win.waitForTimeout(12_000)
-        await openDiagram2(l)
+        await openBoard2(l)
     })
 
     test.afterAll(async () => {
@@ -574,7 +574,7 @@ test.describe.serial('connector survives app relaunch', () => {
     })
 
     test('drawn connector is present after relaunch', async () => {
-        expect(await hasNodes(l), 'diagram-2 opened after relaunch').toBe(true)
+        expect(await hasNodes(l), 'board-2 opened after relaunch').toBe(true)
         expect(connectorRecorded(copyRoot, A, B), 'connector on disk after relaunch').toBe(true)
         expect(await labelBetween(l, A, B), 'connector re-projected after relaunch').toBe('calls')
     })

@@ -91,5 +91,5 @@ export function pickViewpoints(
 ): Promise<string[] | undefined>
 {
     const model = new ViewpointPickerModel(viewpoints, preselected, (ids) => dialogs.Close(ids))
-    return dialogs.Show<string[]>({ Title: 'Diagram viewpoints', Content: model, Width: 360 })
+    return dialogs.Show<string[]>({ Title: 'Board viewpoints', Content: model, Width: 360 })
 }

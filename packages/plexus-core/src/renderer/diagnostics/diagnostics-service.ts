@@ -2,7 +2,7 @@ import { ServiceBase, ServiceKey, ObservableCollection, type IServiceProvider } 
 import type { Diagnostic } from './diagnostic.js'
 
 // The single, source-agnostic store for every diagnostic in the app. Producers
-// (the TODL validator today; diagram/other validators later) Publish the whole
+// (the TODL validator today; board/other validators later) Publish the whole
 // diagnostic set for one (owner, project) key at a time; the store replaces that
 // slice atomically, so a producer's re-run naturally drops the problems it no
 // longer reports. Consumers — the Problems dock (grouped over All) and the code

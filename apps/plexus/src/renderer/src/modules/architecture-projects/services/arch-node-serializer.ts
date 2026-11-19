@@ -41,7 +41,7 @@ export function registerArchNodeSerializer(): void
         type: 'arch',
         matches: (n: unknown) => n instanceof ArchNodeVM,
         // Content-only: an arch node has no persisted content of its own (icon /
-        // label re-derive on open from the entity via ArchDiagramBinding). Geometry
+        // label re-derive on open from the entity via ArchBoardBinding). Geometry
         // — position, size, and the userSized latch — rides the document's `visuals`
         // section (the container Figure owns it), not the node record. The one
         // exception is the label's text-style overrides, which are presentation the
@@ -59,11 +59,11 @@ export function registerArchNodeSerializer(): void
     })
 }
 
-// Register at module-import time, NOT only when ArchDiagramBindingService is
+// Register at module-import time, NOT only when ArchBoardBindingService is
 // constructed. The renderer bootstrap statically imports the binding service
 // (hence this module), so this runs at bundle evaluation — before session
-// restore or any DiagramDocument.Load(). Without it, a diagram that loads
+// restore or any BoardDocument.Load(). Without it, a board that loads
 // before the service is constructed drops every `arch` node, and each of their
-// connectors permanently collapses to the diagram origin (its nodeId can no
+// connectors permanently collapses to the board origin (its nodeId can no
 // longer resolve). Idempotent, so the service ctor's call is a harmless no-op.
 registerArchNodeSerializer()

@@ -1,10 +1,10 @@
 import { test, expect, vi } from 'vitest'
 import { Point, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import { DiagramDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
-import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../diagram/services/arch-toolbox-item.js'
-import { EntityIconVM } from '../../../diagram/services/entity-icon-vm.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
-import { ArchDiagramBindingService } from '../arch-diagram-binding-service.js'
+import { BoardDocument, ToolboxVisualDescriptor, type ToolboxDropContext } from '@pragmatic-tech-ai/mural/framework'
+import { ArchToolboxItem, ArchToolboxVisualKey } from '../../../board/services/arch-toolbox-item.js'
+import { EntityIconVM } from '../../../board/services/entity-icon-vm.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
+import { ArchBoardBindingService } from '../arch-board-binding-service.js'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ArchScenarioDropFactory, ArchScenarioDropFactoryKey, scenarioIdOf } from '../arch-scenario-drop-factory.js'
 import type { FlowEntity } from '../scenario-flow.js'
@@ -18,19 +18,19 @@ function step(s: FlowEntity, d: FlowEntity): FlowEntity { return ent('step', { s
 const a = ent('a'), b = ent('b'), c = ent('c')
 const scenario = ent('sc', { sequences: [ent('s', { steps: [step(a, b), step(b, c)] })] })
 
-function makeContext(doc: DiagramDocument, scenarioId: string): ToolboxDropContext
+function makeContext(doc: BoardDocument, scenarioId: string): ToolboxDropContext
 {
   const descriptor = new ToolboxVisualDescriptor(ArchToolboxVisualKey, 'scenario')
   const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
   const item = new ArchToolboxItem('scenario:' + scenarioId, 'Scn', descriptor, ArchScenarioDropFactoryKey, new EntityIconVM(reg, 'scenario'))
-  return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Diagram: undefined as never, Mutator: doc }
+  return { Item: item, Descriptor: descriptor, Position: new Point(100, 50), Board: undefined as never, Mutator: doc }
 }
 
 function stubProvider()
 {
   const model = { entities: () => [scenario], create: vi.fn(), addRef: vi.fn(), save: vi.fn() }
   const bindingSvc = { modelForDocument: () => model, addScenario: vi.fn(() => Promise.resolve()) }
-  const provider = { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
+  const provider = { get: (k: unknown) => (k === ArchBoardBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
   return { provider, model, bindingSvc }
 }
 
@@ -40,7 +40,7 @@ test('scenarioIdOf strips the scenario: prefix', () => {
 })
 
 test('dropping a scenario adds a node per participant and registers the scenario, no model writes', () => {
-  const doc = new DiagramDocument()
+  const doc = new BoardDocument()
   const { provider, model, bindingSvc } = stubProvider()
   const factory = new ArchScenarioDropFactory(provider)
 
@@ -77,12 +77,12 @@ function containedProvider()
   const repo = { resolve: (p: string) => (p === 'location@todl.has_children' ? {} : undefined), allNodes: () => [] }
   const model = { entities: () => [scenario, c1, c2, azure], repository: () => repo, create: vi.fn(), addRef: vi.fn(), save: vi.fn() }
   const bindingSvc = { modelForDocument: () => model, addScenario: vi.fn(() => Promise.resolve()) }
-  const provider = { get: (k: unknown) => (k === ArchDiagramBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
+  const provider = { get: (k: unknown) => (k === ArchBoardBindingService.Key ? bindingSvc : undefined) } as unknown as IServiceProvider
   return { provider, bindingSvc }
 }
 
 test('places components inside an existing location container instead of the free flow', () => {
-  const doc = new DiagramDocument()
+  const doc = new BoardDocument()
   const az = new ArchNodeVM(); az.Id = 'azure'
   doc.AddNode(az)
   doc.SetNodeVisual('azure', { left: 1000, top: 500, w: 200, h: 160 })   // placed container
@@ -98,7 +98,7 @@ test('places components inside an existing location container instead of the fre
 })
 
 test('re-uses an already-present node instead of duplicating it', () => {
-  const doc = new DiagramDocument()
+  const doc = new BoardDocument()
   const pre = new ArchNodeVM(); pre.Id = 'b'
   doc.AddNode(pre)
   doc.SetNodeVisual('b', { left: 999, top: 999, w: 72, h: 56 })   // pre-placed position

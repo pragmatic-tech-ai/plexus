@@ -1,7 +1,7 @@
-// Live check: draw-to-connect on an arch diagram. Drawing a connector between two
+// Live check: draw-to-connect on an arch board. Drawing a connector between two
 // component nodes (which have no concept relationship between them) mints a typed
 // `connector` entity in the model (default `calls`), which projects back as a
-// labeled diagram connector and persists to the `.todl`. Shift+Delete removes the
+// labeled board connector and persists to the `.todl`. Shift+Delete removes the
 // entity. Drives the real production path (view._fireConnectorCreated with genuine
 // ConnectorEndpoints — exactly what the draw gesture fires) against a scratch COPY
 // of the corpus, so the real corpus is never mutated.
@@ -15,7 +15,7 @@ const CORPUS = process.env.PLEXUS_TEST_CORPUS ?? 'c:/Users/Eugene/Projects/archi
 const PROJECT_RELS = [
     'meta-models/tech-architecture', 'libraries/microsoft', 'libraries/aws', 'architecures/test_architecture',
 ]
-// Two component nodes on diagram-2 with no connector between them.
+// Two component nodes on board-2 with no connector between them.
 const A = 'knowledge_index'
 const B = 'enterprise_legacy_app'
 
@@ -47,18 +47,18 @@ async function draw(l: Launched, fromId: string, toId: string): Promise<{ ok: bo
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        const arr: any[] = diagram.ItemsSource.ToArray()
+        const arr: any[] = board.ItemsSource.ToArray()
         const byId = (id: string) => arr.find((vm: any) => vm?.Id === id)
-        const Ep = diagram.Connectors?.ToArray?.()[0]?.Source?.constructor
+        const Ep = board.Connectors?.ToArray?.()[0]?.Source?.constructor
         if (!Ep) return { ok: false, reason: 'no ConnectorEndpoint class to borrow' }
         const src = byId(fromId), tgt = byId(toId)
         if (!src || !tgt) return { ok: false, reason: 'node not found' }
-        diagram._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
+        board._fireConnectorCreated({ Source: new Ep({ Node: src }), Target: new Ep({ Node: tgt }) })
         return { ok: true }
     }, { fromId, toId })
 }
@@ -68,13 +68,13 @@ async function labelBetween(l: Launched, fromId: string, toId: string): Promise<
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        for (const c of diagram.Connectors?.ToArray?.() ?? [])
+        for (const c of board.Connectors?.ToArray?.() ?? [])
         {
             const s = idOf(c.Source), t = idOf(c.Target)
             if ((s === fromId && t === toId) || (s === toId && t === fromId)) return c.LabelText
@@ -88,18 +88,18 @@ async function shiftDelete(l: Launched, fromId: string, toId: string): Promise<b
 {
     return l.win.evaluate(({ fromId, toId }) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
-            const v = (el as any)[S]; if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            const v = (el as any)[S]; if (v?.constructor?.name === 'Board') { board = v; break }
         }
         const idOf = (ep: any) => ep?.Node?.Id ?? ep?.UnresolvedNodeId
-        const c = (diagram.Connectors?.ToArray?.() ?? []).find((x: any) => {
+        const c = (board.Connectors?.ToArray?.() ?? []).find((x: any) => {
             const s = idOf(x.Source), t = idOf(x.Target)
             return (s === fromId && t === toId) || (s === toId && t === fromId)
         })
         if (!c) return false
-        diagram._fireDeleteRequested({ Items: [], Connectors: [c], Shift: true })
+        board._fireDeleteRequested({ Items: [], Connectors: [c], Shift: true })
         return true
     }, { fromId, toId })
 }
@@ -111,7 +111,7 @@ async function hasNodes(l: Launched): Promise<boolean>
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0
+            if (v?.constructor?.name === 'Board') return (v.ItemsSource?.ToArray?.().length ?? 0) > 0
         }
         return false
     })
@@ -139,7 +139,7 @@ test.describe.serial('arch draw-to-connect', () => {
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
         const { openProjectFile } = await import('./plexus-app')
-        await openProjectFile(l, 'test_architecture', 'diagram-2.diagram')
+        await openProjectFile(l, 'test_architecture', 'board-2.board')
         // Arch nodes project asynchronously after the open; poll for them.
         for (let i = 0; i < 40 && !(await hasNodes(l)); i++) await l.win.waitForTimeout(500)
     })
@@ -151,7 +151,7 @@ test.describe.serial('arch draw-to-connect', () => {
     })
 
     test('drawing between two components mints a labeled connector entity that persists, and Shift+Delete removes it', async () => {
-        expect(await hasNodes(l), 'diagram-2 opened with nodes').toBe(true)
+        expect(await hasNodes(l), 'board-2 opened with nodes').toBe(true)
         expect(await labelBetween(l, A, B), 'no connector between them initially').toBeUndefined()
 
         // Draw → auto-mint a connector entity (component→component has no relationship).
@@ -168,7 +168,7 @@ test.describe.serial('arch draw-to-connect', () => {
         // Shift+Delete removes the connector entity from the model.
         expect(await shiftDelete(l, A, B)).toBe(true)
         await l.win.waitForTimeout(1500)
-        expect(await labelBetween(l, A, B), 'connector removed from the diagram').toBeUndefined()
+        expect(await labelBetween(l, A, B), 'connector removed from the board').toBeUndefined()
         expect(connectorRecorded(copyRoot, A, B), 'connector record removed from .todl').toBe(false)
 
         expect(appErrors(l.errors), appErrors(l.errors).join('\n')).toEqual([])

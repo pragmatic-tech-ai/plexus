@@ -4,7 +4,7 @@ import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
 import { ArchModel } from '../arch-model.js'
 import { scenarioPageItems } from '../arch-model-toolbox-contributor.js'
 import { ArchScenarioDropFactoryKey } from '../arch-scenario-drop-factory.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 const reg = { iconKeyFor: () => undefined } as unknown as TodlPresentationRegistry
 
@@ -33,7 +33,7 @@ test('lists one scenario: item per in-scope scenario entity', () => {
     expect(items[0].FactoryKey).toBe(ArchScenarioDropFactoryKey)
 })
 
-test('excludes scenarios not framed by the diagram scope', () => {
+test('excludes scenarios not framed by the board scope', () => {
     const model = buildModel()
     model.createInViewpoint('archmm.scenario', 'archmm.S')
 

@@ -34,7 +34,7 @@ export function collectScenarioFlow(scenario: FlowEntity): { participants: strin
 
 // The directed step pairs to draw for a set of active scenarios, restricted to
 // pairs whose BOTH endpoints are currently placed, deduped across scenarios.
-// Used by the diagram binding to project a scenario's steps as connectors (so
+// Used by the board binding to project a scenario's steps as connectors (so
 // they are model-derived and survive the connector-authoritative rescan).
 export function scenarioStepPairs(scenarios: FlowEntity[], placed: ReadonlySet<string>): Array<[string, string]>
 {
@@ -68,7 +68,7 @@ export interface ContainmentLayout
 {
   // The placed container a participant nests into, or undefined for free flow.
   containerOf(participantId: string): string | undefined
-  // Current diagram-space top-left of a placed container (undefined if unplaced).
+  // Current board-space top-left of a placed container (undefined if unplaced).
   containerAt(containerId: string): { left: number; top: number } | undefined
   // How many children already sit in a container — the slot offset new members
   // start from, so a scenario drop stacks below existing landscape content.
@@ -86,7 +86,7 @@ const CONTAIN_DY = 76
 const CONTAIN_INSET_X = 8    // mural CONTAINER_PADDING
 const CONTAIN_INSET_TOP = 32 // mural CONTAINER_TITLE_BAND + CONTAINER_PADDING
 
-// The diagram-space top-left for the `slot`-th child inside a container whose
+// The board-space top-left for the `slot`-th child inside a container whose
 // top-left is `base` — the wrapping grid shared by planScenarioDrop's contained
 // participants and the factory's full-membership materialization.
 export function containerChildSlot(base: { left: number; top: number }, slot: number): { left: number; top: number }

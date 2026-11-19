@@ -1,0 +1,156 @@
+import { test, expect } from 'vitest'
+import { load, toJSON, Repository, graphFromJSON, ModelDraft } from '@pragmatic-tech-ai/todl'
+import { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
+import { FakeStorage } from '@pragmatic-tech-ai/todl-runtime'
+import { ArchModel } from '../arch-model.js'
+import { ArchNodeVM } from '../arch-node-vm.js'
+import { ArchBoardIdMigration } from '../arch-board-id-migration.js'
+import { ARCH_CONNECTOR_VISUALS_KEY } from '../arch-board-connector-visuals-store.js'
+import { ARCH_VIEWPOINTS_KEY } from '../arch-board-viewpoints-store.js'
+
+// --- QualifiedIdFor: the pure bare/partial -> qualified mapping ---
+
+const IDS = new Set<string>([
+    'proj.models.teams',
+    'proj.models.m365_copilot',
+    'libraries.microsoft.microsoft_tech.m365_copilot',
+    'libraries.evelyn.evelyn_actors.evelyn_business_user',
+    'tech_architecture.actors.administration',
+])
+
+test('a bare own-instance name qualifies with the project namespace', () => {
+    expect(ArchBoardIdMigration.QualifiedIdFor('teams', IDS, 'proj.models')).toBe('proj.models.teams')
+})
+
+test('own-instance namespace prefix wins over a same-named library term', () => {
+    // m365_copilot exists both as an own instance and a library tech term.
+    expect(ArchBoardIdMigration.QualifiedIdFor('m365_copilot', IDS, 'proj.models')).toBe('proj.models.m365_copilot')
+})
+
+test('a partially-qualified library ref resolves by unique suffix', () => {
+    expect(ArchBoardIdMigration.QualifiedIdFor('evelyn_actors.evelyn_business_user', IDS, 'proj.models'))
+        .toBe('libraries.evelyn.evelyn_actors.evelyn_business_user')
+    expect(ArchBoardIdMigration.QualifiedIdFor('actors.administration', IDS, 'proj.models'))
+        .toBe('tech_architecture.actors.administration')
+})
+
+test('an already-qualified id is left alone (returns undefined)', () => {
+    expect(ArchBoardIdMigration.QualifiedIdFor('proj.models.teams', IDS, 'proj.models')).toBeUndefined()
+})
+
+test('an unresolvable / freeform id returns undefined', () => {
+    expect(ArchBoardIdMigration.QualifiedIdFor('n3', IDS, 'proj.models')).toBeUndefined()
+    expect(ArchBoardIdMigration.QualifiedIdFor('media-xyz', IDS, 'proj.models')).toBeUndefined()
+})
+
+test('an ambiguous bare suffix (no ns-prefix match, >1 suffix) returns undefined', () => {
+    const ambiguous = new Set<string>(['a.ns.thing', 'b.ns.thing'])
+    expect(ArchBoardIdMigration.QualifiedIdFor('thing', ambiguous, 'proj.models')).toBeUndefined()
+})
+
+// --- Migrate: rewrites node ids, geometry keys, parentId, and connectorVisuals keys ---
+
+const MM = `namespace archmm {
+  concept component {}
+  viewpoint ComponentView : frames component
+}`
+function buildModel(): ArchModel
+{
+    const draft = ModelDraft.fromSources(
+        [new Repository(graphFromJSON(toJSON(load([{ uri: 'mm.todl', text: MM }]).model)))],
+        [], { namespace: 'archmm' })
+    const model = new ArchModel(draft, new FakeStorage('fake://Arch'), 'archmm')
+    // Two own instances: archmm.component1, archmm.component2.
+    model.createInViewpoint('archmm.component', 'archmm.ComponentView')
+    model.createInViewpoint('archmm.component', 'archmm.ComponentView')
+    return model
+}
+
+test('Migrate qualifies stale node ids, preserves geometry, and reports a change', () => {
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const a = new ArchNodeVM(); a.Id = 'component1'; doc.Nodes.Add(a)
+    const b = new ArchNodeVM(); b.Id = 'component2'; doc.Nodes.Add(b)
+    doc.SetNodeVisual('component1', { left: 10, top: 20, w: 100, h: 50 })
+    doc.SetNodeVisual('component2', { left: 200, top: 20, w: 100, h: 50, parentId: 'component1' })
+
+    const changed = ArchBoardIdMigration.Migrate(doc, model)
+
+    expect(changed).toBe(true)
+    expect(a.Id).toBe('archmm.component1')
+    expect(b.Id).toBe('archmm.component2')
+    // Geometry followed the rename.
+    expect(doc.GetNodeVisual('archmm.component1')).toMatchObject({ left: 10, top: 20 })
+    expect(doc.GetNodeVisual('archmm.component2')).toMatchObject({ left: 200 })
+    // parentId remapped too.
+    expect(doc.GetNodeVisual('archmm.component2')?.parentId).toBe('archmm.component1')
+})
+
+test('Migrate remaps connectorVisuals edge keys at both endpoints', () => {
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const a = new ArchNodeVM(); a.Id = 'component1'; doc.Nodes.Add(a)
+    const b = new ArchNodeVM(); b.Id = 'component2'; doc.Nodes.Add(b)
+    doc.Metadata = { ...doc.Metadata, [ARCH_CONNECTOR_VISUALS_KEY]: {
+        'component1|__connector_entity__:calls|component2': { routingMode: 'orthogonal' },
+        'component2|__scenario_step__|component2': { zIndex: 3 },
+    } }
+
+    ArchBoardIdMigration.Migrate(doc, model)
+
+    const cv = doc.Metadata[ARCH_CONNECTOR_VISUALS_KEY] as Record<string, unknown>
+    expect(Object.keys(cv).sort()).toEqual([
+        'archmm.component1|__connector_entity__:calls|archmm.component2',
+        'archmm.component2|__scenario_step__|archmm.component2',
+    ])
+})
+
+test('Migrate is idempotent: a second run on qualified ids reports no change', () => {
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const a = new ArchNodeVM(); a.Id = 'component1'; doc.Nodes.Add(a)
+    doc.SetNodeVisual('component1', { left: 10, top: 20, w: 100, h: 50 })
+
+    expect(ArchBoardIdMigration.Migrate(doc, model)).toBe(true)
+    expect(ArchBoardIdMigration.Migrate(doc, model)).toBe(false)
+})
+
+test('Migrate leaves freeform (unresolved) node ids untouched', () => {
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const shape = new ArchNodeVM(); shape.Id = 'n3'; doc.Nodes.Add(shape)
+
+    expect(ArchBoardIdMigration.Migrate(doc, model)).toBe(false)
+    expect(shape.Id).toBe('n3')
+})
+
+test('Migrate upgrades a bare arch.viewpoints id to the qualified viewpoint id', () => {
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const a = new ArchNodeVM(); a.Id = 'component1'; doc.Nodes.Add(a)
+    doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: ['ComponentView'] }
+
+    expect(ArchBoardIdMigration.Migrate(doc, model)).toBe(true)
+    expect(doc.Metadata[ARCH_VIEWPOINTS_KEY]).toEqual(['archmm.ComponentView'])
+})
+
+test('Migrate fixes a stale arch.viewpoints even when every node id is already qualified', () => {
+    // Regression: a board migrated by an earlier pass (nodes already qualified) must
+    // still get its bare viewpoint scope upgraded, or connectors stay filtered out.
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const a = new ArchNodeVM(); a.Id = 'archmm.component1'; doc.Nodes.Add(a)
+    doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: ['ComponentView'] }
+
+    expect(ArchBoardIdMigration.Migrate(doc, model)).toBe(true)
+    expect(doc.Metadata[ARCH_VIEWPOINTS_KEY]).toEqual(['archmm.ComponentView'])
+})
+
+test('Migrate leaves an already-qualified arch.viewpoints untouched (idempotent)', () => {
+    const model = buildModel()
+    const doc = new BoardDocument()
+    const a = new ArchNodeVM(); a.Id = 'archmm.component1'; doc.Nodes.Add(a)
+    doc.Metadata = { ...doc.Metadata, [ARCH_VIEWPOINTS_KEY]: ['archmm.ComponentView'] }
+
+    expect(ArchBoardIdMigration.Migrate(doc, model)).toBe(false)
+})

@@ -59,7 +59,7 @@ export class FileTreeContributor implements IHierarchyContributor, IProjectConte
 
     // The node keys this contributor supplies context-menu actions for: every content node
     // family plus the project/member row itself.
-    private static readonly ActionKeys = [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Diagram, ContentNodeKey.Todl, NodeKey.Project]
+    private static readonly ActionKeys = [ContentNodeKey.Folder, ContentNodeKey.File, ContentNodeKey.Board, ContentNodeKey.Todl, NodeKey.Project]
 
     public readonly ParentKeys = [NodeKey.Project]
     public readonly Order = 0

@@ -67,7 +67,7 @@ describe('ProjectCommandsService', () =>
 
     it('ApplyPrefill sets name/location and selects the matching type', () =>
     {
-        const form = ProjectCommandsServiceTestForms.Plain(['diagram', 'library'])
+        const form = ProjectCommandsServiceTestForms.Plain(['board', 'library'])
         ProjectCommandsService.ApplyPrefill(form, { name: 'Acme', location: 'C:/acme', type: 'library' })
         expect(form.Name).toBe('Acme')
         expect(form.Location).toBe('C:/acme')
@@ -76,9 +76,9 @@ describe('ProjectCommandsService', () =>
 
     it('ApplyPrefill ignores an unknown type and missing fields', () =>
     {
-        const form = ProjectCommandsServiceTestForms.Plain(['diagram'])
+        const form = ProjectCommandsServiceTestForms.Plain(['board'])
         ProjectCommandsService.ApplyPrefill(form, { type: 'nope' })
-        expect(form.SelectedType?.Type).toBe('diagram')
+        expect(form.SelectedType?.Type).toBe('board')
         expect(form.Name).toBe('')
     })
 

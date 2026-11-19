@@ -7,7 +7,7 @@ import { NodeNames } from './node-names.js'
 // What a term-drop can create: PLACE the dropped term's own entity (a container
 // concept, e.g. a library location), a direct instance of a materialize root, an
 // instance of a root X whose reference member m targets the dropped term's type,
-// or REJECTED — the drop can't be honored on this diagram and must be interrupted
+// or REJECTED — the drop can't be honored on this board and must be interrupted
 // with an explanation instead of silently producing a surprising node.
 export enum DropActionKind { Place = 'place', Instance = 'instance', Reference = 'reference', Rejected = 'rejected' }
 
@@ -21,7 +21,7 @@ export interface DropAction
 }
 
 // Candidate drop-actions for a dropped toolbox term. `descriptorKey` is the term
-// id (library) or 'mm:'+id (meta-model); `scope` is the diagram's viewpoint set.
+// id (library) or 'mm:'+id (meta-model); `scope` is the board's viewpoint set.
 // Empty ⇒ reject; one ⇒ auto; many ⇒ chooser. When the meta-model declares no
 // materialize roots the legacy scan behavior is used unchanged.
 export function resolveDropActions(repo: Repository, descriptorKey: string, scope: ReadonlySet<string>): DropAction[]
@@ -49,10 +49,10 @@ export function resolveDropActions(repo: Repository, descriptorKey: string, scop
         return [{ kind: DropActionKind.Place, concept: ct, term: termId, label: NodeNames.Simple(ct) }]
 
     // 0b. REJECT: the dropped term IS a container concept (a placeable location /
-    //     block / subscription / …) but this diagram's viewpoint does NOT frame it.
+    //     block / subscription / …) but this board's viewpoint does NOT frame it.
     //     Placing it here is illegal, and the facet-drop fallback (step 3) would
     //     silently mint a DIFFERENT concept — e.g. dropping a location `azure` on a
-    //     Scenarios diagram would create a component whose `in` points at azure.
+    //     Scenarios board would create a component whose `in` points at azure.
     //     That surprise is the bug; interrupt with an explanation instead. The
     //     factory turns this into a modal (it owns the dialog service + labels).
     if (isContainerConcept(repo, ct))

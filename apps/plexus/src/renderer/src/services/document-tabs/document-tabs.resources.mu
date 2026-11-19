@@ -168,7 +168,7 @@ resources DocumentTabsResources {
                 Border [ Padding = (3) ] {
                     // FocusContentOnActivate: when the active document's view is
                     // slotted here (activation / tab switch), move keyboard focus to
-                    // its root control (a diagram canvas), so shortcuts route there
+                    // its root control (a board canvas), so shortcuts route there
                     // and the pane reads as focused (IsKeyboardFocusWithin lights the
                     // header rule below).
                     ContentPresenter x:name="PART_ContentSlot"
@@ -178,7 +178,7 @@ resources DocumentTabsResources {
             }
         }
         // Active-pane affordance: when keyboard focus is anywhere within the
-        // document host (the focused diagram is a descendant, so the control's
+        // document host (the focused board is a descendant, so the control's
         // IsKeyboardFocusWithin is true), accent the header rule — the visible
         // "this pane is focused" cue. Recolour only (same thickness) → no reflow.
         when ( IsKeyboardFocusWithin ) { PART_HeaderRule.Stroke = (@ControlAccent, 1); }

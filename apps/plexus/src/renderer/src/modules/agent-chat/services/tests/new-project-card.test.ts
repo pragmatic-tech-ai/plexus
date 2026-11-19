@@ -11,7 +11,7 @@ test('a fresh card is pending with no summary', () => {
 
 test('showResult flips to done and summarizes the created project', () => {
     const card = new NewProjectCard('c1')
-    card.showResult({ created: true, folder: 'C:/acme', name: 'Acme', type: 'diagram' })
+    card.showResult({ created: true, folder: 'C:/acme', name: 'Acme', type: 'board' })
     expect(card.IsPending).toBe(false)
     expect(card.IsDone).toBe(true)
     expect(card.ResultSummary).toContain('Acme')

@@ -1,14 +1,14 @@
 // Live check: model-backed containment round-trips. Nesting a `component` node
-// into a `location` node on an arch diagram writes the containment as an `in`
-// relationship ref in the model's `.todl`, and re-opening the diagram restores
+// into a `location` node on an arch board writes the containment as an `in`
+// relationship ref in the model's `.todl`, and re-opening the board restores
 // the nesting from that ref.
 //
 // The corpus meta-model (tech-architecture) already declares
 // `concept component { relationship in -> location?; }`, so `location` is a
 // containment target → a container concept, and the default `in` recognition
 // applies with no annotations. A drag-nest funnels through
-// ContainerPlacement.reparent → the Diagram's NodeReparented event →
-// ArchDiagramBinding.handleReparent → ArchModel.addRef('in') + save(). Rather
+// ContainerPlacement.reparent → the Board's NodeReparented event →
+// ArchBoardBinding.handleReparent → ArchModel.addRef('in') + save(). Rather
 // than a pixel-perfect canvas drag (unreliable), this drives that exact
 // production path in-renderer (reparent the realized Figure), then asserts the
 // persisted `.todl` gained the ref — the definitive proof of the write-back.
@@ -29,7 +29,7 @@ const PROJECT_RELS = [
     'architecures/test_architecture',
 ]
 
-// A component + location pair currently placed on the active arch diagram,
+// A component + location pair currently placed on the active arch board,
 // resolved through each Figure's Tag (the bound ArchNodeVM). Returns their ids +
 // whether the component is already nested in the location.
 async function containmentState(l: Launched): Promise<{
@@ -41,16 +41,16 @@ async function containmentState(l: Launched): Promise<{
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return { hasPair: false }
-        const items = diagram.ItemsSource
+        if (!board) return { hasPair: false }
+        const items = board.ItemsSource
         const arr: any[] = items?.ToArray ? items.ToArray() : []
-        const figFor = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm))
+        const figFor = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm))
         let comp: any, loc: any
         for (const vm of arr)
         {
@@ -75,16 +75,16 @@ async function nestComponentInLocation(l: Launched, locationId: string): Promise
 {
     await l.win.evaluate((locationId) => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        const items = diagram.ItemsSource.ToArray()
-        const figFor = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm))
+        const items = board.ItemsSource.ToArray()
+        const figFor = (vm: any) => (vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm))
         const comp = items.find((vm: any) => vm?.Concept === 'component')
-        diagram.ContainerPlacement.reparent(figFor(comp), locationId)
+        board.ContainerPlacement.reparent(figFor(comp), locationId)
     }, locationId)
 }
 
@@ -144,25 +144,25 @@ test.describe.serial('arch model-backed containment', () => {
     })
 
     test('nesting a component into a location writes an `in` ref that survives reload', async () => {
-        // Open a diagram that has both a component and a location. The explorer flow
-        // mirrors f2-title-edit; scan a few diagrams for the pair.
+        // Open a board that has both a component and a location. The explorer flow
+        // mirrors f2-title-edit; scan a few boards for the pair.
         let state = await containmentState(l)
         if (!state.hasPair)
         {
-            // Try opening diagrams from the explorer until a component+location pair shows.
+            // Try opening boards from the explorer until a component+location pair shows.
             const { rectsForCtor, clickCenter } = await import('./plexus-app')
             const navs = await rectsForCtor(l.win, 'NavigationItem')
             if (navs[1]) await clickCenter(l.win, navs[1])
             await l.win.waitForTimeout(1500)
             for (let i = 0; i < 20 && !(state = await containmentState(l)).hasPair; i++)
             {
-                const diagrams = l.win.getByText(/\.diagram$/)
-                const n = await diagrams.count()
-                if (i < n) await diagrams.nth(i).dblclick({ timeout: 3000 }).catch(() => {})
+                const boards = l.win.getByText(/\.board$/)
+                const n = await boards.count()
+                if (i < n) await boards.nth(i).dblclick({ timeout: 3000 }).catch(() => {})
                 await l.win.waitForTimeout(1500)
             }
         }
-        test.skip(!state.hasPair, 'no diagram with a component+location pair in the corpus')
+        test.skip(!state.hasPair, 'no board with a component+location pair in the corpus')
 
         expect(state.componentId, 'component id').toBeTruthy()
         expect(state.locationId, 'location id').toBeTruthy()

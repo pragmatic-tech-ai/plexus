@@ -120,7 +120,7 @@ export class FileSystemService extends ServiceBase
         return this.api.listDirectory(path);
     }
 
-    // Open a path with the OS default application (non-diagram attachments).
+    // Open a path with the OS default application (non-board attachments).
     public OpenExternal(path: string): Promise<void>
     {
         return this.api.openExternal(path);

@@ -1,6 +1,6 @@
 // Full-scope serialization, end-to-end in the running app. Two halves:
 //
-//  READ  — a corpus CLONE's diagram.diagram is rewritten so its real nodes
+//  READ  — a corpus CLONE's board.board is rewritten so its real nodes
 //          (geometric shapes, an arch container card) carry the NEW brush wire
 //          format: every fill variant (linear / radial / pattern / image /
 //          None), a dashed round-cap stroke, and a styled shape caption. The
@@ -9,7 +9,7 @@
 //          the written file must carry the semi-transparent card fill + the
 //          label style.
 //
-// Exhaustive per-field fidelity is proven fast in Mural's DiagramDocument
+// Exhaustive per-field fidelity is proven fast in Mural's BoardDocument
 // round-trip matrix; this spec proves the same format survives the real
 // Plexus load → render → save pipeline. Runs against a clone so the real
 // corpus is never touched.
@@ -22,11 +22,11 @@ import { launchPlexus, seedSession, corpusAvailable, rectsForCtor, clickCenter, 
 // cleanly (no 404 noise) while still exercising image deserialization.
 const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
-// Rewrite the clone diagram so its shapes + arch container card carry the full
+// Rewrite the clone board so its shapes + arch container card carry the full
 // brush wire format. Returns the arch node id used for the write-path test.
 function injectFullScope(archDir: string): void
 {
-    const file = path.join(archDir, 'diagram.diagram')
+    const file = path.join(archDir, 'board.board')
     const doc = JSON.parse(fs.readFileSync(file, 'utf8')) as {
         nodes: Array<{ id: string; type: string; data: Record<string, unknown> }>
         visuals: Record<string, Record<string, unknown>>
@@ -47,7 +47,7 @@ function injectFullScope(archDir: string): void
     // n12 — explicit None.
     data('n12')!.fill = null
     // arch card — linear gradient in the visuals section (m365_copilot_chat is an
-    // arch node with a visual entry in diagram.diagram).
+    // arch node with a visual entry in board.board).
     doc.visuals['m365_copilot_chat']!.fill = { k: 'linear', stops: [{ hex: '#ffffff', at: 0 }, { hex: '#10b981', at: 1 }], p: [0, 0, 1, 1] }
     fs.writeFileSync(file, JSON.stringify(doc))
 }
@@ -162,11 +162,11 @@ test.describe.serial('full-scope serialization survives the real app', () => {
         await l.win.waitForTimeout(1200)
         // Open through the workspace service — the nested solution tree keeps
         // project nodes collapsed, so a tree double-click can't see the file row.
-        await openProjectFile(l, 'test_architecture', 'diagram.diagram')
+        await openProjectFile(l, 'test_architecture', 'board.board')
         // Shapes + arch cards project asynchronously after the open; poll for them.
         let figs: Awaited<ReturnType<typeof canvasFigs>> = []
         for (let i = 0; i < 40 && figs.length === 0; i++) { await l.win.waitForTimeout(500); figs = await canvasFigs(l) }
-        expect(figs.length, 'diagram opened').toBeGreaterThan(0)
+        expect(figs.length, 'board opened').toBeGreaterThan(0)
     })
 
     test.afterAll(async () => {
@@ -202,7 +202,7 @@ test.describe.serial('full-scope serialization survives the real app', () => {
             `style edit dirtied the doc (initial=${r.initialDirty} font=${r.dirtyAfterFont} fill=${r.dirtyAfterFill})`).toBe(true)
 
         await l.win.waitForTimeout(2000)
-        const doc = JSON.parse(fs.readFileSync(path.join(archDir, 'diagram.diagram'), 'utf8')) as {
+        const doc = JSON.parse(fs.readFileSync(path.join(archDir, 'board.board'), 'utf8')) as {
             nodes: Array<{ id: string; data: any }>; visuals: Record<string, any>
         }
         const cardFill = (doc.visuals[r.id]?.fill ?? '').toLowerCase()

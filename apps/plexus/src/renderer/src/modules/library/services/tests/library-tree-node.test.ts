@@ -1,7 +1,7 @@
 import { test, expect } from 'vitest'
 import { TOOLBOX_ITEM_FORMAT } from '@pragmatic-tech-ai/mural/framework'
 import { LibraryTreeNode, LibraryNodeKind } from '../library-tree-node.js'
-import type { TodlPresentationRegistry } from '../../../diagram/services/todl-presentation-registry.js'
+import type { TodlPresentationRegistry } from '../../../board/services/todl-presentation-registry.js'
 
 // A registry stub exposing iconKeyFor (the EntityIconVM surface).
 const reg = (index = new Map<string, string>()) =>

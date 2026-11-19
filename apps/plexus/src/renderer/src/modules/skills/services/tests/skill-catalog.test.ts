@@ -57,10 +57,10 @@ test('forProject narrows to a project own skills plus the shared scopes', async 
 })
 
 test('search matches name, title, description, tags, category (case-insensitive)', async () => {
-    const c = catalogWith([d('alpha', SkillScope.Project, { tags: ['c4'] }), d('beta', SkillScope.Project, { category: 'Diagrams' })])
+    const c = catalogWith([d('alpha', SkillScope.Project, { tags: ['c4'] }), d('beta', SkillScope.Project, { category: 'Boards' })])
     await c.discover('/proj')
     expect(c.search('C4').map(s => s.Name)).toEqual(['alpha'])
-    expect(c.search('diagr').map(s => s.Name)).toEqual(['beta'])
+    expect(c.search('boar').map(s => s.Name)).toEqual(['beta'])
 })
 
 test('forProjectType filters on the requiresProjectType gate', async () => {

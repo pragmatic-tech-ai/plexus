@@ -1,11 +1,11 @@
 import { test, expect } from 'vitest'
-import { DiagramDocument, ConnectorEndpoint, flowDocumentToPlainText, type Connector } from '@pragmatic-tech-ai/mural/framework'
+import { BoardDocument, ConnectorEndpoint, flowDocumentToPlainText, type Connector } from '@pragmatic-tech-ai/mural/framework'
 import { ArchNodeVM } from '../arch-node-vm.js'
 import { ConnectorLabelText } from '../connector-label-text.js'
 
 function makeConnector(): Connector
 {
-    const doc = new DiagramDocument()
+    const doc = new BoardDocument()
     const a = new ArchNodeVM(); a.Id = 'A'
     const b = new ArchNodeVM(); b.Id = 'B'
     doc.Nodes.Add(a); doc.Nodes.Add(b)

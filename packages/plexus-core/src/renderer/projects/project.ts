@@ -11,13 +11,13 @@ import { NewItemChoice } from './new-item-choice.js'
 // and keeps it reconciled on rescans (see OpenProject.Adopt).
 export { Project } from '@pragmatic-tech-ai/todl'
 
-// What a tree node represents. 'diagram' and 'todl' are files the active factory
+// What a tree node represents. 'board' and 'todl' are files the active factory
 // opens in-app (each is a factory format kind — the explorer routes any node
 // whose kind matches a declared format to openFile); 'file' is any other
 // attachment (opened via the OS); 'folder' groups. Mirrors todl's ProjectNodeKind
 // enum values; kept as a string union here so the explorer's `Kind === 'folder'`
 // comparisons and the row templates stay unchanged.
-export type ProjectNodeKind = 'folder' | 'diagram' | 'todl' | 'file'
+export type ProjectNodeKind = 'folder' | 'board' | 'todl' | 'file'
 
 export class ProjectNode extends MuralBase
 {
@@ -61,7 +61,7 @@ export class ProjectNode extends MuralBase
         ProjectNode, 'DeleteCommand', undefined, MetaData.None)
     // An optional project-type-specific context-menu action for this node,
     // contributed by a module through the INodeCommandContributor seam (e.g. the
-    // architecture "Edit Viewpoints…" on a .diagram node). HasNodeAction gates the
+    // architecture "Edit Viewpoints…" on a .board node). HasNodeAction gates the
     // menu item's visibility so nothing shows for nodes with no contribution.
     static readonly NodeActionLabelKey = MuralBase.RegisterProperty<string>(
         ProjectNode, 'NodeActionLabel', '', MetaData.None)
@@ -69,9 +69,9 @@ export class ProjectNode extends MuralBase
         ProjectNode, 'NodeActionCommand', undefined, MetaData.None)
     static readonly HasNodeActionKey = MuralBase.RegisterProperty<boolean>(
         ProjectNode, 'HasNodeAction', false, MetaData.None)
-    // Diagram export — an "Export ▸ SVG / PPTX" submenu shown on .diagram nodes
+    // Board export — an "Export ▸ SVG / PPTX" submenu shown on .board nodes
     // (HasExport gates its visibility). The commands render the file HEADLESSLY
-    // (DiagramHeadlessRenderer) and save via DiagramExportService, so a diagram
+    // (BoardHeadlessRenderer) and save via BoardExportService, so a board
     // exports straight from the tree without being opened in the editor.
     static readonly ExportSvgCommandKey = MuralBase.RegisterProperty<ICommand | undefined>(
         ProjectNode, 'ExportSvgCommand', undefined, MetaData.None)

@@ -1,16 +1,16 @@
 import { ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
-import type { DiagramDocument } from '@pragmatic-tech-ai/mural/framework'
-import type { IDiagramCommandExtension } from '../../diagram/services/diagram-command-extension.js'
-import { DiagramViewpointsEditor } from './diagram-viewpoints-editor.js'
+import type { BoardDocument } from '@pragmatic-tech-ai/mural/framework'
+import type { IBoardCommandExtension } from '../../board/services/board-command-extension.js'
+import { BoardViewpointsEditor } from './board-viewpoints-editor.js'
 
-// The diagram toolbar command id for editing an architecture diagram's governing
+// The board toolbar command id for editing an architecture board's governing
 // viewpoints. Matches the CommandDefinition in architecture-projects.module.mu.
 export const EDIT_VIEWPOINTS_COMMAND_ID = 'arch.editViewpoints'
 
-// Backs the "Edit Viewpoints" toolbar command via the diagram command-extension
-// seam: enabled only for an arch-bound diagram (so the button greys out on a
-// standalone diagram), and opens the shared DiagramViewpointsEditor flow.
-export class ArchEditViewpointsCommand extends ServiceBase implements IDiagramCommandExtension
+// Backs the "Edit Viewpoints" toolbar command via the board command-extension
+// seam: enabled only for an arch-bound board (so the button greys out on a
+// standalone board), and opens the shared BoardViewpointsEditor flow.
+export class ArchEditViewpointsCommand extends ServiceBase implements IBoardCommandExtension
 {
     public static readonly Key = new ServiceKey<ArchEditViewpointsCommand>('ArchEditViewpointsCommand')
 
@@ -21,13 +21,13 @@ export class ArchEditViewpointsCommand extends ServiceBase implements IDiagramCo
         return id === EDIT_VIEWPOINTS_COMMAND_ID
     }
 
-    public canExecute(doc: DiagramDocument): boolean
+    public canExecute(doc: BoardDocument): boolean
     {
-        return this.Provider.getRequired(DiagramViewpointsEditor.Key).canEdit(doc)
+        return this.Provider.getRequired(BoardViewpointsEditor.Key).canEdit(doc)
     }
 
-    public execute(doc: DiagramDocument): void
+    public execute(doc: BoardDocument): void
     {
-        void this.Provider.getRequired(DiagramViewpointsEditor.Key).edit(doc)
+        void this.Provider.getRequired(BoardViewpointsEditor.Key).edit(doc)
     }
 }

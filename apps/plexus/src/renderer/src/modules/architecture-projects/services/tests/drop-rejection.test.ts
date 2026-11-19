@@ -3,7 +3,7 @@ import { load } from '@pragmatic-tech-ai/todl'
 import { dropRejectionMessage } from '../drop-rejection.js'
 
 // location is framed by Model but NOT Scenarios; component (a materialize root)
-// references location via `in`, so a location dropped on a Scenarios diagram would
+// references location via `in`, so a location dropped on a Scenarios board would
 // otherwise silently become a component.
 const MM = `namespace archmm {
   annotation materialize { concept : identifier?; via : identifier?; propagate : boolean?; }
@@ -20,7 +20,7 @@ test('the rejection message names the term, the blocking viewpoint, the wrong no
 
     expect(title).toContain('Azure')                 // what you dropped
     expect(message).toContain('location')            // its concept
-    expect(message).toContain('Scenarios')           // the diagram's viewpoint that blocks it
+    expect(message).toContain('Scenarios')           // the board's viewpoint that blocks it
     expect(message).toContain('component')           // what it would have WRONGLY created
     expect(message).toMatch(/\bin\b/)                // the member it would have filled
     expect(message).toContain('Model')               // the fix: a viewpoint that frames location

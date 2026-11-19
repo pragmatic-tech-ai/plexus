@@ -1,7 +1,7 @@
 import { Application, ServiceBase, ServiceKey, type IServiceProvider } from '@pragmatic-tech-ai/mural/runtime'
 import {
     ContentHostService,
-    DiagramDocument,
+    BoardDocument,
     DocumentsContentHostService,
     ToolboxRepository,
     ToolboxVisualDescriptor,
@@ -9,13 +9,13 @@ import {
 } from '@pragmatic-tech-ai/mural/framework'
 import type { Entity, Repository } from '@pragmatic-tech-ai/todl'
 
-import { TodlPresentationRegistry } from '../../diagram/services/todl-presentation-registry.js'
-import { EntityIconVM } from '../../diagram/services/entity-icon-vm.js'
-import { ArchToolboxItem, ArchToolboxVisualKey } from '../../diagram/services/arch-toolbox-item.js'
+import { TodlPresentationRegistry } from '../../board/services/todl-presentation-registry.js'
+import { EntityIconVM } from '../../board/services/entity-icon-vm.js'
+import { ArchToolboxItem, ArchToolboxVisualKey } from '../../board/services/arch-toolbox-item.js'
 import { iconEntityKey } from './arch-icon.js'
 import { ArchModelInstanceDropFactoryKey } from './arch-model-instance-drop-factory.js'
 import { ArchScenarioDropFactoryKey } from './arch-scenario-drop-factory.js'
-import { ArchDiagramBindingService } from './arch-diagram-binding-service.js'
+import { ArchBoardBindingService } from './arch-board-binding-service.js'
 import { WikiService } from '../../../services/wiki/wiki-service.js'
 import type { ArchModel } from './arch-model.js'
 import { NodeNames } from './node-names.js'
@@ -43,8 +43,8 @@ export function conceptToolboxVisible(repo: Repository, concept: string): boolea
     return repo.resolve(`${concept}${TOOLBOX_ANNOTATION_SUFFIX}`)?.attrs.get('visible') !== false
 }
 
-// The toolbox items for a diagram's "Model:" page: one per in-scope entity that
-// is NOT already placed on the diagram. Each drops through the place-existing
+// The toolbox items for a board's "Model:" page: one per in-scope entity that
+// is NOT already placed on the board. Each drops through the place-existing
 // factory (keyed by the entity id, `instance:<id>`).
 export function modelPageItems(model: ArchModel, scope: ReadonlySet<string>, placed: ReadonlySet<string>, registry: TodlPresentationRegistry): ArchToolboxItem[]
 {
@@ -69,7 +69,7 @@ export function scenarioPageTitle(model: ArchModel): string
     return 'Scenarios: ' + model.namespace
 }
 
-// The toolbox items for a diagram's "Scenarios" page: one per in-scope scenario
+// The toolbox items for a board's "Scenarios" page: one per in-scope scenario
 // entity. Each drops through the scenario factory (`scenario:<id>`), which
 // materializes the whole flow (participants + step connectors).
 export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, registry: TodlPresentationRegistry): ArchToolboxItem[]
@@ -88,11 +88,11 @@ export function scenarioPageItems(model: ArchModel, scope: ReadonlySet<string>, 
 }
 
 // App-scoped: watches the ACTIVE document and, when it is an architecture
-// diagram, contributes a dynamic "Model: <namespace>" toolbox page listing the
+// board, contributes a dynamic "Model: <namespace>" toolbox page listing the
 // in-scope entities not yet on the canvas. Refreshes on model change, scope
 // change (both fire the model's onChanged), and node add/remove (view-only
 // deletes make an entity re-appear). Removes the page when the active document
-// is not an architecture diagram.
+// is not an architecture board.
 export class ArchModelToolboxContributor extends ServiceBase
 {
     public static readonly Key = new ServiceKey<ArchModelToolboxContributor>('ArchModelToolboxContributor')
@@ -129,21 +129,21 @@ export class ArchModelToolboxContributor extends ServiceBase
         this.activeDoc = host.ActiveDocument
 
         const doc = this.activeDoc
-        const bindingSvc = this.Provider.get(ArchDiagramBindingService.Key)
+        const bindingSvc = this.Provider.get(ArchBoardBindingService.Key)
         if (doc === undefined || bindingSvc === undefined) { this.removePage(); return }
         await bindingSvc.ensureBound(doc)
         const model = bindingSvc.modelForDocument(doc)
         if (model === undefined) { this.removePage(); return }
 
         this.modelOff = model.onChanged(() => this.refresh())
-        if (doc instanceof DiagramDocument) this.nodesOff = doc.Nodes.Subscribe(() => this.refresh())
+        if (doc instanceof BoardDocument) this.nodesOff = doc.Nodes.Subscribe(() => this.refresh())
         this.refresh()
     }
 
     private refresh(): void
     {
         const doc = this.activeDoc
-        const bindingSvc = this.Provider.get(ArchDiagramBindingService.Key)
+        const bindingSvc = this.Provider.get(ArchBoardBindingService.Key)
         const model = doc !== undefined ? bindingSvc?.modelForDocument(doc) : undefined
         if (doc === undefined || bindingSvc === undefined || model === undefined) { this.removePage(); return }
 

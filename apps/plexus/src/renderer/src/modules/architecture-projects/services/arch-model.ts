@@ -55,7 +55,7 @@ export class ArchModel
     }
 
     // The project's storage — used to read its manifest (bases the model
-    // references) when scoping the toolbox's library pages to the active diagram.
+    // references) when scoping the toolbox's library pages to the active board.
     public get Storage(): IStorage
     {
         return this.storage
@@ -80,8 +80,8 @@ export class ArchModel
 
     // Rebuild the own-instance draft from the CURRENT on-disk sources, recomposed
     // against the unchanged base model, then fire onChanged so live consumers (the
-    // arch diagram bindings) rescan + re-project. Called when the project's .todl
-    // files change externally (or via the in-app TODL editor) so open diagrams
+    // arch board bindings) rescan + re-project. Called when the project's .todl
+    // files change externally (or via the in-app TODL editor) so open boards
     // reflect the edit instead of projecting a stale cached model. Unlike restore()
     // (silent, undo-driven), this DOES fire onChanged — it is the authoritative
     // "the source of truth on disk moved" refresh.
@@ -103,7 +103,7 @@ export class ArchModel
         }))
     }
 
-    // Subscribers notified after any mutation, so SP4 diagrams can refresh.
+    // Subscribers notified after any mutation, so SP4 boards can refresh.
     // ModelDraft has no events; ArchModel owns them.
     private readonly listeners = new Set<() => void>()
 

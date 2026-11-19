@@ -1,5 +1,5 @@
-// DEMO: model-backed containment on a live diagram. Opens the test_arch project's
-// containment-demo.diagram, which places the `on_premises` location plus two nodes
+// DEMO: model-backed containment on a live board. Opens the test_arch project's
+// containment-demo.board, which places the `on_premises` location plus two nodes
 // that declare `in = on_premises` in the model (component `enterprise_legacy_app`
 // and network `on_prem_network`). On open, the containment projection realizes
 // `on_premises` as a ContentContainerFigure and nests the two children inside it —
@@ -20,18 +20,18 @@ async function nodes(l: Launched): Promise<Array<{ id: string; concept: string; 
 {
     return l.win.evaluate(() => {
         const S = Symbol.for('mural:visual-backref')
-        let diagram: any
+        let board: any
         for (const el of document.querySelectorAll('*'))
         {
             const v = (el as any)[S]
-            if (v?.constructor?.name === 'Diagram') { diagram = v; break }
+            if (v?.constructor?.name === 'Board') { board = v; break }
         }
-        if (!diagram) return []
-        const arr: any[] = diagram.ItemsSource?.ToArray ? diagram.ItemsSource.ToArray() : []
+        if (!board) return []
+        const arr: any[] = board.ItemsSource?.ToArray ? board.ItemsSource.ToArray() : []
         const out: Array<{ id: string; concept: string; figure: string; parent: string | undefined }> = []
         for (const vm of arr)
         {
-            const fig = vm?.constructor?.name === 'Figure' ? vm : diagram.Generator?.ContainerFromItem(vm)
+            const fig = vm?.constructor?.name === 'Figure' ? vm : board.Generator?.ContainerFromItem(vm)
             out.push({
                 id: vm?.Id ?? fig?.Id,
                 concept: vm?.Concept ?? '',
@@ -51,7 +51,7 @@ test.describe.serial('DEMO: model-backed containment', () => {
     test.beforeAll(async () => {
         test.skip(!corpusAvailable(), 'built app (out/) or test corpus not available')
         fs.mkdirSync(ART, { recursive: true })
-        // Generate the demo diagram into a corpus clone (never shipped in the real
+        // Generate the demo board into a corpus clone (never shipped in the real
         // corpus): places on_premises + its two `in` children.
         const clone = cloneCorpus()
         cloneRoot = clone.root
@@ -61,7 +61,7 @@ test.describe.serial('DEMO: model-backed containment', () => {
         await l.win.waitForTimeout(12_000)
 
         // Open the project explorer, then scroll the virtualized tree until the demo
-        // diagram appears and open it (mirrors the f2-title-edit navigation flow).
+        // board appears and open it (mirrors the f2-title-edit navigation flow).
         const { rectsForCtor, clickCenter } = await import('./plexus-app')
         const navs = await rectsForCtor(l.win, 'NavigationItem')
         if (navs[1]) await clickCenter(l.win, navs[1])
@@ -69,14 +69,14 @@ test.describe.serial('DEMO: model-backed containment', () => {
         const scrollX = (navs[1]?.x ?? 60) + (navs[1]?.w ?? 40) + 120
         for (let i = 0; i < 20; i++)
         {
-            if (await l.win.getByText('containment-demo.diagram', { exact: true }).count()) break
+            if (await l.win.getByText('containment-demo.board', { exact: true }).count()) break
             await l.win.mouse.move(scrollX, 300)
             await l.win.mouse.wheel(0, 400)
             await l.win.waitForTimeout(250)
         }
         for (let attempt = 0; attempt < 3 && (await nodes(l)).length === 0; attempt++)
         {
-            const dd = l.win.getByText('containment-demo.diagram', { exact: true }).first()
+            const dd = l.win.getByText('containment-demo.board', { exact: true }).first()
             await dd.scrollIntoViewIfNeeded().catch(() => {})
             await dd.dblclick({ timeout: 4000 }).catch(() => {})
             await l.win.waitForTimeout(3500)
