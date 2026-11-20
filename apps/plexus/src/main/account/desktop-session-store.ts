@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { TextValue } from './text-value.js'
 
-// Structural twin of todl-platform-node's Encryptor (SafeStorageEncryptor satisfies it), kept
+// Structural twin of pragmatic-realm-custom's Encryptor (SafeStorageEncryptor satisfies it), kept
 // local so this store has no Electron dependency and tests use a plain fake.
 export interface ITokenEncryptor
 {

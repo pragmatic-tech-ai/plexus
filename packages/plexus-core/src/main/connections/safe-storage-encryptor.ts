@@ -4,7 +4,7 @@
  * Electron. Promoted from apps/devUI into plexus-core.
  */
 import { safeStorage } from 'electron'
-import type { Encryptor } from '@pragmatic-tech-ai/todl-platform-node'
+import type { Encryptor } from '@pragmatic-tech-ai/pragmatic-realm-custom'
 
 export class SafeStorageEncryptor implements Encryptor
 {
