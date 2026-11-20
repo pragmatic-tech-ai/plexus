@@ -224,4 +224,69 @@ describe('DesktopSessionStore', () =>
         expect(failure).toBeInstanceOf(AccountError)
         expect((failure as AccountError).Kind).toBe(AccountErrorKind.SecureStorageUnavailable)
     })
+    describe('the realm grant', () =>
+    {
+        const grant = {
+            Issuer: 'https://hive.acme.example/realms/acme', ClientId: 'plexus', RefreshToken: 'plain-refresh-789',
+            TokenEndpoint: 'https://hive.acme.example/realms/acme/protocol/openid-connect/token',
+            RevocationEndpoint: 'https://hive.acme.example/realms/acme/protocol/openid-connect/revoke', RenewAt: '2026-11-10T23:59:00.000Z',
+        }
+        const realm: DesktopSession = { ...session, Realm: grant }
+
+        it('round-trips a realm session with its grant nested under Realm, never in plaintext', async () =>
+        {
+            const encryptor = new ReverseEncryptor()
+            const store = new DesktopSessionStore(dir, encryptor)
+            await store.Save({ Console: realm })
+            expect(await store.Load()).toEqual({ Console: realm, Platform: undefined })
+            expect(new BlobFile(dir, encryptor).Read().Realm).toEqual(grant)
+            expect(readFileSync(join(dir, 'desktop-session.bin')).toString()).not.toContain('plain-refresh-789')
+        })
+
+        it('keeps a grant without a revocation endpoint', async () =>
+        {
+            const store = new DesktopSessionStore(dir, new ReverseEncryptor())
+            const { RevocationEndpoint: _, ...bare } = grant
+            await store.Save({ Console: { ...session, Realm: bare } })
+            expect((await store.Load()).Console?.Realm).toEqual(bare)
+        })
+
+        it('drops the whole console part when its grant is incomplete (its bearer could never be renewed)', async () =>
+        {
+            const encryptor = new ReverseEncryptor()
+            const store = new DesktopSessionStore(dir, encryptor)
+            new BlobFile(dir, encryptor).Write({ ...session, Realm: { ...grant, RefreshToken: '' } })
+            expect(await store.Load()).toEqual({ Console: undefined, Platform: undefined })
+            new BlobFile(dir, encryptor).Write({ ...session, Realm: 'not-a-grant' })
+            expect(await store.Load()).toEqual({ Console: undefined, Platform: undefined })
+            new BlobFile(dir, encryptor).Write({ ...session, Realm: { ...grant, RenewAt: undefined } })
+            expect(await store.Load()).toEqual({ Console: undefined, Platform: undefined })
+        })
+
+        it('drops a grant whose stored addresses break the transport rule (they are dialled again)', async () =>
+        {
+            const encryptor = new ReverseEncryptor()
+            const store = new DesktopSessionStore(dir, encryptor)
+            for (const patch of [{ TokenEndpoint: 'http://hive.acme.example/token' }, { RevocationEndpoint: 'ftp://x' }, { Issuer: 'not a url' }])
+            {
+                new BlobFile(dir, encryptor).Write({ ...session, Realm: { ...grant, ...patch } })
+                expect(await store.Load()).toEqual({ Console: undefined, Platform: undefined })
+            }
+        })
+
+        it('writes only the grant fields', async () =>
+        {
+            const encryptor = new ReverseEncryptor()
+            const store = new DesktopSessionStore(dir, encryptor)
+            await store.Save({ Console: { ...session, Realm: { ...grant, Extra: 'x' } as typeof grant } })
+            expect(new BlobFile(dir, encryptor).Read().Realm).toEqual(grant)
+        })
+
+        it('a session without Realm reads as before', async () =>
+        {
+            const store = new DesktopSessionStore(dir, new ReverseEncryptor())
+            await store.Save({ Console: session })
+            expect((await store.Load()).Console).not.toHaveProperty('Realm')
+        })
+    })
 })

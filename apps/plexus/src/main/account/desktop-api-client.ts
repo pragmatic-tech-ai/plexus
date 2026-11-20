@@ -12,8 +12,11 @@ import { TextValue } from './text-value.js'
 // renderer sees only Id and DisplayName.
 export type DiscoveredConsole = { Id: string; DisplayName: string; ConsoleUrl: string; FromTenantPlane: boolean; PlatformEnvironments: boolean }
 export type Discovery = { Tenants: DiscoveredConsole[]; TenantPlaneUrl?: string }
+// The realm sign-in a console names for desktop apps (spec 2026-11-20-e, S4): the realm's issuer and
+// the public client Plexus signs in as. Absent: the console brokers the sign-in (transitional path).
+export type DesktopRealmSignIn = { Issuer: string; ClientId: string }
 // The tenant a console address serves.
-export type ServedTenant = { TenantId: string; TenantName: string }
+export type ServedTenant = { TenantId: string; TenantName: string; SignIn?: DesktopRealmSignIn }
 export type CompletedSignIn = { Token: string; ExpiresAt: string; TenantId: string; TenantName: string; Email?: string }
 
 // The platform's desktop endpoints over plain fetch: discovery on the control plane; the console
@@ -81,9 +84,20 @@ export class DesktopApiClient
             throw new AccountError(AccountErrorKind.NotAConsole)
         }
         if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) throw new AccountError(AccountErrorKind.NotAConsole)
-        const { tenantId, tenantName } = parsed as Record<string, unknown>
+        const { tenantId, tenantName, signIn } = parsed as Record<string, unknown>
         if (!TextValue.Filled(tenantId)) throw new AccountError(AccountErrorKind.NotAConsole)
-        return { TenantId: tenantId, TenantName: TextValue.Filled(tenantName) ? tenantName : tenantId }
+        const served: ServedTenant = { TenantId: tenantId, TenantName: TextValue.Filled(tenantName) ? tenantName : tenantId }
+        const realm = DesktopApiClient.RealmSignIn(signIn)
+        if (realm !== undefined) served.SignIn = realm
+        return served
+    }
+
+    // The lookup's signIn when it names both an issuer and a client id; anything else reads as absent.
+    private static RealmSignIn(raw: unknown): DesktopRealmSignIn | undefined
+    {
+        if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return undefined
+        const { issuer, clientId } = raw as Record<string, unknown>
+        return TextValue.Filled(issuer) && TextValue.Filled(clientId) ? { Issuer: issuer, ClientId: clientId } : undefined
     }
 
     // Starts a sign-in; answers the IdP authorize URL to open in the system browser.

@@ -12,6 +12,11 @@ describe('PlatformAddress.Validate', () =>
         expect(PlatformAddress.Validate(PlatformAddress.Default)).toBeUndefined()
     })
 
+    it('defaults to the platform edge', () =>
+    {
+        expect(PlatformAddress.Default).toBe('https://agent.pragmatic-tech.ai')
+    })
+
     it('refuses cleartext to a non-loopback host, other schemes and malformed addresses', () =>
     {
         expect(PlatformAddress.Validate('http://p.example')).toMatch(/https/)

@@ -38,8 +38,8 @@
 //   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding that account's password (required; read,
 //                                   never printed)
 //   PLEXUS_E2E_PLATFORM_ADDRESS     platform address for this sign-in (optional; written to the
-//                                   isolated profile's account.platformAddress setting; default: that
-//                                   setting's default, http://localhost:7000)
+//                                   isolated profile's account.platformAddress setting; default: the
+//                                   local stack's http://localhost:7000, never the app's own default)
 //   PLEXUS_E2E_TENANT               tenant id or display name to pick when the email belongs to
 //                                   several tenants (optional; default: the first one listed; a value
 //                                   matching no listed tenant fails the sign-in)
@@ -165,6 +165,9 @@ export class ScriptedDesktopSignIn
     private static readonly SettingsKey = 'ApplicationSettings'
     // AccountDialogHost.PlatformAddressSetting.
     private static readonly PlatformAddressSetting = 'account.platformAddress'
+    // The local stack's platform address: the specs never fall through to the app's default (the
+    // public platform edge) when no address is given.
+    private static readonly LocalPlatformAddress = 'http://localhost:7000'
     private static readonly Utf8 = 'utf8'
     private static readonly PollMs = 250
     private static readonly OpenTimeoutMs = 60_000
@@ -197,7 +200,7 @@ export class ScriptedDesktopSignIn
     private constructor(
         private readonly email: string,
         private readonly password: string,
-        private readonly platformAddress: string | undefined,
+        private readonly platformAddress: string,
         private readonly tenant: string | undefined,
         private readonly login: IIdpLogin,
         private readonly platformEmail: string,
@@ -252,7 +255,7 @@ export class ScriptedDesktopSignIn
         const platformLogin: IIdpLogin = platformCertFile !== undefined && login instanceof IdpBrowserLogin
             ? new IdpBrowserLogin([IdpBrowserLogin.SpkiPinFromPemFile(platformCertFile)])
             : login
-        return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv), S.Value(env, S.TenantEnv), login,
+        return new ScriptedDesktopSignIn(email, password, S.Value(env, S.PlatformAddressEnv) ?? S.LocalPlatformAddress, S.Value(env, S.TenantEnv), login,
             S.Value(env, S.PlatformEmailEnv) ?? email, platformPassword, platformLogin)
     }
 
@@ -537,11 +540,8 @@ export class ScriptedDesktopSignIn
             const state: any = (window as any)[p.stateKey]
             // The dialog reads its address from the setting when it opens. The setting lives in the
             // isolated e2e profile, so writing it touches nothing of the developer's.
-            if (p.platformAddress !== undefined)
-            {
-                state.settings.Set(p.addressSetting, p.platformAddress)
-                if (state.settings.Get(p.addressSetting) !== p.platformAddress) return p.noAddressSetting
-            }
+            state.settings.Set(p.addressSetting, p.platformAddress)
+            if (state.settings.Get(p.addressSetting) !== p.platformAddress) return p.noAddressSetting
             // The real path: IAccountService.RequestSignIn opens the dialog for this request. The
             // previous request's outcome is cleared so only this request's counts.
             state.done = undefined

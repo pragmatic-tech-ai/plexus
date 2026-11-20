@@ -147,7 +147,9 @@ export class TenantPlaneAddress
 // accepted anywhere; cleartext http only for a loopback host.
 export class PlatformAddress
 {
-    public static readonly Default = 'http://localhost:7000'
+    // The platform edge's public name (spec 2026-11-20-e, ruling E9); development stacks set their
+    // own address in the account.platformAddress setting.
+    public static readonly Default = 'https://agent.pragmatic-tech.ai'
     private static readonly Malformed = 'The Platform address is not a valid web address.'
     private static readonly BadScheme = 'The Platform address must start with https://.'
     private static readonly Cleartext = 'The Platform address must use https://; plain http:// is only allowed for localhost.'

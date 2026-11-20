@@ -30,6 +30,9 @@ export interface IRelaySessionSource
     SessionFor(source: TargetSource): Promise<SessionAddress | undefined>;
     // Clears the session holding `token`, only while it is still the stored one.
     HandleSignedOut(token: string): Promise<void>;
+    // The relay refused `token`: a realm session still holding it is renewed once and its fresh address
+    // answered; undefined when there is nothing to renew (then the refusal stands).
+    Renew(token: string): Promise<SessionAddress | undefined>;
 }
 
 export interface IRelayConnector
@@ -164,24 +167,55 @@ export class RelayConnector implements IRelayConnector
     {
         const session = await this.LoadSession(target.Source)
         if (session === undefined) throw new AccountError(RelayConnector.SignedOutKinds[target.Source])
-        let url: string
+        let renewed: SessionAddress | undefined
         try
         {
-            url = RelayConnector.RelayUrl(session.ConsoleUrl, target.Name, action)
-        }
-        catch
-        {
-            throw RelayConnector.Unreachable(target.Name)
-        }
-        try
-        {
-            return await this.dial(url, session.Token)
+            return await this.Open(session, target, action)
         }
         catch (e)
         {
-            // Only installing the certificate fixes this, so it is named rather than called unreachable.
-            if (TlsFailure.IsCertificate(e)) throw new AccountError(AccountErrorKind.CertificateUntrusted)
-            throw await this.Refusal(e, target, session.Token)
+            // A realm access token the console refuses is renewed once (the desktop clock may run
+            // behind the realm's) and the dial retried; a second refusal stands.
+            renewed = RelayRefusal.StatusOf(e) === RelayStatus.Unauthorized ? await this.RenewSession(session.Token) : undefined
+            if (renewed === undefined) throw await this.Failure(e, target, session.Token)
+        }
+        try
+        {
+            return await this.Open(renewed, target, action)
+        }
+        catch (e)
+        {
+            throw await this.Failure(e, target, renewed.Token)
+        }
+    }
+
+    // Dials the relay of `session`. An address that cannot make a relay URL fails like an unreachable
+    // environment (Failure maps an error without an HTTP status to that sentence).
+    private async Open(session: SessionAddress, target: TargetRef, action: RelayAction): Promise<RelayClient>
+    {
+        return this.dial(RelayConnector.RelayUrl(session.ConsoleUrl, target.Name, action), session.Token)
+    }
+
+    // Only installing the certificate fixes a certificate failure, so it is named rather than called
+    // unreachable; every other failure is the refusal's answer.
+    private async Failure(error: unknown, target: TargetRef, token: string): Promise<Error>
+    {
+        if (TlsFailure.IsCertificate(error)) return new AccountError(AccountErrorKind.CertificateUntrusted)
+        return this.Refusal(error, target, token)
+    }
+
+    // The same mapping as LoadSession: an account failure keeps its kind, anything else (a store
+    // error naming its path) is the fixed Unavailable sentence.
+    private async RenewSession(token: string): Promise<SessionAddress | undefined>
+    {
+        try
+        {
+            return await this.sessions.Renew(token)
+        }
+        catch (e)
+        {
+            if (e instanceof AccountError) throw e
+            throw new AccountError(AccountErrorKind.Unavailable)
         }
     }
 

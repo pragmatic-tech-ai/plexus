@@ -120,6 +120,25 @@ describe('DesktopApiClient', () =>
         expect(await client.Console('https://console-acme.example')).toEqual({ TenantId: 'acme', TenantName: 'acme' })
     })
 
+    it('Console names the realm sign-in for desktop apps when the console advertises it', async () =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme', signIn: { issuer: 'https://hive.acme.example/realms/acme', clientId: 'plexus' } })
+        expect(await client.Console('https://console-acme.example')).toEqual({
+            TenantId: 'acme', TenantName: 'Acme', SignIn: { Issuer: 'https://hive.acme.example/realms/acme', ClientId: 'plexus' },
+        })
+    })
+
+    it.each([
+        ['not an object', 'realm'],
+        ['no issuer', { clientId: 'plexus' }],
+        ['an empty client id', { issuer: 'https://hive.acme.example/realms/acme', clientId: '' }],
+        ['an array', ['https://hive.acme.example/realms/acme', 'plexus']],
+    ])('Console reads a signIn with %s as absent (the transitional path)', async (_name, signIn) =>
+    {
+        fake.Answer = () => FakeFetch.Json(200, { tenantId: 'acme', tenantName: 'Acme', signIn })
+        expect(await client.Console('https://console-acme.example')).toEqual({ TenantId: 'acme', TenantName: 'Acme' })
+    })
+
     it('Console maps 404 and non-JSON 200 to NotAConsole', async () =>
     {
         const answers: Array<() => Response> = [

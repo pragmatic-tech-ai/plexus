@@ -21,7 +21,7 @@
 // orchestrator creates. Without these the spec skips, naming them:
 //   PLEXUS_E2E_OWNER_EMAIL          the account's email
 //   PLEXUS_E2E_OWNER_PASSWORD_FILE  path of a file holding its password (read, never printed)
-// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the account.platformAddress setting's default,
+// Optional: PLEXUS_E2E_PLATFORM_ADDRESS (default: the local stack's
 // http://localhost:7000), PLEXUS_E2E_TENANT (tenant id or name when the email has several; a value
 // matching none fails), PLEXUS_E2E_IDP_CA_FILE (the IdP's dev CA certificate for an https IdP).
 // The app runs on an isolated temporary profile (E2eProfile, removed afterwards), so the developer's

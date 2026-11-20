@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { AccountError, AccountErrorKind } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { RealmEndpoint } from './realm-sign-in.js'
 import { TextValue } from './text-value.js'
 
 // Structural twin of pragmatic-realm-custom's Encryptor (SafeStorageEncryptor satisfies it), kept
@@ -20,14 +21,30 @@ export type SessionAddress = {
     Token: string;
 }
 
+// What a realm sign-in keeps to renew and end itself (spec 2026-11-20-e, S1-S3): the realm's issuer,
+// the public client it signed in as, the rotating refresh token, and the endpoints read from the
+// realm's discovery document at sign-in.
+export type RealmGrant = {
+    Issuer: string;
+    ClientId: string;
+    RefreshToken: string;
+    TokenEndpoint: string;
+    RevocationEndpoint?: string;
+    // When the access token beside it is due for renewal (ISO time).
+    RenewAt: string;
+}
+
 // The signed-in desktop session. Lives only in the main process; the Token never crosses to the
 // renderer. PlatformSignInUrl, when set, is the tenant plane to offer the platform sign-in step at.
+// Realm, when set, means the session was signed in at the tenant's realm (the realm path): Token is
+// then the realm access token, ExpiresAt its expiry, and the grant renews it.
 export type DesktopSession = SessionAddress & {
     Email: string;
     TenantId: string;
     TenantName: string;
     ExpiresAt: string;
     PlatformSignInUrl?: string;
+    Realm?: RealmGrant;
 }
 
 // The second session, at the platform's tenant plane (ConsoleUrl), for the platform's environments.
@@ -58,6 +75,9 @@ export class DesktopSessionStore
     private static readonly PlatformFields: readonly (keyof PlatformSession)[] = ['ConsoleUrl', 'Token', 'ExpiresAt', 'TenantId', 'Email']
     private static readonly PlatformField = 'Platform'
     private static readonly PlatformSignInField: keyof DesktopSession = 'PlatformSignInUrl'
+    private static readonly RealmField: keyof DesktopSession = 'Realm'
+    private static readonly GrantFields: readonly (keyof RealmGrant)[] = ['Issuer', 'ClientId', 'RefreshToken', 'TokenEndpoint', 'RenewAt']
+    private static readonly RevocationField: keyof RealmGrant = 'RevocationEndpoint'
     // Sessions saved before per-tenant consoles named their address TenantPlaneUrl (the platform's
     // tenant plane); they keep working there.
     private static readonly LegacyAddressField = 'TenantPlaneUrl'
@@ -144,7 +164,27 @@ export class DesktopSessionStore
             record[DesktopSessionStore.AddressField] = legacy
         }
         const complete = DesktopSessionStore.ConsoleFields.every(f => TextValue.Filled(record[f]))
-        return complete ? DesktopSessionStore.PickConsole(record as DesktopSession) : undefined
+        if (!complete) return undefined
+        // A realm session whose grant is unusable has a bearer nobody can renew: the part is dropped.
+        const realm = record[DesktopSessionStore.RealmField]
+        if (realm !== undefined && DesktopSessionStore.DecodeGrant(realm) === undefined) return undefined
+        return DesktopSessionStore.PickConsole(record as DesktopSession)
+    }
+
+    private static DecodeGrant(value: unknown): RealmGrant | undefined
+    {
+        if (!DesktopSessionStore.IsRecord(value)) return undefined
+        if (!DesktopSessionStore.GrantFields.every(f => TextValue.Filled(value[f]))) return undefined
+        // The addresses are dialled again from disk, so they pass the same transport rule as at sign-in.
+        if (!RealmEndpoint.IsUsable(value.Issuer) || !RealmEndpoint.IsUsable(value.TokenEndpoint)) return undefined
+        const revocation = value[DesktopSessionStore.RevocationField]
+        if (revocation !== undefined && !RealmEndpoint.IsUsable(revocation)) return undefined
+        const grant: RealmGrant = {
+            Issuer: value.Issuer, ClientId: value.ClientId as string, RefreshToken: value.RefreshToken as string, TokenEndpoint: value.TokenEndpoint,
+            RenewAt: value.RenewAt as string,
+        }
+        if (TextValue.Filled(revocation)) grant.RevocationEndpoint = revocation
+        return grant
     }
 
     private static DecodePlatform(value: unknown): PlatformSession | undefined
@@ -169,6 +209,8 @@ export class DesktopSessionStore
         const picked: DesktopSession = { ConsoleUrl: s.ConsoleUrl, Token: s.Token, Email: s.Email, TenantId: s.TenantId, TenantName: s.TenantName, ExpiresAt: s.ExpiresAt }
         const signIn = s[DesktopSessionStore.PlatformSignInField]
         if (TextValue.Filled(signIn)) picked.PlatformSignInUrl = signIn
+        const grant = s.Realm === undefined ? undefined : DesktopSessionStore.DecodeGrant(s.Realm)
+        if (grant !== undefined) picked.Realm = grant
         return picked
     }
 

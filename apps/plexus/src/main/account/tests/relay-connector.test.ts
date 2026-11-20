@@ -13,6 +13,10 @@ class FakeSessions implements IRelaySessionSource
     public readonly SignedOutTokens: string[] = []
     public readonly Asked: TargetSource[] = []
     public LoadFailure: unknown = undefined
+    public readonly RenewAsked: string[] = []
+    // What Renew answers (a realm session renewed once); undefined: nothing to renew.
+    public Renewed: SessionAddress | undefined = undefined
+    public RenewFailure: unknown = undefined
 
     public constructor(public Current: SessionAddress | undefined, public Platform: SessionAddress | undefined = undefined)
     {
@@ -23,6 +27,16 @@ class FakeSessions implements IRelaySessionSource
         this.Asked.push(source)
         if (this.LoadFailure !== undefined) throw this.LoadFailure
         return source === TargetSource.Platform ? this.Platform : this.Current
+    }
+
+    public async Renew(token: string): Promise<SessionAddress | undefined>
+    {
+        this.RenewAsked.push(token)
+        if (this.RenewFailure !== undefined) throw this.RenewFailure
+        const renewed = this.Renewed
+        this.Renewed = undefined
+        if (renewed !== undefined) this.Current = renewed
+        return renewed
     }
 
     public async HandleSignedOut(token: string): Promise<void>
@@ -282,6 +296,54 @@ describe('RelayConnector', () =>
         expect((error as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
         expect(error.message).toBe("You're signed out. Sign in and try again.")
         expect(dial.Calls).toHaveLength(0)
+    })
+
+    it('a 401 for a renewable session retries once with the renewed token', async () =>
+    {
+        const sessions = new FakeSessions({ ConsoleUrl: 'https://console.example', Token: 'stale-token' })
+        sessions.Renewed = { ConsoleUrl: 'https://console.example', Token: 'fresh-token' }
+        const calls: Array<{ url: string; token: string }> = []
+        const client = {} as RelayClient
+        const dial = async (url: string, token: string): Promise<RelayClient> =>
+        {
+            calls.push({ url, token })
+            if (token === 'stale-token') throw new UpgradeRefusedError(401, '')
+            return client
+        }
+        expect(await new RelayConnector(sessions, dial).Connect({ Name: 'dev', Source: TargetSource.Console }, RelayAction.Contribute)).toBe(client)
+        expect(calls.map(c => c.token)).toEqual(['stale-token', 'fresh-token'])
+        expect(sessions.RenewAsked).toEqual(['stale-token'])
+        expect(sessions.SignedOutTokens).toEqual([])
+    })
+
+    it('a second 401 after a renewal signs the renewed session out', async () =>
+    {
+        const sessions = new FakeSessions({ ConsoleUrl: 'https://console.example', Token: 'stale-token' })
+        sessions.Renewed = { ConsoleUrl: 'https://console.example', Token: 'fresh-token' }
+        const dial = new FakeDial(new UpgradeRefusedError(401, ''))
+        const error = await RelayFixture.Failure(new RelayConnector(sessions, dial.Dial).Connect({ Name: 'dev', Source: TargetSource.Console }, RelayAction.Contribute))
+        expect((error as AccountError).Kind).toBe(AccountErrorKind.SignedOut)
+        expect(dial.Calls).toHaveLength(2)
+        expect(sessions.SignedOutTokens).toEqual(['fresh-token'])
+    })
+
+    it('a renewal failure keeps an account kind and hides any other error text', async () =>
+    {
+        const sessions = new FakeSessions({ ConsoleUrl: 'https://console.example', Token: 't' })
+        const connect = (): Promise<unknown> => new RelayConnector(sessions, new FakeDial(new UpgradeRefusedError(401, '')).Dial).Connect({ Name: 'dev', Source: TargetSource.Console }, RelayAction.Contribute)
+        sessions.RenewFailure = new Error('EACCES C:\\Users\\someone\\desktop-session.bin')
+        const hidden = await RelayFixture.Failure(connect())
+        expect((hidden as AccountError).Kind).toBe(AccountErrorKind.Unavailable)
+        expect(String((hidden as Error).message)).not.toContain('desktop-session')
+        sessions.RenewFailure = new AccountError(AccountErrorKind.ConsoleUnreachable)
+        expect(((await RelayFixture.Failure(connect())) as AccountError).Kind).toBe(AccountErrorKind.ConsoleUnreachable)
+    })
+
+    it('a refusal other than 401 never asks for a renewal', async () =>
+    {
+        const sessions = new FakeSessions({ ConsoleUrl: 'https://console.example', Token: 't' })
+        await RelayFixture.Failure(new RelayConnector(sessions, new FakeDial(new UpgradeRefusedError(403, '')).Dial).Connect({ Name: 'dev', Source: TargetSource.Console }, RelayAction.Contribute))
+        expect(sessions.RenewAsked).toEqual([])
     })
 
     it('maps 401 to SignedOut and clears the account', async () =>

@@ -6,9 +6,10 @@ import {
     AccountError, AccountErrorKind, ConsoleAddress, PlatformAccess, PlatformAddress, TargetIdentity, TargetKind, TargetSource, TenantPlaneAddress, UrlBase,
     type AccountState, type AccountTargets, type DiscoveredTenant, type TargetChoice,
 } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
-import type { CompletedSignIn, DesktopApiClient, DiscoveredConsole } from './desktop-api-client.js'
-import type { DesktopSession, DesktopSessionStore, PlatformSession, SessionAddress, StoredAccount } from './desktop-session-store.js'
+import type { CompletedSignIn, DesktopApiClient, DesktopRealmSignIn, DiscoveredConsole, ServedTenant } from './desktop-api-client.js'
+import type { DesktopSession, DesktopSessionStore, PlatformSession, RealmGrant, SessionAddress, StoredAccount } from './desktop-session-store.js'
 import type { IRedirectReceiver } from './loopback-redirect-receiver.js'
+import { RealmAuthorization, RealmGrantRefused, RealmIdToken, RealmTokenClient, type RealmIdentity } from './realm-sign-in.js'
 
 // One sign-in attempt, tracked from its first step so a cancel at any point (discovery, Begin, the
 // browser wait, Complete) stops it: Cancel marks it and cancels the receiver; the attempt checks the
@@ -42,8 +43,12 @@ class SignInAttempt
 type ChoiceFile = Record<string, Partial<Record<TargetKind, TargetChoice>>>
 
 // Where a console sign-in goes: the address, its tenant and, for an in-hive tenant that also has
-// platform environments, the tenant plane to offer the platform sign-in at.
-type ConsoleTarget = { ConsoleUrl: string; TenantId: string; PlatformSignInUrl?: string }
+// platform environments, the tenant plane to offer the platform sign-in at. SignIn, when the console
+// names its realm's desktop sign-in, sends the attempt to the realm (TenantName then from the console).
+type ConsoleTarget = { ConsoleUrl: string; TenantId: string; PlatformSignInUrl?: string; SignIn?: DesktopRealmSignIn; TenantName?: string }
+
+// A part that can be ended: its address and token, and the realm grant when it has one.
+type EndablePart = SessionAddress & { Realm?: RealmGrant }
 
 // What a console commit replaced: the console part, and a platform part it did not keep.
 type Replaced = { Console?: DesktopSession; Platform?: PlatformSession }
@@ -79,6 +84,11 @@ export class AccountService
     private static readonly SignedOutState: AccountState = { SignedIn: false }
     private static readonly DropPlatformFailedLog = '[account] could not drop the signed-out platform session:'
     private static readonly DropExpiredFailedLog = '[account] could not drop the expired platform session:'
+    // A realm access token is renewed when it has less than this left (or half its lifetime, when
+    // that is shorter, so a short-lived token is not renewed on every use).
+    private static readonly RefreshMarginMs = 60_000
+    private static readonly HalfLifetime = 2
+    private static readonly SaveRenewedFailedLog = '[account] could not store the renewed realm grant:'
 
     public readonly Changed = new Signal<AccountState>()
     // Consoles: tenant id -> the discovered console to sign in at; TenantPlaneUrl: the platform's
@@ -92,6 +102,9 @@ export class AccountService
     // the one it was for, a sign-out clearing) runs one at a time, so a stale 401 can never load the
     // old session, then clear the one a concurrent sign-in has just saved.
     private sessionWrites: Promise<void> = Promise.resolve()
+    // The renewal in flight: callers arriving meanwhile share it, so a realm that cannot be reached
+    // costs one time-out, not one per queued caller (and a sign-out queued behind them waits once).
+    private renewal: Promise<StoredAccount> | undefined
 
     public constructor(
         private readonly store: DesktopSessionStore,
@@ -100,6 +113,7 @@ export class AccountService
         private readonly receivers: () => IRedirectReceiver,
         private readonly openExternal: (url: string) => Promise<void>,
         private readonly now: () => number = Date.now,
+        private readonly realm: RealmTokenClient = new RealmTokenClient(globalThis.fetch, now),
     )
     {
     }
@@ -113,7 +127,7 @@ export class AccountService
     // platform part answers only beside a console part, and only while it is live.
     public async SessionFor(source: TargetSource): Promise<SessionAddress | undefined>
     {
-        const account = await this.store.Load()
+        const account = source === TargetSource.Console ? await this.FreshAccount() : await this.store.Load()
         if (source === TargetSource.Platform) await this.DropExpiredPlatform(account)
         const part = source === TargetSource.Platform ? this.PlatformBeside(account) : account.Console
         return part === undefined ? undefined : { ConsoleUrl: part.ConsoleUrl, Token: part.Token }
@@ -138,6 +152,14 @@ export class AccountService
         {
             const { Console: found, TenantPlaneUrl } = await this.ConsoleFor(AccountService.Platform(platformUrl), address, tenantId)
             const target: ConsoleTarget = { ConsoleUrl: AccountService.SignInAddress(found), TenantId: tenantId }
+            // An in-hive console that names its realm's sign-in sends the attempt to the realm (no
+            // platform step there: platform environments belong to the transitional path).
+            const served = found.FromTenantPlane ? undefined : await this.Lookup(target.ConsoleUrl)
+            if (served?.SignIn !== undefined)
+            {
+                if (served.TenantId !== tenantId) throw new AccountError(AccountErrorKind.SignInFailed)
+                return { ...target, SignIn: served.SignIn, TenantName: served.TenantName }
+            }
             // The platform step is offered only when the tenant signs in somewhere other than the
             // tenant plane (signed in there, it already sees the platform's environments), and only
             // when the platform has a tenant plane to offer it at.
@@ -152,7 +174,11 @@ export class AccountService
     {
         if (ConsoleAddress.Validate(consoleUrl) !== undefined) return Promise.reject(new AccountError(AccountErrorKind.ConsoleAddressInvalid))
         const normalised = ConsoleAddress.Normalise(consoleUrl)
-        return this.RunConsoleAttempt(async () => ({ ConsoleUrl: normalised, TenantId: (await this.client.Console(normalised)).TenantId }), email.trim())
+        return this.RunConsoleAttempt(async () =>
+        {
+            const served = await this.client.Console(normalised)
+            return { ConsoleUrl: normalised, TenantId: served.TenantId, SignIn: served.SignIn, TenantName: served.TenantName }
+        }, email.trim())
     }
 
     // The platform step: the same browser sign-in, at the tenant plane the console part was offered,
@@ -202,15 +228,17 @@ export class AccountService
     // Only the part holding it is dropped, and only while it is still the stored one: a 401 that
     // arrives after a sign-out or a new sign-in belongs to an old session, and writes and emits
     // nothing. A console 401 leaves the platform part dormant; a platform 401 leaves the console part.
-    public HandleSignedOut(token: string): Promise<void>
+    public async HandleSignedOut(token: string): Promise<void>
     {
-        return this.Serialised(async () =>
+        const dropped = await this.Serialised(async (): Promise<RealmGrant | undefined> =>
         {
             const current = await this.store.Load()
             let next: StoredAccount
+            let grant: RealmGrant | undefined
             if (current.Console !== undefined && current.Console.Token === token)
             {
                 next = { Platform: this.Live(current.Platform) }
+                grant = current.Console.Realm
             }
             else if (current.Platform !== undefined && current.Platform.Token === token)
             {
@@ -218,13 +246,17 @@ export class AccountService
             }
             else
             {
-                return
+                return undefined
             }
             await this.store.Save(next)
             // A dormant platform part dropped while signed out changes nothing the user sees.
             const state = this.StateOf(next)
             if (!AccountService.SameState(state, this.StateOf(current))) this.Changed.emit(state)
+            return grant
         })
+        // The console refused the realm access token: the grant behind it is ended too, outside the
+        // serialised writes so a slow realm holds up no other session change.
+        if (dropped !== undefined) await this.RevokeQuietly(dropped)
     }
 
     // The console's targets, and beside them the platform's when a live platform part exists. A
@@ -232,7 +264,7 @@ export class AccountService
     // 401 also drops the platform part).
     public async Targets(): Promise<AccountTargets>
     {
-        const account = await this.store.Load()
+        const account = await this.FreshAccount()
         if (account.Console === undefined) throw new AccountError(AccountErrorKind.SignedOut)
         await this.DropExpiredPlatform(account)
         const platform = this.PlatformBeside(account)
@@ -304,6 +336,7 @@ export class AccountService
         {
             const target = await resolve()
             attempt.Check()
+            if (target.SignIn !== undefined) return this.CommitConsole(await this.AuthorizeAtRealm(attempt, target, target.SignIn, email))
             const done = await this.Authorize(attempt, target.ConsoleUrl, target.TenantId)
             const session: DesktopSession = {
                 ConsoleUrl: target.ConsoleUrl, Token: done.Token, Email: done.Email ?? email, TenantId: done.TenantId, TenantName: done.TenantName, ExpiresAt: done.ExpiresAt,
@@ -339,6 +372,158 @@ export class AccountService
         return done
     }
 
+    // The realm sign-in (spec 2026-11-20-e section 6): the realm's endpoints from its discovery
+    // document, the authorization code request with PKCE, state and nonce in the system browser, the
+    // code from the loopback, the exchange as the public client, the ID token's claims. A grant issued
+    // but not kept (cancelled meanwhile, an ID token that fails its checks) is revoked at once.
+    private async AuthorizeAtRealm(attempt: SignInAttempt, target: ConsoleTarget, signIn: DesktopRealmSignIn, email: string): Promise<DesktopSession>
+    {
+        const provider = await this.realm.Discover(signIn.Issuer)
+        attempt.Check()
+        const { RedirectUri } = await attempt.Receiver.Start()
+        attempt.Check()
+        const request = RealmAuthorization.Create(provider, signIn.ClientId, RedirectUri)
+        const code = attempt.Receiver.WaitForCode(request.State)
+        const [, received] = await Promise.all([this.openExternal(request.Url()), code])
+        attempt.Check()
+        const tokens = await this.realm.ExchangeCode(request, received)
+        const grant: RealmGrant = {
+            Issuer: provider.Issuer, ClientId: signIn.ClientId, RefreshToken: tokens.RefreshToken, TokenEndpoint: provider.TokenEndpoint, RenewAt: this.RenewAt(tokens.LifetimeMs),
+        }
+        if (provider.RevocationEndpoint !== undefined) grant.RevocationEndpoint = provider.RevocationEndpoint
+        let identity: RealmIdentity
+        try
+        {
+            attempt.Check()
+            identity = RealmIdToken.Check(tokens.IdToken, provider.Issuer, signIn.ClientId, request.Nonce, this.now())
+        }
+        catch (e)
+        {
+            await this.RevokeQuietly(grant)
+            throw e
+        }
+        return {
+            ConsoleUrl: target.ConsoleUrl, Token: tokens.AccessToken, Email: identity.Email ?? email, TenantId: target.TenantId,
+            TenantName: target.TenantName ?? target.TenantId, ExpiresAt: tokens.ExpiresAt, Realm: grant,
+        }
+    }
+
+    // The console's own answer to "which tenant are you", or undefined when it gives none: the
+    // transitional path then runs and reports its own failure (ruling E4).
+    private async Lookup(consoleUrl: string): Promise<ServedTenant | undefined>
+    {
+        try
+        {
+            return await this.client.Console(consoleUrl)
+        }
+        catch
+        {
+            return undefined
+        }
+    }
+
+    // The stored account with a realm access token that is still good for a while: one due for renewal
+    // is renewed first, one refresh at a time (ruling E6), re-reading the stored grant so a refresh
+    // another caller just made is used, not repeated. A refused refresh ends the session (SignedOut);
+    // a realm that cannot be reached fails the call and keeps the session.
+    private async FreshAccount(): Promise<StoredAccount>
+    {
+        // A renewal in flight answers the account it renews, so it is shared before anything is read.
+        if (this.renewal !== undefined) return this.renewal
+        const account = await this.store.Load()
+        if (!this.NeedsRefresh(account.Console)) return account
+        if (this.renewal !== undefined) return this.renewal
+        const run = this.Serialised(async () =>
+        {
+            const current = await this.store.Load()
+            return this.NeedsRefresh(current.Console) ? this.RenewStored(current) : current
+        })
+        this.renewal = run
+        const clear = (): void =>
+        {
+            if (this.renewal === run) this.renewal = undefined
+        }
+        run.then(clear, clear)
+        return run
+    }
+
+    // Main-process only (the relay connector, the targets call): the console refused `token`. A realm
+    // part still holding it is renewed once (the desktop clock may run behind the realm's) and its
+    // fresh address answered; a realm part already holding a newer token (renewed meanwhile) answers
+    // that one without renewing. Undefined when no realm part is stored, or the realm refused the
+    // renewal (then signed out). The caller retries once with the answer, and a second refusal signs
+    // out through HandleSignedOut.
+    public Renew(token: string): Promise<SessionAddress | undefined>
+    {
+        return this.Serialised(async () =>
+        {
+            const current = await this.store.Load()
+            if (current.Console?.Realm === undefined) return undefined
+            if (current.Console.Token !== token) return { ConsoleUrl: current.Console.ConsoleUrl, Token: current.Console.Token }
+            let renewed: StoredAccount
+            try
+            {
+                renewed = await this.RenewStored(current)
+            }
+            catch (e)
+            {
+                if (AccountService.IsSignedOut(e)) return undefined
+                throw e
+            }
+            const part = renewed.Console!
+            return { ConsoleUrl: part.ConsoleUrl, Token: part.Token }
+        })
+    }
+
+    // Renews the stored realm part (called inside the serialised writes) and stores the result.
+    private async RenewStored(current: StoredAccount): Promise<StoredAccount>
+    {
+        const part = current.Console!
+        const grant = part.Realm!
+        let renewed: DesktopSession
+        try
+        {
+            const tokens = await this.realm.Refresh(grant)
+            renewed = {
+                ...part, Token: tokens.AccessToken, ExpiresAt: tokens.ExpiresAt,
+                Realm: { ...grant, RefreshToken: tokens.RefreshToken ?? grant.RefreshToken, RenewAt: this.RenewAt(tokens.LifetimeMs) },
+            }
+        }
+        catch (e)
+        {
+            if (!(e instanceof RealmGrantRefused)) throw e
+            const left: StoredAccount = { Platform: this.Live(current.Platform) }
+            await this.store.Save(left)
+            this.Changed.emit(this.StateOf(left))
+            throw new AccountError(AccountErrorKind.SignedOut)
+        }
+        const next: StoredAccount = { Console: renewed, Platform: current.Platform }
+        try
+        {
+            await this.store.Save(next)
+        }
+        catch (e)
+        {
+            // The realm already rotated the refresh token: the stored one is spent, so the next renewal
+            // is refused (and the realm ends the family) and the person signs in again. Logged by name.
+            console.warn(AccountService.SaveRenewedFailedLog, { name: e instanceof Error ? e.name : typeof e })
+            throw e
+        }
+        return next
+    }
+
+    private NeedsRefresh(part: DesktopSession | undefined): boolean
+    {
+        return part?.Realm !== undefined && !(Date.parse(part.Realm.RenewAt) > this.now())
+    }
+
+    // When a token living `lifetimeMs` from now is due for renewal.
+    private RenewAt(lifetimeMs: number): string
+    {
+        const margin = Math.min(AccountService.RefreshMarginMs, lifetimeMs / AccountService.HalfLifetime)
+        return new Date(this.now() + lifetimeMs - margin).toISOString()
+    }
+
     // Stores a fresh console part. The stored platform part stays when it is live and of the same
     // tenant and email; otherwise it is ended and dropped. A replaced console part is ended too.
     private async CommitConsole(session: DesktopSession): Promise<AccountState>
@@ -347,7 +532,8 @@ export class AccountService
         {
             const previous = await this.store.Load()
             const platform = this.Live(previous.Platform)
-            const keep = platform !== undefined && platform.TenantId === session.TenantId && platform.Email === session.Email
+            // A realm session keeps no platform part (that belongs to the transitional path).
+            const keep = session.Realm === undefined && platform !== undefined && platform.TenantId === session.TenantId && platform.Email === session.Email
             const account: StoredAccount = { Console: session, Platform: keep ? platform : undefined }
             await this.store.Save(account)
             const gone: Replaced = { Console: previous.Console }
@@ -385,7 +571,7 @@ export class AccountService
 
     // Runs a store write for a freshly issued session. When it cannot be stored the console has
     // already issued it, so it is ended there before the failure is reported.
-    private async Commit<T>(session: SessionAddress, write: () => Promise<T>): Promise<T>
+    private async Commit<T>(session: EndablePart, write: () => Promise<T>): Promise<T>
     {
         try
         {
@@ -418,7 +604,28 @@ export class AccountService
         return { Console: found, TenantPlaneUrl: discovered.TenantPlaneUrl }
     }
 
+    // A 401 for a realm part renews it once and retries; a second 401 (or any 401 of a console
+    // session) signs the part out.
     private async ConsoleTargets(session: DesktopSession): Promise<AccountTargets>
+    {
+        try
+        {
+            return await this.client.Targets(session, TargetSource.Console)
+        }
+        catch (e)
+        {
+            if (!AccountService.IsSignedOut(e)) throw e
+            const renewed = session.Realm === undefined ? undefined : await this.Renew(session.Token)
+            if (renewed === undefined)
+            {
+                await this.HandleSignedOut(session.Token)
+                throw e
+            }
+            return this.RetriedTargets(renewed)
+        }
+    }
+
+    private async RetriedTargets(session: SessionAddress): Promise<AccountTargets>
     {
         try
         {
@@ -516,7 +723,16 @@ export class AccountService
         this.Changed.emit({ ...AccountService.SignedOutState })
     }
 
-    private async EndQuietly(at: SessionAddress): Promise<void>
+    // Ends a part at its console and, for a realm part, its grant at the realm; both quietly.
+    private async EndQuietly(at: EndablePart): Promise<void>
+    {
+        await Promise.all([
+            this.SignOutQuietly({ ConsoleUrl: at.ConsoleUrl, Token: at.Token }),
+            at.Realm === undefined ? undefined : this.RevokeQuietly(at.Realm),
+        ])
+    }
+
+    private async SignOutQuietly(at: SessionAddress): Promise<void>
     {
         try
         {
@@ -525,6 +741,18 @@ export class AccountService
         catch
         {
             // unreachable or refused: the local copy is dropped regardless
+        }
+    }
+
+    private async RevokeQuietly(grant: RealmGrant): Promise<void>
+    {
+        try
+        {
+            await this.realm.Revoke(grant)
+        }
+        catch
+        {
+            // unreachable: the refresh token lives until the realm expires it; nothing here holds it
         }
     }
 
