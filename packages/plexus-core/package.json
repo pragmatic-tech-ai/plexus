@@ -63,8 +63,8 @@
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
     "@pragmatic-tech-ai/mural": "^0.67.0",
+    "@pragmatic-tech-ai/pragmatic-realm-custom": "^0.1.1",
     "@pragmatic-tech-ai/todl": "^0.66.1",
-    "@pragmatic-tech-ai/pragmatic-realm-custom": "^0.1.0",
     "@pragmatic-tech-ai/todl-runtime": "^0.7.0",
     "chokidar": "^5.0.0",
     "electron-updater": "^6.8.9"

@@ -6,7 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 
 export class FrameworkTypingsCollector
 {
-    static Packages = ['@pragmatic-tech-ai/mural', '@pragmatic-tech-ai/todl-runtime', '@pragmatic-tech-ai/todl']
+    static Packages = ['@pragmatic-tech-ai/mural', '@pragmatic-tech-ai/todl-runtime', '@pragmatic-tech-ai/todl', '@pragmatic-tech-ai/pragmatic-graph']
     static ExtraLibRoot = 'file:///node_modules'
     static PackageJson = 'package.json'
     static DtsSuffix = '.d.ts'

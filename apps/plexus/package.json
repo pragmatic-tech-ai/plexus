@@ -53,6 +53,7 @@
     "@playwright/test": "^1.62.1",
     "@pragmatic-tech-ai/fresco": "^0.4.7",
     "@pragmatic-tech-ai/mural": "^0.67.0",
+    "@pragmatic-tech-ai/pragmatic-graph": "^0.6.0",
     "electron": "43.7.5",
     "electron-builder": "^25.1.8",
     "electron-vite": "^5.0.0",
