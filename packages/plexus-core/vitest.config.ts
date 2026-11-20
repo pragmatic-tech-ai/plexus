@@ -193,7 +193,10 @@ export default defineConfig({
             // which Node cannot type-strip). todl dist is compiled JS, so transforming it is safe
             // (unlike mural, whose circular class hierarchy breaks under transform — mural stays
             // externalized via the dist alias).
-            deps: { inline: [/[\\/]@pragmatic-tech-ai[\\/]todl[\\/]/] },
+            // pragmatic-protocol does `import { WebSocket } from 'ws'`: left external (installed from the registry),
+            // Node resolves `ws` under the test conditions to its browser stub, which has no named WebSocket export.
+            // Inlined, Vite resolves ws's Node entry (same fix as apps/plexus/vitest.config.ts).
+            deps: { inline: [/[\\/]@pragmatic-tech-ai[\\/]todl[\\/]/, /@pragmatic-tech-ai[\\/]pragmatic-protocol/] },
         },
     },
 })
