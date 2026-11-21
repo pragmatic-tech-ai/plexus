@@ -73,10 +73,36 @@ export interface DbExecDescriptor
     rowCount: number
 }
 
-/** Spawns the Task 2 orchestrator CLI and parses its JSON descriptors. */
+/** How the orchestrator process is started: program, arguments, working folder and environment. */
+export interface OrchestratorLaunch
+{
+    file: string
+    args: string[]
+    cwd: string
+    env: NodeJS.ProcessEnv
+}
+
+/**
+ * Spawns the Task 2 orchestrator CLI and parses its JSON descriptors. With PRAGMATIC_E2E_WSL_DISTRO set, the orchestrator
+ * runs inside that WSL distro (where the stack runs on a machine whose Docker, kind and kubectl live in WSL, e.g. the hive
+ * laptop): PRAGMATIC_E2E_REPO is then the checkout's Linux path, and the stack folder (PLEXUS_E2E_STACK's folder, a Windows
+ * path) reaches it translated, as PRAGMATIC_E2E_STACK_DIR.
+ */
 export class OrchestratorClient
 {
     public static readonly E2eRepoEnv = 'PRAGMATIC_E2E_REPO'
+    public static readonly WslDistroEnv = 'PRAGMATIC_E2E_WSL_DISTRO'
+    public static readonly StackDirEnv = 'PRAGMATIC_E2E_STACK_DIR'
+    private static readonly Wsl = 'wsl.exe'
+    private static readonly WslDistroFlag = '-d'
+    private static readonly WslCdFlag = '--cd'
+    private static readonly WslExecFlag = '--exec'
+    private static readonly WslNode = 'node'
+    private static readonly WslEnv = 'WSLENV'
+    private static readonly WslEnvSeparator = ':'
+    /** WSLENV flag: the value is a path, translated from Windows to WSL form. */
+    private static readonly WslPathFlag = '/p'
+    private static readonly WslNeedsRepoMessage = 'PRAGMATIC_E2E_WSL_DISTRO needs PRAGMATIC_E2E_REPO: the Linux path of the pragmatic-e2e checkout inside that distro'
     // pragmatic-e2e is a sibling of the Plexus repo (the workspace and the hive laptop's clone folder):
     // apps/plexus -> apps -> Plexus -> the folder both sit in.
     public static readonly DefaultE2eRepoRel = '../../../pragmatic-e2e'
@@ -107,15 +133,56 @@ export class OrchestratorClient
 
     private started = false
 
-    public constructor(private readonly e2eRepo: string, private readonly stack: string | undefined)
+    public constructor(
+        private readonly e2eRepo: string,
+        private readonly stack: string | undefined,
+        private readonly wslDistro: string | undefined = undefined,
+        private readonly env: NodeJS.ProcessEnv = process.env)
     {
     }
 
-    /** Resolves the pragmatic-e2e checkout from PRAGMATIC_E2E_REPO, falling back to the sibling default. */
+    /** Resolves the pragmatic-e2e checkout from PRAGMATIC_E2E_REPO, falling back to the sibling default (not in WSL). */
     public static Create(env: NodeJS.ProcessEnv = process.env): OrchestratorClient
     {
-        const stack = env[OrchestratorClient.StackEnv]
-        return new OrchestratorClient(OrchestratorClient.E2eRepoOf(env), stack !== undefined && stack !== '' ? stack : undefined)
+        const C = OrchestratorClient
+        const stack = env[C.StackEnv]
+        const distro = env[C.WslDistroEnv]?.trim()
+        if (distro !== undefined && distro !== '')
+        {
+            const repo = env[C.E2eRepoEnv]?.trim()
+            if (repo === undefined || repo === '')
+            {
+                throw new Error(C.WslNeedsRepoMessage)
+            }
+            return new OrchestratorClient(repo, stack !== undefined && stack !== '' ? stack : undefined, distro, env)
+        }
+        return new OrchestratorClient(C.E2eRepoOf(env), stack !== undefined && stack !== '' ? stack : undefined, undefined, env)
+    }
+
+    /**
+     * How the orchestrator starts for `args`: this Node with tsx in the checkout, or (WSL) `wsl.exe -d <distro> --cd <checkout>
+     * --exec node --import tsx ...` with the stack folder passed as a translated path variable instead of --stack.
+     */
+    public Launch(args: readonly string[]): OrchestratorLaunch
+    {
+        const C = OrchestratorClient
+        if (this.wslDistro === undefined)
+        {
+            const stackArgs = this.stack === undefined ? [] : [C.StackFlag, this.stack]
+            return { file: process.execPath, args: [C.ImportFlag, C.TsxBin, this.OrchestratorPath(), ...args, ...stackArgs], cwd: this.e2eRepo, env: this.env }
+        }
+        let env = this.env
+        if (this.stack !== undefined)
+        {
+            const names = (this.env[C.WslEnv] ?? '').split(C.WslEnvSeparator).filter((name) => name !== '')
+            env = { ...this.env, [C.StackDirEnv]: path.win32.dirname(this.stack), [C.WslEnv]: [...names, C.StackDirEnv + C.WslPathFlag].join(C.WslEnvSeparator) }
+        }
+        return {
+            file: C.Wsl,
+            args: [C.WslDistroFlag, this.wslDistro, C.WslCdFlag, this.e2eRepo, C.WslExecFlag, C.WslNode, C.ImportFlag, C.TsxBin, C.OrchestratorRel, ...args],
+            cwd: PLEXUS_ROOT,
+            env,
+        }
     }
 
     /** The pragmatic-e2e checkout the orchestrator runs from: PRAGMATIC_E2E_REPO when set, else the sibling of the Plexus repo. */
@@ -174,12 +241,12 @@ export class OrchestratorClient
     // only the orchestrator's already-redacted stderr is surfaced on failure.
     private Run<T>(args: readonly string[]): Promise<T>
     {
-        const orchestrator = this.OrchestratorPath()
+        const launch = this.Launch(args)
         const command = args[0]
-        const stackArgs = this.stack === undefined ? [] : [OrchestratorClient.StackFlag, this.stack]
         return new Promise<T>((resolve, reject) => {
-            const child = spawn(process.execPath, [OrchestratorClient.ImportFlag, OrchestratorClient.TsxBin, orchestrator, ...args, ...stackArgs], {
-                cwd: this.e2eRepo,
+            const child = spawn(launch.file, launch.args, {
+                cwd: launch.cwd,
+                env: launch.env,
                 timeout: OrchestratorClient.SpawnTimeoutMs,
             })
             let stdout = ''

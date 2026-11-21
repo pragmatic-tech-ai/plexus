@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs'
+import path from 'node:path'
 
 // The pragmatic-e2e live-loop stack descriptor (stack.json, written by
 // src/live-loop/live-loop-stack.ts up) as the scripted sign-in's inputs: when
@@ -19,6 +20,8 @@ export class E2eStackInputs
     public static readonly IdpCertFileEnv = 'PLEXUS_E2E_IDP_CERT_FILE'
     public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
     private static readonly Utf8 = 'utf8'
+    // stack.json keys that hold file paths.
+    private static readonly FileKeys: readonly string[] = ['ownerPasswordFile', 'idpCaFile', 'idpCertFile', 'operatorPasswordFile']
     // stack.json key per sign-in variable (pragmatic-e2e LiveLoopStackDescriptor).
     private static readonly Keys: readonly (readonly [string, string])[] = [
         [E2eStackInputs.EmailEnv, 'ownerEmail'],
@@ -36,7 +39,22 @@ export class E2eStackInputs
     {
         const file = env[E2eStackInputs.StackEnv]?.trim()
         if (file === undefined || file === '' || !existsSync(file)) return env
-        return E2eStackInputs.Merge(env, JSON.parse(readFileSync(file, E2eStackInputs.Utf8)) as Record<string, unknown>)
+        const stack = JSON.parse(readFileSync(file, E2eStackInputs.Utf8)) as Record<string, unknown>
+        return E2eStackInputs.Merge(env, E2eStackInputs.ResolveFiles(stack, path.dirname(file)))
+    }
+
+    // Pure: the stack with its file paths absolute. The stack writes them relative to its own folder (so a
+    // descriptor written in WSL reads the same from Windows); a relative one resolves against `folder`, an
+    // absolute one (older descriptors) stays.
+    public static ResolveFiles(stack: Record<string, unknown>, folder: string): Record<string, unknown>
+    {
+        const resolved = { ...stack }
+        for (const key of E2eStackInputs.FileKeys)
+        {
+            const value = stack[key]
+            if (typeof value === 'string' && value !== '') resolved[key] = path.resolve(folder, value)
+        }
+        return resolved
     }
 
     // Pure: the stack's non-empty string inputs, overlaid by every non-blank environment variable.

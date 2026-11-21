@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { E2eStackInputs } from '../e2e-stack-inputs'
 
@@ -34,6 +37,24 @@ describe('E2eStackInputs.Merge', () => {
     it('adds nothing when PLEXUS_E2E_STACK names a missing file, so the specs skip instead of erroring', () => {
         const env = { PLEXUS_E2E_STACK: 'C:/no/such/stack.json' }
         expect(E2eStackInputs.Apply(env)).toBe(env)
+    })
+
+    it('resolves the stack\'s relative file paths against its folder (a descriptor written in WSL, read on Windows)', () => {
+        const folder = mkdtempSync(path.join(tmpdir(), 'stack-inputs-'))
+        try
+        {
+            const file = path.join(folder, 'stack.json')
+            writeFileSync(file, JSON.stringify({ ...stack, ownerPasswordFile: 'owner-password', idpCaFile: 'data/idp/e2e/tls/ca.crt' }))
+            const merged = E2eStackInputs.Apply({ PLEXUS_E2E_STACK: file })
+            expect(merged.PLEXUS_E2E_OWNER_PASSWORD_FILE).toBe(path.join(folder, 'owner-password'))
+            expect(merged.PLEXUS_E2E_IDP_CA_FILE).toBe(path.join(folder, 'data', 'idp', 'e2e', 'tls', 'ca.crt'))
+            expect(merged.PLEXUS_E2E_IDP_CERT_FILE).toBe(path.resolve('C:/stack/server.crt'))
+            expect(merged.PLEXUS_E2E_PLATFORM_ADDRESS).toBe('http://localhost:7000')
+        }
+        finally
+        {
+            rmSync(folder, { recursive: true, force: true })
+        }
     })
 
     it('leaves the environment alone without PLEXUS_E2E_STACK', () => {

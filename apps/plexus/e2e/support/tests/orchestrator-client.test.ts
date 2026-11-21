@@ -19,3 +19,35 @@ describe('OrchestratorClient.E2eRepoOf', () => {
         expect(client.OrchestratorPath()).toBe(path.join('D:/tmp/pragmatic-e2e', 'src', 'live-loop', 'loop-orchestrator.ts'))
     })
 })
+
+describe('OrchestratorClient.Launch', () => {
+    it('runs this Node with tsx in the checkout, passing --stack when PLEXUS_E2E_STACK is set', () => {
+        const env = { PRAGMATIC_E2E_REPO: 'D:/tmp/pragmatic-e2e', PLEXUS_E2E_STACK: 'C:/s/stack.json' }
+        const launch = OrchestratorClient.Create(env).Launch(['create-dev'])
+        expect(launch.file).toBe(process.execPath)
+        expect(launch.args).toEqual(['--import', 'tsx', path.join('D:/tmp/pragmatic-e2e', 'src', 'live-loop', 'loop-orchestrator.ts'), 'create-dev', '--stack', 'C:/s/stack.json'])
+        expect(launch.cwd).toBe('D:/tmp/pragmatic-e2e')
+        expect(launch.env).toBe(env)
+    })
+
+    it('runs inside the WSL distro with PRAGMATIC_E2E_WSL_DISTRO, the stack folder passed as a translated path variable', () => {
+        const env = { PRAGMATIC_E2E_WSL_DISTRO: 'hive', PRAGMATIC_E2E_REPO: '/root/work/architecture-agent/pragmatic-e2e', PLEXUS_E2E_STACK: 'C:\\Users\\v\\.pragmatic\\e2e-stack\\stack.json', WSLENV: 'X' }
+        const launch = OrchestratorClient.Create(env).Launch(['promote', '--graph', 'g'])
+        expect(launch.file).toBe('wsl.exe')
+        expect(launch.args).toEqual(['-d', 'hive', '--cd', '/root/work/architecture-agent/pragmatic-e2e', '--exec', 'node', '--import', 'tsx', 'src/live-loop/loop-orchestrator.ts', 'promote', '--graph', 'g'])
+        expect(launch.cwd).toBe(PLEXUS_ROOT)
+        expect(launch.env.PRAGMATIC_E2E_STACK_DIR).toBe('C:\\Users\\v\\.pragmatic\\e2e-stack')
+        expect(launch.env.WSLENV).toBe('X:PRAGMATIC_E2E_STACK_DIR/p')
+    })
+
+    it('leaves the WSL orchestrator on its default stack folder without PLEXUS_E2E_STACK', () => {
+        const env = { PRAGMATIC_E2E_WSL_DISTRO: 'hive', PRAGMATIC_E2E_REPO: '/root/e2e' }
+        const launch = OrchestratorClient.Create(env).Launch(['teardown'])
+        expect(launch.env).toBe(env)
+        expect(launch.args).not.toContain('--stack')
+    })
+
+    it('refuses the WSL distro without the Linux checkout path', () => {
+        expect(() => OrchestratorClient.Create({ PRAGMATIC_E2E_WSL_DISTRO: 'hive' })).toThrow(/PRAGMATIC_E2E_REPO/)
+    })
+})
