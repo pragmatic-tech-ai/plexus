@@ -15,6 +15,7 @@
 //   teardown                  -> TeardownDescriptor
 //   db-exec --sql <sql>       -> DbExecDescriptor    (runs SQL against the runtime env's provisioned Postgres)
 import { spawn } from 'node:child_process'
+import { createConnection } from 'node:net'
 import path from 'node:path'
 import { PLEXUS_ROOT } from '../plexus-app'
 import { E2eStackInputs } from './e2e-stack-inputs'
@@ -96,6 +97,15 @@ export class OrchestratorClient
     private static readonly Wsl = 'wsl.exe'
     private static readonly WslDistroFlag = '-d'
     private static readonly WslCdFlag = '--cd'
+    private static readonly WslUserFlag = '-u'
+    /** The user the stack runs as in the distro (hive run --wsl runs it as root, Docker's user there). */
+    private static readonly WslUser = 'root'
+    private static readonly StackFileName = 'stack.json'
+    private static readonly ReachDeadlineMs = 15_000
+    private static readonly ReachPollMs = 250
+    private static readonly ConnectEvent = 'connect'
+    private static readonly UnreachablePrefix = 'the runtime environment did not become reachable from this machine: '
+    private static readonly WslStackNameMessage = 'with PRAGMATIC_E2E_WSL_DISTRO, PLEXUS_E2E_STACK must name the stack folder\'s stack.json: '
     private static readonly WslExecFlag = '--exec'
     private static readonly WslNode = 'node'
     private static readonly WslEnv = 'WSLENV'
@@ -174,12 +184,18 @@ export class OrchestratorClient
         let env = this.env
         if (this.stack !== undefined)
         {
+            const stack = path.win32.resolve(this.stack)
+            if (path.win32.basename(stack).toLowerCase() !== C.StackFileName)
+            {
+                // The orchestrator in WSL reads stack.json from the folder it is given; another file name would be ignored.
+                throw new Error(C.WslStackNameMessage + stack)
+            }
             const names = (this.env[C.WslEnv] ?? '').split(C.WslEnvSeparator).filter((name) => name !== '')
-            env = { ...this.env, [C.StackDirEnv]: path.win32.dirname(this.stack), [C.WslEnv]: [...names, C.StackDirEnv + C.WslPathFlag].join(C.WslEnvSeparator) }
+            env = { ...this.env, [C.StackDirEnv]: path.win32.dirname(stack), [C.WslEnv]: [...names, C.StackDirEnv + C.WslPathFlag].join(C.WslEnvSeparator) }
         }
         return {
             file: C.Wsl,
-            args: [C.WslDistroFlag, this.wslDistro, C.WslCdFlag, this.e2eRepo, C.WslExecFlag, C.WslNode, C.ImportFlag, C.TsxBin, C.OrchestratorRel, ...args],
+            args: [C.WslDistroFlag, this.wslDistro, C.WslUserFlag, C.WslUser, C.WslCdFlag, this.e2eRepo, C.WslExecFlag, C.WslNode, C.ImportFlag, C.TsxBin, C.OrchestratorRel, ...args],
             cwd: PLEXUS_ROOT,
             env,
         }
@@ -211,7 +227,36 @@ export class OrchestratorClient
 
     public async CreateRuntime(): Promise<RuntimeDescriptor>
     {
-        return this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand])
+        const runtime = await this.Run<RuntimeDescriptor>([OrchestratorClient.CreateRuntimeCommand])
+        if (this.wslDistro !== undefined)
+        {
+            // The orchestrator opened its port-forward inside WSL; Windows reaches it only once WSL's localhost relay has
+            // picked the new port up (a few hundred milliseconds later), so wait for that before anyone uses the origin.
+            await OrchestratorClient.WaitReachable(runtime.appOriginBase)
+        }
+        return runtime
+    }
+
+    /** Resolves once a TCP connection to `origin`'s host and port succeeds; throws naming the origin after `deadlineMs`. */
+    public static async WaitReachable(origin: string, deadlineMs: number = OrchestratorClient.ReachDeadlineMs): Promise<void>
+    {
+        const C = OrchestratorClient
+        const url = new URL(origin)
+        const deadline = Date.now() + deadlineMs
+        while (Date.now() < deadline)
+        {
+            const reached = await new Promise<boolean>((resolve) => {
+                const socket = createConnection({ host: url.hostname, port: Number(url.port) })
+                socket.once(C.ConnectEvent, () => { socket.destroy(); resolve(true) })
+                socket.once(C.ErrorEvent, () => resolve(false))
+            })
+            if (reached)
+            {
+                return
+            }
+            await new Promise<void>((resolve) => setTimeout(resolve, C.ReachPollMs))
+        }
+        throw new Error(C.UnreachablePrefix + origin)
     }
 
     public async Promote(graph: string): Promise<PromoteDescriptor>

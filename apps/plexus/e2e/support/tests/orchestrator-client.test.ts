@@ -1,3 +1,4 @@
+import { createServer, type AddressInfo } from 'node:net'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { PLEXUS_ROOT } from '../../plexus-app'
@@ -34,7 +35,7 @@ describe('OrchestratorClient.Launch', () => {
         const env = { PRAGMATIC_E2E_WSL_DISTRO: 'hive', PRAGMATIC_E2E_REPO: '/root/work/architecture-agent/pragmatic-e2e', PLEXUS_E2E_STACK: 'C:\\Users\\v\\.pragmatic\\e2e-stack\\stack.json', WSLENV: 'X' }
         const launch = OrchestratorClient.Create(env).Launch(['promote', '--graph', 'g'])
         expect(launch.file).toBe('wsl.exe')
-        expect(launch.args).toEqual(['-d', 'hive', '--cd', '/root/work/architecture-agent/pragmatic-e2e', '--exec', 'node', '--import', 'tsx', 'src/live-loop/loop-orchestrator.ts', 'promote', '--graph', 'g'])
+        expect(launch.args).toEqual(['-d', 'hive', '-u', 'root', '--cd', '/root/work/architecture-agent/pragmatic-e2e', '--exec', 'node', '--import', 'tsx', 'src/live-loop/loop-orchestrator.ts', 'promote', '--graph', 'g'])
         expect(launch.cwd).toBe(PLEXUS_ROOT)
         expect(launch.env.PRAGMATIC_E2E_STACK_DIR).toBe('C:\\Users\\v\\.pragmatic\\e2e-stack')
         expect(launch.env.WSLENV).toBe('X:PRAGMATIC_E2E_STACK_DIR/p')
@@ -47,7 +48,36 @@ describe('OrchestratorClient.Launch', () => {
         expect(launch.args).not.toContain('--stack')
     })
 
+    it('refuses a WSL stack file not named stack.json (the orchestrator there reads stack.json from the folder)', () => {
+        const env = { PRAGMATIC_E2E_WSL_DISTRO: 'hive', PRAGMATIC_E2E_REPO: '/root/e2e', PLEXUS_E2E_STACK: 'C:\\s\\other.json' }
+        expect(() => OrchestratorClient.Create(env).Launch(['teardown'])).toThrow(/stack\.json/)
+    })
+
     it('refuses the WSL distro without the Linux checkout path', () => {
         expect(() => OrchestratorClient.Create({ PRAGMATIC_E2E_WSL_DISTRO: 'hive' })).toThrow(/PRAGMATIC_E2E_REPO/)
+    })
+})
+
+describe('OrchestratorClient.WaitReachable', () => {
+    it('resolves once the origin accepts a connection', async () => {
+        const server = createServer()
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        try
+        {
+            const port = (server.address() as AddressInfo).port
+            await expect(OrchestratorClient.WaitReachable(`http://127.0.0.1:${port}`, 2_000)).resolves.toBeUndefined()
+        }
+        finally
+        {
+            server.close()
+        }
+    })
+
+    it('fails naming the origin when nothing answers by the deadline', async () => {
+        const server = createServer()
+        await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', () => resolve()))
+        const port = (server.address() as AddressInfo).port
+        await new Promise<void>((resolve) => server.close(() => resolve()))
+        await expect(OrchestratorClient.WaitReachable(`http://127.0.0.1:${port}`, 600)).rejects.toThrow(`http://127.0.0.1:${port}`)
     })
 })
