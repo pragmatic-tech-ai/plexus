@@ -5,7 +5,7 @@
 // page's email field, types the email and the password, presses Enter, and waits until the browser
 // reaches the Plexus loopback callback (the redirect URI in the authorize URL) so Plexus's own
 // receiver completes the sign-in. The field selectors are the ones the server's live smokes use
-// (admin/control-plane/idp-login-page.ts there); they are repeated here, not imported across repos.
+// (pragmatic-platform-admin src/idp-login-page.ts); they are repeated here, not imported across repos.
 //
 // TLS: ignoreHTTPSErrors is NOT set. Chromium on Windows trusts the OS root store, where the dev CA
 // is installed, so the console leg proves that OS trust. A pinned leg (certificates given to the

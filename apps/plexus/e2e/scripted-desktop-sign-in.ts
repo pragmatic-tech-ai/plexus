@@ -43,7 +43,7 @@
 //   PLEXUS_E2E_TENANT               tenant id or display name to pick when the email belongs to
 //                                   several tenants (optional; default: the first one listed; a value
 //                                   matching no listed tenant fails the sign-in)
-//   PLEXUS_E2E_STACK                path of the pragmatic-server e2e stack descriptor (stack.json,
+//   PLEXUS_E2E_STACK                path of the pragmatic-e2e live-loop stack descriptor (stack.json,
 //                                   written by live-loop-stack.ts up); when set, the owner email, password
 //                                   file, platform address, tenant and IdP CA file come from it (any of the
 //                                   variables here, when set, still wins)

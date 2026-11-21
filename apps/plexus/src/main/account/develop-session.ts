@@ -40,8 +40,8 @@ export class RequestSerializer
 // the relay in call order without waiting on any answer.
 export class DevelopSession implements IDevStorageSession, DevSessionRequests, IDevSessionPushes
 {
-    // COUPLED to the server: 31 = RelayPipe.MaxPending (32) - 1 margin, from the pragmatic-server control-plane
-    // relay pipe, which refuses beyond MaxPending in flight. This is the ONE shared budget for all requests. No shared constant is exported yet, so this
+    // COUPLED to the server: 31 = RelayPipe.MaxPending (32) - 1 margin, from the tenant plane's relay pipe
+    // (pragmatic-shared, packages/pragmatic-tenant-plane/src/tenant-auth/desktop-relay.ts), which refuses beyond MaxPending in flight. This is the ONE shared budget for all requests. No shared constant is exported yet, so this
     // number must be kept in step with that cap by hand.
     public static readonly MaxInFlight = 31
 

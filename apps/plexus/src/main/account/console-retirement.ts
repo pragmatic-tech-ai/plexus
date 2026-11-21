@@ -3,10 +3,10 @@
 export class ConsoleRetirement
 {
     // The error code of the refusal body; the server's ConsoleRegistration.RefusedError
-    // (pragmatic-server/admin/control-plane/console-registration.ts).
+    // (pragmatic-shared, packages/pragmatic-tenant-plane/src/console-registration.ts).
     public static readonly ErrorCode = 'console-not-registered'
-    // The WebSocket close code of a retired console's relay; the server's
-    // DesktopRelay.ConsoleRetiredCloseCode (pragmatic-server/admin/control-plane/tenant-auth/desktop-relay.ts).
+    // The WebSocket close code of a retired console's relay; the server's DesktopRelay.ConsoleRetiredCloseCode
+    // (pragmatic-shared, packages/pragmatic-tenant-plane/src/tenant-auth/desktop-relay.ts).
     public static readonly CloseCode = 4003
     public static readonly Status = 503
 

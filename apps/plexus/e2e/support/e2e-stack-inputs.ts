@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 
-// The pragmatic-server e2e stack descriptor (stack.json, written by
-// admin/control-plane/live-loop/live-loop-stack.ts up) as the scripted sign-in's inputs: when
+// The pragmatic-e2e live-loop stack descriptor (stack.json, written by
+// src/live-loop/live-loop-stack.ts up) as the scripted sign-in's inputs: when
 // PLEXUS_E2E_STACK names it, its owner email, password file, platform address, tenant, the IdP's CA and
 // server certificate files and the IdP login kind are filled in underneath the environment (any variable
 // already set wins). A named file that does not exist adds nothing, so the specs skip with their usual
@@ -19,7 +19,7 @@ export class E2eStackInputs
     public static readonly IdpCertFileEnv = 'PLEXUS_E2E_IDP_CERT_FILE'
     public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
     private static readonly Utf8 = 'utf8'
-    // stack.json key per sign-in variable (pragmatic-server LiveLoopStackDescriptor).
+    // stack.json key per sign-in variable (pragmatic-e2e LiveLoopStackDescriptor).
     private static readonly Keys: readonly (readonly [string, string])[] = [
         [E2eStackInputs.EmailEnv, 'ownerEmail'],
         [E2eStackInputs.PasswordFileEnv, 'ownerPasswordFile'],

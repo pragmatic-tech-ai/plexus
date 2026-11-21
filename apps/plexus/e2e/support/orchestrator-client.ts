@@ -2,8 +2,8 @@
 // control-plane orchestrator CLI, plus a runtime environment-graph reader used by the pre-promote
 // review assertion.
 //
-// The orchestrator (pragmatic-server/admin/control-plane/live-loop/loop-orchestrator.ts) drives the
-// RUNNING e2e stack (pragmatic-server live-loop-stack.ts up): the tenant owner creates the environments
+// The orchestrator (pragmatic-e2e src/live-loop/loop-orchestrator.ts) drives the
+// RUNNING e2e stack (pragmatic-e2e live-loop-stack.ts up): the tenant owner creates the environments
 // on the tenant's hive and provisions them, the operator promotes. Each subcommand prints ONE JSON
 // descriptor to stdout; stderr carries only redacted logs. The stack descriptor is passed with --stack
 // when PLEXUS_E2E_STACK is set (else the orchestrator's default, ~/.pragmatic/e2e-stack/stack.json).
@@ -22,7 +22,7 @@ import { E2eStackInputs } from './e2e-stack-inputs'
 // ── The cross-task JSON contract (keys fixed by loop-orchestrator.ts; declared verbatim) ──
 //
 // SOURCE OF TRUTH: these interfaces hand-mirror the ones EXPORTED by
-// pragmatic-server/admin/control-plane/live-loop/loop-orchestrator.ts — `CredentialDescriptor`,
+// pragmatic-e2e src/live-loop/loop-orchestrator.ts — `CredentialDescriptor`,
 // `DevDescriptor`, `RuntimeDescriptor`, `PromoteDescriptor`, `TeardownDescriptor`. Keep them in
 // sync with that module (they are the only cross-process channel for these shapes).
 
@@ -76,10 +76,11 @@ export interface DbExecDescriptor
 /** Spawns the Task 2 orchestrator CLI and parses its JSON descriptors. */
 export class OrchestratorClient
 {
-    private static readonly ServerRepoEnv = 'SP_SERVER_REPO'
-    // pragmatic-server is a sibling of the Plexus repo: apps/plexus -> apps -> Plexus -> architecture-agent.
-    private static readonly DefaultServerRepoRel = '../../../pragmatic-server'
-    private static readonly OrchestratorRel = 'admin/control-plane/live-loop/loop-orchestrator.ts'
+    public static readonly E2eRepoEnv = 'PRAGMATIC_E2E_REPO'
+    // pragmatic-e2e is a sibling of the Plexus repo (the workspace and the hive laptop's clone folder):
+    // apps/plexus -> apps -> Plexus -> the folder both sit in.
+    public static readonly DefaultE2eRepoRel = '../../../pragmatic-e2e'
+    public static readonly OrchestratorRel = 'src/live-loop/loop-orchestrator.ts'
     private static readonly StackEnv = E2eStackInputs.StackEnv
     private static readonly StackFlag = '--stack'
     private static readonly KeepEnv = 'SP_RUNTIME_LOOP_KEEP'
@@ -106,17 +107,28 @@ export class OrchestratorClient
 
     private started = false
 
-    public constructor(private readonly serverRepo: string, private readonly stack: string | undefined)
+    public constructor(private readonly e2eRepo: string, private readonly stack: string | undefined)
     {
     }
 
-    /** Resolves the server repo from SP_SERVER_REPO, falling back to the sibling default. */
-    public static Create(): OrchestratorClient
+    /** Resolves the pragmatic-e2e checkout from PRAGMATIC_E2E_REPO, falling back to the sibling default. */
+    public static Create(env: NodeJS.ProcessEnv = process.env): OrchestratorClient
     {
-        const fromEnv = process.env[OrchestratorClient.ServerRepoEnv]
-        const repo = fromEnv !== undefined && fromEnv !== '' ? fromEnv : path.resolve(PLEXUS_ROOT, OrchestratorClient.DefaultServerRepoRel)
-        const stack = process.env[OrchestratorClient.StackEnv]
-        return new OrchestratorClient(repo, stack !== undefined && stack !== '' ? stack : undefined)
+        const stack = env[OrchestratorClient.StackEnv]
+        return new OrchestratorClient(OrchestratorClient.E2eRepoOf(env), stack !== undefined && stack !== '' ? stack : undefined)
+    }
+
+    /** The pragmatic-e2e checkout the orchestrator runs from: PRAGMATIC_E2E_REPO when set, else the sibling of the Plexus repo. */
+    public static E2eRepoOf(env: NodeJS.ProcessEnv): string
+    {
+        const fromEnv = env[OrchestratorClient.E2eRepoEnv]
+        return fromEnv !== undefined && fromEnv !== '' ? fromEnv : path.resolve(PLEXUS_ROOT, OrchestratorClient.DefaultE2eRepoRel)
+    }
+
+    /** The orchestrator script inside that checkout. */
+    public OrchestratorPath(): string
+    {
+        return path.join(this.e2eRepo, OrchestratorClient.OrchestratorRel)
     }
 
     public async CreateDev(graph?: string): Promise<DevDescriptor>
@@ -157,17 +169,17 @@ export class OrchestratorClient
         return this.Run<TeardownDescriptor>([OrchestratorClient.TeardownCommand])
     }
 
-    // Spawns `node --import tsx <orchestrator> <subcommand> ...` in the server repo and parses the single
+    // Spawns `node --import tsx <orchestrator> <subcommand> ...` in the pragmatic-e2e checkout and parses the single
     // JSON object the subcommand prints to stdout. stdout is never logged (it carries secrets);
     // only the orchestrator's already-redacted stderr is surfaced on failure.
     private Run<T>(args: readonly string[]): Promise<T>
     {
-        const orchestrator = path.join(this.serverRepo, OrchestratorClient.OrchestratorRel)
+        const orchestrator = this.OrchestratorPath()
         const command = args[0]
         const stackArgs = this.stack === undefined ? [] : [OrchestratorClient.StackFlag, this.stack]
         return new Promise<T>((resolve, reject) => {
             const child = spawn(process.execPath, [OrchestratorClient.ImportFlag, OrchestratorClient.TsxBin, orchestrator, ...args, ...stackArgs], {
-                cwd: this.serverRepo,
+                cwd: this.e2eRepo,
                 timeout: OrchestratorClient.SpawnTimeoutMs,
             })
             let stdout = ''

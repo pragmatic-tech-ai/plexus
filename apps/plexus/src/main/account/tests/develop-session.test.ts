@@ -90,7 +90,7 @@ describe('DevelopSession', () =>
         expect(all).toHaveLength(50)
         expect(all[49]).toBe('text:p49')
         expect(fake.MaxSeen).toBeLessThanOrEqual(DevelopSession.MaxInFlight)
-        expect(DevelopSession.MaxInFlight).toBeLessThan(32) // 32 = server RelayPipe.MaxPending (pragmatic-server control-plane); keep in step
+        expect(DevelopSession.MaxInFlight).toBeLessThan(32) // 32 = server RelayPipe.MaxPending (pragmatic-tenant-plane desktop-relay.ts); keep in step
     })
 
     it('a rejecting request releases its slot and the queue keeps draining', async () =>

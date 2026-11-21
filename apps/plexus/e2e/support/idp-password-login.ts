@@ -1,5 +1,5 @@
-// Browser-less IdP password login for the e2e desktop sign-in, mirroring the server's
-// admin/control-plane/desktop-sign-in-smoke.ts RunLogin: GET the authorize URL (keep the session
+// Browser-less IdP password login for the e2e desktop sign-in, mirroring pragmatic-e2e's
+// src/smoke/desktop-sign-in-smoke.ts RunLogin: GET the authorize URL (keep the session
 // cookie), POST the password form (email, password) to the same URL without following redirects,
 // then follow the redirect to the Plexus loopback callback so its receiver completes the sign-in.
 //

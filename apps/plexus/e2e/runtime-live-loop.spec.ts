@@ -2,10 +2,10 @@
 // author -> contribute -> promote -> publish loop and asserts a real browser reads the promoted
 // data from the served app. The capstone of the runtime-publishing-live-loop slice.
 //
-// Gated by SP_RUNTIME_LOOP_E2E=1 — it needs the RUNNING e2e stack (pragmatic-server
-// admin/control-plane/live-loop/live-loop-stack.ts up: a control plane, a tenant with its IdP and a
-// kind hive), a built Plexus (`out/main/index.js`), chromium, and the orchestrator reachable at
-// SP_SERVER_REPO (default sibling ../../../pragmatic-server). It is operator-run; see the runbook.
+// Gated by SP_RUNTIME_LOOP_E2E=1 — it needs the RUNNING e2e stack (pragmatic-e2e
+// src/live-loop/live-loop-stack.ts up: the platform admin console, the platform edge, a tenant with its
+// IdP and a kind hive), a built Plexus (`out/main/index.js`), chromium, and the orchestrator reachable at
+// PRAGMATIC_E2E_REPO (default sibling ../../../pragmatic-e2e). It is operator-run; see the runbook.
 //
 // The renderer is driven exactly as sp1-plexus-smoke.spec.ts does: reach the live service container
 // through the mural visual backref, resolve the real hierarchy contributors via the contributor

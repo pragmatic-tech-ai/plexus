@@ -45,7 +45,7 @@ export interface IRelayConnector
 export type RelayCall = { Environment: string; Graph?: string; Client: Pick<RelayClient, 'CloseCode'> }
 
 // The JSON-RPC server-error codes of the graph catalog. The protocol carries none; the server's home
-// is GraphErrorCode in pragmatic-server src/host/graphs/graph-error-codes.ts (reserved -32040..-32045).
+// is GraphErrorCode in pragmatic-env-server server/src/host/graphs/graph-error-codes.ts (reserved -32040..-32045).
 export enum GraphErrorCode
 {
     NotFound = -32040,
