@@ -19,9 +19,14 @@ export class E2eStackInputs
     public static readonly IdpCaFileEnv = 'PLEXUS_E2E_IDP_CA_FILE'
     public static readonly IdpCertFileEnv = 'PLEXUS_E2E_IDP_CERT_FILE'
     public static readonly IdpLoginEnv = 'PLEXUS_E2E_IDP_LOGIN'
+    // How the stack signs Plexus in (realm | transitional) and, in realm mode, the realm issuer and the CA
+    // bundle Plexus's main process trusts (ScriptedRealmSignIn).
+    public static readonly SignInEnv = 'PLEXUS_E2E_SIGN_IN'
+    public static readonly RealmIssuerEnv = 'PLEXUS_E2E_REALM_ISSUER'
+    public static readonly DesktopCaFileEnv = 'PLEXUS_E2E_DESKTOP_CA_FILE'
     private static readonly Utf8 = 'utf8'
     // stack.json keys that hold file paths.
-    private static readonly FileKeys: readonly string[] = ['ownerPasswordFile', 'idpCaFile', 'idpCertFile', 'operatorPasswordFile']
+    private static readonly FileKeys: readonly string[] = ['ownerPasswordFile', 'idpCaFile', 'idpCertFile', 'operatorPasswordFile', 'desktopCaFile']
     // stack.json key per sign-in variable (pragmatic-e2e LiveLoopStackDescriptor).
     private static readonly Keys: readonly (readonly [string, string])[] = [
         [E2eStackInputs.EmailEnv, 'ownerEmail'],
@@ -31,6 +36,9 @@ export class E2eStackInputs
         [E2eStackInputs.IdpCaFileEnv, 'idpCaFile'],
         [E2eStackInputs.IdpCertFileEnv, 'idpCertFile'],
         [E2eStackInputs.IdpLoginEnv, 'idpLogin'],
+        [E2eStackInputs.SignInEnv, 'signIn'],
+        [E2eStackInputs.RealmIssuerEnv, 'realmIssuer'],
+        [E2eStackInputs.DesktopCaFileEnv, 'desktopCaFile'],
     ]
 
     // The environment with the stack's inputs underneath; the environment itself without PLEXUS_E2E_STACK

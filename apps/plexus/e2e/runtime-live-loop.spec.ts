@@ -27,6 +27,10 @@
 // The app runs on an isolated temporary profile (E2eProfile, removed afterwards), so the developer's
 // own Plexus profile and session are never read, signed out or replaced; the session the run creates
 // is signed out before the app closes.
+// Sign-in path: a stack brought up with `--sign-in realm` (the default; stack.json signIn: realm) has
+// the console name its tenant realm, so Plexus signs in at the realm as the public client plexus and the
+// spec checks that it did (ScriptedRealmSignIn: the authorize URL is the realm's; the app trusts the
+// stack's CA bundle through NODE_EXTRA_CA_CERTS). `--sign-in transitional` runs the console-brokered path.
 import { test, expect, type Page, type JSHandle } from '@playwright/test'
 import { chromium, type Browser, type BrowserContext } from 'playwright'
 import { existsSync, mkdtempSync, cpSync, rmSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -39,6 +43,7 @@ import { ContosoFixture, CatalogFixture } from './fixtures/fixture-manifest'
 import { DisplayPlacement, type DisplayBounds } from './support/display-placement'
 import { OrchestratorClient, RuntimeEnvGraphReader, type DevDescriptor, type RuntimeDescriptor } from './support/orchestrator-client'
 import { ScriptedDesktopSignIn } from './scripted-desktop-sign-in'
+import { ScriptedRealmSignIn } from './support/scripted-realm-sign-in'
 import { E2eProfile } from './support/e2e-profile'
 
 // Result of resolving + driving the real Generate-UI command on the Contoso project row.
@@ -592,6 +597,8 @@ test.describe('runtime publishing live loop', () => {
         // Cloned too: Generate UI writes into the project, which must never touch the committed fixture.
         const catalogClone = ContosoClone.From(CatalogFixture.folder, CatalogClonePrefix)
         const signIn = ScriptedDesktopSignIn.FromEnvironment()
+        // A realm stack (live-loop-stack.ts up --sign-in realm): Plexus signs in at the tenant realm itself.
+        const realm = ScriptedRealmSignIn.FromEnvironment()
         const reader = new BrowserReader()
         let profile: E2eProfile | undefined
         let l: Launched | undefined
@@ -605,6 +612,7 @@ test.describe('runtime publishing live loop', () => {
             const isolated = E2eProfile.Create()
             profile = isolated
             isolated.SeedSession([clone.Folder, catalogClone.Folder])
+            realm?.TrustFor(process.env)
             l = await launchPlexus(isolated)
             const origin = await WindowPlacer.PlaceOnSecondMonitor(l, process.env[WindowOriginEnv])
             await RendererOps.InstallHelpers(l.win)
@@ -613,6 +621,8 @@ test.describe('runtime publishing live loop', () => {
             // run through the relay with a real desktop session.
             await test.step('desktop sign-in', async () => {
                 await signIn.SignIn(l!.app, l!.win, isolated)
+                // Realm mode: the sign-in ran at the realm as plexus (a console-brokered fallback fails here).
+                realm?.CheckAuthorizeUrl(signIn.LastAuthorizeUrl ?? '')
             })
 
             // Step 3: open Contoso (seeded above) + Generate UI for the entrypoint concept.

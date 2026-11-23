@@ -194,6 +194,13 @@ export class ScriptedDesktopSignIn
     // Whether this instance started a sign-in on the session-free profile (so any session at teardown
     // is this run's, and SignOut ends it).
     private signInAttempted = false
+    private lastAuthorizeUrl: string | undefined
+
+    // The authorize URL the last SignIn's IdP login ran on (the realm's own on the realm path).
+    public get LastAuthorizeUrl(): string | undefined
+    {
+        return this.lastAuthorizeUrl
+    }
     // Whether the last AttemptConsoleSignIn saw the app open any URL in a browser.
     private lastAttemptOpenedBrowser = false
 
@@ -274,6 +281,7 @@ export class ScriptedDesktopSignIn
             this.signInAttempted = true
             await this.OpenDialogAndContinue(win, options.ConsoleAddress)
             const authorizeUrl = await this.AwaitAuthorizeUrl(app, win)
+            this.lastAuthorizeUrl = authorizeUrl
             await this.login.Run(authorizeUrl, this.email, this.password)
             await this.AwaitSignedIn(win)
         }
