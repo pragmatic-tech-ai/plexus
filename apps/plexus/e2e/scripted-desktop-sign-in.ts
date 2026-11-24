@@ -194,13 +194,8 @@ export class ScriptedDesktopSignIn
     // Whether this instance started a sign-in on the session-free profile (so any session at teardown
     // is this run's, and SignOut ends it).
     private signInAttempted = false
+    // The authorize URL the last SignIn's IdP login ran on (reset when a SignIn starts).
     private lastAuthorizeUrl: string | undefined
-
-    // The authorize URL the last SignIn's IdP login ran on (the realm's own on the realm path).
-    public get LastAuthorizeUrl(): string | undefined
-    {
-        return this.lastAuthorizeUrl
-    }
     // Whether the last AttemptConsoleSignIn saw the app open any URL in a browser.
     private lastAttemptOpenedBrowser = false
 
@@ -266,9 +261,17 @@ export class ScriptedDesktopSignIn
             S.Value(env, S.PlatformEmailEnv) ?? email, platformPassword, platformLogin)
     }
 
+    // The authorize URL the last SignIn's IdP login ran on (the realm's own on the realm path); undefined
+    // until a SignIn reached the login.
+    public get LastAuthorizeUrl(): string | undefined
+    {
+        return this.lastAuthorizeUrl
+    }
+
     // Signs the app (launched on `profile`) in; resolves once the account reports signed in.
     public async SignIn(app: ElectronApplication, win: Page, profile: E2eProfile, options: ScriptedSignInOptions = {}): Promise<void>
     {
+        this.lastAuthorizeUrl = undefined
         const userData = await app.evaluate(({ app: electronApp }) => electronApp.getPath('userData'))
         if (!profile.Owns(userData)) throw new Error(ScriptedDesktopSignIn.NotIsolated)
         await this.InterceptOpener(app)

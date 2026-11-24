@@ -71,6 +71,28 @@ export class TlsFailure
         'CERT_HAS_EXPIRED',
         'CERT_NOT_YET_VALID',
         'ERR_TLS_CERT_ALTNAME_INVALID',
+        // The rest of Node's X509 verify error codes (node_crypto X509ErrorCode).
+        'UNABLE_TO_GET_CRL',
+        'UNABLE_TO_DECRYPT_CERT_SIGNATURE',
+        'UNABLE_TO_DECRYPT_CRL_SIGNATURE',
+        'UNABLE_TO_DECODE_ISSUER_PUBLIC_KEY',
+        'CERT_SIGNATURE_FAILURE',
+        'CRL_SIGNATURE_FAILURE',
+        'CRL_NOT_YET_VALID',
+        'CRL_HAS_EXPIRED',
+        'ERROR_IN_CERT_NOT_BEFORE_FIELD',
+        'ERROR_IN_CERT_NOT_AFTER_FIELD',
+        'ERROR_IN_CRL_LAST_UPDATE_FIELD',
+        'ERROR_IN_CRL_NEXT_UPDATE_FIELD',
+        'CERT_CHAIN_TOO_LONG',
+        'CERT_REVOKED',
+        'INVALID_CA',
+        'PATH_LENGTH_EXCEEDED',
+        'INVALID_PURPOSE',
+        'CERT_REJECTED',
+        'HOSTNAME_MISMATCH',
+        // A verify error Node has no name for (Electron's BoringSSL: "unsupported name constraint type").
+        'UNSPECIFIED',
     ])
 
     /** True when `error` (or its `cause`, one level) carries a certificate-verification code. */

@@ -63,6 +63,15 @@ describe('TlsFailure', () =>
         expect(TlsFailure.IsCertificate(Object.assign(new Error('x'), { code: 'ERR_TLS_CERT_ALTNAME_INVALID' }))).toBe(true)
         expect(TlsFailure.IsCertificate(Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } }))).toBe(false)
         expect(TlsFailure.IsCertificate('text')).toBe(false)
+        // Electron's BoringSSL: a verify error Node has no name for (e.g. "unsupported name constraint type") is UNSPECIFIED.
+        expect(TlsFailure.IsCertificate(Object.assign(new TypeError('fetch failed'), { cause: { code: 'UNSPECIFIED', message: 'unsupported name constraint type' } }))).toBe(true)
+        for (const code of ['CERT_REVOKED', 'CERT_REJECTED', 'CERT_SIGNATURE_FAILURE', 'INVALID_CA', 'HOSTNAME_MISMATCH', 'CERT_CHAIN_TOO_LONG'])
+        {
+            expect(TlsFailure.IsCertificate(Object.assign(new TypeError('fetch failed'), { cause: { code } }))).toBe(true)
+        }
+        // Only the code counts, one level down: a bare message or a deeper cause is no certificate failure.
+        expect(TlsFailure.IsCertificate(new Error('UNSPECIFIED'))).toBe(false)
+        expect(TlsFailure.IsCertificate(Object.assign(new TypeError('fetch failed'), { cause: { cause: { code: 'UNSPECIFIED' } } }))).toBe(false)
         expect(TlsFailure.IsCertificate(undefined)).toBe(false)
     })
 })

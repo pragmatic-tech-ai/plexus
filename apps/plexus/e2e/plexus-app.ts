@@ -153,14 +153,16 @@ export interface Launched
 // Electron runs as a plain node process and never opens a window). Collects
 // renderer console.error + uncaught page errors into `errors`. With a profile,
 // the app's userData is that isolated temp dir instead of the developer's
-// default profile (seed its session with profile.SeedSession, not seedSession).
-export async function launchPlexus(profile?: E2eProfile): Promise<Launched>
+// default profile (seed its session with profile.SeedSession, not seedSession). `extraEnv` is set for
+// the app only (the runner's own environment, and what else it spawns, stay as they are).
+export async function launchPlexus(profile?: E2eProfile, extraEnv: Readonly<Record<string, string>> = {}): Promise<Launched>
 {
     const env: Record<string, string> = {}
     for (const [name, value] of Object.entries(process.env))
     {
         if (value !== undefined && name !== 'ELECTRON_RUN_AS_NODE') env[name] = value
     }
+    Object.assign(env, extraEnv)
     const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN, ...(profile?.LaunchArgs ?? [])], cwd: PLEXUS_ROOT, env })
     const win = await app.firstWindow()
     const errors: string[] = []

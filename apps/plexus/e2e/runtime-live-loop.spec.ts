@@ -612,8 +612,8 @@ test.describe('runtime publishing live loop', () => {
             const isolated = E2eProfile.Create()
             profile = isolated
             isolated.SeedSession([clone.Folder, catalogClone.Folder])
-            realm?.TrustFor(process.env)
-            l = await launchPlexus(isolated)
+            // A realm stack: the app (only) trusts the stack's CA bundle.
+            l = await launchPlexus(isolated, realm?.LaunchEnv(process.env) ?? {})
             const origin = await WindowPlacer.PlaceOnSecondMonitor(l, process.env[WindowOriginEnv])
             await RendererOps.InstallHelpers(l.win)
 
@@ -622,7 +622,7 @@ test.describe('runtime publishing live loop', () => {
             await test.step('desktop sign-in', async () => {
                 await signIn.SignIn(l!.app, l!.win, isolated)
                 // Realm mode: the sign-in ran at the realm as plexus (a console-brokered fallback fails here).
-                realm?.CheckAuthorizeUrl(signIn.LastAuthorizeUrl ?? '')
+                realm?.CheckAuthorizeUrl(signIn.LastAuthorizeUrl)
             })
 
             // Step 3: open Contoso (seeded above) + Generate UI for the entrypoint concept.

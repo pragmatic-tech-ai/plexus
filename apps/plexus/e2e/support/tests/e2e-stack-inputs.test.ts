@@ -28,6 +28,14 @@ describe('E2eStackInputs.Merge', () => {
         })
     })
 
+    it('fills the realm leg\'s variables from a realm stack (E.s S9), its CA bundle resolved like the other files', () => {
+        const realm = { ...stack, signIn: 'realm', realmIssuer: 'https://host.docker.internal:7300/realms/e2e', desktopCaFile: 'C:/stack/desktop-ca.pem' }
+        const merged = E2eStackInputs.Merge({}, realm)
+        expect(merged[E2eStackInputs.SignInEnv]).toBe('realm')
+        expect(merged[E2eStackInputs.RealmIssuerEnv]).toBe('https://host.docker.internal:7300/realms/e2e')
+        expect(merged[E2eStackInputs.DesktopCaFileEnv]).toBe('C:/stack/desktop-ca.pem')
+    })
+
     it('lets a set variable win and ignores blank ones', () => {
         const merged = E2eStackInputs.Merge({ PLEXUS_E2E_TENANT: 'other', PLEXUS_E2E_OWNER_EMAIL: '  ' }, stack)
         expect(merged.PLEXUS_E2E_TENANT).toBe('other')
