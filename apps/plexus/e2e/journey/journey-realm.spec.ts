@@ -1,8 +1,9 @@
 // Journey realm-native deploy e2e (pragmatic-e2e stage F, legs 8/9 — C5.1 (b)): drives the REAL Plexus
-// Electron app against a LIVE Hosted hive. The central registered customer identity signs in realm-native
+// Electron app against a LIVE Hosted hive. The Owner (a tenant admin) signs in realm-native
 // (platform discovery → the hosted console names its tenant realm → Plexus authorizes at that realm as the
-// public client `plexus`), then contributes a TODL sample project's graph to the pre-existing environment
-// named by PLEXUS_JOURNEY_ENVIRONMENT (created already by the pragmatic-e2e StaffSignIn leg's env-push).
+// public client `plexus`), lists the environments the account may contribute to (account.Targets()), SELECTS
+// the one named by PLEXUS_JOURNEY_ENVIRONMENT from that list, then contributes a TODL sample project's graph
+// to the selected target.
 //
 // This is the realm-native half of the proof; the independent read-back (the environment lists the deployed
 // graph, queried through the tenant-api as the owner) is pragmatic-e2e's DeployGraphsLeg (leg 9). So this
@@ -18,7 +19,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { existsSync, mkdtempSync, cpSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
-import { TargetSource, type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
+import { type TargetRef } from '@pragmatic-tech-ai/plexus-core/shared/account-api.js'
 import { launchPlexus, MAIN, ELECTRON_EXE, type Launched } from '../plexus-app'
 import { NorthwindFixture } from '../fixtures/fixture-manifest'
 import { ScriptedDesktopSignIn } from '../scripted-desktop-sign-in'
@@ -89,9 +90,9 @@ class RendererOps
 
     // Builds the whole active solution's packages and contributes them to the environment's graph through the
     // real IGraphContributor (the console relay, with the app's signed-in realm session) — the exact path the
-    // Solution row's "Contribute to graph" command runs (minus the target picker), so the environment goes as
-    // a console target ({ Name, Source }), never a bare name.
-    public static async Contribute(win: Page, environment: string, graphName: string): Promise<ContributeOutcome>
+    // Solution row's "Contribute to graph" command runs. The target is the environment SELECTED from the
+    // account's contribute targets (account.Targets()), passed as its { Name, Source } ref — not synthesized.
+    public static async Contribute(win: Page, target: TargetRef, graphName: string): Promise<ContributeOutcome>
     {
         return win.evaluate(
             async (p) => {
@@ -117,7 +118,7 @@ class RendererOps
                 return { ok: true, packageCount: result?.PackageCount }
             },
             {
-                helpersKey: RendererOps.HelpersKey, target: { Name: environment, Source: TargetSource.Console } satisfies TargetRef, graphName,
+                helpersKey: RendererOps.HelpersKey, target, graphName,
                 registryName: RendererOps.RegistryName, solutionFamily: RendererOps.SolutionFamily,
                 contributeContributorName: RendererOps.ContributeContributorName,
                 stageResolve: RendererOps.StageResolve, stageContributorMissing: RendererOps.StageContributorMissing,
@@ -167,7 +168,7 @@ test.describe('journey realm-native deploy', () => {
     test.skip(!ScriptedDesktopSignIn.IsConfigured(), ScriptedDesktopSignIn.SkipMessage)
     test.setTimeout(600_000)
 
-    test('the staff account signs in realm-native and deploys a graph to the journey environment', async () => {
+    test('the Owner signs in realm-native, selects the journey environment, and deploys a graph to it', async () => {
         expect(existsSync(MAIN), `built app missing at ${MAIN} — run npm run build`).toBeTruthy()
         expect(existsSync(ELECTRON_EXE), 'electron binary missing').toBeTruthy()
         const environment = process.env[EnvironmentEnv]
@@ -216,8 +217,29 @@ test.describe('journey realm-native deploy', () => {
                 realm!.CheckAuthorizeUrl(signIn.LastAuthorizeUrl)
             })
 
-            await test.step('contribute the graph to the journey environment', async () => {
-                const contributed = await RendererOps.Contribute(l!.win, environment!, GraphName)
+            // Enumerate the environments this signed-in identity may contribute to (the real account bridge) and
+            // SELECT the journey one — a clear failure here means it is not an eligible contribute target.
+            let selectedTarget: TargetRef | undefined
+            await test.step('list the environments the account can contribute to', async () => {
+                const result = await l!.win.evaluate(async (p) => {
+                    const reply = await (window as any).api.account.Targets()
+                    if (!reply.Ok) return { ok: false, names: [] as string[], errorKind: String(reply.Error?.Kind) }
+                    const list: any[] = reply.Value.Contribute ?? []
+                    const hit = list.find((t) => t.Name === p.environment)
+                    return {
+                        ok: true,
+                        names: list.map((t) => String(t.Name)),
+                        selected: hit ? { Name: String(hit.Name), Source: String(hit.Source) } : undefined,
+                    }
+                }, { environment: environment! })
+                console.log('[journey] contribute targets: ' + result.names.join(','))
+                expect(result.ok, 'account.Targets() failed: ' + (result.errorKind ?? '')).toBeTruthy()
+                expect(result.selected, 'environment "' + environment + '" is not a contribute target; got: ' + result.names.join(',')).toBeTruthy()
+                selectedTarget = result.selected as TargetRef
+            })
+
+            await test.step('contribute the graph to the selected journey environment', async () => {
+                const contributed = await RendererOps.Contribute(l!.win, selectedTarget!, GraphName)
                 expect(contributed, `contribute stage: ${contributed.stage ?? ''}`).toMatchObject({ ok: true })
                 expect(contributed.packageCount, 'contribute landed zero packages').toBeGreaterThan(0)
             })
