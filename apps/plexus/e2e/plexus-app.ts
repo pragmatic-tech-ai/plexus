@@ -15,11 +15,14 @@ import type { E2eProfile } from './support/e2e-profile'
 export const PLEXUS_ROOT = path.resolve(__dirname, '..')
 export const MAIN = path.join(PLEXUS_ROOT, 'out/main/index.js')
 // electron's binary — probe app-local then the hoisted workspace-root
-// node_modules (npm workspaces hoist electron to the repo root).
+// node_modules (npm workspaces hoist electron to the repo root). `electron.exe`
+// on Windows (the operator's machine); `electron` on Linux (the hive, where the
+// pragmatic-e2e journey leg runs the spec under xvfb).
+const ELECTRON_BINARY = process.platform === 'win32' ? 'electron.exe' : 'electron'
 export const ELECTRON_EXE = [
-    path.join(PLEXUS_ROOT, 'node_modules/electron/dist/electron.exe'),
-    path.join(PLEXUS_ROOT, '../../node_modules/electron/dist/electron.exe'),
-].find((p) => fs.existsSync(p)) ?? path.join(PLEXUS_ROOT, 'node_modules/electron/dist/electron.exe')
+    path.join(PLEXUS_ROOT, 'node_modules/electron/dist', ELECTRON_BINARY),
+    path.join(PLEXUS_ROOT, '../../node_modules/electron/dist', ELECTRON_BINARY),
+].find((p) => fs.existsSync(p)) ?? path.join(PLEXUS_ROOT, 'node_modules/electron/dist', ELECTRON_BINARY)
 
 // Live corpus of test projects (meta-model + two libraries + arch consumer),
 // checked out beside the Plexus repo at <workspace-root>/plexus_test_projects
