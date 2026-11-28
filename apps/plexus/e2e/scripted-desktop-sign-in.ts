@@ -146,6 +146,9 @@ export class ScriptedDesktopSignIn
     public static readonly IdpCertFileEnv = E2eStackInputs.IdpCertFileEnv
     public static readonly StackEnv = E2eStackInputs.StackEnv
     public static readonly IdpLoginBrowser = IdpLoginKind.Browser
+    public static readonly IdpResolverRulesEnv = 'PLEXUS_E2E_IDP_RESOLVER_RULES'
+    public static readonly IdpInsecureTlsEnv = 'PLEXUS_E2E_IDP_INSECURE_TLS'
+    private static readonly TrueFlag = '1'
     public static readonly PlatformEmailEnv = 'PLEXUS_IHC_PLATFORM_EMAIL'
     public static readonly PlatformPasswordFileEnv = 'PLEXUS_IHC_PLATFORM_PASSWORD_FILE'
     public static readonly PlatformIdpCertFileEnv = 'PLEXUS_IHC_PLATFORM_IDP_CERT_FILE'
@@ -245,8 +248,12 @@ export class ScriptedDesktopSignIn
         const caFile = S.Value(env, S.IdpCaFileEnv)
         // A browser login pins the IdP's server certificate when given, so a private dev CA needs no OS trust.
         const idpCertFile = S.Value(env, S.IdpCertFileEnv)
+        // Hosted hives behind a loopback forward: the browser login maps the real hosts to the forward and may
+        // accept the dev-CA certificate without a pin (the Electron app itself still trusts the CA properly).
+        const resolverRules = S.Value(env, S.IdpResolverRulesEnv)
+        const insecureTls = S.Value(env, S.IdpInsecureTlsEnv) === S.TrueFlag
         const login: IIdpLogin = SignInChecks.IdpLoginKindOf(S.Value(env, S.IdpLoginEnv)) === IdpLoginKind.Browser
-            ? new IdpBrowserLogin(idpCertFile === undefined ? [] : [IdpBrowserLogin.SpkiPinFromPemFile(idpCertFile)])
+            ? new IdpBrowserLogin(idpCertFile === undefined ? [] : [IdpBrowserLogin.SpkiPinFromPemFile(idpCertFile)], resolverRules, insecureTls)
             : new IdpPasswordLogin(caFile === undefined ? undefined : readFileSync(caFile))
         const platformPasswordFile = S.Value(env, S.PlatformPasswordFileEnv)
         const platformPassword = platformPasswordFile === undefined ? undefined : readFileSync(platformPasswordFile, S.Utf8).trim()

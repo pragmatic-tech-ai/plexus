@@ -35,6 +35,9 @@ export class IdpBrowserLogin implements IIdpLogin
     private static readonly Launch: LaunchOptions = { headless: true }
     private static readonly PinFlag = '--ignore-certificate-errors-spki-list='
     private static readonly PinSeparator = ','
+    // Chromium's built-in resolver bypasses /etc/hosts, so a hosted hive's real idp/console hosts are mapped
+    // straight to the loopback port-forward (mirrors pragmatic-e2e journey-browser.ts).
+    private static readonly ResolverRulesFlag = '--host-resolver-rules='
     private static readonly Utf8Pem = 'utf8'
     private static readonly SpkiFormat = 'der'
     private static readonly SpkiType = 'spki'
@@ -47,16 +50,24 @@ export class IdpBrowserLogin implements IIdpLogin
     private static readonly NoCallback = 'IdP browser login: the browser did not reach the Plexus loopback callback within the timeout'
 
     // `pins`: SPKI SHA-256 pins (base64) of server certificates this browser trusts; empty = OS trust only.
-    public constructor(private readonly pins: readonly string[] = [])
+    // `resolverRules`: a Chromium --host-resolver-rules value (hosted hives behind a loopback forward).
+    // `ignoreHttpsErrors`: accept the realm's certificate without OS trust or a pin (a private dev-CA hive).
+    public constructor(
+        private readonly pins: readonly string[] = [],
+        private readonly resolverRules: string | undefined = undefined,
+        private readonly ignoreHttpsErrors: boolean = false)
     {
     }
 
-    // The launch options: headless, plus the SPKI pin flag when pins are given.
-    public static LaunchOptionsFor(pins: readonly string[]): LaunchOptions
+    // The launch options: headless, plus the SPKI pin flag when pins are given and the resolver-rules flag
+    // when rules are given.
+    public static LaunchOptionsFor(pins: readonly string[], resolverRules: string | undefined = undefined): LaunchOptions
     {
         const S = IdpBrowserLogin
-        if (pins.length === 0) return { ...S.Launch }
-        return { ...S.Launch, args: [S.PinFlag + pins.join(S.PinSeparator)] }
+        const args: string[] = []
+        if (pins.length > 0) args.push(S.PinFlag + pins.join(S.PinSeparator))
+        if (resolverRules !== undefined && resolverRules !== '') args.push(S.ResolverRulesFlag + resolverRules)
+        return args.length === 0 ? { ...S.Launch } : { ...S.Launch, args }
     }
 
     // The SPKI pin of the certificate in a PEM file: base64(SHA-256(DER SubjectPublicKeyInfo)).
@@ -72,10 +83,10 @@ export class IdpBrowserLogin implements IIdpLogin
     public async Run(authorizeUrl: string, email: string, password: string): Promise<void>
     {
         const S = IdpBrowserLogin
-        const browser = await chromium.launch(S.LaunchOptionsFor(this.pins))
+        const browser = await chromium.launch(S.LaunchOptionsFor(this.pins, this.resolverRules))
         try
         {
-            const page = await (await browser.newContext()).newPage()
+            const page = await (await browser.newContext({ ignoreHTTPSErrors: this.ignoreHttpsErrors })).newPage()
             await S.Step(S.OpenFailed, () => page.goto(authorizeUrl, { waitUntil: S.WaitUntil, timeout: S.StepTimeoutMs }))
             await S.Step(S.NoLoginForm, () => page.waitForSelector(S.EmailSelector, { timeout: S.StepTimeoutMs }))
             await S.Step(S.SubmitFailed, async () =>
@@ -84,7 +95,19 @@ export class IdpBrowserLogin implements IIdpLogin
                 await page.fill(S.PasswordSelector, password)
                 await page.press(S.PasswordSelector, S.SubmitKey)
             })
-            await S.Step(S.NoCallback, () => page.waitForURL((url) => S.IsCallback(url), { timeout: S.StepTimeoutMs, waitUntil: S.WaitUntil }))
+            try
+            {
+                await S.Step(S.NoCallback, () => page.waitForURL((url) => S.IsCallback(url), { timeout: S.StepTimeoutMs, waitUntil: S.WaitUntil }))
+            }
+            catch (error)
+            {
+                // Diagnostic (origin + path only, never the query): where the login got stuck, and the page's
+                // visible text (an auth error like "invalid email or password" vs a pristine form tells apart a
+                // realm/credential miss from a submit that never fired). No password is ever on the page.
+                try { const u = new URL(page.url()); console.log('[journey] idp login stuck at: ' + u.origin + u.pathname) } catch { /* no url */ }
+                try { const t = (await page.textContent('body'))?.replace(/\s+/g, ' ').trim().slice(0, 300); console.log('[journey] idp login page text: ' + (t ?? '(none)')) } catch { /* no body */ }
+                throw error
+            }
         }
         finally
         {
