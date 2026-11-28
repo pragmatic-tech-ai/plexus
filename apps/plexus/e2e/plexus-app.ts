@@ -158,7 +158,7 @@ export interface Launched
 // the app's userData is that isolated temp dir instead of the developer's
 // default profile (seed its session with profile.SeedSession, not seedSession). `extraEnv` is set for
 // the app only (the runner's own environment, and what else it spawns, stay as they are).
-export async function launchPlexus(profile?: E2eProfile, extraEnv: Readonly<Record<string, string>> = {}): Promise<Launched>
+export async function launchPlexus(profile?: E2eProfile, extraEnv: Readonly<Record<string, string>> = {}, extraArgs: readonly string[] = []): Promise<Launched>
 {
     const env: Record<string, string> = {}
     for (const [name, value] of Object.entries(process.env))
@@ -166,7 +166,7 @@ export async function launchPlexus(profile?: E2eProfile, extraEnv: Readonly<Reco
         if (value !== undefined && name !== 'ELECTRON_RUN_AS_NODE') env[name] = value
     }
     Object.assign(env, extraEnv)
-    const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN, ...(profile?.LaunchArgs ?? [])], cwd: PLEXUS_ROOT, env })
+    const app = await electron.launch({ executablePath: ELECTRON_EXE, args: [MAIN, ...(profile?.LaunchArgs ?? []), ...extraArgs], cwd: PLEXUS_ROOT, env })
     const win = await app.firstWindow()
     const errors: string[] = []
     const warnings: string[] = []
